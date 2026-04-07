@@ -1,11 +1,17 @@
 import { join } from 'path'
 import { promises as fs } from 'fs'
 
+export interface MapDirectory {
+  path: string
+  name: string
+}
+
 export interface TaliesinSettings {
   clientPath?: string
   libraries: string[]
   activeLibrary: string | null
-  mapDirectories: string[]
+  mapDirectories: MapDirectory[]
+  activeMapDirectory: string | null
   theme?: string
   lastOpenedArchive?: string
 }
@@ -14,6 +20,7 @@ const DEFAULTS: TaliesinSettings = {
   libraries: [],
   activeLibrary: null,
   mapDirectories: [],
+  activeMapDirectory: null,
 }
 
 function validate(data: unknown): boolean {
@@ -29,7 +36,12 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
     clientPath: typeof data.clientPath === 'string' ? data.clientPath : undefined,
     libraries: Array.isArray(data.libraries) ? data.libraries : [],
     activeLibrary: data.activeLibrary ?? null,
-    mapDirectories: Array.isArray(data.mapDirectories) ? data.mapDirectories : [],
+    mapDirectories: Array.isArray(data.mapDirectories)
+      ? (data.mapDirectories as MapDirectory[]).filter(
+          (d) => d && typeof d.path === 'string' && typeof d.name === 'string'
+        )
+      : [],
+    activeMapDirectory: data.activeMapDirectory ?? null,
     theme: typeof data.theme === 'string' ? data.theme : undefined,
     lastOpenedArchive: typeof data.lastOpenedArchive === 'string' ? data.lastOpenedArchive : undefined,
   }

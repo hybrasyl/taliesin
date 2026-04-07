@@ -8,8 +8,10 @@ import {
   librariesState,
   activeLibraryState,
   mapDirectoriesState,
+  activeMapDirectoryState,
   dirtyEditorState,
-  ThemeName
+  ThemeName,
+  type MapDirectory
 } from './recoil/atoms'
 import { hybrasylTheme, chadulTheme, danaanTheme, grinnealTheme } from './themes'
 import type { Theme } from '@mui/material/styles'
@@ -30,6 +32,7 @@ export default function App(): React.ReactElement {
   const [, setLibraries] = useRecoilState(librariesState)
   const [, setActiveLibrary] = useRecoilState(activeLibraryState)
   const [, setMapDirectories] = useRecoilState(mapDirectoriesState)
+  const [, setActiveMapDirectory] = useRecoilState(activeMapDirectoryState)
   const [, setCurrentPage] = useRecoilState(currentPageState)
   const [dirtyEditor, setDirtyEditor] = useRecoilState(dirtyEditorState)
 
@@ -45,7 +48,8 @@ export default function App(): React.ReactElement {
       if (typeof settings.clientPath === 'string') setClientPath(settings.clientPath)
       if (Array.isArray(settings.libraries)) setLibraries(settings.libraries as string[])
       if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
-      if (Array.isArray(settings.mapDirectories)) setMapDirectories(settings.mapDirectories as string[])
+      if (Array.isArray(settings.mapDirectories)) setMapDirectories(settings.mapDirectories as MapDirectory[])
+      if (typeof settings.activeMapDirectory === 'string') setActiveMapDirectory(settings.activeMapDirectory)
     })
   }, [])
 
@@ -54,10 +58,11 @@ export default function App(): React.ReactElement {
   const libraries = useRecoilValue(librariesState)
   const activeLibrary = useRecoilValue(activeLibraryState)
   const mapDirectories = useRecoilValue(mapDirectoriesState)
+  const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
 
   useEffect(() => {
-    window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories })
-  }, [theme, clientPath, libraries, activeLibrary, mapDirectories])
+    window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory })
+  }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory])
 
   // Keep ref in sync for the close listener
   useEffect(() => { dirtyEditorRef.current = dirtyEditor }, [dirtyEditor])

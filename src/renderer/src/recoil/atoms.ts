@@ -44,8 +44,19 @@ export const activeLibraryState = atom<string | null>({
   default: null
 })
 
+export interface MapDirectory {
+  path: string
+  name: string  // user-provided nickname (defaults to folder name)
+}
+
 // Directories containing loose binary .map files (for Map Catalog)
-export const mapDirectoriesState = atom<string[]>({
+export const mapDirectoriesState = atom<MapDirectory[]>({
   key: 'mapDirectoriesState',
   default: []
+})
+
+// Active map directory — the one the catalog scans and editors reference
+export const activeMapDirectoryState = atom<string | null>({
+  key: 'activeMapDirectoryState',
+  default: null
 })
