@@ -39,8 +39,6 @@ export default function App(): React.ReactElement {
   const [navDialogOpen, setNavDialogOpen] = React.useState(false)
   const [pendingPage, setPendingPage] = React.useState<string | null>(null)
   const dirtyEditorRef = useRef(dirtyEditor)
-  // Guard: don't save until the initial load has completed, otherwise the save
-  // effect fires immediately with empty atom defaults and overwrites real settings.
   const settingsLoaded = useRef(false)
 
   // Load settings on mount
@@ -57,12 +55,11 @@ export default function App(): React.ReactElement {
     })
   }, [])
 
-  // Persist settings when they change — guarded so the initial mount (before
-  // loadSettings resolves) never writes empty defaults over real persisted data.
-  const clientPath = useRecoilValue(clientPathState)
-  const libraries = useRecoilValue(librariesState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const mapDirectories = useRecoilValue(mapDirectoriesState)
+  // Persist settings when they change
+  const clientPath        = useRecoilValue(clientPathState)
+  const libraries         = useRecoilValue(librariesState)
+  const activeLibrary     = useRecoilValue(activeLibraryState)
+  const mapDirectories    = useRecoilValue(mapDirectoriesState)
   const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
 
   useEffect(() => {
@@ -70,7 +67,6 @@ export default function App(): React.ReactElement {
     window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory })
   }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory])
 
-  // Keep ref in sync for the close listener
   useEffect(() => { dirtyEditorRef.current = dirtyEditor }, [dirtyEditor])
 
   const handleNavDiscard = useCallback(() => {

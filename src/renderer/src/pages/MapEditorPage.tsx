@@ -8,7 +8,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import SearchIcon from '@mui/icons-material/Search'
-import { activeLibraryState, activeMapDirectoryState, clientPathState } from '../recoil/atoms'
+import { activeLibraryState, mapFilesDirectoryState, clientPathState } from '../recoil/atoms'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -309,7 +309,7 @@ function FileListPanel({
 
 export default function MapEditorPage() {
   const activeLibrary      = useRecoilValue(activeLibraryState)
-  const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
+  const activeMapDirectory = useRecoilValue(mapFilesDirectoryState)
   const clientPath         = useRecoilValue(clientPathState)
 
   const [files, setFiles] = useState<FileEntry[]>([])

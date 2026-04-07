@@ -185,6 +185,18 @@ ipcMain.handle('fs:exists', async (_, filePath: string) => {
   }
 })
 
+ipcMain.handle('fs:ensureDir', async (_, dirPath: string) => {
+  await fs.mkdir(dirPath, { recursive: true })
+})
+
+/** Returns the list of entry names inside a .dat archive (for diagnostics). */
+ipcMain.handle('fs:listArchive', async (_, filePath: string) => {
+  const { DataArchive } = await import('dalib-ts')
+  const buf = await fs.readFile(filePath)
+  const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
+  return archive.entries.map(e => e.entryName)
+})
+
 // ── World index ───────────────────────────────────────────────────────────────
 
 ipcMain.handle('index:read', async (_, libraryRoot: string) => {

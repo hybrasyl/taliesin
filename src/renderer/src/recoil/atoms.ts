@@ -1,4 +1,4 @@
-import { atom } from 'recoil'
+import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
@@ -37,11 +37,27 @@ export const librariesState = atom<string[]>({
 })
 
 // Which library is currently active — editors derive xml paths from this
-// Maps XML:      <activeLibrary>/world/xml/maps
-// WorldMaps XML: <activeLibrary>/world/xml/worldmaps
+// activeLibrary is already resolved to the xml directory, e.g. <root>/world/xml
+// Maps XML:      <activeLibrary>/maps
+// WorldMaps XML: <activeLibrary>/worldmaps
 export const activeLibraryState = atom<string | null>({
   key: 'activeLibraryState',
   default: null
+})
+
+// Derived: binary .map files live at <world>/mapfiles, sibling to <world>/xml.
+// Used by the Map Editor and WarpDialog mini-canvas for tile rendering.
+// The Map Catalog has its own independently-configured directory (below).
+export const mapFilesDirectoryState = selector<string | null>({
+  key: 'mapFilesDirectoryState',
+  get: ({ get }) => {
+    const lib = get(activeLibraryState)
+    if (!lib) return null
+    const norm    = lib.replace(/\\/g, '/').replace(/\/+$/, '')
+    const lastSep = norm.lastIndexOf('/')
+    if (lastSep <= 0) return null
+    return norm.slice(0, lastSep) + '/mapfiles'
+  },
 })
 
 export interface MapDirectory {

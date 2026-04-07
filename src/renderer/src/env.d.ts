@@ -102,6 +102,8 @@ interface TaliesinAPI {
   copyFile: (src: string, dst: string) => Promise<void>
   writeFile: (filePath: string, content: string) => Promise<void>
   exists: (filePath: string) => Promise<boolean>
+  ensureDir: (dirPath: string) => Promise<void>
+  listArchive: (filePath: string) => Promise<string[]>
   catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
   catalogSave: (dirPath: string, data: unknown) => Promise<void>
   catalogScan: (dirPath: string) => Promise<MapScanEntry[]>

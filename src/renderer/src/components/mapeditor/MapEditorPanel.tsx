@@ -21,11 +21,11 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk'
 import GridOnIcon from '@mui/icons-material/GridOn'
 import EditorHeader from '../shared/EditorHeader'
+import WarpDialog   from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
-import { activeMapDirectoryState, clientPathState } from '../../recoil/atoms'
-import { useWorldIndex } from '../../hooks/useWorldIndex'
+import { mapFilesDirectoryState, clientPathState } from '../../recoil/atoms'
 import {
   ALL_BOARD_TYPES, ALL_DIRECTIONS, ALL_FLAGS, ALL_SPAWN_FLAGS,
   computeMapFilename, DEFAULT_MAP,
@@ -110,261 +110,6 @@ function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel 
         <Button variant="contained"
           onClick={() => onConfirm({ name: name.trim(), displayName: displayName.trim() || undefined, direction, x: tileX, y: tileY })}
           disabled={!name.trim()}>
-          {initial ? 'Save' : 'Place'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
-
-// ── Warp placement dialog ─────────────────────────────────────────────────────
-
-interface WarpDialogProps {
-  open: boolean
-  tileX: number
-  tileY: number
-  initial: MapWarp | null
-  defaultType?: 'map' | 'worldmap'
-  mapNames: string[]
-  worldMapNames: string[]
-  onConfirm: (warp: MapWarp) => void
-  onCancel: () => void
-}
-
-// Zoom levels for the mini-canvas inside WarpDialog
-const MINI_ZOOM_LEVELS = [0.08, 0.12, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4]
-
-function bestMiniZoomIdx(mapW: number, mapH: number): number {
-  // Target: fit within ~740 × 400 px
-  const isoW = (mapW + mapH) * 28
-  const isoH = (mapW + mapH) * 14 + 480
-  const target = Math.min(740 / isoW, 400 / isoH, 1.4)
-  return MINI_ZOOM_LEVELS.reduce(
-    (best, lvl, i) => Math.abs(lvl - target) < Math.abs(MINI_ZOOM_LEVELS[best]! - target) ? i : best,
-    0
-  )
-}
-
-function WarpDialog({ open, tileX, tileY, initial, defaultType = 'map', mapNames, worldMapNames, onConfirm, onCancel }: WarpDialogProps) {
-  const clientPath   = useRecoilValue(clientPathState)
-  const mapDirectory = useRecoilValue(activeMapDirectoryState)
-  const { index }    = useWorldIndex()
-  const mapDetails   = index?.mapDetails ?? []
-
-  const [targetType,     setTargetType]     = useState<'map' | 'worldmap'>(initial?.targetType ?? defaultType)
-  const [mapTargetName,  setMapTargetName]  = useState(initial?.mapTargetName ?? '')
-  const [mapTargetX,     setMapTargetX]     = useState(String(initial?.mapTargetX ?? 0))
-  const [mapTargetY,     setMapTargetY]     = useState(String(initial?.mapTargetY ?? 0))
-  const [worldMapTarget, setWorldMapTarget] = useState(initial?.worldMapTarget ?? '')
-  const [description,    setDescription]    = useState(initial?.description ?? '')
-  const [showRestrict,   setShowRestrict]   = useState(false)
-  const [levelReq,       setLevelReq]       = useState(String(initial?.restrictions?.level ?? ''))
-  const [abilityReq,     setAbilityReq]     = useState(String(initial?.restrictions?.ability ?? ''))
-  const [abReq,          setAbReq]          = useState(String(initial?.restrictions?.ab ?? ''))
-
-  // Mini-canvas view state
-  const [miniZoomIdx,      setMiniZoomIdx]      = useState(3)
-  const [miniGrid,         setMiniGrid]         = useState(false)
-  const [miniPassability,  setMiniPassability]  = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setTargetType(initial?.targetType ?? defaultType)
-      setMapTargetName(initial?.mapTargetName ?? '')
-      setMapTargetX(String(initial?.mapTargetX ?? 0))
-      setMapTargetY(String(initial?.mapTargetY ?? 0))
-      setWorldMapTarget(initial?.worldMapTarget ?? '')
-      setDescription(initial?.description ?? '')
-      setLevelReq(String(initial?.restrictions?.level ?? ''))
-      setAbilityReq(String(initial?.restrictions?.ability ?? ''))
-      setAbReq(String(initial?.restrictions?.ab ?? ''))
-      setShowRestrict(!!initial?.restrictions)
-      setMiniGrid(false)
-      setMiniPassability(false)
-      // Auto-fit zoom for the initial destination map
-      const initName = initial?.mapTargetName?.trim().toLowerCase()
-      const initDest = initName ? mapDetails.find(m => m.name.toLowerCase() === initName) : undefined
-      setMiniZoomIdx(initDest ? bestMiniZoomIdx(initDest.x, initDest.y) : 3)
-    }
-  }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-fit zoom when user selects a new destination map
-  const prevDestNameRef = useRef('')
-  useEffect(() => {
-    const name = mapTargetName.trim().toLowerCase()
-    if (name && name !== prevDestNameRef.current) {
-      prevDestNameRef.current = name
-      const dest = mapDetails.find(m => m.name.toLowerCase() === name)
-      if (dest) setMiniZoomIdx(bestMiniZoomIdx(dest.x, dest.y))
-    }
-  }, [mapTargetName, mapDetails])
-
-  const destDetail = targetType === 'map' && mapTargetName.trim()
-    ? mapDetails.find(m => m.name.toLowerCase() === mapTargetName.trim().toLowerCase())
-    : undefined
-
-  const miniZoom = MINI_ZOOM_LEVELS[miniZoomIdx] ?? 0.25
-
-  const arrivalMarker: MapMarker[] = destDetail
-    ? [{ kind: 'warp', index: 0, x: parseInt(mapTargetX, 10) || 0, y: parseInt(mapTargetY, 10) || 0 }]
-    : []
-
-  const buildRestrictions = (): MapWarp['restrictions'] | undefined => {
-    if (!showRestrict) return undefined
-    const r: MapWarp['restrictions'] = {}
-    if (levelReq)   r.level   = parseInt(levelReq,   10)
-    if (abilityReq) r.ability = parseInt(abilityReq, 10)
-    if (abReq)      r.ab      = parseInt(abReq,      10)
-    return Object.keys(r).length ? r : undefined
-  }
-
-  const handleConfirm = () => {
-    const warp: MapWarp = { x: tileX, y: tileY, targetType, description: description.trim() || undefined, restrictions: buildRestrictions() }
-    if (targetType === 'map') {
-      warp.mapTargetName = mapTargetName.trim()
-      warp.mapTargetX = parseInt(mapTargetX, 10) || 0
-      warp.mapTargetY = parseInt(mapTargetY, 10) || 0
-    } else {
-      warp.worldMapTarget = worldMapTarget.trim()
-    }
-    onConfirm(warp)
-  }
-
-  return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {initial ? 'Edit Warp' : 'Place Warp'}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>({tileX}, {tileY})</Typography>
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Warp type */}
-          <FormControl size="small" fullWidth>
-            <InputLabel>Warp Type</InputLabel>
-            <Select label="Warp Type" value={targetType}
-              onChange={e => setTargetType(e.target.value as 'map' | 'worldmap')}>
-              <MenuItem value="map">Map Warp</MenuItem>
-              <MenuItem value="worldmap">World Map Exit</MenuItem>
-            </Select>
-          </FormControl>
-
-          {targetType === 'map' ? (
-            <>
-              {/* Destination map */}
-              <Autocomplete
-                options={mapNames} freeSolo value={mapTargetName}
-                onInputChange={(_, v) => setMapTargetName(v)}
-                renderInput={params => (
-                  <TextField {...params} label="Destination Map" size="small" required
-                    helperText={destDetail ? `${destDetail.x}×${destDetail.y} tiles — click the map below to set arrival` : 'Map the player arrives on'} />
-                )}
-              />
-
-              {/* Mini-canvas with toolbar */}
-              {destDetail && (
-                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-                  {/* Toolbar */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'action.hover' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                      Click map to set arrival tile
-                    </Typography>
-                    <Tooltip title="Zoom out">
-                      <span>
-                        <IconButton size="small" onClick={() => setMiniZoomIdx(i => Math.max(0, i - 1))} disabled={miniZoomIdx === 0}>
-                          <ZoomOutIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Typography variant="caption" sx={{ minWidth: 36, textAlign: 'center' }}>
-                      {Math.round(miniZoom * 100)}%
-                    </Typography>
-                    <Tooltip title="Zoom in">
-                      <span>
-                        <IconButton size="small" onClick={() => setMiniZoomIdx(i => Math.min(MINI_ZOOM_LEVELS.length - 1, i + 1))} disabled={miniZoomIdx === MINI_ZOOM_LEVELS.length - 1}>
-                          <ZoomInIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                    <Tooltip title={miniGrid ? 'Hide grid' : 'Show grid'}>
-                      <IconButton size="small" onClick={() => setMiniGrid(v => !v)} color={miniGrid ? 'info' : 'default'}>
-                        <GridOnIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={miniPassability ? 'Hide passability' : 'Show passability'}>
-                      <IconButton size="small" onClick={() => setMiniPassability(v => !v)} color={miniPassability ? 'warning' : 'default'}>
-                        <DirectionsWalkIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                    <Tooltip title="Clear arrival point">
-                      <IconButton size="small" onClick={() => { setMapTargetX('0'); setMapTargetY('0') }}>
-                        <DeleteIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <MapRenderCanvas
-                    mapId={destDetail.id}
-                    mapWidth={destDetail.x}
-                    mapHeight={destDetail.y}
-                    mapDirectory={mapDirectory}
-                    clientPath={clientPath}
-                    zoom={miniZoom}
-                    markers={arrivalMarker}
-                    showGrid={miniGrid}
-                    showPassability={miniPassability}
-                    placeMode
-                    onTileClick={(tx, ty) => { setMapTargetX(String(tx)); setMapTargetY(String(ty)) }}
-                    sx={{ maxHeight: 420, bgcolor: 'background.default' }}
-                  />
-                </Box>
-              )}
-
-              {/* Arrival X/Y */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                <TextField label="Arrival X" size="small" type="number"
-                  value={mapTargetX} onChange={e => setMapTargetX(e.target.value)}
-                  helperText="Tile on destination" />
-                <TextField label="Arrival Y" size="small" type="number"
-                  value={mapTargetY} onChange={e => setMapTargetY(e.target.value)}
-                  helperText="Tile on destination" />
-              </Box>
-            </>
-          ) : (
-            <FormControl size="small" fullWidth>
-              <InputLabel>World Map</InputLabel>
-              <Select label="World Map" value={worldMapTarget} onChange={e => setWorldMapTarget(e.target.value)}>
-                {worldMapNames.length === 0 && <MenuItem value="" disabled>No world maps in index</MenuItem>}
-                {worldMapNames.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
-              </Select>
-            </FormControl>
-          )}
-
-          <TextField label="Description" size="small" fullWidth
-            value={description} onChange={e => setDescription(e.target.value)}
-            helperText="Optional tooltip shown on the warp tile" />
-
-          {/* Restrictions (collapsible) */}
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => setShowRestrict(v => !v)}>
-              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>Entry Restrictions (optional)</Typography>
-              {showRestrict ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </Box>
-            <Collapse in={showRestrict}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mt: 1 }}>
-                <TextField label="Min Level"   size="small" type="number" value={levelReq}   onChange={e => setLevelReq(e.target.value)} />
-                <TextField label="Min Ability" size="small" type="number" value={abilityReq} onChange={e => setAbilityReq(e.target.value)} />
-                <TextField label="Min Ab"      size="small" type="number" value={abReq}      onChange={e => setAbReq(e.target.value)} />
-              </Box>
-            </Collapse>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button variant="contained" onClick={handleConfirm}
-          disabled={targetType === 'map' ? !mapTargetName.trim() : !worldMapTarget.trim()}>
           {initial ? 'Save' : 'Place'}
         </Button>
       </DialogActions>
@@ -526,7 +271,7 @@ function MapFieldsTab({
   spawnGroupNames: string[]
   onChange: (patch: Partial<MapData> | ((prev: MapData) => MapData)) => void
 }) {
-  const mapDirectory = useRecoilValue(activeMapDirectoryState)
+  const mapDirectory = useRecoilValue(mapFilesDirectoryState)
   const clientPath   = useRecoilValue(clientPathState)
 
   const set = <K extends keyof MapData>(key: K, value: MapData[K]) => onChange({ [key]: value } as Partial<MapData>)
@@ -773,7 +518,7 @@ function MapPlacementTab({
 }) {
   // Access rendering assets from atoms — same as CatalogPage
   const clientPath   = useRecoilValue(clientPathState)
-  const mapDirectory = useRecoilValue(activeMapDirectoryState)
+  const mapDirectory = useRecoilValue(mapFilesDirectoryState)
 
   const [zoomIdx,         setZoomIdx]         = useState(1)
   const [placeMode,       setPlaceMode]       = useState<PlaceMode>('none')

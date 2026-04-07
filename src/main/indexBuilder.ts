@@ -328,7 +328,8 @@ export async function buildWorldIndex(libraryRoot: string): Promise<WorldIndex> 
             }
           }
 
-        } else if (type === 'variantgroups') {
+        } else if (type === 'variantgroups' || type === 'worldmaps') {
+          // variantgroups and worldmaps: only the top-level <Name>, not nested ones (e.g. <Point><Name>)
           const nameMatch = /<Name>([^<]+)<\/Name>/.exec(content)
           if (nameMatch) {
             const name = nameMatch[1].trim()
@@ -336,7 +337,7 @@ export async function buildWorldIndex(libraryRoot: string): Promise<WorldIndex> 
           }
 
         } else {
-          // nations, items, recipes, worldmaps — use all <Name> child elements
+          // nations, items, recipes — use all <Name> child elements
           const nameRegex = /<Name>([^<]+)<\/Name>/g
           let match
           while ((match = nameRegex.exec(content)) !== null) {

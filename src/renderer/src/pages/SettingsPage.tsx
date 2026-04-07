@@ -242,7 +242,6 @@ function ManageMapDirectories() {
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  // Add dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string>('')
   const [pendingName, setPendingName] = useState<string>('')
@@ -250,7 +249,6 @@ function ManageMapDirectories() {
   const handleAdd = async () => {
     const dir = await window.api.openDirectory()
     if (!dir || mapDirectories.some((d) => d.path === dir)) return
-    // Pre-fill nickname with the folder name
     const folderName = dir.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? dir
     setPendingPath(dir)
     setPendingName(folderName)
@@ -282,7 +280,7 @@ function ManageMapDirectories() {
         <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold' }}>
           Map Directories
         </Typography>
-        <Tooltip title="Directories containing binary .map files. The active directory is used by the Map Catalog and editors." placement="top">
+        <Tooltip title="Directories containing binary .map files. Used by the Map Catalog to manage and import maps." placement="top">
           <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
             <HelpIcon fontSize="small" />
           </IconButton>
@@ -295,25 +293,17 @@ function ManageMapDirectories() {
         </Button>
         <Tooltip title="Remove selected directory">
           <span>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteIcon />}
-              disabled={!selected}
-              onClick={() => setConfirmOpen(true)}
-            >
+            <Button variant="contained" color="error" startIcon={<DeleteIcon />}
+              disabled={!selected} onClick={() => setConfirmOpen(true)}>
               Remove
             </Button>
           </span>
         </Tooltip>
         <Tooltip title="Set selected directory as active">
           <span>
-            <Button
-              variant="contained"
-              color="success"
+            <Button variant="contained" color="success"
               disabled={!selected || selected === activeMapDirectory}
-              onClick={() => selected && setActiveMapDirectory(selected)}
-            >
+              onClick={() => selected && setActiveMapDirectory(selected)}>
               Set Active
             </Button>
           </span>
@@ -323,25 +313,17 @@ function ManageMapDirectories() {
       <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
         {mapDirectories.length === 0 && (
           <ListItem>
-            <ListItemText
-              primary={
-                <Typography variant="body2" color="text.secondary">No directories added yet.</Typography>
-              }
-            />
+            <ListItemText primary={<Typography variant="body2" color="text.secondary">No directories added yet.</Typography>} />
           </ListItem>
         )}
         {mapDirectories.map((entry) => (
-          <ListItem
-            key={entry.path}
-            component="div"
+          <ListItem key={entry.path} component="div"
             onClick={() => setSelected(entry.path)}
             selected={selected === entry.path}
-            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}
-          >
+            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
               <ListItemText
-                primary={entry.name}
-                secondary={entry.path}
+                primary={entry.name} secondary={entry.path}
                 primaryTypographyProps={{ variant: 'body2', color: 'text.button', fontWeight: 500 }}
                 secondaryTypographyProps={{ variant: 'caption', sx: { wordBreak: 'break-all' } }}
               />
@@ -357,22 +339,11 @@ function ManageMapDirectories() {
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add Map Directory</DialogTitle>
         <DialogContent sx={{ pt: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label="Nickname"
-            size="small"
-            fullWidth
-            value={pendingName}
-            onChange={(e) => setPendingName(e.target.value)}
-            helperText="A short label to identify this map set"
-            autoFocus
-          />
-          <TextField
-            label="Path"
-            size="small"
-            fullWidth
-            value={pendingPath}
-            slotProps={{ input: { readOnly: true } }}
-          />
+          <TextField label="Nickname" size="small" fullWidth autoFocus
+            value={pendingName} onChange={e => setPendingName(e.target.value)}
+            helperText="A short label to identify this map set" />
+          <TextField label="Path" size="small" fullWidth value={pendingPath}
+            slotProps={{ input: { readOnly: true } }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
