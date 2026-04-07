@@ -61,6 +61,7 @@ export interface MapRenderCanvasProps {
   showGrid?: boolean
   onTileClick?: (tx: number, ty: number) => void
   onMarkerClick?: (kind: MarkerKind, index: number) => void
+  onHoverTile?: (tile: { tx: number; ty: number } | null) => void
   sx?: SxProps
 }
 
@@ -150,6 +151,7 @@ export default function MapRenderCanvas({
   showGrid = false,
   onTileClick,
   onMarkerClick,
+  onHoverTile,
   sx,
 }: MapRenderCanvasProps) {
   const baseRef    = useRef<HTMLCanvasElement>(null)
@@ -370,8 +372,13 @@ export default function MapRenderCanvas({
     return { tx, ty }
   }, [])
 
+  const onHoverTileRef = useRef(onHoverTile)
+  onHoverTileRef.current = onHoverTile
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    setHoverTile(eventToTile(e))
+    const tile = eventToTile(e)
+    setHoverTile(tile)
+    onHoverTileRef.current?.(tile)
   }, [eventToTile])
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -414,7 +421,7 @@ export default function MapRenderCanvas({
           ref={overlayRef}
           style={{ position: 'absolute', top: 0, left: 0, display: 'block', cursor }}
           onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverTile(null)}
+          onMouseLeave={() => { setHoverTile(null); onHoverTileRef.current?.(null) }}
           onClick={handleClick}
         />
       </Box>

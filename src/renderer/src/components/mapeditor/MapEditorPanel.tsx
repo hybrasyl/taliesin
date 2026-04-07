@@ -526,6 +526,7 @@ function MapPlacementTab({
   const [dialogState,     setDialogState]     = useState<DialogState>(null)
   const [showPassability, setShowPassability] = useState(false)
   const [showGrid,        setShowGrid]        = useState(false)
+  const [hoverCoord,      setHoverCoord]      = useState<{ tx: number; ty: number } | null>(null)
 
   const zoom = ZOOM_LEVELS[zoomIdx]
 
@@ -661,6 +662,12 @@ function MapPlacementTab({
         {placeMode !== 'none' && (
           <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>Click map to place</Typography>
         )}
+        <Box sx={{ ml: 'auto' }}>
+          <Typography variant="caption" color="text.secondary"
+            sx={{ fontFamily: 'monospace', minWidth: 72, display: 'inline-block', textAlign: 'right' }}>
+            {hoverCoord ? `(${hoverCoord.tx}, ${hoverCoord.ty})` : ''}
+          </Typography>
+        </Box>
       </Box>
       <Divider />
 
@@ -681,6 +688,7 @@ function MapPlacementTab({
           showGrid={showGrid}
           onTileClick={handleTileClick}
           onMarkerClick={(kind, index) => setSelected(s => s?.kind === kind && s.index === index ? null : { kind, index })}
+          onHoverTile={setHoverCoord}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
         />
 
