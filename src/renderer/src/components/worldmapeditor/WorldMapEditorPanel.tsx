@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useRecoilValue } from 'recoil'
 import {
-  Box, Chip, Collapse, Divider, IconButton, List, ListItem, ListItemButton,
+  Alert, Box, Chip, Collapse, Divider, IconButton, List, ListItem, ListItemButton,
   ListItemText, Paper, TextField, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon        from '@mui/icons-material/Add'
@@ -9,6 +9,10 @@ import DeleteIcon     from '@mui/icons-material/Delete'
 import EditIcon       from '@mui/icons-material/Edit'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import LinkIcon       from '@mui/icons-material/Link'
+import RestoreIcon    from '@mui/icons-material/Restore'
+import SyncIcon       from '@mui/icons-material/Sync'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import EditorHeader   from '../shared/EditorHeader'
 import WarpDialog     from '../shared/WarpDialog'
 import ClientMapSelect from './ClientMapSelect'
@@ -16,8 +20,8 @@ import WorldMapCanvas  from './WorldMapCanvas'
 import { clientPathState } from '../../recoil/atoms'
 import { clearFieldCache } from '../../utils/worldMapRenderer'
 import {
-  computeWorldMapFilename,
-  type WorldMapData, type WorldMapPoint,
+  computeWorldMapFilename, pointKey,
+  type WorldMapData, type WorldMapMeta, type WorldMapPoint,
 } from '../../data/worldMapData'
 import type { MapWarp } from '../../data/mapData'
 
@@ -29,10 +33,16 @@ interface Props {
   isArchived: boolean
   isExisting: boolean
   mapNames: string[]
+  meta: WorldMapMeta | null
+  masterPoints: WorldMapPoint[] | null
   onSave: (data: WorldMapData, fileName: string) => Promise<void>
   onArchive?: () => void
   onUnarchive?: () => void
   onDirtyChange: (dirty: boolean) => void
+  onExclude: (key: string) => void
+  onRestore: (key: string) => void
+  onSyncRequest: () => void
+  onLinkToMaster: () => void
   saveRef: React.MutableRefObject<(() => Promise<void>) | null>
 }
 
@@ -73,13 +83,25 @@ interface ItemRow {
   key: number
   label: string
   selected: boolean
+  isOrphan?: boolean
   onSelect: () => void
-  onEdit: () => void
+  onEdit?: () => void
   onRemove: () => void
 }
 
-function ItemsGroup({ label, color, count, items, onAdd }: {
-  label: string; color: string; count: number; items: ItemRow[]; onAdd: () => void
+interface ExcludedRow {
+  key: string
+  label: string
+  onRestore: () => void
+}
+
+function ItemsGroup({ label, color, count, items, onAdd, addDisabled }: {
+  label: string
+  color: string
+  count: number
+  items: ItemRow[]
+  onAdd: () => void
+  addDisabled?: boolean
 }) {
   const [open, setOpen] = useState(true)
   return (
@@ -91,11 +113,13 @@ function ItemsGroup({ label, color, count, items, onAdd }: {
         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
         <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>{label}</Typography>
         <Chip label={count} size="small" sx={{ height: 16, fontSize: 10 }} />
-        <Tooltip title={`Place ${label.slice(0, -1)}`}>
-          <IconButton size="small" onClick={e => { e.stopPropagation(); onAdd() }} sx={{ p: 0.25 }}>
-            <AddIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-        </Tooltip>
+        {!addDisabled && (
+          <Tooltip title={`Place ${label.slice(0, -1)}`}>
+            <IconButton size="small" onClick={e => { e.stopPropagation(); onAdd() }} sx={{ p: 0.25 }}>
+              <AddIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        )}
         {open ? <ExpandLessIcon sx={{ fontSize: 14 }} /> : <ExpandMoreIcon sx={{ fontSize: 14 }} />}
       </Box>
       <Collapse in={open}>
@@ -109,15 +133,78 @@ function ItemsGroup({ label, color, count, items, onAdd }: {
                 disablePadding
                 secondaryAction={
                   <Box sx={{ display: 'flex' }}>
-                    <IconButton size="small" onClick={item.onEdit}   sx={{ p: 0.25 }}><EditIcon   sx={{ fontSize: 13 }} /></IconButton>
-                    <IconButton size="small" onClick={item.onRemove} sx={{ p: 0.25 }}><DeleteIcon sx={{ fontSize: 13 }} /></IconButton>
+                    {item.onEdit && (
+                      <IconButton size="small" onClick={item.onEdit} sx={{ p: 0.25 }}>
+                        <EditIcon sx={{ fontSize: 13 }} />
+                      </IconButton>
+                    )}
+                    <IconButton size="small" onClick={item.onRemove} sx={{ p: 0.25 }}>
+                      {item.isOrphan
+                        ? <DeleteIcon sx={{ fontSize: 13 }} />
+                        : <DeleteIcon sx={{ fontSize: 13 }} />
+                      }
+                    </IconButton>
                   </Box>
                 }
               >
                 <ListItemButton selected={item.selected} onClick={item.onSelect} sx={{ py: 0.25, pr: 7 }}>
                   <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {item.isOrphan && (
+                          <WarningAmberIcon sx={{ fontSize: 12, color: 'warning.main', flexShrink: 0 }} />
+                        )}
+                        <Typography variant="caption" fontFamily="monospace" noWrap
+                          sx={{ color: item.isOrphan ? 'warning.main' : undefined }}>
+                          {item.label}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </Collapse>
+    </>
+  )
+}
+
+function ExcludedGroup({ items }: { items: ExcludedRow[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Box
+        sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', bgcolor: 'action.hover' }}
+        onClick={() => setOpen(v => !v)}
+      >
+        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
+        <Typography variant="caption" sx={{ flex: 1, fontWeight: 600, color: 'text.secondary' }}>Excluded</Typography>
+        <Chip label={items.length} size="small" sx={{ height: 16, fontSize: 10 }} />
+        {open ? <ExpandLessIcon sx={{ fontSize: 14 }} /> : <ExpandMoreIcon sx={{ fontSize: 14 }} />}
+      </Box>
+      <Collapse in={open}>
+        {items.length === 0 ? (
+          <Typography variant="caption" color="text.disabled" sx={{ px: 2, py: 0.5, display: 'block' }}>None excluded</Typography>
+        ) : (
+          <List dense disablePadding>
+            {items.map(item => (
+              <ListItem
+                key={item.key}
+                disablePadding
+                secondaryAction={
+                  <Tooltip title="Restore to group">
+                    <IconButton size="small" onClick={item.onRestore} sx={{ p: 0.25 }}>
+                      <RestoreIcon sx={{ fontSize: 13 }} />
+                    </IconButton>
+                  </Tooltip>
+                }
+              >
+                <ListItemButton sx={{ py: 0.25, pr: 5 }} disabled>
+                  <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{ variant: 'caption', noWrap: true, fontFamily: 'monospace' }}
+                    primaryTypographyProps={{ variant: 'caption', noWrap: true, fontFamily: 'monospace', color: 'text.disabled' }}
                   />
                 </ListItemButton>
               </ListItem>
@@ -137,10 +224,16 @@ export default function WorldMapEditorPanel({
   isArchived,
   isExisting,
   mapNames,
+  meta,
+  masterPoints,
   onSave,
   onArchive,
   onUnarchive,
   onDirtyChange,
+  onExclude,
+  onRestore,
+  onSyncRequest,
+  onLinkToMaster,
   saveRef,
 }: Props) {
   const clientPath = useRecoilValue(clientPathState)
@@ -159,6 +252,8 @@ export default function WorldMapEditorPanel({
   const [placeMode,     setPlaceMode]     = useState(false)
   const [dialogState,   setDialogState]   = useState<PointDialogState | null>(null)
   const isDirtyRef = useRef(false)
+
+  const isDerived = meta !== null
 
   useEffect(() => {
     setData(worldMap)
@@ -184,6 +279,29 @@ export default function WorldMapEditorPanel({
     })
     markDirty()
   }, [fileName, initialFileName, markDirty])
+
+  // ── Derived mode computed values ──────────────────────────────────────────
+
+  const masterKeySet = new Set(masterPoints?.map(pointKey) ?? [])
+  const groupKeySet  = new Set(data.points.map(pointKey))
+
+  const orphanKeys: Set<string> = new Set(
+    data.points.filter(p => masterPoints && !masterKeySet.has(pointKey(p))).map(pointKey)
+  )
+
+  const excludedRows: ExcludedRow[] = isDerived && masterPoints
+    ? (meta.excludes
+        .map(k => {
+          const mp = masterPoints.find(p => pointKey(p) === k)
+          if (!mp) return null
+          return {
+            key: k,
+            label: `(${mp.x},${mp.y}) ${mp.name || '?'} → ${mp.targetMap || '?'}`,
+            onRestore: () => onRestore(k),
+          }
+        })
+        .filter((r): r is ExcludedRow => r !== null))
+    : []
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
@@ -211,10 +329,20 @@ export default function WorldMapEditorPanel({
   }, [data.points])
 
   const handleRemovePoint = useCallback((index: number) => {
-    setData(prev => ({ ...prev, points: prev.points.filter((_, i) => i !== index) }))
-    setSelectedIndex(s => s === index ? null : (s !== null && s > index ? s - 1 : s))
-    markDirty()
-  }, [markDirty])
+    const p = data.points[index]
+    if (!p) return
+    if (isDerived) {
+      // In derived mode: exclude from master instead of deleting
+      onExclude(pointKey(p))
+      setData(prev => ({ ...prev, points: prev.points.filter((_, i) => i !== index) }))
+      setSelectedIndex(s => s === index ? null : (s !== null && s > index ? s - 1 : s))
+      markDirty()
+    } else {
+      setData(prev => ({ ...prev, points: prev.points.filter((_, i) => i !== index) }))
+      setSelectedIndex(s => s === index ? null : (s !== null && s > index ? s - 1 : s))
+      markDirty()
+    }
+  }, [isDerived, data.points, onExclude, markDirty])
 
   const handleConfirmPoint = useCallback((warp: MapWarp) => {
     const ds = dialogState
@@ -234,11 +362,11 @@ export default function WorldMapEditorPanel({
     markDirty()
   }, [dialogState, markDirty])
 
-  // ── WarpDialog initial (MapWarp shape from selected point) ────────────────
-
   const dialogInitial: MapWarp | null = dialogState?.editIndex !== undefined
     ? (() => { const p = data.points[dialogState.editIndex!]; return p ? pointToWarp(p) : null })()
     : null
+
+  const canPlace = !isArchived && !isDerived
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -256,6 +384,13 @@ export default function WorldMapEditorPanel({
         onArchive={onArchive}
         onUnarchive={onUnarchive}
       />
+
+      {/* Orphan warning */}
+      {isDerived && orphanKeys.size > 0 && (
+        <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
+          {orphanKeys.size} point(s) in this group are not in the master set and will be lost on next sync.
+        </Alert>
+      )}
 
       {/* Top fields row */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, pb: 1, flexShrink: 0, flexWrap: 'wrap' }}>
@@ -279,20 +414,57 @@ export default function WorldMapEditorPanel({
       <Divider sx={{ mb: 1, flexShrink: 0 }} />
 
       {/* Toolbar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">Place:</Typography>
-        <Chip
-          label="Point"
-          size="small"
-          clickable
-          disabled={isArchived}
-          color={placeMode ? 'primary' : 'default'}
-          onClick={() => setPlaceMode(p => !p)}
-        />
-        {placeMode && (
-          <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
-            Click map to place
-          </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mb: 0.5, flexWrap: 'wrap' }}>
+        {isDerived ? (
+          <>
+            <Chip
+              icon={<SyncIcon sx={{ fontSize: 14 }} />}
+              label={`Derived from ${meta.master}`}
+              size="small"
+              color="info"
+              variant="outlined"
+            />
+            <Tooltip title="Replace all points with master set minus exclusions">
+              <Chip
+                label="Sync from Master"
+                size="small"
+                clickable
+                disabled={isArchived}
+                color="warning"
+                onClick={onSyncRequest}
+              />
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <Typography variant="caption" color="text.secondary">Place:</Typography>
+            <Chip
+              label="Point"
+              size="small"
+              clickable
+              disabled={isArchived}
+              color={placeMode ? 'primary' : 'default'}
+              onClick={() => setPlaceMode(p => !p)}
+            />
+            {placeMode && (
+              <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
+                Click map to place
+              </Typography>
+            )}
+            {!isArchived && isExisting && (
+              <Tooltip title="Link this group to the master map set">
+                <Chip
+                  icon={<LinkIcon sx={{ fontSize: 14 }} />}
+                  label="Link to Master"
+                  size="small"
+                  clickable
+                  variant="outlined"
+                  onClick={onLinkToMaster}
+                  sx={{ ml: 'auto' }}
+                />
+              </Tooltip>
+            )}
+          </>
         )}
       </Box>
       <Divider sx={{ mb: 1, flexShrink: 0 }} />
@@ -304,7 +476,7 @@ export default function WorldMapEditorPanel({
           clientPath={clientPath}
           points={data.points}
           selectedIndex={selectedIndex}
-          placeMode={placeMode && !isArchived}
+          placeMode={canPlace && placeMode}
           onPointClick={i => { setSelectedIndex(s => s === i ? null : i); setPlaceMode(false) }}
           onPlacePoint={handlePlacePoint}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
@@ -324,16 +496,25 @@ export default function WorldMapEditorPanel({
               label="Points"
               color="#2196f3"
               count={data.points.length}
-              onAdd={() => { if (!isArchived) setPlaceMode(p => !p) }}
+              addDisabled={isDerived || isArchived}
+              onAdd={() => { if (canPlace) setPlaceMode(p => !p) }}
               items={data.points.map((p, i) => ({
                 key: i,
                 label: `(${p.x},${p.y}) ${p.name || '?'} → ${p.targetMap || '?'}`,
                 selected: selectedIndex === i,
+                isOrphan: orphanKeys.has(pointKey(p)),
                 onSelect: () => setSelectedIndex(s => s === i ? null : i),
-                onEdit:   () => handleEditPoint(i),
+                onEdit:   !isDerived ? () => handleEditPoint(i) : undefined,
                 onRemove: () => handleRemovePoint(i),
               }))}
             />
+
+            {isDerived && (
+              <>
+                <Divider />
+                <ExcludedGroup items={excludedRows} />
+              </>
+            )}
           </Box>
         </Box>
       </Box>

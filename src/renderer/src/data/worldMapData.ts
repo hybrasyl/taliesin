@@ -9,6 +9,15 @@ export interface WorldMapPoint {
   targetY: number
 }
 
+export interface WorldMapMeta {
+  master: string
+  excludes: string[]
+}
+
+export function pointKey(p: WorldMapPoint): string {
+  return `${p.targetMap}:${p.targetX}:${p.targetY}`
+}
+
 export interface WorldMapData {
   name: string
   clientMap: string
