@@ -2,7 +2,7 @@ import React from 'react'
 import { Toolbar, IconButton, Tooltip, Divider, Box } from '@mui/material'
 import {
   GiTreasureMap,
-  GiParchment,
+  GiScrollQuill,
   GiWorld,
   GiArchiveResearch,
   GiSpellBook,
@@ -53,7 +53,7 @@ const NavToolbar: React.FC = () => {
       </Tooltip>
       <Tooltip title="Map XML Editor">
         <IconButton sx={sx('mapeditor')} onClick={nav('mapeditor')}>
-          <GiParchment />
+          <GiScrollQuill />
         </IconButton>
       </Tooltip>
       <Tooltip title="World Map Editor">

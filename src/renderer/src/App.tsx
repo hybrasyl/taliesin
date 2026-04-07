@@ -5,7 +5,9 @@ import {
   themeState,
   currentPageState,
   clientPathState,
-  libraryPathState,
+  librariesState,
+  activeLibraryState,
+  mapDirectoriesState,
   dirtyEditorState,
   ThemeName
 } from './recoil/atoms'
@@ -25,7 +27,9 @@ const themes: Record<ThemeName, Theme> = {
 export default function App(): React.ReactElement {
   const [theme, setTheme] = useRecoilState(themeState)
   const [, setClientPath] = useRecoilState(clientPathState)
-  const [, setLibraryPath] = useRecoilState(libraryPathState)
+  const [, setLibraries] = useRecoilState(librariesState)
+  const [, setActiveLibrary] = useRecoilState(activeLibraryState)
+  const [, setMapDirectories] = useRecoilState(mapDirectoriesState)
   const [, setCurrentPage] = useRecoilState(currentPageState)
   const [dirtyEditor, setDirtyEditor] = useRecoilState(dirtyEditorState)
 
@@ -39,17 +43,21 @@ export default function App(): React.ReactElement {
       const settings = s as Record<string, unknown>
       if (settings.theme && settings.theme in themes) setTheme(settings.theme as ThemeName)
       if (typeof settings.clientPath === 'string') setClientPath(settings.clientPath)
-      if (typeof settings.libraryPath === 'string') setLibraryPath(settings.libraryPath)
+      if (Array.isArray(settings.libraries)) setLibraries(settings.libraries as string[])
+      if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
+      if (Array.isArray(settings.mapDirectories)) setMapDirectories(settings.mapDirectories as string[])
     })
   }, [])
 
   // Persist settings when they change
   const clientPath = useRecoilValue(clientPathState)
-  const libraryPath = useRecoilValue(libraryPathState)
+  const libraries = useRecoilValue(librariesState)
+  const activeLibrary = useRecoilValue(activeLibraryState)
+  const mapDirectories = useRecoilValue(mapDirectoriesState)
 
   useEffect(() => {
-    window.api.saveSettings({ theme, clientPath, libraryPath })
-  }, [theme, clientPath, libraryPath])
+    window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories })
+  }, [theme, clientPath, libraries, activeLibrary, mapDirectories])
 
   // Keep ref in sync for the close listener
   useEffect(() => { dirtyEditorRef.current = dirtyEditor }, [dirtyEditor])

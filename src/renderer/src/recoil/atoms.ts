@@ -30,8 +30,22 @@ export const clientPathState = atom<string | null>({
   default: null
 })
 
-// Path to the Hybrasyl world/xml directory (shared with creidhne)
-export const libraryPathState = atom<string | null>({
-  key: 'libraryPathState',
+// List of Hybrasyl world library root paths (mirrors creidhne)
+export const librariesState = atom<string[]>({
+  key: 'librariesState',
+  default: []
+})
+
+// Which library is currently active — editors derive xml paths from this
+// Maps XML:      <activeLibrary>/world/xml/maps
+// WorldMaps XML: <activeLibrary>/world/xml/worldmaps
+export const activeLibraryState = atom<string | null>({
+  key: 'activeLibraryState',
   default: null
+})
+
+// Directories containing loose binary .map files (for Map Catalog)
+export const mapDirectoriesState = atom<string[]>({
+  key: 'mapDirectoriesState',
+  default: []
 })

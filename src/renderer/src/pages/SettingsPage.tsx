@@ -1,11 +1,16 @@
 import React, { useState } from 'react'
 import {
   Box, Typography, Select, MenuItem, FormControl, InputLabel,
-  Button, TextField, Divider, Tooltip, IconButton
+  Button, Divider, Tooltip, IconButton, List, ListItem,
+  ListItemIcon, ListItemText, Radio
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { useRecoilState } from 'recoil'
-import { themeState, clientPathState, libraryPathState, ThemeName } from '../recoil/atoms'
+import {
+  themeState, clientPathState, librariesState, activeLibraryState,
+  mapDirectoriesState, ThemeName
+} from '../recoil/atoms'
 import AboutDialog from '../components/AboutDialog'
 
 const THEMES: { value: ThemeName; label: string }[] = [
@@ -18,7 +23,9 @@ const THEMES: { value: ThemeName; label: string }[] = [
 const SettingsPage: React.FC = () => {
   const [theme, setTheme] = useRecoilState(themeState)
   const [clientPath, setClientPath] = useRecoilState(clientPathState)
-  const [libraryPath, setLibraryPath] = useRecoilState(libraryPathState)
+  const [libraries, setLibraries] = useRecoilState(librariesState)
+  const [activeLibrary, setActiveLibrary] = useRecoilState(activeLibraryState)
+  const [mapDirectories, setMapDirectories] = useRecoilState(mapDirectoriesState)
   const [aboutOpen, setAboutOpen] = useState(false)
 
   const handleBrowseClient = async () => {
@@ -26,13 +33,32 @@ const SettingsPage: React.FC = () => {
     if (dir) setClientPath(dir)
   }
 
-  const handleBrowseLibrary = async () => {
+  const handleAddLibrary = async () => {
     const dir = await window.api.openDirectory()
-    if (dir) setLibraryPath(dir)
+    if (!dir || libraries.includes(dir)) return
+    const updated = [...libraries, dir]
+    setLibraries(updated)
+    if (!activeLibrary) setActiveLibrary(dir)
+  }
+
+  const handleRemoveLibrary = (path: string) => {
+    const updated = libraries.filter((l) => l !== path)
+    setLibraries(updated)
+    if (activeLibrary === path) setActiveLibrary(updated[0] ?? null)
+  }
+
+  const handleAddMapDir = async () => {
+    const dir = await window.api.openDirectory()
+    if (!dir || mapDirectories.includes(dir)) return
+    setMapDirectories([...mapDirectories, dir])
+  }
+
+  const handleRemoveMapDir = (path: string) => {
+    setMapDirectories(mapDirectories.filter((d) => d !== path))
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 600 }}>
+    <Box sx={{ p: 3, maxWidth: 640 }}>
       <Typography variant="h4" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
         Settings
       </Typography>
@@ -54,14 +80,20 @@ const SettingsPage: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         Path to your Dark Ages install directory. Used to open .dat archives.
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <TextField
-          size="small"
-          fullWidth
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
+        <Box
+          component="input"
+          spellCheck={false}
           placeholder="e.g. C:\Program Files (x86)\Dark Ages"
           value={clientPath ?? ''}
-          onChange={(e) => setClientPath(e.target.value || null)}
-          inputProps={{ spellCheck: false }}
+          onChange={(e) => setClientPath((e.target as HTMLInputElement).value || null)}
+          sx={{
+            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
+            bgcolor: 'background.paper', color: 'text.primary',
+            border: '1px solid', borderColor: 'divider', borderRadius: 1,
+            outline: 'none', fontFamily: 'inherit',
+            '&:focus': { borderColor: 'primary.main' }
+          }}
         />
         <Tooltip title="Browse...">
           <IconButton size="small" onClick={handleBrowseClient}>
@@ -70,26 +102,96 @@ const SettingsPage: React.FC = () => {
         </Tooltip>
       </Box>
 
-      {/* Hybrasyl library path */}
-      <Typography variant="h6" gutterBottom>Hybrasyl Library</Typography>
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Hybrasyl libraries */}
+      <Typography variant="h6" gutterBottom>Hybrasyl Libraries</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Path to your Hybrasyl world/xml directory. Shared with Creidhne.
+        Hybrasyl world library roots. The active library (radio) is used by the map and world map editors.
+        XML is read from <code>&lt;library&gt;/world/xml/maps</code> and <code>/worldmaps</code>.
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="e.g. C:\hybrasyl\world\xml"
-          value={libraryPath ?? ''}
-          onChange={(e) => setLibraryPath(e.target.value || null)}
-          inputProps={{ spellCheck: false }}
-        />
-        <Tooltip title="Browse...">
-          <IconButton size="small" onClick={handleBrowseLibrary}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+
+      {libraries.length > 0 && (
+        <List dense disablePadding sx={{ mb: 1 }}>
+          {libraries.map((lib) => (
+            <ListItem
+              key={lib}
+              disableGutters
+              secondaryAction={
+                <Tooltip title="Remove">
+                  <IconButton size="small" edge="end" onClick={() => handleRemoveLibrary(lib)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              }
+              sx={{ pr: 5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <Radio
+                  checked={activeLibrary === lib}
+                  onChange={() => setActiveLibrary(lib)}
+                  size="small"
+                  sx={{ p: 0.5 }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={lib}
+                primaryTypographyProps={{ variant: 'body2', noWrap: true, title: lib }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      )}
+
+      <Button
+        size="small"
+        startIcon={<FolderOpenIcon fontSize="small" />}
+        onClick={handleAddLibrary}
+        sx={{ mb: 4 }}
+      >
+        Add Library
+      </Button>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Map directories */}
+      <Typography variant="h6" gutterBottom>Map Directories</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Directories containing binary .map files. The Map Catalog scans all of these.
+      </Typography>
+
+      {mapDirectories.length > 0 && (
+        <List dense disablePadding sx={{ mb: 1 }}>
+          {mapDirectories.map((dir) => (
+            <ListItem
+              key={dir}
+              disableGutters
+              secondaryAction={
+                <Tooltip title="Remove">
+                  <IconButton size="small" edge="end" onClick={() => handleRemoveMapDir(dir)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              }
+              sx={{ pr: 5 }}
+            >
+              <ListItemText
+                primary={dir}
+                primaryTypographyProps={{ variant: 'body2', noWrap: true, title: dir }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      )}
+
+      <Button
+        size="small"
+        startIcon={<FolderOpenIcon fontSize="small" />}
+        onClick={handleAddMapDir}
+        sx={{ mb: 4 }}
+      >
+        Add Directory
+      </Button>
 
       <Divider sx={{ mb: 3 }} />
 
