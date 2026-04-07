@@ -39,6 +39,9 @@ export default function App(): React.ReactElement {
   const [navDialogOpen, setNavDialogOpen] = React.useState(false)
   const [pendingPage, setPendingPage] = React.useState<string | null>(null)
   const dirtyEditorRef = useRef(dirtyEditor)
+  // Guard: don't save until the initial load has completed, otherwise the save
+  // effect fires immediately with empty atom defaults and overwrites real settings.
+  const settingsLoaded = useRef(false)
 
   // Load settings on mount
   useEffect(() => {
@@ -50,10 +53,12 @@ export default function App(): React.ReactElement {
       if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
       if (Array.isArray(settings.mapDirectories)) setMapDirectories(settings.mapDirectories as MapDirectory[])
       if (typeof settings.activeMapDirectory === 'string') setActiveMapDirectory(settings.activeMapDirectory)
+      settingsLoaded.current = true
     })
   }, [])
 
-  // Persist settings when they change
+  // Persist settings when they change — guarded so the initial mount (before
+  // loadSettings resolves) never writes empty defaults over real persisted data.
   const clientPath = useRecoilValue(clientPathState)
   const libraries = useRecoilValue(librariesState)
   const activeLibrary = useRecoilValue(activeLibraryState)
@@ -61,6 +66,7 @@ export default function App(): React.ReactElement {
   const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
 
   useEffect(() => {
+    if (!settingsLoaded.current) return
     window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory })
   }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory])
 

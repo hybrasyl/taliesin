@@ -1,8 +1,9 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
+import { buildWorldIndex, readWorldIndex, getIndexStatus, deleteWorldIndex, resolveLibraryPath } from './indexBuilder'
 
 let userDataPath: string
 
@@ -116,3 +117,92 @@ ipcMain.handle('fs:listDir', async (_, dirPath: string) => {
 })
 
 ipcMain.handle('app:getVersion', () => app.getVersion())
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve where to store the catalog for a given map directory.
+ *
+ * If the directory is named "mapfiles" (standard Hybrasyl layout: world/mapfiles/),
+ * store alongside the world index at world/.creidhne/map-catalog.json.
+ *
+ * Otherwise store directly in the chosen directory as map-catalog.json.
+ */
+function getCatalogPath(dirPath: string): string {
+  const folderName = dirPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop()?.toLowerCase() ?? ''
+  if (folderName === 'mapfiles') {
+    return join(dirPath, '..', '.creidhne', 'map-catalog.json')
+  }
+  return join(dirPath, 'map-catalog.json')
+}
+
+ipcMain.handle('catalog:load', async (_, dirPath: string) => {
+  const p = getCatalogPath(dirPath)
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
+})
+
+ipcMain.handle('catalog:save', async (_, dirPath: string, data: unknown) => {
+  const p = getCatalogPath(dirPath)
+  await fs.mkdir(dirname(p), { recursive: true })
+  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('catalog:scan', async (_, dirPath: string) => {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true })
+  const maps = entries.filter(
+    (e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name)
+  )
+  return Promise.all(
+    maps.map(async (e) => {
+      const stat = await fs.stat(join(dirPath, e.name))
+      return { filename: e.name, sizeBytes: stat.size }
+    })
+  )
+})
+
+// ── Extended FS ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('fs:copyFile', async (_, src: string, dst: string) => {
+  await fs.mkdir(dirname(dst), { recursive: true })
+  await fs.copyFile(src, dst)
+})
+
+ipcMain.handle('fs:writeFile', async (_, filePath: string, content: string) => {
+  await fs.mkdir(dirname(filePath), { recursive: true })
+  await fs.writeFile(filePath, content, 'utf-8')
+})
+
+ipcMain.handle('fs:exists', async (_, filePath: string) => {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+})
+
+// ── World index ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('index:read', async (_, libraryRoot: string) => {
+  return readWorldIndex(libraryRoot)
+})
+
+ipcMain.handle('index:build', async (_, libraryRoot: string) => {
+  return buildWorldIndex(libraryRoot)
+})
+
+ipcMain.handle('index:status', async (_, libraryRoot: string) => {
+  return getIndexStatus(libraryRoot)
+})
+
+ipcMain.handle('library:resolve', async (_, selectedPath: string) => {
+  return resolveLibraryPath(selectedPath)
+})
+
+ipcMain.handle('index:delete', async (_, libraryRoot: string) => {
+  return deleteWorldIndex(libraryRoot)
+})

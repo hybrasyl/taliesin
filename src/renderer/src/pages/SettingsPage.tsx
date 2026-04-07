@@ -1,13 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box, Typography, Select, MenuItem, FormControl, InputLabel,
   Button, Divider, Tooltip, IconButton, List, ListItem, ListItemText,
-  Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField
+  Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  CircularProgress, Alert
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import HelpIcon from '@mui/icons-material/Help'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import { useRecoilState } from 'recoil'
 import {
@@ -24,6 +26,52 @@ const THEMES: { value: ThemeName; label: string }[] = [
   { value: 'grinneal', label: 'Grinneal' }
 ]
 
+// ── Index status sub-component (mirrors Creidhne's IndexStatus) ──────────────
+
+interface IndexStatusProps {
+  status: { exists: boolean; builtAt?: string } | undefined
+  building: boolean
+  onBuild: () => void
+}
+
+function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
+  if (building) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CircularProgress size={14} />
+        <Typography variant="caption" color="text.secondary">Building…</Typography>
+      </Box>
+    )
+  }
+  if (!status) return null
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {status.exists ? (
+        <>
+          <Chip
+            label={`Index built ${new Date(status.builtAt!).toLocaleDateString()}`}
+            size="small"
+            color="success"
+            variant="outlined"
+          />
+          <Tooltip title="Rebuild index">
+            <IconButton size="small" onClick={onBuild}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </>
+      ) : (
+        <>
+          <Chip label="Index not built" size="small" color="warning" variant="outlined" />
+          <Button size="small" variant="outlined" onClick={onBuild}>
+            Build Index
+          </Button>
+        </>
+      )}
+    </Box>
+  )
+}
+
 // ── Manage Libraries ─────────────────────────────────────────────────────────
 
 function ManageLibraries() {
@@ -31,17 +79,48 @@ function ManageLibraries() {
   const [activeLibrary, setActiveLibrary] = useRecoilState(activeLibraryState)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [indexStatuses, setIndexStatuses] = useState<Record<string, { exists: boolean; builtAt?: string }>>({})
+  const [building, setBuilding] = useState<Record<string, boolean>>({})
+  const [resolveError, setResolveError] = useState<string | null>(null)
+
+  const loadStatuses = useCallback(async () => {
+    const statuses: Record<string, { exists: boolean; builtAt?: string }> = {}
+    for (const lib of libraries) {
+      statuses[lib] = await window.api.indexStatus(lib)
+    }
+    setIndexStatuses(statuses)
+  }, [libraries])
+
+  useEffect(() => { loadStatuses() }, [loadStatuses])
 
   const handleAdd = async () => {
+    setResolveError(null)
     const dir = await window.api.openDirectory()
-    if (!dir || libraries.includes(dir)) return
-    const updated = [...libraries, dir]
+    if (!dir) return
+    const resolved = await window.api.libraryResolve(dir)
+    if (!resolved) {
+      setResolveError(`Could not find a valid Hybrasyl library at "${dir}". Select the repo root, world/, or world/xml/ folder.`)
+      return
+    }
+    if (libraries.includes(resolved)) return
+    const updated = [...libraries, resolved]
     setLibraries(updated)
-    if (!activeLibrary) setActiveLibrary(dir)
+    if (!activeLibrary) setActiveLibrary(resolved)
   }
 
-  const handleRemoveConfirmed = () => {
+  const handleBuildIndex = async (lib: string) => {
+    setBuilding((prev) => ({ ...prev, [lib]: true }))
+    try {
+      const result = await window.api.indexBuild(lib)
+      setIndexStatuses((prev) => ({ ...prev, [lib]: { exists: true, builtAt: result.builtAt } }))
+    } finally {
+      setBuilding((prev) => ({ ...prev, [lib]: false }))
+    }
+  }
+
+  const handleRemoveConfirmed = async () => {
     if (!selected) return
+    await window.api.indexDelete(selected)
     const updated = libraries.filter((l) => l !== selected)
     setLibraries(updated)
     if (activeLibrary === selected) setActiveLibrary(updated[0] ?? null)
@@ -56,7 +135,7 @@ function ManageLibraries() {
           Manage Libraries
         </Typography>
         <Tooltip
-          title="Add the world/xml root of your Hybrasyl repo. Maps XML is read from <library>/world/xml/maps, world maps from /worldmaps."
+          title="Add the world/xml directory of your Hybrasyl repo (e.g. C:\hybrasyl\world\xml). Each library shares an index with Creidhne at world/.creidhne/index.json."
           placement="top"
         >
           <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
@@ -96,13 +175,17 @@ function ManageLibraries() {
         </Tooltip>
       </Box>
 
+      {resolveError && (
+        <Alert severity="warning" onClose={() => setResolveError(null)} sx={{ mb: 1.5 }}>
+          {resolveError}
+        </Alert>
+      )}
+
       <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
         {libraries.length === 0 && (
           <ListItem>
             <ListItemText
-              primary={
-                <Typography variant="body2" color="text.secondary">No libraries added yet.</Typography>
-              }
+              primary={<Typography variant="body2" color="text.secondary">No libraries added yet.</Typography>}
             />
           </ListItem>
         )}
@@ -112,15 +195,23 @@ function ManageLibraries() {
             component="div"
             onClick={() => setSelected(lib)}
             selected={selected === lib}
-            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}
+            sx={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start', py: 1.5,
+              '&.Mui-selected': { bgcolor: 'action.selected' } }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Typography variant="body2" sx={{ flex: 1, color: 'text.button', wordBreak: 'break-all' }}>
                 {lib}
               </Typography>
               {lib === activeLibrary && (
                 <Chip label="Active" size="small" color="primary" icon={<CheckCircleIcon />} />
               )}
+            </Box>
+            <Box sx={{ mt: 0.5 }}>
+              <IndexStatus
+                status={indexStatuses[lib]}
+                building={building[lib] ?? false}
+                onBuild={() => handleBuildIndex(lib)}
+              />
             </Box>
           </ListItem>
         ))}
@@ -130,6 +221,9 @@ function ManageLibraries() {
         <DialogTitle>Remove Library</DialogTitle>
         <DialogContent>
           <Typography>Remove <strong>{selected}</strong>?</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Its index file will also be deleted.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
