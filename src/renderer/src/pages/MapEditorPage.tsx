@@ -21,6 +21,7 @@ interface FileEntry {
   name: string
   path: string
   mapName?: string
+  mapId?: number
   archived?: boolean
 }
 
@@ -222,10 +223,15 @@ function FileListPanel({
 }) {
   const [search, setSearch] = React.useState('')
 
-  const filtered = (list: FileEntry[]) =>
-    search.trim()
-      ? list.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
-      : list
+  const filtered = (list: FileEntry[]) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return list
+    return list.filter(f =>
+      f.name.toLowerCase().includes(q) ||
+      (f.mapName?.toLowerCase().includes(q) ?? false) ||
+      (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
+    )
+  }
 
   const filteredActive = filtered(files)
   const filteredArchived = filtered(archivedFiles)
@@ -268,9 +274,14 @@ function FileListPanel({
                   <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
                     <ListItemText
                       primary={f.name.replace(/\.xml$/i, '')}
-                      secondary={f.mapName ?? undefined}
+                      secondary={
+                        <>
+                          {f.mapName && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.mapName}</Box>}
+                          {f.mapId !== undefined && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{`lod${f.mapId}`}</Box>}
+                        </>
+                      }
                       primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
-                      secondaryTypographyProps={{ noWrap: true, variant: 'caption', fontStyle: 'italic' }}
+                      secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
                     />
                   </ListItemButton>
                 </ListItem>
@@ -288,9 +299,14 @@ function FileListPanel({
                       <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
                         <ListItemText
                           primary={f.name.replace(/\.xml$/i, '')}
-                          secondary={f.mapName ?? undefined}
+                          secondary={
+                            <>
+                              {f.mapName && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.disabled' }}>{f.mapName}</Box>}
+                              {f.mapId !== undefined && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.disabled' }}>{`lod${f.mapId}`}</Box>}
+                            </>
+                          }
                           primaryTypographyProps={{ noWrap: true, variant: 'body2', color: 'text.secondary' }}
-                          secondaryTypographyProps={{ noWrap: true, variant: 'caption', fontStyle: 'italic', color: 'text.disabled' }}
+                          secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
                         />
                       </ListItemButton>
                     </ListItem>
@@ -337,6 +353,8 @@ export default function MapEditorPage() {
   // filename → map <Name> lookup built from the index (zero extra file reads)
   const activeNameMap   = useMemo(() => new Map((worldIndex?.mapDetails       ?? []).map(d => [d.filename, d.name])), [worldIndex])
   const ignoredNameMap  = useMemo(() => new Map((worldIndex?.ignoredMapDetails ?? []).map(d => [d.filename, d.name])), [worldIndex])
+  const activeIdMap     = useMemo(() => new Map((worldIndex?.mapDetails       ?? []).map(d => [d.filename, d.id])),   [worldIndex])
+  const ignoredIdMap    = useMemo(() => new Map((worldIndex?.ignoredMapDetails ?? []).map(d => [d.filename, d.id])),  [worldIndex])
 
   const loadActiveFiles = async () => {
     if (!mapsDir) { setFiles([]); return }
@@ -345,7 +363,7 @@ export default function MapEditorPage() {
       setFiles(
         entries
           .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map(e => ({ name: e.name, path: `${mapsDir}/${e.name}`, mapName: activeNameMap.get(e.name) }))
+          .map(e => ({ name: e.name, path: `${mapsDir}/${e.name}`, mapName: activeNameMap.get(e.name), mapId: activeIdMap.get(e.name) }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
       )
     } catch {
@@ -360,7 +378,7 @@ export default function MapEditorPage() {
       setArchivedFiles(
         entries
           .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, mapName: ignoredNameMap.get(e.name), archived: true }))
+          .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, mapName: ignoredNameMap.get(e.name), mapId: ignoredIdMap.get(e.name), archived: true }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
       )
     } catch {
@@ -380,11 +398,11 @@ export default function MapEditorPage() {
     loadArchivedFiles()
   }, [activeLibrary])
 
-  // Re-populate mapName when the index is (re)built without re-scanning the filesystem
+  // Re-populate mapName/mapId when the index is (re)built without re-scanning the filesystem
   useEffect(() => {
-    setFiles(prev => prev.map(f => ({ ...f, mapName: activeNameMap.get(f.name) })))
-    setArchivedFiles(prev => prev.map(f => ({ ...f, mapName: ignoredNameMap.get(f.name) })))
-  }, [activeNameMap, ignoredNameMap])
+    setFiles(prev => prev.map(f => ({ ...f, mapName: activeNameMap.get(f.name), mapId: activeIdMap.get(f.name) })))
+    setArchivedFiles(prev => prev.map(f => ({ ...f, mapName: ignoredNameMap.get(f.name), mapId: ignoredIdMap.get(f.name) })))
+  }, [activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap])
 
   const handleToggleArchived = async () => {
     const next = !showArchived
