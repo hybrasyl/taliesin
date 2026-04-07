@@ -336,8 +336,8 @@ export function screenToTileCoords(
 
 /**
  * True when a map tile can be walked on.
- * A tile is impassable if either its leftForeground or rightForeground stc index has a non-zero
- * byte in sotp.dat.  Background-only tiles are always considered passable.
+ * sotp.dat convention: index N → 0 means stc tile N is passable; non-zero means impassable.
+ * Tiles with no foreground (index <= 0) are always considered passable by this check.
  */
 export function isTilePassable(
   leftForeground: number,

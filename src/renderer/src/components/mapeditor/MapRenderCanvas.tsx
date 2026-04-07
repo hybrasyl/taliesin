@@ -184,7 +184,7 @@ export default function MapRenderCanvas({
         // Locate binary
         let mapFile: MapFile | null = null
         if (mapDirectory) {
-          const binPath = `${mapDirectory}/lod${String(mapId).padStart(5, '0')}.map`
+          const binPath = `${mapDirectory}/lod${mapId}.map`
           try {
             const raw = await window.api.readFile(binPath)
             mapFile = MapFile.fromBuffer(new Uint8Array(raw), mapWidth, mapHeight)
@@ -291,8 +291,8 @@ export default function MapRenderCanvas({
         for (let tx = 0; tx < cs.mapW; tx++) {
           const tile = mf.tiles[ty * cs.mapW + tx]
           if (!tile) continue
-          // Skip void tiles (no background)
-          if (tile.background === 0) continue
+          // Skip completely empty tiles (no background and no foreground stc)
+          if (tile.background === 0 && tile.leftForeground <= 0 && tile.rightForeground <= 0) continue
           const passable = isTilePassable(tile.leftForeground, tile.rightForeground, sotp)
           if (passable) continue  // leave passable tiles unshaded
           const { x, y } = tileCentre(tx, ty, cs)
