@@ -34,6 +34,12 @@ export interface MapAssets {
   iaArchive: DataArchive
   stcPaletteTable: PaletteTable
   stcPalettes: Map<number, Palette>
+
+  /**
+   * Raw sotp.dat bytes.  Index N → 0 means stc tile N is passable; non-zero means impassable.
+   * Null when sotp.dat is absent from the client directory.
+   */
+  sotpTable: Uint8Array | null
 }
 
 // ── Module-level caches ───────────────────────────────────────────────────────
@@ -81,6 +87,10 @@ export async function loadMapAssets(
   const stcPaletteTable = PaletteTable.fromArchive('stc', iaArchive)
   const stcPalettes = Palette.fromArchive('stc', iaArchive)
 
+  // sotp.dat is packed inside ia.dat
+  const sotpEntry = iaArchive.get('sotp.dat')
+  const sotpTable: Uint8Array | null = sotpEntry ? sotpEntry.toUint8Array() : null
+
   const assets: MapAssets = {
     groundPixels,
     groundTileCount,
@@ -89,6 +99,7 @@ export async function loadMapAssets(
     iaArchive,
     stcPaletteTable,
     stcPalettes,
+    sotpTable,
   }
 
   assetCache.set(key, assets)
@@ -261,4 +272,114 @@ export async function renderMap(
 export function clearTileCache(): void {
   groundBitmapCache.clear()
   stcBitmapCache.clear()
+}
+
+// ── Exported coordinate utilities ─────────────────────────────────────────────
+
+/** Half-tile screen width in pixels (28). */
+export const ISO_HTILE_W = HTILE_W
+
+/** Vertical screen step per tile row/column in pixels (14). */
+export const ISO_VTILE_STEP = HTILE_W / 2
+
+/** Canvas padding above the isometric origin in pixels (480). */
+export const ISO_FOREGROUND_PAD = FOREGROUND_PAD
+
+/**
+ * Rendered canvas size for an isometric map at the given scale factor.
+ * Mirrors the size calculation in renderMap.
+ */
+export function isoCanvasSize(mapW: number, mapH: number, scale = 1): { w: number; h: number } {
+  return {
+    w: Math.ceil(((mapW + mapH) * HTILE_W + GROUND_TILE_WIDTH) * scale),
+    h: Math.ceil(((mapW + mapH) * (HTILE_W / 2) + FOREGROUND_PAD) * scale),
+  }
+}
+
+/**
+ * Center of tile (tx, ty) in screen space (pixels), accounting for render scale.
+ * originX = mapH * ISO_HTILE_W (unscaled), originY = ISO_FOREGROUND_PAD (unscaled).
+ */
+export function tileToScreen(
+  tx: number, ty: number,
+  originX: number, originY: number,
+  scale = 1,
+): { x: number; y: number } {
+  const hw = HTILE_W * scale
+  const hv = (HTILE_W / 2) * scale
+  return {
+    x: originX * scale + (tx - ty) * hw,
+    y: originY * scale + (tx + ty) * hv + hv,   // +hv = centre of diamond
+  }
+}
+
+/**
+ * Nearest tile for a screen coordinate — inverse of tileToScreen.
+ * Returns tile coords clamped to any range; caller should bounds-check.
+ */
+export function screenToTileCoords(
+  sx: number, sy: number,
+  originX: number, originY: number,
+  scale = 1,
+): { tx: number; ty: number } {
+  const hw = HTILE_W * scale
+  const hv = (HTILE_W / 2) * scale
+  const ox = originX * scale
+  const oy = originY * scale
+  const a = (sx - ox) / hw
+  const b = (sy - oy - hv) / hv
+  return {
+    tx: Math.round((a + b) / 2),
+    ty: Math.round((b - a) / 2),
+  }
+}
+
+/**
+ * True when a map tile can be walked on.
+ * A tile is impassable if either its leftForeground or rightForeground stc index has a non-zero
+ * byte in sotp.dat.  Background-only tiles are always considered passable.
+ */
+export function isTilePassable(
+  leftForeground: number,
+  rightForeground: number,
+  sotpTable: Uint8Array,
+): boolean {
+  const lfOk = leftForeground  <= 0 || (sotpTable[leftForeground]  ?? 0) === 0
+  const rfOk = rightForeground <= 0 || (sotpTable[rightForeground] ?? 0) === 0
+  return lfOk && rfOk
+}
+
+/**
+ * Schematic (flat-grid) render at an explicit pixels-per-tile scale.
+ * Mirrors renderSchematic but accepts scale externally instead of measuring the container.
+ */
+export function renderSchematicScaled(
+  canvas: HTMLCanvasElement,
+  map: MapFile,
+  pixPerTile: number,
+): void {
+  const { width, height, tiles } = map
+  const ppt = Math.max(1, Math.round(pixPerTile))
+  canvas.width  = width  * ppt
+  canvas.height = height * ppt
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = false
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const tile = tiles[y * width + x]!
+      const hasObj = tile.leftForeground > 0 || tile.rightForeground > 0
+      ctx.fillStyle = tile.background === 0 ? COLOR_VOID : hasObj ? COLOR_OBJECT : COLOR_FLOOR
+      ctx.fillRect(x * ppt, y * ppt, ppt, ppt)
+    }
+  }
+  if (ppt >= 3) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)'
+    ctx.lineWidth = 0.5
+    for (let x = 0; x <= width; x++) {
+      ctx.beginPath(); ctx.moveTo(x * ppt, 0); ctx.lineTo(x * ppt, height * ppt); ctx.stroke()
+    }
+    for (let y = 0; y <= height; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * ppt); ctx.lineTo(width * ppt, y * ppt); ctx.stroke()
+    }
+  }
 }

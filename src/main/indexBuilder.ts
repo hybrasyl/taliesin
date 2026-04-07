@@ -15,6 +15,7 @@ import { promises as fs } from 'fs'
 export interface MapDetail {
   id: number
   name: string
+  filename: string
   x: number
   y: number
 }
@@ -280,6 +281,7 @@ export async function buildWorldIndex(libraryRoot: string): Promise<WorldIndex> 
               ;(index.mapDetails as MapDetail[]).push({
                 id: parseInt(idMatch[1], 10),
                 name,
+                filename: file.name,
                 x: parseInt(xMatch[1], 10),
                 y: parseInt(yMatch[1], 10),
               })
@@ -526,6 +528,7 @@ export async function buildWorldIndex(libraryRoot: string): Promise<WorldIndex> 
         ignoredMapDetails.push({
           id: parseInt(idMatch[1], 10),
           name: nameMatch ? nameMatch[1].trim() : '',
+          filename: file.name,
           x: parseInt(xMatch[1], 10),
           y: parseInt(yMatch[1], 10),
         })

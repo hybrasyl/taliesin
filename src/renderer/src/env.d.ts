@@ -15,6 +15,7 @@ interface MapScanEntry {
 interface MapDetail {
   id: number
   name: string
+  filename: string
   x: number
   y: number
 }

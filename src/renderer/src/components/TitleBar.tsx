@@ -1,9 +1,6 @@
 import React from 'react'
 import { Toolbar, IconButton, Tooltip, Box, Typography } from '@mui/material'
 import { GiContract, GiExpand, GiDeathSkull } from 'react-icons/gi'
-import { useRecoilValue } from 'recoil'
-import { activeLibraryState } from '../recoil/atoms'
-import { worldName } from '../hooks/useCatalog'
 
 const iconSx = {
   '& svg': {
@@ -24,20 +21,12 @@ const winBtnSx = {
 } as const
 
 const TitleBar: React.FC = () => {
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const libWorldName = activeLibrary ? worldName(activeLibrary) : null
-
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 36, px: 1.5 }}>
       <img src="/taliesin.png" alt="Taliesin" style={{ height: 28, marginRight: 8 }} />
       <Typography variant="h6" sx={{ fontWeight: 'bold', flexGrow: 0, fontSize: '1.5rem' }}>
         Taliesin
       </Typography>
-      {libWorldName && (
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 1.5, opacity: 0.7 }}>
-          — {libWorldName}
-        </Typography>
-      )}
 
       <Box sx={{ flexGrow: 1 }} />
 

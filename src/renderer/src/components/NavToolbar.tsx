@@ -1,5 +1,5 @@
 import React from 'react'
-import { Toolbar, IconButton, Tooltip, Divider, Box } from '@mui/material'
+import { Toolbar, IconButton, Tooltip, Divider, Box, Typography } from '@mui/material'
 import {
   GiTreasureMap,
   GiScrollQuill,
@@ -8,8 +8,9 @@ import {
   GiSpellBook,
   GiSettingsKnobs
 } from 'react-icons/gi'
-import { useRecoilState } from 'recoil'
-import { currentPageState, Page } from '../recoil/atoms'
+import { useRecoilState, useRecoilValue } from 'recoil'
+import { currentPageState, activeLibraryState, Page } from '../recoil/atoms'
+import { worldName } from '../hooks/useCatalog'
 
 const iconSx = {
   '& svg': {
@@ -38,12 +39,23 @@ const activeBtnSx = {
 
 const NavToolbar: React.FC = () => {
   const [currentPage, setCurrentPage] = useRecoilState(currentPageState)
+  const activeLibrary = useRecoilValue(activeLibraryState)
+  const libName = activeLibrary ? worldName(activeLibrary) : null
 
   const nav = (page: Page) => () => setCurrentPage(page)
   const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)
 
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
+      {libName ? (
+        <Typography variant="caption" sx={{ color: 'text.button', opacity: 0.7, letterSpacing: '0.03em' }}>
+          Current Library: <strong>{libName}</strong>
+        </Typography>
+      ) : (
+        <Typography variant="caption" sx={{ color: 'text.disabled', opacity: 0.5 }}>
+          No library selected
+        </Typography>
+      )}
       <Box sx={{ flexGrow: 1 }} />
 
       <Tooltip title="Map Catalog">
