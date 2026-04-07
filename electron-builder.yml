@@ -1,5 +1,6 @@
 appId: com.hybrasyl.taliesin
 productName: Taliesin
+icon: resources/taliesin.png
 directories:
   buildResources: build
 files:

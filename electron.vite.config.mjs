@@ -2,7 +2,7 @@ import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   main: {
     plugins: [externalizeDepsPlugin()]
   },
@@ -10,7 +10,8 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    base: './',
+    // './' is required for file:// in production; '/' is required for HMR in dev
+    base: command === 'build' ? './' : '/',
     publicDir: resolve('resources'),
     resolve: {
       alias: {
@@ -18,6 +19,11 @@ export default defineConfig({
       }
     },
     plugins: [react()],
+    server: {
+      host: '127.0.0.1',
+      port: 5173,
+      hmr: true
+    },
     build: {
       outDir: 'out/renderer',
       rollupOptions: {
@@ -25,4 +31,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

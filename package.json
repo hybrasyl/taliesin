@@ -16,7 +16,8 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "fetch-xsd": "node scripts/downloadXSD.js"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -28,7 +29,10 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "dalib-ts": "file:../dalib-ts",
-    "recoil": "^0.7.7"
+    "react-icons": "^5.6.0",
+    "recoil": "^0.7.7",
+    "unzipper": "^0.12.3",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",
@@ -38,6 +42,7 @@
     "@eslint/js": "^9.39.4",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
+    "@types/xml2js": "^0.4.14",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^41.1.0",
     "electron-builder": "^26.8.1",
