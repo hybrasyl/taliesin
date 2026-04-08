@@ -18,13 +18,14 @@ Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne ma
 | Map XML Editor | ✅ Complete |
 | World Map Editor | ✅ Complete |
 | Music Manager | ✅ Complete |
+| Sound Effects Browser | ✅ Complete |
 | Settings | ✅ Complete |
-| Archive Browser | 🔲 Phase 1 |
-| Sprite Viewer | 🔲 Phase 1 |
-| Sound Effects Browser | 🔲 Phase 1 |
-| Asset Import Manager | 🔲 Phase 2 |
-| Map Editor / Creator | 🔲 Phase 2 |
-| Procedural Map Generation | 🔲 Phase 2 |
+| Archive Browser | ⬜ Not Started |
+| Sprite Viewer | ⬜ Not Started |
+| Sound Effects Manager | ⬜ Not Started |
+| Asset Import Manager | ⬜ Not Started |
+| Map Editor / Creator | ⬜ Not Started |
+| Procedural Map Generation | ⬜ Not Started |
 
 ### Map Catalog
 
@@ -48,9 +49,27 @@ Load and edit Hybrasyl WorldMap XML with a visual overlay on the client world ma
 
 Manage a local audio library of DA music tracks. The **Library** tab scans a configured directory for audio files and provides metadata editing (display name, music ID) and in-app playback. The **Packs** tab organizes tracks into named packs with drag-reorder, music ID assignment, and ffmpeg-based encoding and deployment to client working directories. The **Client View** tab browses music entries directly from DA client archives.
 
+### Sound Effects Browser
+
+Browse and play DA client sound effects sourced directly from `legend.dat`. Entries are listed by numeric ID with in-row play/stop controls. A detail panel allows annotating each sound with a friendly name and comment, saved to `world/sfx-index.json` in the world library repository. Filter by ID, filename, or annotated name.
+
 ### Settings
 
 Configure the DA client install path (used to locate archives), the Hybrasyl world library path (shared with Creidhne), and the application theme. Settings are persisted across sessions.
+
+### Planned Features
+
+**Archive Browser** — inspect and extract entries from DA client `.dat` archive files. Lists all entries with name and size, previews by type (images rendered to canvas, raw hex for unknown formats), and supports extracting individual entries or the full archive to disk.
+
+**Sprite Viewer** — browse and preview DA client sprites loaded from archives or standalone files. Supports `.spf`, `.epf`, `.mpf`, and `.efa` formats via dalib-ts, with frame-by-frame navigation, animated preview, and palette selection.
+
+**Sound Effects Manager** — a companion to the Sound Effects Browser focused on managing SFX assets directly. Planned scope to be defined.
+
+**Asset Import Manager** — inject new tiles and sprites into existing `.dat` archives. Depends on research into how the DA client merges split archive files at runtime; this is a research-heavy feature requiring its own investigation before implementation.
+
+**Map Editor / Creator** — a paint-based editor for DA `.map` binary files covering foreground, background, and walkability layers. Supports new map creation and round-trips with the Map Catalog and Map XML Editor.
+
+**Procedural Map Generation** — parameter-driven generation of `.map` binaries and Hybrasyl XML stubs, with configurable terrain style, density, and optional seed-based reproducibility. Generated maps feed directly into the Map Catalog.
 
 ## Installation
 
