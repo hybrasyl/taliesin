@@ -1,6 +1,10 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { promises as fs } from 'fs'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { buildWorldIndex, readWorldIndex, getIndexStatus, deleteWorldIndex, resolveLibraryPath } from './indexBuilder'
@@ -195,6 +199,169 @@ ipcMain.handle('fs:listArchive', async (_, filePath: string) => {
   const buf = await fs.readFile(filePath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries.map(e => e.entryName)
+})
+
+// ── Music Manager ─────────────────────────────────────────────────────────────
+
+const MUSIC_SOURCE_EXTS = new Set(['.mp3', '.ogg', '.mus', '.wav', '.flac'])
+
+ipcMain.handle('music:readFileMeta', async (_, filePath: string) => {
+  try {
+    const { parseBuffer } = await import('music-metadata')
+    const buf = await fs.readFile(filePath)
+    const meta = await parseBuffer(buf, undefined, { duration: false, skipCovers: true })
+    const { title, artist, genre, album } = meta.common
+    return {
+      title:  title  ?? null,
+      artist: artist ?? null,
+      genre:  genre  ?? null,
+      album:  album  ?? null,
+    }
+  } catch {
+    return null
+  }
+})
+
+async function scanMusicDir(
+  rootDir: string,
+  relDir = ''
+): Promise<{ filename: string; sizeBytes: number }[]> {
+  const absDir = relDir ? join(rootDir, relDir) : rootDir
+  const entries = await fs.readdir(absDir, { withFileTypes: true })
+
+  const nested = await Promise.all(
+    entries.map(async (e): Promise<{ filename: string; sizeBytes: number }[]> => {
+      const relPath = relDir ? `${relDir}/${e.name}` : e.name
+      if (e.isDirectory()) {
+        return scanMusicDir(rootDir, relPath)
+      }
+      const ext = e.name.slice(e.name.lastIndexOf('.')).toLowerCase()
+      if (MUSIC_SOURCE_EXTS.has(ext)) {
+        const stat = await fs.stat(join(absDir, e.name))
+        return [{ filename: relPath, sizeBytes: stat.size }]
+      }
+      return []
+    })
+  )
+
+  return nested.flat()
+}
+
+ipcMain.handle('music:scan', async (_, dirPath: string) => {
+  return scanMusicDir(dirPath)
+})
+
+ipcMain.handle('music:metadata:load', async (_, dirPath: string) => {
+  const p = join(dirPath, 'music-library.json')
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
+})
+
+ipcMain.handle('music:metadata:save', async (_, dirPath: string, data: unknown) => {
+  const p = join(dirPath, 'music-library.json')
+  await fs.mkdir(dirname(p), { recursive: true })
+  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('music:packs:load', async (_, dirPath: string) => {
+  const p = join(dirPath, 'music-packs.json')
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('music:packs:save', async (_, dirPath: string, packs: unknown) => {
+  const p = join(dirPath, 'music-packs.json')
+  await fs.mkdir(dirname(p), { recursive: true })
+  await fs.writeFile(p, JSON.stringify(packs, null, 2), 'utf-8')
+})
+
+interface DeployTrack { musicId: number; sourceFile: string }
+interface DeployPack  { id: string; name: string; description?: string; tracks: DeployTrack[] }
+
+async function deployTrack(
+  srcPath: string,
+  destPath: string,
+  ffmpegBin: string,
+  kbps: number,
+  sampleRate: number
+): Promise<void> {
+  // Always re-encode to enforce consistent DA client format regardless of source.
+  // MP3→MP3 generation loss is negligible when downsampling to 64kbps anyway.
+  await execFileAsync(ffmpegBin, [
+    '-y',
+    '-i', srcPath,
+    '-codec:a', 'libmp3lame',
+    '-b:a', `${kbps}k`,
+    '-ar', String(sampleRate),
+    destPath,
+  ])
+}
+
+ipcMain.handle('music:deploy-pack', async (
+  _,
+  srcLibDir: string,
+  pack: DeployPack,
+  destDir: string,
+  ffmpegPath: string | null,
+  musEncodeKbps: number,
+  musEncodeSampleRate: number
+) => {
+  const ffmpegBin = ffmpegPath || 'ffmpeg'
+
+  // Ensure dest exists, then clear all files in it (not subdirs)
+  await fs.mkdir(destDir, { recursive: true })
+  const existing = await fs.readdir(destDir, { withFileTypes: true })
+  await Promise.all(
+    existing
+      .filter((e) => !e.isDirectory())
+      .map((e) => fs.unlink(join(destDir, e.name)))
+  )
+
+  // Deploy each track — copy MP3/MUS directly, encode WAV/OGG via ffmpeg
+  await Promise.all(
+    pack.tracks.map((track) =>
+      deployTrack(
+        join(srcLibDir, track.sourceFile),
+        join(destDir, `${track.musicId}.mus`),
+        ffmpegBin,
+        musEncodeKbps,
+        musEncodeSampleRate
+      )
+    )
+  )
+
+  // Write sidecar manifest
+  const manifest = {
+    packId: pack.id,
+    packName: pack.name,
+    exportedAt: new Date().toISOString(),
+    tracks: pack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile })),
+  }
+  await fs.writeFile(join(destDir, 'music-pack.json'), JSON.stringify(manifest, null, 2), 'utf-8')
+})
+
+ipcMain.handle('music:client:scan', async (_, clientPath: string) => {
+  const musicDir = join(clientPath, 'music')
+  try {
+    const entries = await fs.readdir(musicDir, { withFileTypes: true })
+    const files = entries.filter(
+      (e) => !e.isDirectory() && /^\d+\.mus$/i.test(e.name)
+    )
+    return Promise.all(
+      files.map(async (e) => {
+        const stat = await fs.stat(join(musicDir, e.name))
+        return { filename: e.name, sizeBytes: stat.size }
+      })
+    )
+  } catch {
+    return []
+  }
 })
 
 // ── World index ───────────────────────────────────────────────────────────────

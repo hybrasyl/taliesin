@@ -10,6 +10,31 @@ interface MapScanEntry {
   sizeBytes: number
 }
 
+interface MusicScanEntry {
+  filename: string
+  sizeBytes: number
+}
+
+interface MusicMeta {
+  name?: string
+  notes?: string
+  tags?: string[]
+}
+
+interface MusicPackTrack {
+  musicId: number
+  sourceFile: string
+}
+
+interface MusicPack {
+  id: string
+  name: string
+  description?: string
+  tracks: MusicPackTrack[]
+  createdAt: string
+  updatedAt: string
+}
+
 // ── World index (shared format with Creidhne) ─────────────────────────────────
 
 interface MapDetail {
@@ -107,6 +132,14 @@ interface TaliesinAPI {
   catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
   catalogSave: (dirPath: string, data: unknown) => Promise<void>
   catalogScan: (dirPath: string) => Promise<MapScanEntry[]>
+  musicReadFileMeta: (filePath: string) => Promise<{ title: string | null; artist: string | null; genre: string | null; album: string | null } | null>
+  musicScan: (dirPath: string) => Promise<MusicScanEntry[]>
+  musicMetadataLoad: (dirPath: string) => Promise<Record<string, MusicMeta>>
+  musicMetadataSave: (dirPath: string, data: Record<string, MusicMeta>) => Promise<void>
+  musicPacksLoad: (dirPath: string) => Promise<MusicPack[]>
+  musicPacksSave: (dirPath: string, packs: MusicPack[]) => Promise<void>
+  musicDeployPack: (srcLibDir: string, pack: MusicPack, destDir: string, ffmpegPath: string | null, kbps: number, sampleRate: number) => Promise<void>
+  musicClientScan: (clientPath: string) => Promise<MusicScanEntry[]>
   indexRead: (libraryRoot: string) => Promise<WorldIndex | null>
   indexBuild: (libraryRoot: string) => Promise<WorldIndex>
   indexStatus: (libraryRoot: string) => Promise<{ exists: boolean; builtAt?: string }>

@@ -14,8 +14,10 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import { useRecoilState } from 'recoil'
 import {
   themeState, clientPathState, librariesState, activeLibraryState,
-  mapDirectoriesState, activeMapDirectoryState, ThemeName,
-  type MapDirectory
+  mapDirectoriesState, activeMapDirectoryState,
+  musicLibraryPathState, musicWorkingDirsState, activeMusicWorkingDirState,
+  ffmpegPathState, musEncodeKbpsState, musEncodeSampleRateState,
+  ThemeName, type MapDirectory
 } from '../recoil/atoms'
 import AboutDialog from '../components/AboutDialog'
 
@@ -371,6 +373,223 @@ function ManageMapDirectories() {
   )
 }
 
+// ── Music Settings ────────────────────────────────────────────────────────────
+
+function ManageMusicSettings() {
+  const [musicLibraryPath, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
+  const [musicWorkingDirs, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
+  const [activeMusicWorkingDir, setActiveMusicWorkingDir] = useRecoilState(activeMusicWorkingDirState)
+  const [ffmpegPath, setFfmpegPath]             = useRecoilState(ffmpegPathState)
+  const [musEncodeKbps, setMusEncodeKbps]       = useRecoilState(musEncodeKbpsState)
+  const [musEncodeSampleRate, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const handleBrowseLibrary = async () => {
+    const dir = await window.api.openDirectory()
+    if (dir) setMusicLibraryPath(dir)
+  }
+
+  const handleAddWorkingDir = async () => {
+    const dir = await window.api.openDirectory()
+    if (!dir || musicWorkingDirs.includes(dir)) return
+    const updated = [...musicWorkingDirs, dir]
+    setMusicWorkingDirs(updated)
+    if (!activeMusicWorkingDir) setActiveMusicWorkingDir(dir)
+  }
+
+  const handleRemoveConfirmed = () => {
+    if (!selected) return
+    const updated = musicWorkingDirs.filter((d) => d !== selected)
+    setMusicWorkingDirs(updated)
+    if (activeMusicWorkingDir === selected) setActiveMusicWorkingDir(updated[0] ?? null)
+    setSelected(null)
+    setConfirmOpen(false)
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold' }}>
+          Music Manager
+        </Typography>
+        <Tooltip
+          title="Music Library: the master source directory for .mp3/.ogg/.mus files. Working Directories: output destinations where packs are deployed as N.mus files."
+          placement="top"
+        >
+          <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
+            <HelpIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Library path */}
+      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
+        Music Library
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        Master source directory containing your audio files (.mp3, .ogg, .mus).
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <Box
+          component="input"
+          spellCheck={false}
+          placeholder="e.g. D:\music-library"
+          value={musicLibraryPath ?? ''}
+          onChange={(e) => setMusicLibraryPath((e.target as HTMLInputElement).value || null)}
+          sx={{
+            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
+            bgcolor: 'background.paper', color: 'text.primary',
+            border: '1px solid', borderColor: 'divider', borderRadius: 1,
+            outline: 'none', fontFamily: 'inherit',
+            '&:focus': { borderColor: 'primary.main' }
+          }}
+        />
+        <Tooltip title="Browse…">
+          <IconButton size="small" onClick={handleBrowseLibrary}>
+            <FolderOpenIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* ffmpeg path */}
+      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
+        ffmpeg Path
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        Path to the ffmpeg binary. Leave blank to use system ffmpeg (must be on PATH).
+        Required for converting .wav and .ogg files during pack deploy.
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <Box
+          component="input"
+          spellCheck={false}
+          placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
+          value={ffmpegPath ?? ''}
+          onChange={(e) => setFfmpegPath((e.target as HTMLInputElement).value || null)}
+          sx={{
+            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
+            bgcolor: 'background.paper', color: 'text.primary',
+            border: '1px solid', borderColor: 'divider', borderRadius: 1,
+            outline: 'none', fontFamily: 'inherit',
+            '&:focus': { borderColor: 'primary.main' }
+          }}
+        />
+        <Tooltip title="Browse…">
+          <IconButton size="small" onClick={async () => {
+            const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe', '*'] }])
+            if (f) setFfmpegPath(f)
+          }}>
+            <FolderOpenIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Encode settings */}
+      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
+        .mus Encode Settings
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Used when converting .wav/.ogg files during pack deploy. Defaults match original DA client files (22050 Hz, 64 kbps). Channel layout is preserved from the source file.
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Sample Rate</InputLabel>
+          <Select
+            value={musEncodeSampleRate}
+            label="Sample Rate"
+            onChange={(e) => setMusEncodeSampleRate(Number(e.target.value))}
+          >
+            <MenuItem value={22050}>22050 Hz (DA original)</MenuItem>
+            <MenuItem value={44100}>44100 Hz (Hybrasyl)</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Bitrate</InputLabel>
+          <Select
+            value={musEncodeKbps}
+            label="Bitrate"
+            onChange={(e) => setMusEncodeKbps(Number(e.target.value))}
+          >
+            <MenuItem value={64}>64 kbps (DA original)</MenuItem>
+            <MenuItem value={128}>128 kbps</MenuItem>
+            <MenuItem value={192}>192 kbps</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {/* Working directories */}
+      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
+        Working Directories
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Output directories where packs are deployed as numbered <code>.mus</code> files.
+      </Typography>
+
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddWorkingDir}>
+          Add Directory
+        </Button>
+        <Tooltip title="Remove selected directory">
+          <span>
+            <Button variant="contained" color="error" startIcon={<DeleteIcon />}
+              disabled={!selected} onClick={() => setConfirmOpen(true)}>
+              Remove
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title="Set selected directory as active">
+          <span>
+            <Button variant="contained" color="success"
+              disabled={!selected || selected === activeMusicWorkingDir}
+              onClick={() => selected && setActiveMusicWorkingDir(selected)}>
+              Set Active
+            </Button>
+          </span>
+        </Tooltip>
+      </Box>
+
+      <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
+        {musicWorkingDirs.length === 0 && (
+          <ListItem>
+            <ListItemText primary={<Typography variant="body2" color="text.secondary">No working directories added yet.</Typography>} />
+          </ListItem>
+        )}
+        {musicWorkingDirs.map((dir) => (
+          <ListItem key={dir} component="div"
+            onClick={() => setSelected(dir)}
+            selected={selected === dir}
+            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+              <ListItemText
+                primary={dir}
+                primaryTypographyProps={{ variant: 'body2', color: 'text.button', sx: { wordBreak: 'break-all' } }}
+              />
+              {dir === activeMusicWorkingDir && (
+                <Chip label="Active" size="small" color="primary" icon={<CheckCircleIcon />} sx={{ flexShrink: 0 }} />
+              )}
+            </Box>
+          </ListItem>
+        ))}
+      </List>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Remove Working Directory</DialogTitle>
+        <DialogContent>
+          <Typography>Remove <strong>{selected}</strong>?</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            The directory and its files are not deleted — only removed from Taliesin.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={handleRemoveConfirmed} color="error">Remove</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  )
+}
+
 // ── Settings Page ─────────────────────────────────────────────────────────────
 
 const SettingsPage: React.FC = () => {
@@ -437,6 +656,10 @@ const SettingsPage: React.FC = () => {
       <Divider sx={{ mt: 3, mb: 3 }} />
 
       <ManageMapDirectories />
+
+      <Divider sx={{ mt: 3, mb: 3 }} />
+
+      <ManageMusicSettings />
 
       <Divider sx={{ mt: 3, mb: 3 }} />
 

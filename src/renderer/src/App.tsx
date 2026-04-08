@@ -9,6 +9,12 @@ import {
   activeLibraryState,
   mapDirectoriesState,
   activeMapDirectoryState,
+  musicLibraryPathState,
+  musicWorkingDirsState,
+  activeMusicWorkingDirState,
+  ffmpegPathState,
+  musEncodeKbpsState,
+  musEncodeSampleRateState,
   dirtyEditorState,
   ThemeName,
   type MapDirectory
@@ -33,6 +39,12 @@ export default function App(): React.ReactElement {
   const [, setActiveLibrary] = useRecoilState(activeLibraryState)
   const [, setMapDirectories] = useRecoilState(mapDirectoriesState)
   const [, setActiveMapDirectory] = useRecoilState(activeMapDirectoryState)
+  const [, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
+  const [, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
+  const [, setActiveMusicWorkingDir] = useRecoilState(activeMusicWorkingDirState)
+  const [, setFfmpegPath]          = useRecoilState(ffmpegPathState)
+  const [, setMusEncodeKbps]       = useRecoilState(musEncodeKbpsState)
+  const [, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
   const [, setCurrentPage] = useRecoilState(currentPageState)
   const [dirtyEditor, setDirtyEditor] = useRecoilState(dirtyEditorState)
 
@@ -51,6 +63,12 @@ export default function App(): React.ReactElement {
       if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
       if (Array.isArray(settings.mapDirectories)) setMapDirectories(settings.mapDirectories as MapDirectory[])
       if (typeof settings.activeMapDirectory === 'string') setActiveMapDirectory(settings.activeMapDirectory)
+      if (typeof settings.musicLibraryPath === 'string') setMusicLibraryPath(settings.musicLibraryPath)
+      if (Array.isArray(settings.musicWorkingDirs)) setMusicWorkingDirs(settings.musicWorkingDirs as string[])
+      if (typeof settings.activeMusicWorkingDir === 'string') setActiveMusicWorkingDir(settings.activeMusicWorkingDir)
+      if (typeof settings.ffmpegPath === 'string') setFfmpegPath(settings.ffmpegPath)
+      if (typeof settings.musEncodeKbps === 'number') setMusEncodeKbps(settings.musEncodeKbps)
+      if (typeof settings.musEncodeSampleRate === 'number') setMusEncodeSampleRate(settings.musEncodeSampleRate)
       settingsLoaded.current = true
     })
   }, [])
@@ -59,13 +77,26 @@ export default function App(): React.ReactElement {
   const clientPath        = useRecoilValue(clientPathState)
   const libraries         = useRecoilValue(librariesState)
   const activeLibrary     = useRecoilValue(activeLibraryState)
-  const mapDirectories    = useRecoilValue(mapDirectoriesState)
-  const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
+  const mapDirectories       = useRecoilValue(mapDirectoriesState)
+  const activeMapDirectory   = useRecoilValue(activeMapDirectoryState)
+  const musicLibraryPath     = useRecoilValue(musicLibraryPathState)
+  const musicWorkingDirs     = useRecoilValue(musicWorkingDirsState)
+  const activeMusicWorkingDir = useRecoilValue(activeMusicWorkingDirState)
+  const ffmpegPath             = useRecoilValue(ffmpegPathState)
+  const musEncodeKbps          = useRecoilValue(musEncodeKbpsState)
+  const musEncodeSampleRate    = useRecoilValue(musEncodeSampleRateState)
 
   useEffect(() => {
     if (!settingsLoaded.current) return
-    window.api.saveSettings({ theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory })
-  }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory])
+    window.api.saveSettings({
+      theme, clientPath, libraries, activeLibrary,
+      mapDirectories, activeMapDirectory,
+      musicLibraryPath, musicWorkingDirs, activeMusicWorkingDir,
+      ffmpegPath, musEncodeKbps, musEncodeSampleRate,
+    })
+  }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory,
+      musicLibraryPath, musicWorkingDirs, activeMusicWorkingDir,
+      ffmpegPath, musEncodeKbps, musEncodeSampleRate])
 
   useEffect(() => { dirtyEditorRef.current = dirtyEditor }, [dirtyEditor])
 

@@ -14,6 +14,12 @@ export interface TaliesinSettings {
   activeMapDirectory: string | null
   theme?: string
   lastOpenedArchive?: string
+  musicLibraryPath?: string
+  musicWorkingDirs: string[]
+  activeMusicWorkingDir?: string
+  ffmpegPath?: string
+  musEncodeKbps: number
+  musEncodeSampleRate: number
 }
 
 const DEFAULTS: TaliesinSettings = {
@@ -21,6 +27,9 @@ const DEFAULTS: TaliesinSettings = {
   activeLibrary: null,
   mapDirectories: [],
   activeMapDirectory: null,
+  musicWorkingDirs: [],
+  musEncodeKbps: 64,
+  musEncodeSampleRate: 22050,
 }
 
 function validate(data: unknown): boolean {
@@ -44,6 +53,12 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
     activeMapDirectory: data.activeMapDirectory ?? null,
     theme: typeof data.theme === 'string' ? data.theme : undefined,
     lastOpenedArchive: typeof data.lastOpenedArchive === 'string' ? data.lastOpenedArchive : undefined,
+    musicLibraryPath: typeof data.musicLibraryPath === 'string' ? data.musicLibraryPath : undefined,
+    musicWorkingDirs: Array.isArray(data.musicWorkingDirs) ? (data.musicWorkingDirs as string[]).filter((d) => typeof d === 'string') : [],
+    activeMusicWorkingDir: typeof data.activeMusicWorkingDir === 'string' ? data.activeMusicWorkingDir : undefined,
+    ffmpegPath: typeof data.ffmpegPath === 'string' ? data.ffmpegPath : undefined,
+    musEncodeKbps: typeof data.musEncodeKbps === 'number' ? data.musEncodeKbps : 64,
+    musEncodeSampleRate: typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050,
   }
 }
 

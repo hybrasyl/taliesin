@@ -2,7 +2,7 @@ import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
-export type Page = 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'sprites' | 'settings'
+export type Page = 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'sprites' | 'music' | 'settings'
 
 export interface DirtyEditor {
   label: string
@@ -75,4 +75,41 @@ export const mapDirectoriesState = atom<MapDirectory[]>({
 export const activeMapDirectoryState = atom<string | null>({
   key: 'activeMapDirectoryState',
   default: null
+})
+
+// ── Music Manager ─────────────────────────────────────────────────────────────
+
+// Root directory of the master music source library (.mp3/.ogg/.mus files)
+export const musicLibraryPathState = atom<string | null>({
+  key: 'musicLibraryPathState',
+  default: null
+})
+
+// Working/output directories (where packs get deployed as N.mus files)
+export const musicWorkingDirsState = atom<string[]>({
+  key: 'musicWorkingDirsState',
+  default: []
+})
+
+// Which working directory is currently active for deploy operations
+export const activeMusicWorkingDirState = atom<string | null>({
+  key: 'activeMusicWorkingDirState',
+  default: null
+})
+
+// Path to ffmpeg binary (null = use system PATH)
+export const ffmpegPathState = atom<string | null>({
+  key: 'ffmpegPathState',
+  default: null
+})
+
+// .mus encode settings — defaults match original DA client files
+export const musEncodeKbpsState = atom<number>({
+  key: 'musEncodeKbpsState',
+  default: 64
+})
+
+export const musEncodeSampleRateState = atom<number>({
+  key: 'musEncodeSampleRateState',
+  default: 22050
 })
