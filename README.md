@@ -13,6 +13,7 @@ Built with Electron + React + MUI.
 - **World map editor** — edit world map point sets with canvas placement; supports derived groups linked to a master set, with per-group exclusions and one-click sync
 - **Archive browser** — inspect raw Dark Ages client archive files
 - **Sprite viewer** — browse and preview client sprites
+- **Music manager** — manage a local audio library with metadata editing and playback; organize tracks into packs with music ID assignment and ffmpeg-based deployment to client working directories; browse music directly from DA client archives
 - **Unsaved changes guard** — prompts before navigating away or closing
 
 ## World map groups
@@ -54,7 +55,6 @@ Node.js 18+ required; development is done on Node 24.
 
 - **Archive browser** — list, preview, and extract entries from `.dat` client archives
 - **Sprite viewer** — frame-by-frame and animated preview for `.spf`, `.epf`, `.mpf`, `.efa` sprites with palette selection
-- **Music manager** — browse and play DA client music tracks; cross-reference with map music field
 - **Sound effects browser** — list and preview SFX entries from archives
 
 ### Phase 2

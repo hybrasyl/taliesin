@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, screen } from 'electron'
 import { join, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { execFile } from 'child_process'
@@ -39,6 +39,11 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('maximize', () => {
+    const { workArea } = screen.getDisplayMatching(mainWindow.getBounds())
+    mainWindow.setBounds(workArea)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
