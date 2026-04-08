@@ -9,17 +9,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { buildWorldIndex, readWorldIndex, getIndexStatus, deleteWorldIndex, resolveLibraryPath } from './indexBuilder'
 
-let userDataPath: string
+// Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local)
+const settingsPath = join(app.getPath('appData'), 'Erisco', 'Taliesin')
+const cachePath = join(app.getPath('cache'), 'Erisco', 'Taliesin')
+app.setPath('userData', cachePath)
 
-if (process.platform === 'win32') {
-  userDataPath = join(app.getPath('home'), 'AppData', 'Local', 'Erisco', 'Taliesin')
-} else {
-  userDataPath = join(app.getPath('appData'), 'Erisco', 'Taliesin')
-}
-
-app.setPath('userData', userDataPath)
-
-const settingsManager = createSettingsManager(userDataPath)
+const settingsManager = createSettingsManager(settingsPath)
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -97,7 +92,7 @@ ipcMain.on('close-window', (e) => {
 
 ipcMain.handle('settings:load', () => settingsManager.load())
 ipcMain.handle('settings:save', (_, settings) => settingsManager.save(settings))
-ipcMain.handle('get-user-data-path', () => userDataPath)
+ipcMain.handle('get-user-data-path', () => settingsPath)
 
 // ── File system ───────────────────────────────────────────────────────────────
 
