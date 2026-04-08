@@ -4,27 +4,53 @@ A desktop viewer and editor for [Dark Ages](https://www.darkages.com) client ass
 
 Built with Electron + React + MUI.
 
+## Creidhne integration
+
+Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne maintains. Point both apps at the same world library folder in Settings and the index stays in sync automatically — map names, NPC lists, and other cross-references are available in both tools without a separate build step.
+
 > For far too long, previous members of the dev team maintained that a tool like this could not exist due to the complexity of the underlying XML structures. Recent advances in machine learning and latent space navigation have shown this to be demonstrably false.
 
 ## Features
 
-- **Map catalog** — browse the full client map library with thumbnail previews
-- **Map XML editor** — create and edit Hybrasyl map XML files with a visual tile editor for warps, NPC spawns, and reactors
-- **World map editor** — edit world map point sets with canvas placement; supports derived groups linked to a master set, with per-group exclusions and one-click sync
-- **Archive browser** — inspect raw Dark Ages client archive files
-- **Sprite viewer** — browse and preview client sprites
-- **Music manager** — manage a local audio library with metadata editing and playback; organize tracks into packs with music ID assignment and ffmpeg-based deployment to client working directories; browse music directly from DA client archives
-- **Unsaved changes guard** — prompts before navigating away or closing
+| Feature | Status |
+| --- | --- |
+| Map Catalog | ✅ Complete |
+| Map XML Editor | ✅ Complete |
+| World Map Editor | ✅ Complete |
+| Music Manager | ✅ Complete |
+| Settings | ✅ Complete |
+| Archive Browser | 🔲 Phase 1 |
+| Sprite Viewer | 🔲 Phase 1 |
+| Sound Effects Browser | 🔲 Phase 1 |
+| Asset Import Manager | 🔲 Phase 2 |
+| Map Editor / Creator | 🔲 Phase 2 |
+| Procedural Map Generation | 🔲 Phase 2 |
 
-## World map groups
+### Map Catalog
 
-World map sets show different subsets of locations depending on where the player accesses the map from (e.g. entering Pravat Cave from the north vs. south shows a different active node). Taliesin models this as a **master set** plus **derived groups**:
+Scan a directory of DA client `.map` files and build a browsable catalog. Each map is rendered to a thumbnail via dalib-ts and stored with metadata — dimensions, description, source tag, custom tags, and notes — in a sidecar `catalog.json`. Sort and filter by tag, dimensions, or source. Generate a minimal Hybrasyl Map XML stub from any catalog entry to open directly in the Map XML Editor.
+
+### Map XML Editor
+
+Load, edit, and save Hybrasyl Map XML files alongside the rendered client map. Covers core fields (Id, Name, Description, dimensions, Music, flags) and sub-editors for Warps, NPCs, Reactors, Signs, and SpawnGroups. Objects are placeable and draggable on the map canvas. Syncs with the Hybrasyl world library folder configured in Settings. Includes an unsaved changes guard.
+
+### World Map Editor
+
+Load and edit Hybrasyl WorldMap XML with a visual overlay on the client world map image. Points appear as draggable pins; click to edit name, target map, coordinates, and access restrictions. Supports a **master set** plus **derived groups** model for world maps that show different subsets of locations depending on where the player enters:
 
 - `worldmaps/.ignore/MasterMapSet.xml` — canonical set of all locations and their canvas positions
-- Each active group XML is derived from the master, with a sidecar `.meta.json` (also in `.ignore/`) recording which master points are excluded
-- Opening a derived group in the editor shows active points and a collapsible **Excluded** list; deleting a point moves it to excluded rather than removing it permanently
+- Each derived group XML has a sidecar `.meta.json` recording which master points are excluded
+- Opening a derived group shows active points and a collapsible **Excluded** list; deleting a point moves it to excluded rather than removing it permanently
 - **Sync from Master** replaces the group's points with master-minus-exclusions
 - **Link to Master** (one-time migration) computes the exclusion list automatically from an existing group file
+
+### Music Manager
+
+Manage a local audio library of DA music tracks. The **Library** tab scans a configured directory for audio files and provides metadata editing (display name, music ID) and in-app playback. The **Packs** tab organizes tracks into named packs with drag-reorder, music ID assignment, and ffmpeg-based encoding and deployment to client working directories. The **Client View** tab browses music entries directly from DA client archives.
+
+### Settings
+
+Configure the DA client install path (used to locate archives), the Hybrasyl world library path (shared with Creidhne), and the application theme. Settings are persisted across sessions.
 
 ## Installation
 
@@ -48,20 +74,6 @@ Node.js 18+ required; development is done on Node 24.
 | `src/renderer/src/pages/` | One page component per feature |
 | `src/renderer/src/components/` | Shared and feature-specific components |
 | `src/renderer/src/utils/` | XML parse/serialize, rendering utilities |
-
-## Planned features
-
-### Phase 1 (in progress)
-
-- **Archive browser** — list, preview, and extract entries from `.dat` client archives
-- **Sprite viewer** — frame-by-frame and animated preview for `.spf`, `.epf`, `.mpf`, `.efa` sprites with palette selection
-- **Sound effects browser** — list and preview SFX entries from archives
-
-### Phase 2
-
-- **Asset import manager** — inject new tiles and sprites into existing `.dat` archives; depends on research into how the DA client merges split archive files
-- **Map editor / creator** — paint-based editor for DA `.map` binary files (foreground, background, walk layers); new map creation and round-trip with Map XML Editor
-- **Procedural map generation** — parameter-driven generation of `.map` binaries and Hybrasyl XML stubs, with optional seed-based reproducibility
 
 ## Testing
 
