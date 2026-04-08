@@ -84,6 +84,16 @@ const api = {
   musicClientScan: (clientPath: string): Promise<MusicScanEntry[]> =>
     ipcRenderer.invoke('music:client:scan', clientPath),
 
+  // Sound Effects
+  sfxList: (clientPath: string): Promise<{ entryName: string; sizeBytes: number }[]> =>
+    ipcRenderer.invoke('sfx:list', clientPath),
+  sfxReadEntry: (clientPath: string, entryName: string): Promise<Buffer> =>
+    ipcRenderer.invoke('sfx:readEntry', clientPath, entryName),
+  sfxIndexLoad: (activeLibrary: string): Promise<Record<string, { name?: string; comment?: string }>> =>
+    ipcRenderer.invoke('sfx:index:load', activeLibrary),
+  sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) =>
+    ipcRenderer.invoke('sfx:index:save', activeLibrary, data),
+
   // World index (shared with Creidhne via <library>/world/.creidhne/index.json)
   indexRead: (libraryRoot: string): Promise<unknown | null> =>
     ipcRenderer.invoke('index:read', libraryRoot),

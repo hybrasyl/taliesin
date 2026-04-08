@@ -369,6 +369,44 @@ ipcMain.handle('music:client:scan', async (_, clientPath: string) => {
   }
 })
 
+// ── Sound Effects ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('sfx:list', async (_, clientPath: string) => {
+  const { DataArchive } = await import('dalib-ts')
+  const legendPath = join(clientPath, 'legend.dat')
+  const buf = await fs.readFile(legendPath)
+  const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
+  return archive.entries
+    .filter((e) => e.entryName.toLowerCase().endsWith('.mp3'))
+    .map((e) => ({ entryName: e.entryName, sizeBytes: e.fileSize }))
+})
+
+ipcMain.handle('sfx:readEntry', async (_, clientPath: string, entryName: string) => {
+  const { DataArchive } = await import('dalib-ts')
+  const legendPath = join(clientPath, 'legend.dat')
+  const buf = await fs.readFile(legendPath)
+  const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
+  const entry = archive.get(entryName)
+  if (!entry) throw new Error(`Entry not found: ${entryName}`)
+  return Buffer.from(archive.getEntryBuffer(entry))
+})
+
+// sfx index is stored at <libraryRoot>/world/sfx-index.json
+// activeLibrary passed in is <libraryRoot>/world/xml — go up one level
+ipcMain.handle('sfx:index:load', async (_, activeLibrary: string) => {
+  const p = join(activeLibrary, '..', 'sfx-index.json')
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
+})
+
+ipcMain.handle('sfx:index:save', async (_, activeLibrary: string, data: unknown) => {
+  const p = join(activeLibrary, '..', 'sfx-index.json')
+  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+})
+
 // ── World index ───────────────────────────────────────────────────────────────
 
 ipcMain.handle('index:read', async (_, libraryRoot: string) => {

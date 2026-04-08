@@ -7,6 +7,7 @@ import {
   GiArchiveResearch,
   GiSpellBook,
   GiMusicalNotes,
+  GiSoundWaves,
   GiSettingsKnobs
 } from 'react-icons/gi'
 import { useRecoilState, useRecoilValue } from 'recoil'
@@ -90,6 +91,11 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Music Manager">
         <IconButton sx={sx('music')} onClick={nav('music')}>
           <GiMusicalNotes />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Sound Effects">
+        <IconButton sx={sx('sfx')} onClick={nav('sfx')}>
+          <GiSoundWaves />
         </IconButton>
       </Tooltip>
 
