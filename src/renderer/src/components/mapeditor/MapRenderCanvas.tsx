@@ -15,7 +15,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, CircularProgress, Typography } from '@mui/material'
-import { MapFile } from 'dalib-ts'
+import { MapFile } from '@eriscorp/dalib-ts'
 import {
   loadMapAssets, renderMap, renderSchematicScaled,
   isoCanvasSize, tileToScreen, screenToTileCoords,

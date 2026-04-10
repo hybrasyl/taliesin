@@ -6,7 +6,7 @@
  * Native canvas size: 640×480.
  */
 
-import { DataArchive, EpfFile, Palette } from 'dalib-ts'
+import { DataArchive, EpfFile, Palette } from '@eriscorp/dalib-ts'
 
 export const FIELD_NAMES = Array.from({ length: 11 }, (_, i) =>
   `field${String(i).padStart(3, '0')}`   // field000 … field010

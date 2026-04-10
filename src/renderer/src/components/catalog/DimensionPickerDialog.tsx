@@ -5,7 +5,7 @@ import {
 } from '@mui/material'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
-import { MapFile } from 'dalib-ts'
+import { MapFile } from '@eriscorp/dalib-ts'
 import { loadMapAssets, renderMap } from '../../utils/mapRenderer'
 
 interface DimPair {

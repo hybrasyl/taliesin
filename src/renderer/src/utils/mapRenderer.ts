@@ -7,7 +7,7 @@
  * Assets are loaded once per clientPath and cached for the lifetime of the renderer process.
  */
 
-import { DataArchive, HpfFile, Palette, PaletteTable, MapFile } from 'dalib-ts'
+import { DataArchive, HpfFile, Palette, PaletteTable, MapFile } from '@eriscorp/dalib-ts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

@@ -195,7 +195,7 @@ ipcMain.handle('fs:ensureDir', async (_, dirPath: string) => {
 
 /** Returns the list of entry names inside a .dat archive (for diagnostics). */
 ipcMain.handle('fs:listArchive', async (_, filePath: string) => {
-  const { DataArchive } = await import('dalib-ts')
+  const { DataArchive } = await import('@eriscorp/dalib-ts')
   const buf = await fs.readFile(filePath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries.map(e => e.entryName)
@@ -367,7 +367,7 @@ ipcMain.handle('music:client:scan', async (_, clientPath: string) => {
 // ── Sound Effects ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('sfx:list', async (_, clientPath: string) => {
-  const { DataArchive } = await import('dalib-ts')
+  const { DataArchive } = await import('@eriscorp/dalib-ts')
   const legendPath = join(clientPath, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
@@ -377,7 +377,7 @@ ipcMain.handle('sfx:list', async (_, clientPath: string) => {
 })
 
 ipcMain.handle('sfx:readEntry', async (_, clientPath: string, entryName: string) => {
-  const { DataArchive } = await import('dalib-ts')
+  const { DataArchive } = await import('@eriscorp/dalib-ts')
   const legendPath = join(clientPath, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
