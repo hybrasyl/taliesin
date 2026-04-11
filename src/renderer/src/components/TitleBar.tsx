@@ -23,7 +23,7 @@ const winBtnSx = {
 const TitleBar: React.FC = () => {
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 36, px: 1.5 }}>
-      <img src="/taliesin.png" alt="Taliesin" style={{ height: 28, marginRight: 8 }} />
+      <img src="./taliesin.png" alt="Taliesin" style={{ height: 28, marginRight: 8 }} />
       <Typography variant="h6" sx={{ fontWeight: 'bold', flexGrow: 0, fontSize: '1.5rem' }}>
         Taliesin
       </Typography>
