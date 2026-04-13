@@ -11,6 +11,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LinkIcon       from '@mui/icons-material/Link'
 import RestoreIcon    from '@mui/icons-material/Restore'
+import StarIcon       from '@mui/icons-material/Star'
 import SyncIcon       from '@mui/icons-material/Sync'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import EditorHeader   from '../shared/EditorHeader'
@@ -31,6 +32,7 @@ interface Props {
   worldMap: WorldMapData
   initialFileName: string | null
   isTemplate: boolean
+  isReferenceSet?: boolean
   isExisting: boolean
   mapNames: string[]
   meta: WorldMapMeta | null
@@ -222,6 +224,7 @@ export default function WorldMapEditorPanel({
   worldMap,
   initialFileName,
   isTemplate,
+  isReferenceSet,
   isExisting,
   mapNames,
   meta,
@@ -377,7 +380,7 @@ export default function WorldMapEditorPanel({
         initialFileName={initialFileName ?? undefined}
         computedFileName={computedFileName}
         isExisting={isExisting}
-        isArchived={isTemplate}
+        isArchived={isTemplate && !isReferenceSet}
         archiveLabel="Move to Templates"
         unarchiveLabel="Move to Active"
         onFileNameChange={setFileName}
@@ -386,6 +389,18 @@ export default function WorldMapEditorPanel({
         onArchive={onMoveToTemplates}
         onUnarchive={onMoveToActive}
       />
+
+      {/* Reference set badge */}
+      {isReferenceSet && (
+        <Chip
+          icon={<StarIcon sx={{ fontSize: 14 }} />}
+          label="Reference Set"
+          size="small"
+          color="warning"
+          variant="outlined"
+          sx={{ alignSelf: 'flex-start', mb: 1 }}
+        />
+      )}
 
       {/* Orphan warning */}
       {isDerived && orphanKeys.size > 0 && (
@@ -449,7 +464,7 @@ export default function WorldMapEditorPanel({
                 Click map to place
               </Typography>
             )}
-            {isExisting && (
+            {isExisting && !isReferenceSet && (
               <Tooltip title="Link this group to the reference map set">
                 <Chip
                   icon={<LinkIcon sx={{ fontSize: 14 }} />}

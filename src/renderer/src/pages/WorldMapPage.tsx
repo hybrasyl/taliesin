@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useRecoilValue } from 'recoil'
 import {
-  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
+  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogContentText, DialogTitle, Divider, IconButton,
   InputAdornment, List, ListItem, ListItemButton, ListItemText,
   Snackbar, TextField, Tooltip, Typography,
@@ -9,6 +9,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import SearchIcon from '@mui/icons-material/Search'
+import StarIcon from '@mui/icons-material/Star'
 import { activeLibraryState } from '../recoil/atoms'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
@@ -24,6 +25,8 @@ interface FileEntry {
   name: string
   path: string
   template?: boolean
+  /** True only for the canonical reference set */
+  isReferenceSet?: boolean
 }
 
 const WORLDMAPS_SUBDIR    = 'worldmaps'
@@ -33,19 +36,23 @@ const REFERENCE_FILENAME  = 'ReferenceMapSet.xml'
 // ── File list panel ───────────────────────────────────────────────────────────
 
 function FileListPanel({
+  referenceFile,
   files,
   templateFiles,
   selectedFile,
   onSelect,
   onNew,
+  onCreateReference,
   showTemplates,
   onToggleTemplates,
 }: {
+  referenceFile: FileEntry | null
   files: FileEntry[]
   templateFiles: FileEntry[]
   selectedFile: FileEntry | null
   onSelect: (f: FileEntry) => void
   onNew: () => void
+  onCreateReference: () => void
   showTemplates: boolean
   onToggleTemplates: () => void
 }) {
@@ -58,6 +65,10 @@ function FileListPanel({
 
   const filteredActive    = filtered(files)
   const filteredTemplates = filtered(templateFiles)
+
+  const refMatchesSearch = !search.trim() ||
+    REFERENCE_FILENAME.toLowerCase().includes(search.toLowerCase()) ||
+    'reference set'.includes(search.toLowerCase())
 
   return (
     <Box sx={{ width: 240, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -83,26 +94,69 @@ function FileListPanel({
       </Box>
       <Divider />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {files.length === 0 && !showTemplates ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            No world map XMLs found. Check that a library is set in Settings.
-          </Typography>
-        ) : filteredActive.length === 0 && (!showTemplates || filteredTemplates.length === 0) ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No matches.</Typography>
-        ) : (
+        {/* Reference Set — always visible */}
+        {refMatchesSearch && (
           <>
-            <List dense disablePadding>
-              {filteredActive.map(f => (
-                <ListItem key={f.path} disablePadding>
-                  <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+            <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>Reference Set</Typography>
+            </Box>
+            {referenceFile ? (
+              <List dense disablePadding>
+                <ListItem disablePadding>
+                  <ListItemButton
+                    selected={selectedFile?.path === referenceFile.path}
+                    onClick={() => onSelect(referenceFile)}
+                  >
                     <ListItemText
-                      primary={f.name.replace(/\.xml$/i, '')}
+                      primary={referenceFile.name.replace(/\.xml$/i, '')}
                       primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
                     />
                   </ListItemButton>
                 </ListItem>
-              ))}
-            </List>
+              </List>
+            ) : (
+              <Box sx={{ px: 1.5, pb: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={onCreateReference}
+                  fullWidth
+                >
+                  Create Reference Set
+                </Button>
+              </Box>
+            )}
+            <Divider sx={{ my: 0.5 }} />
+          </>
+        )}
+
+        {/* Active maps */}
+        {filteredActive.length === 0 && !showTemplates && !referenceFile ? (
+          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            No world map XMLs found. Check that a library is set in Settings.
+          </Typography>
+        ) : filteredActive.length === 0 && (!showTemplates || filteredTemplates.length === 0) ? (
+          !refMatchesSearch && (
+            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No matches.</Typography>
+          )
+        ) : (
+          <>
+            {filteredActive.length > 0 && (
+              <List dense disablePadding>
+                {filteredActive.map(f => (
+                  <ListItem key={f.path} disablePadding>
+                    <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+                      <ListItemText
+                        primary={f.name.replace(/\.xml$/i, '')}
+                        primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
             {showTemplates && filteredTemplates.length > 0 && (
               <>
                 <Divider sx={{ my: 0.5 }} />
@@ -135,6 +189,7 @@ function FileListPanel({
 export default function WorldMapPage() {
   const activeLibrary = useRecoilValue(activeLibraryState)
 
+  const [referenceFile,  setReferenceFile]  = useState<FileEntry | null>(null)
   const [files,          setFiles]          = useState<FileEntry[]>([])
   const [templateFiles,  setTemplateFiles]  = useState<FileEntry[]>([])
   const [selectedFile,   setSelectedFile]   = useState<FileEntry | null>(null)
@@ -174,24 +229,40 @@ export default function WorldMapPage() {
     }
   }
 
-  const loadTemplateFiles = async () => {
-    if (!ignoreDir) { setTemplateFiles([]); return }
+  const loadIgnoreFiles = async () => {
+    if (!ignoreDir) {
+      setReferenceFile(null)
+      setTemplateFiles([])
+      return
+    }
     try {
       await window.api.ensureDir(ignoreDir)
       const entries = await window.api.listDir(ignoreDir)
+      const xmlFiles = entries
+        .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      // Separate reference set from other templates
+      const refEntry = xmlFiles.find(e => e.name === REFERENCE_FILENAME)
+      setReferenceFile(
+        refEntry
+          ? { name: refEntry.name, path: `${ignoreDir}/${refEntry.name}`, template: true, isReferenceSet: true }
+          : null
+      )
       setTemplateFiles(
-        entries
-          .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
+        xmlFiles
+          .filter(e => e.name !== REFERENCE_FILENAME)
           .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, template: true }))
-          .sort((a, b) => a.name.localeCompare(b.name))
       )
     } catch {
+      setReferenceFile(null)
       setTemplateFiles([])
     }
   }
 
   useEffect(() => {
     if (!activeLibrary) {
+      setReferenceFile(null)
       setFiles([])
       setTemplateFiles([])
       setSelectedFile(null)
@@ -201,13 +272,35 @@ export default function WorldMapPage() {
       return
     }
     loadActiveFiles()
-    loadTemplateFiles()
+    loadIgnoreFiles()
   }, [activeLibrary])
 
   const handleToggleTemplates = async () => {
     const next = !showTemplates
     setShowTemplates(next)
-    if (next) await loadTemplateFiles()
+    if (next) await loadIgnoreFiles()
+  }
+
+  // ── Create reference set ──────────────────────────────────────────────────
+
+  const handleCreateReference = async () => {
+    if (!ignoreDir) return
+    const refPath = `${ignoreDir}/${REFERENCE_FILENAME}`
+    try {
+      const newMap: WorldMapData = { ...DEFAULT_WORLD_MAP, name: 'Reference Map Set' }
+      const xml = serializeWorldMapXml(newMap)
+      await window.api.writeFile(refPath, xml)
+      const entry: FileEntry = { name: REFERENCE_FILENAME, path: refPath, template: true, isReferenceSet: true }
+      setReferenceFile(entry)
+      // Open it immediately for editing
+      setSelectedFile(entry)
+      setEditingMap(newMap)
+      setMeta(null)
+      setReferencePoints(null)
+      setLoadError(null)
+    } catch (err) {
+      setSnackbar({ message: `Failed to create reference set: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+    }
   }
 
   // ── Meta helpers ──────────────────────────────────────────────────────────
@@ -292,14 +385,14 @@ export default function WorldMapPage() {
 
       if (isRename && selectedFile) {
         setSnackbar({ message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`, severity: 'info' })
-        setSelectedFile({ name: fileName, path: newPath, template: isTemplate || undefined })
+        setSelectedFile({ name: fileName, path: newPath, template: isTemplate || undefined, isReferenceSet: selectedFile.isReferenceSet })
       } else if (!selectedFile) {
         setSelectedFile({ name: fileName, path: newPath })
       }
 
       markClean()
       await loadActiveFiles()
-      if (isTemplate) await loadTemplateFiles()
+      if (isTemplate) await loadIgnoreFiles()
     } catch (err) {
       setSnackbar({ message: `Save failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
@@ -320,7 +413,7 @@ export default function WorldMapPage() {
       setMeta(null)
       setReferencePoints(null)
       await loadActiveFiles()
-      await loadTemplateFiles()
+      await loadIgnoreFiles()
     } catch (err) {
       setSnackbar({ message: `Move failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
@@ -339,7 +432,7 @@ export default function WorldMapPage() {
       setMeta(null)
       setReferencePoints(null)
       await loadActiveFiles()
-      await loadTemplateFiles()
+      await loadIgnoreFiles()
     } catch (err) {
       setSnackbar({ message: `Move failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
@@ -416,7 +509,8 @@ export default function WorldMapPage() {
   }
 
   const handleDirtyChange = useCallback((dirty: boolean) => { dirty ? markDirty() : markClean() }, [markDirty, markClean])
-  const isTemplate = selectedFile?.template === true
+  const isTemplate     = selectedFile?.template === true
+  const isReferenceSet = selectedFile?.isReferenceSet === true
 
   // ── Sync confirm dialog ───────────────────────────────────────────────────
 
@@ -427,11 +521,13 @@ export default function WorldMapPage() {
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       <FileListPanel
+        referenceFile={referenceFile}
         files={files}
         templateFiles={templateFiles}
         selectedFile={selectedFile}
         onSelect={handleSelect}
         onNew={handleNew}
+        onCreateReference={() => guard(handleCreateReference)}
         showTemplates={showTemplates}
         onToggleTemplates={handleToggleTemplates}
       />
@@ -448,13 +544,14 @@ export default function WorldMapPage() {
             worldMap={editingMap}
             initialFileName={selectedFile?.name ?? null}
             isTemplate={isTemplate}
+            isReferenceSet={isReferenceSet}
             isExisting={!!selectedFile}
             mapNames={mapNames}
             meta={meta}
             referencePoints={referencePoints}
             onSave={handleSave}
-            onMoveToTemplates={handleMoveToTemplates}
-            onMoveToActive={handleMoveToActive}
+            onMoveToTemplates={isReferenceSet ? undefined : handleMoveToTemplates}
+            onMoveToActive={isReferenceSet ? undefined : handleMoveToActive}
             onDirtyChange={handleDirtyChange}
             onExclude={handleExclude}
             onRestore={handleRestore}
