@@ -193,6 +193,10 @@ ipcMain.handle('fs:ensureDir', async (_, dirPath: string) => {
   await fs.mkdir(dirPath, { recursive: true })
 })
 
+ipcMain.handle('fs:deleteFile', async (_, filePath: string) => {
+  await fs.unlink(filePath)
+})
+
 /** Returns the list of entry names inside a .dat archive (for diagnostics). */
 ipcMain.handle('fs:listArchive', async (_, filePath: string) => {
   const { DataArchive } = await import('@eriscorp/dalib-ts')

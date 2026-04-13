@@ -30,19 +30,19 @@ import type { MapWarp } from '../../data/mapData'
 interface Props {
   worldMap: WorldMapData
   initialFileName: string | null
-  isArchived: boolean
+  isTemplate: boolean
   isExisting: boolean
   mapNames: string[]
   meta: WorldMapMeta | null
-  masterPoints: WorldMapPoint[] | null
+  referencePoints: WorldMapPoint[] | null
   onSave: (data: WorldMapData, fileName: string) => Promise<void>
-  onArchive?: () => void
-  onUnarchive?: () => void
+  onMoveToTemplates?: () => void
+  onMoveToActive?: () => void
   onDirtyChange: (dirty: boolean) => void
   onExclude: (key: string) => void
   onRestore: (key: string) => void
   onSyncRequest: () => void
-  onLinkToMaster: () => void
+  onLinkToReference: () => void
   saveRef: React.MutableRefObject<(() => Promise<void>) | null>
 }
 
@@ -221,19 +221,19 @@ function ExcludedGroup({ items }: { items: ExcludedRow[] }) {
 export default function WorldMapEditorPanel({
   worldMap,
   initialFileName,
-  isArchived,
+  isTemplate,
   isExisting,
   mapNames,
   meta,
-  masterPoints,
+  referencePoints,
   onSave,
-  onArchive,
-  onUnarchive,
+  onMoveToTemplates,
+  onMoveToActive,
   onDirtyChange,
   onExclude,
   onRestore,
   onSyncRequest,
-  onLinkToMaster,
+  onLinkToReference,
   saveRef,
 }: Props) {
   const clientPath = useRecoilValue(clientPathState)
@@ -282,21 +282,21 @@ export default function WorldMapEditorPanel({
 
   // ── Derived mode computed values ──────────────────────────────────────────
 
-  const masterKeySet = new Set(masterPoints?.map(pointKey) ?? [])
-  const groupKeySet  = new Set(data.points.map(pointKey))
+  const refKeySet   = new Set(referencePoints?.map(pointKey) ?? [])
+  const groupKeySet = new Set(data.points.map(pointKey))
 
   const orphanKeys: Set<string> = new Set(
-    data.points.filter(p => masterPoints && !masterKeySet.has(pointKey(p))).map(pointKey)
+    data.points.filter(p => referencePoints && !refKeySet.has(pointKey(p))).map(pointKey)
   )
 
-  const excludedRows: ExcludedRow[] = isDerived && masterPoints
+  const excludedRows: ExcludedRow[] = isDerived && referencePoints
     ? (meta.excludes
         .map(k => {
-          const mp = masterPoints.find(p => pointKey(p) === k)
-          if (!mp) return null
+          const rp = referencePoints.find(p => pointKey(p) === k)
+          if (!rp) return null
           return {
             key: k,
-            label: `(${mp.x},${mp.y}) ${mp.name || '?'} → ${mp.targetMap || '?'}`,
+            label: `(${rp.x},${rp.y}) ${rp.name || '?'} → ${rp.targetMap || '?'}`,
             onRestore: () => onRestore(k),
           }
         })
@@ -332,7 +332,7 @@ export default function WorldMapEditorPanel({
     const p = data.points[index]
     if (!p) return
     if (isDerived) {
-      // In derived mode: exclude from master instead of deleting
+      // In derived mode: exclude from reference instead of deleting
       onExclude(pointKey(p))
       setData(prev => ({ ...prev, points: prev.points.filter((_, i) => i !== index) }))
       setSelectedIndex(s => s === index ? null : (s !== null && s > index ? s - 1 : s))
@@ -366,7 +366,7 @@ export default function WorldMapEditorPanel({
     ? (() => { const p = data.points[dialogState.editIndex!]; return p ? pointToWarp(p) : null })()
     : null
 
-  const canPlace = !isArchived && !isDerived
+  const canPlace = !isDerived
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -377,18 +377,20 @@ export default function WorldMapEditorPanel({
         initialFileName={initialFileName ?? undefined}
         computedFileName={computedFileName}
         isExisting={isExisting}
-        isArchived={isArchived}
+        isArchived={isTemplate}
+        archiveLabel="Move to Templates"
+        unarchiveLabel="Move to Active"
         onFileNameChange={setFileName}
         onRegenerate={() => setFileName(computedFileName)}
         onSave={doSave}
-        onArchive={onArchive}
-        onUnarchive={onUnarchive}
+        onArchive={onMoveToTemplates}
+        onUnarchive={onMoveToActive}
       />
 
       {/* Orphan warning */}
       {isDerived && orphanKeys.size > 0 && (
         <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
-          {orphanKeys.size} point(s) in this group are not in the master set and will be lost on next sync.
+          {orphanKeys.size} point(s) in this group are not in the reference set and will be lost on next sync.
         </Alert>
       )}
 
@@ -400,14 +402,12 @@ export default function WorldMapEditorPanel({
           value={data.name}
           onChange={e => updateData('name', e.target.value)}
           inputProps={{ spellCheck: false }}
-          disabled={isArchived}
           sx={{ width: 240 }}
         />
         <ClientMapSelect
           value={data.clientMap}
           onChange={v => updateData('clientMap', v)}
           clientPath={clientPath}
-          disabled={isArchived}
         />
       </Box>
 
@@ -419,17 +419,16 @@ export default function WorldMapEditorPanel({
           <>
             <Chip
               icon={<SyncIcon sx={{ fontSize: 14 }} />}
-              label={`Derived from ${meta.master}`}
+              label={`Derived from ${meta.reference}`}
               size="small"
               color="info"
               variant="outlined"
             />
-            <Tooltip title="Replace all points with master set minus exclusions">
+            <Tooltip title="Replace all points with reference set minus exclusions">
               <Chip
-                label="Sync from Master"
+                label="Sync from Reference"
                 size="small"
                 clickable
-                disabled={isArchived}
                 color="warning"
                 onClick={onSyncRequest}
               />
@@ -442,7 +441,6 @@ export default function WorldMapEditorPanel({
               label="Point"
               size="small"
               clickable
-              disabled={isArchived}
               color={placeMode ? 'primary' : 'default'}
               onClick={() => setPlaceMode(p => !p)}
             />
@@ -451,15 +449,15 @@ export default function WorldMapEditorPanel({
                 Click map to place
               </Typography>
             )}
-            {!isArchived && isExisting && (
-              <Tooltip title="Link this group to the master map set">
+            {isExisting && (
+              <Tooltip title="Link this group to the reference map set">
                 <Chip
                   icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                  label="Link to Master"
+                  label="Link to Reference"
                   size="small"
                   clickable
                   variant="outlined"
-                  onClick={onLinkToMaster}
+                  onClick={onLinkToReference}
                   sx={{ ml: 'auto' }}
                 />
               </Tooltip>
@@ -496,7 +494,7 @@ export default function WorldMapEditorPanel({
               label="Points"
               color="#2196f3"
               count={data.points.length}
-              addDisabled={isDerived || isArchived}
+              addDisabled={isDerived}
               onAdd={() => { if (canPlace) setPlaceMode(p => !p) }}
               items={data.points.map((p, i) => ({
                 key: i,

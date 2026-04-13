@@ -23,31 +23,31 @@ import {
 interface FileEntry {
   name: string
   path: string
-  archived?: boolean
+  template?: boolean
 }
 
-const WORLDMAPS_SUBDIR = 'worldmaps'
-const IGNORE_SUBDIR    = 'worldmaps/.ignore'
-const MASTER_FILENAME  = 'MasterMapSet.xml'
+const WORLDMAPS_SUBDIR    = 'worldmaps'
+const IGNORE_SUBDIR       = 'worldmaps/.ignore'
+const REFERENCE_FILENAME  = 'ReferenceMapSet.xml'
 
 // ── File list panel ───────────────────────────────────────────────────────────
 
 function FileListPanel({
   files,
-  archivedFiles,
+  templateFiles,
   selectedFile,
   onSelect,
   onNew,
-  showArchived,
-  onToggleArchived,
+  showTemplates,
+  onToggleTemplates,
 }: {
   files: FileEntry[]
-  archivedFiles: FileEntry[]
+  templateFiles: FileEntry[]
   selectedFile: FileEntry | null
   onSelect: (f: FileEntry) => void
   onNew: () => void
-  showArchived: boolean
-  onToggleArchived: () => void
+  showTemplates: boolean
+  onToggleTemplates: () => void
 }) {
   const [search, setSearch] = React.useState('')
 
@@ -56,16 +56,16 @@ function FileListPanel({
       ? list.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
       : list
 
-  const filteredActive   = filtered(files)
-  const filteredArchived = filtered(archivedFiles)
+  const filteredActive    = filtered(files)
+  const filteredTemplates = filtered(templateFiles)
 
   return (
     <Box sx={{ width: 240, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="subtitle2">World Maps</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title={showArchived ? 'Hide Archived' : 'Show Archived'}>
-            <IconButton size="small" onClick={onToggleArchived} color={showArchived ? 'primary' : 'default'}>
+          <Tooltip title={showTemplates ? 'Hide Templates' : 'Show Templates'}>
+            <IconButton size="small" onClick={onToggleTemplates} color={showTemplates ? 'primary' : 'default'}>
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -83,11 +83,11 @@ function FileListPanel({
       </Box>
       <Divider />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {files.length === 0 && !showArchived ? (
+        {files.length === 0 && !showTemplates ? (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
             No world map XMLs found. Check that a library is set in Settings.
           </Typography>
-        ) : filteredActive.length === 0 && (!showArchived || filteredArchived.length === 0) ? (
+        ) : filteredActive.length === 0 && (!showTemplates || filteredTemplates.length === 0) ? (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No matches.</Typography>
         ) : (
           <>
@@ -103,14 +103,14 @@ function FileListPanel({
                 </ListItem>
               ))}
             </List>
-            {showArchived && filteredArchived.length > 0 && (
+            {showTemplates && filteredTemplates.length > 0 && (
               <>
                 <Divider sx={{ my: 0.5 }} />
                 <Typography variant="caption" color="text.secondary" sx={{ px: 1.5, py: 0.5, display: 'block' }}>
-                  Archived
+                  Templates
                 </Typography>
                 <List dense disablePadding>
-                  {filteredArchived.map(f => (
+                  {filteredTemplates.map(f => (
                     <ListItem key={f.path} disablePadding>
                       <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
                         <ListItemText
@@ -135,18 +135,18 @@ function FileListPanel({
 export default function WorldMapPage() {
   const activeLibrary = useRecoilValue(activeLibraryState)
 
-  const [files,         setFiles]         = useState<FileEntry[]>([])
-  const [archivedFiles, setArchivedFiles] = useState<FileEntry[]>([])
-  const [selectedFile,  setSelectedFile]  = useState<FileEntry | null>(null)
-  const [editingMap,    setEditingMap]    = useState<WorldMapData | null>(null)
-  const [loadingMap,    setLoadingMap]    = useState(false)
-  const [loadError,     setLoadError]     = useState<string | null>(null)
-  const [showArchived,  setShowArchived]  = useState(false)
-  const [snackbar,      setSnackbar]      = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null)
+  const [files,          setFiles]          = useState<FileEntry[]>([])
+  const [templateFiles,  setTemplateFiles]  = useState<FileEntry[]>([])
+  const [selectedFile,   setSelectedFile]   = useState<FileEntry | null>(null)
+  const [editingMap,     setEditingMap]     = useState<WorldMapData | null>(null)
+  const [loadingMap,     setLoadingMap]     = useState(false)
+  const [loadError,      setLoadError]      = useState<string | null>(null)
+  const [showTemplates,  setShowTemplates]  = useState(false)
+  const [snackbar,       setSnackbar]       = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null)
 
-  const [meta,          setMeta]          = useState<WorldMapMeta | null>(null)
-  const [masterPoints,  setMasterPoints]  = useState<WorldMapData['points'] | null>(null)
-  const [syncConfirm,   setSyncConfirm]   = useState(false)
+  const [meta,             setMeta]             = useState<WorldMapMeta | null>(null)
+  const [referencePoints,  setReferencePoints]  = useState<WorldMapData['points'] | null>(null)
+  const [syncConfirm,      setSyncConfirm]      = useState(false)
 
   const { markDirty, markClean, saveRef, guard, dialogOpen,
     handleDialogSave, handleDialogDiscard, handleDialogCancel } = useUnsavedGuard('World Map')
@@ -174,40 +174,40 @@ export default function WorldMapPage() {
     }
   }
 
-  const loadArchivedFiles = async () => {
-    if (!ignoreDir) { setArchivedFiles([]); return }
+  const loadTemplateFiles = async () => {
+    if (!ignoreDir) { setTemplateFiles([]); return }
     try {
       await window.api.ensureDir(ignoreDir)
       const entries = await window.api.listDir(ignoreDir)
-      setArchivedFiles(
+      setTemplateFiles(
         entries
           .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, archived: true }))
+          .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, template: true }))
           .sort((a, b) => a.name.localeCompare(b.name))
       )
     } catch {
-      setArchivedFiles([])
+      setTemplateFiles([])
     }
   }
 
   useEffect(() => {
     if (!activeLibrary) {
       setFiles([])
-      setArchivedFiles([])
+      setTemplateFiles([])
       setSelectedFile(null)
       setEditingMap(null)
       setMeta(null)
-      setMasterPoints(null)
+      setReferencePoints(null)
       return
     }
     loadActiveFiles()
-    loadArchivedFiles()
+    loadTemplateFiles()
   }, [activeLibrary])
 
-  const handleToggleArchived = async () => {
-    const next = !showArchived
-    setShowArchived(next)
-    if (next) await loadArchivedFiles()
+  const handleToggleTemplates = async () => {
+    const next = !showTemplates
+    setShowTemplates(next)
+    if (next) await loadTemplateFiles()
   }
 
   // ── Meta helpers ──────────────────────────────────────────────────────────
@@ -221,18 +221,20 @@ export default function WorldMapPage() {
     await window.api.writeFile(path, JSON.stringify(newMeta, null, 2))
   }
 
-  const loadMetaAndMaster = async (fileName: string): Promise<{ meta: WorldMapMeta; masterPoints: WorldMapData['points'] } | null> => {
+  const loadMetaAndReference = async (fileName: string): Promise<{ meta: WorldMapMeta; referencePoints: WorldMapData['points'] } | null> => {
     const path = metaPath(fileName)
     if (!path || !ignoreDir) return null
     try {
       const exists = await window.api.exists(path)
       if (!exists) return null
-      const bytes   = await window.api.readFile(path)
-      const m: WorldMapMeta = JSON.parse(new TextDecoder().decode(bytes))
-      const masterPath = `${ignoreDir}/${m.master}`
-      const masterBytes = await window.api.readFile(masterPath)
-      const masterData  = parseWorldMapXml(new TextDecoder().decode(masterBytes))
-      return { meta: m, masterPoints: masterData.points }
+      const bytes = await window.api.readFile(path)
+      const raw = JSON.parse(new TextDecoder().decode(bytes))
+      // Support legacy meta files that use "master" instead of "reference"
+      const m: WorldMapMeta = { reference: raw.reference ?? raw.master, excludes: raw.excludes ?? [] }
+      const refPath = `${ignoreDir}/${m.reference}`
+      const refBytes = await window.api.readFile(refPath)
+      const refData  = parseWorldMapXml(new TextDecoder().decode(refBytes))
+      return { meta: m, referencePoints: refData.points }
     } catch {
       return null
     }
@@ -245,7 +247,7 @@ export default function WorldMapPage() {
     setLoadError(null)
     setEditingMap({ ...DEFAULT_WORLD_MAP })
     setMeta(null)
-    setMasterPoints(null)
+    setReferencePoints(null)
   }
   const handleNew = () => guard(doNew)
 
@@ -254,17 +256,17 @@ export default function WorldMapPage() {
     setLoadError(null)
     setEditingMap(null)
     setMeta(null)
-    setMasterPoints(null)
+    setReferencePoints(null)
     setLoadingMap(true)
     try {
       const bytes = await window.api.readFile(file.path)
       const xml   = new TextDecoder('utf-8').decode(bytes)
       setEditingMap(parseWorldMapXml(xml))
 
-      const result = await loadMetaAndMaster(file.name)
+      const result = await loadMetaAndReference(file.name)
       if (result) {
         setMeta(result.meta)
-        setMasterPoints(result.masterPoints)
+        setReferencePoints(result.referencePoints)
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to parse XML.')
@@ -279,8 +281,10 @@ export default function WorldMapPage() {
   const handleSave = async (data: WorldMapData, fileName: string) => {
     if (!activeLibrary || !worldmapsDir) return
     try {
-      const isRename = !!(selectedFile && fileName !== selectedFile.name)
-      const newPath  = isRename || !selectedFile ? `${worldmapsDir}/${fileName}` : selectedFile.path
+      const isTemplate = selectedFile?.template === true
+      const baseDir    = isTemplate ? ignoreDir! : worldmapsDir
+      const isRename   = !!(selectedFile && fileName !== selectedFile.name)
+      const newPath    = isRename || !selectedFile ? `${baseDir}/${fileName}` : selectedFile.path
 
       const xml = serializeWorldMapXml(data)
       await window.api.writeFile(newPath, xml)
@@ -288,40 +292,41 @@ export default function WorldMapPage() {
 
       if (isRename && selectedFile) {
         setSnackbar({ message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`, severity: 'info' })
-        setSelectedFile({ name: fileName, path: newPath })
+        setSelectedFile({ name: fileName, path: newPath, template: isTemplate || undefined })
       } else if (!selectedFile) {
         setSelectedFile({ name: fileName, path: newPath })
       }
 
       markClean()
       await loadActiveFiles()
+      if (isTemplate) await loadTemplateFiles()
     } catch (err) {
       setSnackbar({ message: `Save failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
   }
 
-  // ── Archive / Unarchive ───────────────────────────────────────────────────
+  // ── Move to Templates / Move to Active ──────────────────────────────────
 
-  const handleArchive = async () => {
+  const handleMoveToTemplates = async () => {
     if (!selectedFile || !ignoreDir || !worldmapsDir) return
     try {
       const destPath = `${ignoreDir}/${selectedFile.name}`
       const exists   = await window.api.exists(destPath)
-      if (exists) { setSnackbar({ message: 'An archived world map with this name already exists.', severity: 'error' }); return }
+      if (exists) { setSnackbar({ message: 'A template with this name already exists.', severity: 'error' }); return }
       await window.api.copyFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
       setMeta(null)
-      setMasterPoints(null)
+      setReferencePoints(null)
       await loadActiveFiles()
-      await loadArchivedFiles()
+      await loadTemplateFiles()
     } catch (err) {
-      setSnackbar({ message: `Archive failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+      setSnackbar({ message: `Move failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
   }
 
-  const handleUnarchive = async () => {
+  const handleMoveToActive = async () => {
     if (!selectedFile || !worldmapsDir) return
     try {
       const destPath = `${worldmapsDir}/${selectedFile.name}`
@@ -332,11 +337,11 @@ export default function WorldMapPage() {
       setSelectedFile(null)
       setEditingMap(null)
       setMeta(null)
-      setMasterPoints(null)
+      setReferencePoints(null)
       await loadActiveFiles()
-      await loadArchivedFiles()
+      await loadTemplateFiles()
     } catch (err) {
-      setSnackbar({ message: `Unarchive failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+      setSnackbar({ message: `Move failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
     }
   }
 
@@ -351,9 +356,9 @@ export default function WorldMapPage() {
   }
 
   const handleRestore = async (key: string) => {
-    if (!meta || !selectedFile || !masterPoints) return
+    if (!meta || !selectedFile || !referencePoints) return
     const newMeta: WorldMapMeta = { ...meta, excludes: meta.excludes.filter(k => k !== key) }
-    const restoredPoint = masterPoints.find(p => pointKey(p) === key)
+    const restoredPoint = referencePoints.find(p => pointKey(p) === key)
     if (!restoredPoint) return
     setMeta(newMeta)
     setEditingMap(prev => prev ? { ...prev, points: [...prev.points, restoredPoint] } : null)
@@ -362,48 +367,48 @@ export default function WorldMapPage() {
     catch { setSnackbar({ message: 'Failed to save restore.', severity: 'error' }) }
   }
 
-  // ── Derived group: sync from master ───────────────────────────────────────
+  // ── Derived group: sync from reference ────────────────────────────────────
 
   const handleSyncRequest = () => setSyncConfirm(true)
 
   const handleSyncConfirm = () => {
     setSyncConfirm(false)
-    if (!meta || !masterPoints) return
-    const newPoints = masterPoints.filter(p => !meta.excludes.includes(pointKey(p)))
+    if (!meta || !referencePoints) return
+    const newPoints = referencePoints.filter(p => !meta.excludes.includes(pointKey(p)))
     setEditingMap(prev => prev ? { ...prev, points: newPoints } : null)
     markDirty()
   }
 
-  // ── Link to master ────────────────────────────────────────────────────────
+  // ── Link to reference ──────────────────────────────────────────────────────
 
-  const handleLinkToMaster = async () => {
+  const handleLinkToReference = async () => {
     if (!ignoreDir || !selectedFile || !editingMap) return
-    const masterPath = `${ignoreDir}/${MASTER_FILENAME}`
+    const refPath = `${ignoreDir}/${REFERENCE_FILENAME}`
     try {
-      const exists = await window.api.exists(masterPath)
+      const exists = await window.api.exists(refPath)
       if (!exists) {
-        setSnackbar({ message: `Master file not found: ${MASTER_FILENAME}`, severity: 'error' })
+        setSnackbar({ message: `Reference set not found: ${REFERENCE_FILENAME}`, severity: 'error' })
         return
       }
-      const bytes      = await window.api.readFile(masterPath)
-      const masterData = parseWorldMapXml(new TextDecoder().decode(bytes))
-      const masterKeys = new Set(masterData.points.map(pointKey))
-      const groupKeys  = new Set(editingMap.points.map(pointKey))
+      const bytes   = await window.api.readFile(refPath)
+      const refData = parseWorldMapXml(new TextDecoder().decode(bytes))
+      const refKeys = new Set(refData.points.map(pointKey))
+      const groupKeys = new Set(editingMap.points.map(pointKey))
 
-      // Excludes = master points not present in this group
-      const excludes = masterData.points
+      // Excludes = reference points not present in this group
+      const excludes = refData.points
         .map(pointKey)
         .filter(k => !groupKeys.has(k))
 
-      // Warn about orphans = group points not in master
-      const orphanCount = editingMap.points.filter(p => !masterKeys.has(pointKey(p))).length
+      // Warn about orphans = group points not in reference
+      const orphanCount = editingMap.points.filter(p => !refKeys.has(pointKey(p))).length
       if (orphanCount > 0) {
-        setSnackbar({ message: `Linked to master. ${orphanCount} point(s) in this group are not in master — they will be lost on next sync.`, severity: 'warning' })
+        setSnackbar({ message: `Linked to reference set. ${orphanCount} point(s) in this group are not in the reference — they will be lost on next sync.`, severity: 'warning' })
       }
 
-      const newMeta: WorldMapMeta = { master: MASTER_FILENAME, excludes }
+      const newMeta: WorldMapMeta = { reference: REFERENCE_FILENAME, excludes }
       setMeta(newMeta)
-      setMasterPoints(masterData.points)
+      setReferencePoints(refData.points)
       await saveMeta(selectedFile.name, newMeta)
     } catch (err) {
       setSnackbar({ message: `Link failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
@@ -411,24 +416,24 @@ export default function WorldMapPage() {
   }
 
   const handleDirtyChange = useCallback((dirty: boolean) => { dirty ? markDirty() : markClean() }, [markDirty, markClean])
-  const isArchived = selectedFile?.archived === true
+  const isTemplate = selectedFile?.template === true
 
   // ── Sync confirm dialog ───────────────────────────────────────────────────
 
-  const orphanCount = editingMap && masterPoints
-    ? editingMap.points.filter(p => !masterPoints.some(m => pointKey(m) === pointKey(p))).length
+  const orphanCount = editingMap && referencePoints
+    ? editingMap.points.filter(p => !referencePoints.some(m => pointKey(m) === pointKey(p))).length
     : 0
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       <FileListPanel
         files={files}
-        archivedFiles={archivedFiles}
+        templateFiles={templateFiles}
         selectedFile={selectedFile}
         onSelect={handleSelect}
         onNew={handleNew}
-        showArchived={showArchived}
-        onToggleArchived={handleToggleArchived}
+        showTemplates={showTemplates}
+        onToggleTemplates={handleToggleTemplates}
       />
 
       <Box sx={{ flex: 1, p: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -442,19 +447,19 @@ export default function WorldMapPage() {
           <WorldMapEditorPanel
             worldMap={editingMap}
             initialFileName={selectedFile?.name ?? null}
-            isArchived={isArchived}
+            isTemplate={isTemplate}
             isExisting={!!selectedFile}
             mapNames={mapNames}
             meta={meta}
-            masterPoints={masterPoints}
+            referencePoints={referencePoints}
             onSave={handleSave}
-            onArchive={handleArchive}
-            onUnarchive={handleUnarchive}
+            onMoveToTemplates={handleMoveToTemplates}
+            onMoveToActive={handleMoveToActive}
             onDirtyChange={handleDirtyChange}
             onExclude={handleExclude}
             onRestore={handleRestore}
             onSyncRequest={handleSyncRequest}
-            onLinkToMaster={handleLinkToMaster}
+            onLinkToReference={handleLinkToReference}
             saveRef={saveRef}
           />
         ) : (
@@ -468,13 +473,13 @@ export default function WorldMapPage() {
 
       {/* Sync confirmation dialog */}
       <Dialog open={syncConfirm} onClose={() => setSyncConfirm(false)}>
-        <DialogTitle>Sync from Master</DialogTitle>
+        <DialogTitle>Sync from Reference</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will replace all points in this group with the master set minus your exclusions.
+            This will replace all points in this group with the reference set minus your exclusions.
             {orphanCount > 0 && (
               <><br /><br />
-                <strong>{orphanCount} point(s)</strong> in this group are not in the master set and will be removed.
+                <strong>{orphanCount} point(s)</strong> in this group are not in the reference set and will be removed.
               </>
             )}
           </DialogContentText>

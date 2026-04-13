@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react'
 import {
   Box, Typography, Button, Table, TableHead, TableRow,
-  TableCell, TableBody, Chip, Tooltip
+  TableCell, TableBody, Chip, IconButton, Tooltip
 } from '@mui/material'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import StopIcon from '@mui/icons-material/Stop'
 import SyncIcon from '@mui/icons-material/Sync'
 
 interface ClientEntry {
@@ -15,6 +17,10 @@ interface Props {
   clientPath: string | null
   /** mapDetails from world index for cross-reference */
   mapDetails: Array<{ name: string; music?: number }> | null
+  /** Currently playing file path (to show stop icon) */
+  playingFile: string | null
+  isPlaying: boolean
+  onPlay: (filePath: string, trackName: string) => void
 }
 
 function formatBytes(bytes: number): string {
@@ -22,7 +28,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails }) => {
+const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile, isPlaying, onPlay }) => {
   const [entries, setEntries] = useState<ClientEntry[]>([])
   const [scanned, setScanned] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -103,6 +109,7 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails }) => {
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
+              <TableCell sx={{ width: 40 }} />
               <TableCell sx={{ width: 80 }}>ID</TableCell>
               <TableCell sx={{ width: 100 }}>File</TableCell>
               <TableCell sx={{ width: 90 }}>Size</TableCell>
@@ -112,8 +119,15 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails }) => {
           <TableBody>
             {entries.map((e) => {
               const maps = musicToMaps.get(e.musicId) ?? []
+              const filePath = `${clientPath}/music/${e.filename}`.replace(/\\/g, '/')
+              const isThisPlaying = isPlaying && playingFile === filePath
               return (
                 <TableRow key={e.filename} hover>
+                  <TableCell sx={{ px: 0.5 }}>
+                    <IconButton size="small" onClick={() => onPlay(filePath, `${e.musicId}.mus`)}>
+                      {isThisPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                    </IconButton>
+                  </TableCell>
                   <TableCell>{e.musicId}</TableCell>
                   <TableCell>
                     <Typography variant="body2">{e.filename}</Typography>

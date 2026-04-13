@@ -5,6 +5,7 @@ import {
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import type { MusicEntry } from '../../hooks/useMusicLibrary'
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   onUpdate: (changes: Partial<MusicMeta>) => void
   onSave: () => void
   onPlay: () => void
+  onRemove: () => void
   isPlaying: boolean
 }
 
@@ -26,7 +28,7 @@ function formatBytes(bytes: number): string {
 }
 
 const MusicMetaEditor: React.FC<Props> = ({
-  entry, draft, dirty, usedByMaps, onUpdate, onSave, onPlay, isPlaying
+  entry, draft, dirty, usedByMaps, onUpdate, onSave, onPlay, onRemove, isPlaying
 }) => {
   const [tagInput, setTagInput] = React.useState('')
 
@@ -74,6 +76,11 @@ const MusicMetaEditor: React.FC<Props> = ({
               <SaveIcon fontSize="small" />
             </IconButton>
           </span>
+        </Tooltip>
+        <Tooltip title="Remove from library">
+          <IconButton size="small" onClick={onRemove} sx={{ color: 'error.main' }}>
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
       </Box>
 

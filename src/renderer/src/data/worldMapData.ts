@@ -10,7 +10,7 @@ export interface WorldMapPoint {
 }
 
 export interface WorldMapMeta {
-  master: string
+  reference: string
   excludes: string[]
 }
 

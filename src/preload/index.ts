@@ -56,6 +56,7 @@ const api = {
   writeFile: (filePath: string, content: string): Promise<void> => ipcRenderer.invoke('fs:writeFile', filePath, content),
   exists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('fs:exists', filePath),
   ensureDir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:ensureDir', dirPath),
+  deleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFile', filePath),
   listArchive: (filePath: string): Promise<string[]> => ipcRenderer.invoke('fs:listArchive', filePath),
 
   // Catalog

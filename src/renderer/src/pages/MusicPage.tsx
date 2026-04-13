@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import {
-  Box, Tabs, Tab, Typography, Button, Alert
+  Box, Tabs, Tab, Typography, Button, Alert, LinearProgress
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import { useRecoilState, useRecoilValue } from 'recoil'
@@ -68,6 +68,16 @@ const MusicPage: React.FC = () => {
       setIsPlaying(true)
     }
   }, [musicLibraryPath, playingFile])
+
+  const handlePlayAbsolute = useCallback((filePath: string, displayName: string) => {
+    if (playingFile === filePath) {
+      setIsPlaying((p) => !p)
+    } else {
+      setPlayingFile(filePath)
+      setPlayingName(displayName)
+      setIsPlaying(true)
+    }
+  }, [playingFile])
 
   const handleSelectTrack = useCallback((filename: string) => {
     lib.select(filename)
@@ -142,7 +152,33 @@ const MusicPage: React.FC = () => {
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Library Tab */}
         {tab === 0 && (
-          <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Enrich tags bar */}
+            {lib.enrichProgress ? (
+              <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  Reading tags: {lib.enrichProgress.done} / {lib.enrichProgress.total}
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={(lib.enrichProgress.done / lib.enrichProgress.total) * 100}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            ) : (() => {
+              const unenriched = lib.entries.filter((e) => !lib.metadata[e.filename]?.name).length
+              return unenriched > 0 ? (
+                <Box sx={{ px: 2, py: 0.75, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {unenriched} track{unenriched !== 1 ? 's' : ''} without metadata
+                  </Typography>
+                  <Button size="small" variant="text" onClick={lib.enrichAll}>
+                    Read tags from files
+                  </Button>
+                </Box>
+              ) : null
+            })()}
+            <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {/* Left: track list */}
             <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <MusicList
@@ -180,6 +216,9 @@ const MusicPage: React.FC = () => {
                         handlePlay(lib.selectedEntry.filename, name)
                       }
                     }}
+                    onRemove={() => {
+                      if (lib.selectedFilename) lib.remove(lib.selectedFilename)
+                    }}
                     isPlaying={
                       isPlaying &&
                       playingFile === `${musicLibraryPath}/${lib.selectedFilename}`.replace(/\\/g, '/')
@@ -203,6 +242,7 @@ const MusicPage: React.FC = () => {
                 </>
               )}
             </Box>
+          </Box>
           </Box>
         )}
 
@@ -236,6 +276,9 @@ const MusicPage: React.FC = () => {
             <ClientMusicView
               clientPath={clientPath}
               mapDetails={mapDetailsWithMusic}
+              playingFile={playingFile}
+              isPlaying={isPlaying}
+              onPlay={handlePlayAbsolute}
             />
           </Box>
         )}

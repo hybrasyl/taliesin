@@ -13,6 +13,8 @@ interface Props {
   computedFileName?: string
   isExisting?: boolean
   isArchived?: boolean
+  archiveLabel?: string
+  unarchiveLabel?: string
   onFileNameChange: (value: string) => void
   onRegenerate: () => void
   onSave: () => void
@@ -28,6 +30,8 @@ const EditorHeader: React.FC<Props> = ({
   computedFileName,
   isExisting,
   isArchived,
+  archiveLabel,
+  unarchiveLabel,
   onFileNameChange,
   onRegenerate,
   onSave,
@@ -59,12 +63,12 @@ const EditorHeader: React.FC<Props> = ({
         <Typography variant="h6" noWrap sx={{ flex: 1, mr: 1 }}>{title}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           {isExisting && !isArchived && onArchive && (
-            <Tooltip title={`Archive ${label}`}>
+            <Tooltip title={archiveLabel ?? `Archive ${label}`}>
               <IconButton size="small" onClick={onArchive}><ArchiveIcon fontSize="small" /></IconButton>
             </Tooltip>
           )}
           {isExisting && isArchived && onUnarchive && (
-            <Tooltip title={`Unarchive ${label}`}>
+            <Tooltip title={unarchiveLabel ?? `Unarchive ${label}`}>
               <IconButton size="small" onClick={onUnarchive}><UnarchiveIcon fontSize="small" /></IconButton>
             </Tooltip>
           )}
