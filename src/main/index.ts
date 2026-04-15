@@ -7,7 +7,8 @@ import { promisify } from 'util'
 const execFileAsync = promisify(execFile)
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
-import { buildWorldIndex, readWorldIndex, getIndexStatus, deleteWorldIndex, resolveLibraryPath } from './indexBuilder'
+import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
+import { resolveLibraryPath } from './libraryPath'
 
 // Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local)
 const settingsPath = join(app.getPath('appData'), 'Erisco', 'Taliesin')
@@ -409,11 +410,13 @@ ipcMain.handle('sfx:index:save', async (_, activeLibrary: string, data: unknown)
 // ── World index ───────────────────────────────────────────────────────────────
 
 ipcMain.handle('index:read', async (_, libraryRoot: string) => {
-  return readWorldIndex(libraryRoot)
+  return loadIndex(libraryRoot)
 })
 
 ipcMain.handle('index:build', async (_, libraryRoot: string) => {
-  return buildWorldIndex(libraryRoot)
+  const idx = await buildIndex(libraryRoot)
+  await saveIndex(libraryRoot, idx)
+  return idx
 })
 
 ipcMain.handle('index:status', async (_, libraryRoot: string) => {
@@ -425,5 +428,5 @@ ipcMain.handle('library:resolve', async (_, selectedPath: string) => {
 })
 
 ipcMain.handle('index:delete', async (_, libraryRoot: string) => {
-  return deleteWorldIndex(libraryRoot)
+  return deleteIndex(libraryRoot)
 })
