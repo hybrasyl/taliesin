@@ -54,6 +54,7 @@ const api = {
   listDir: (dirPath: string): Promise<DirEntry[]> => ipcRenderer.invoke('fs:listDir', dirPath),
   copyFile: (src: string, dst: string): Promise<void> => ipcRenderer.invoke('fs:copyFile', src, dst),
   writeFile: (filePath: string, content: string): Promise<void> => ipcRenderer.invoke('fs:writeFile', filePath, content),
+  writeBytes: (filePath: string, data: Uint8Array): Promise<void> => ipcRenderer.invoke('fs:writeBytes', filePath, data),
   exists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('fs:exists', filePath),
   ensureDir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:ensureDir', dirPath),
   deleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFile', filePath),

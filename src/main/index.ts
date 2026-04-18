@@ -181,6 +181,11 @@ ipcMain.handle('fs:writeFile', async (_, filePath: string, content: string) => {
   await fs.writeFile(filePath, content, 'utf-8')
 })
 
+ipcMain.handle('fs:writeBytes', async (_, filePath: string, data: Uint8Array) => {
+  await fs.mkdir(dirname(filePath), { recursive: true })
+  await fs.writeFile(filePath, Buffer.from(data))
+})
+
 ipcMain.handle('fs:exists', async (_, filePath: string) => {
   try {
     await fs.access(filePath)

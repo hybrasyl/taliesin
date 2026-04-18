@@ -126,6 +126,7 @@ interface TaliesinAPI {
   listDir: (dirPath: string) => Promise<DirEntry[]>
   copyFile: (src: string, dst: string) => Promise<void>
   writeFile: (filePath: string, content: string) => Promise<void>
+  writeBytes: (filePath: string, data: Uint8Array) => Promise<void>
   exists: (filePath: string) => Promise<boolean>
   ensureDir: (dirPath: string) => Promise<void>
   deleteFile: (filePath: string) => Promise<void>
