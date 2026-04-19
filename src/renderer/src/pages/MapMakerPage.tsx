@@ -22,6 +22,7 @@ import BlockIcon from '@mui/icons-material/Block'
 import AspectRatioIcon from '@mui/icons-material/AspectRatio'
 import ImageIcon from '@mui/icons-material/Image'
 import AnimationIcon from '@mui/icons-material/Animation'
+import CallSplitIcon from '@mui/icons-material/CallSplit'
 import MapIcon from '@mui/icons-material/Map'
 import ExtensionIcon from '@mui/icons-material/Extension'
 import { useRecoilValue } from 'recoil'
@@ -37,6 +38,7 @@ import PrefabSidebar from '../components/mapmaker/PrefabSidebar'
 import TabMapPopup from '../components/mapmaker/TabMapPopup'
 import DirectionalResizeButtons from '../components/mapmaker/DirectionalResizeButtons'
 import ShortcutHelpPanel from '../components/mapmaker/ShortcutHelpPanel'
+import SplitMapDialog from '../components/mapmaker/SplitMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { applyChanges, revertChanges, type ShapeMode, type TileCoord } from '../utils/mapEditorTools'
 import { floodFill } from '../utils/mapEditorTools'
@@ -94,6 +96,7 @@ const MapMakerPage: React.FC = () => {
   const [resizeOpen, setResizeOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [createPrefabOpen, setCreatePrefabOpen] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
   const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
   const [showTabMap, setShowTabMap] = useState(false)
   const [stampPrefab, setStampPrefab] = useState<Prefab | null>(null)
@@ -703,6 +706,7 @@ const MapMakerPage: React.FC = () => {
         {/* Map operations */}
         <Tooltip title="Resize Map"><span><IconButton size="small" onClick={() => setResizeOpen(true)} disabled={!mapFile}><AspectRatioIcon fontSize="small" /></IconButton></span></Tooltip>
         <Tooltip title="Export PNG"><span><IconButton size="small" onClick={() => setExportOpen(true)} disabled={!mapFile}><ImageIcon fontSize="small" /></IconButton></span></Tooltip>
+        <Tooltip title="Split Map"><span><IconButton size="small" onClick={() => setSplitOpen(true)} disabled={!mapFile}><CallSplitIcon fontSize="small" /></IconButton></span></Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
@@ -768,7 +772,7 @@ const MapMakerPage: React.FC = () => {
 
         {/* Center: canvas + directional resize */}
         {mapFile ? (
-          <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, position: 'relative', display: 'flex' }}>
             <MapEditorCanvas
               key={canvasKey}
               mapFile={mapFile}
@@ -831,7 +835,7 @@ const MapMakerPage: React.FC = () => {
       {showTabMap && mapFile && (
         <TabMapPopup
           mapFile={mapFile}
-          assets={null}
+          clientPath={clientPath}
           onClose={() => setShowTabMap(false)}
         />
       )}
@@ -870,6 +874,15 @@ const MapMakerPage: React.FC = () => {
           mapFilePath={filePath}
           clientPath={clientPath}
           onClose={() => setExportOpen(false)}
+          onStatus={showStatus}
+        />
+      )}
+      {mapFile && (
+        <SplitMapDialog
+          open={splitOpen}
+          mapFile={mapFile}
+          clientPath={clientPath}
+          onClose={() => setSplitOpen(false)}
           onStatus={showStatus}
         />
       )}

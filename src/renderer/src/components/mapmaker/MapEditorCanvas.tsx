@@ -540,9 +540,25 @@ const MapEditorCanvas: React.FC<Props> = ({
            ty >= selection.y && ty < selection.y + selection.h
   }, [selection])
 
+  // ── Middle mouse pan ────────────────────────────────────────────────────────
+
+  const panningRef = useRef(false)
+  const panStartRef = useRef({ mx: 0, my: 0, sx: 0, sy: 0 })
+
   // ── Mouse handlers ─────────────────────────────────────────────────────────
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Middle mouse button — start panning
+    if (e.button === 1) {
+      e.preventDefault()
+      panningRef.current = true
+      const container = scrollRef.current
+      panStartRef.current = {
+        mx: e.clientX, my: e.clientY,
+        sx: container?.scrollLeft ?? 0, sy: container?.scrollTop ?? 0,
+      }
+      return
+    }
     if (e.button !== 0) return
     const tile = eventToTile(e)
     if (!tile) return
@@ -620,6 +636,16 @@ const MapEditorCanvas: React.FC<Props> = ({
   ])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Middle mouse panning
+    if (panningRef.current) {
+      const container = scrollRef.current
+      if (container) {
+        container.scrollLeft = panStartRef.current.sx - (e.clientX - panStartRef.current.mx)
+        container.scrollTop = panStartRef.current.sy - (e.clientY - panStartRef.current.my)
+      }
+      return
+    }
+
     setAltHeld(e.altKey)
     const tile = eventToTile(e)
     setHoverTile(tile)
@@ -660,6 +686,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   }, [eventToTile, tool, altHeld, selectStart, dragStart, onHoverTile, onSelectionChange, applyDrawOrErase, applyRandomFill])
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (panningRef.current) { panningRef.current = false; return }
     const tile = eventToTile(e)
 
     // Shape tool: commit on release
@@ -688,6 +715,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   }, [eventToTile, tool, shapeStart, shapeMode, dragStart, dragOffset, commitLineOrShape, onTileChange, onSelectionMove])
 
   const handleMouseLeave = useCallback(() => {
+    panningRef.current = false
     setHoverTile(null)
     setAltHeld(false)
     onHoverTile(null)
@@ -763,6 +791,7 @@ const MapEditorCanvas: React.FC<Props> = ({
         <canvas
           ref={overlayRef}
           style={{ position: 'absolute', top: 0, left: 0, display: 'block', cursor }}
+          onAuxClick={(e) => e.preventDefault()}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
