@@ -15,7 +15,9 @@ interface Props {
   clientPath: string | null
   activeLayer: TileLayer
   selectedTileId: number
+  selectedTileIds: number[]
   onSelectTile: (tileId: number) => void
+  onSelectTiles: (ids: number[]) => void
   onLayerChange: (layer: TileLayer) => void
 }
 
@@ -29,10 +31,11 @@ const ROW_HEIGHT_FG = 72
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, onSelectTile, onLayerChange }) => {
+const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, selectedTileIds, onSelectTile, onSelectTiles, onLayerChange }) => {
   const [assets, setAssets] = useState<MapAssets | null>(null)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
+  const lastClickedRef = useRef<number | null>(null)
   const [bgBitmaps, setBgBitmaps] = useState<Map<number, ImageBitmap>>(new Map())
   const [fgEntryIds, setFgEntryIds] = useState<number[]>([])
   const [fgBitmaps, setFgBitmaps] = useState<Map<number, ImageBitmap>>(new Map())
@@ -106,6 +109,34 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
     estimateSize: () => rowH,
     overscan: 8,
   })
+
+  // Multi-select click handler
+  const handleTileClick = useCallback((tileId: number, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Toggle individual tile
+      const next = selectedTileIds.includes(tileId)
+        ? selectedTileIds.filter(id => id !== tileId)
+        : [...selectedTileIds, tileId]
+      onSelectTiles(next.length > 0 ? next : [tileId])
+      lastClickedRef.current = tileId
+    } else if (e.shiftKey && lastClickedRef.current !== null) {
+      // Range select
+      const lastIdx = tileIds.indexOf(lastClickedRef.current)
+      const curIdx = tileIds.indexOf(tileId)
+      if (lastIdx >= 0 && curIdx >= 0) {
+        const start = Math.min(lastIdx, curIdx)
+        const end = Math.max(lastIdx, curIdx)
+        const range = tileIds.slice(start, end + 1)
+        // Merge with existing selection
+        const merged = new Set([...selectedTileIds, ...range])
+        onSelectTiles([...merged])
+      }
+    } else {
+      // Normal click — single select
+      onSelectTile(tileId)
+      lastClickedRef.current = tileId
+    }
+  }, [tileIds, selectedTileIds, onSelectTile, onSelectTiles])
 
   if (!clientPath) {
     return (
@@ -183,7 +214,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
                   const idx = startIdx + col
                   if (idx >= tileIds.length) return <Box key={col} sx={{ flex: 1 }} />
                   const tileId = tileIds[idx]
-                  const isSelected = tileId === selectedTileId
+                  const isSelected = selectedTileIds.includes(tileId)
                   return (
                     <TileCell
                       key={tileId}
@@ -191,7 +222,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
                       isSelected={isSelected}
                       bitmap={isBg ? bgBitmaps.get(tileId) : fgBitmaps.get(tileId)}
                       rowH={rowH}
-                      onClick={() => onSelectTile(tileId)}
+                      onClick={(e) => handleTileClick(tileId, e)}
                       onVisible={isBg ? undefined : () => loadFgBitmap(tileId)}
                     />
                   )
@@ -212,7 +243,7 @@ const TileCell: React.FC<{
   isSelected: boolean
   bitmap: ImageBitmap | undefined
   rowH: number
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
   onVisible?: () => void
 }> = ({ tileId, isSelected, bitmap, rowH, onClick, onVisible }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)

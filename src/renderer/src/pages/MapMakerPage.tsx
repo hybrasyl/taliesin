@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Box, Typography, Button, Divider, ToggleButton, ToggleButtonGroup,
-  IconButton, Tooltip, Slider,
+  IconButton, Tooltip, Slider, Select, MenuItem,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
@@ -12,22 +12,25 @@ import RedoIcon from '@mui/icons-material/Redo'
 import BrushIcon from '@mui/icons-material/Brush'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ColorizeIcon from '@mui/icons-material/Colorize'
+import FormatColorFillIcon from '@mui/icons-material/FormatColorFill'
+import TimelineIcon from '@mui/icons-material/Timeline'
+import CropSquareIcon from '@mui/icons-material/CropSquare'
+import SelectAllIcon from '@mui/icons-material/SelectAll'
+import ShuffleIcon from '@mui/icons-material/Shuffle'
 import GridOnIcon from '@mui/icons-material/GridOn'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import BlockIcon from '@mui/icons-material/Block'
 import { useRecoilValue } from 'recoil'
 import { clientPathState } from '../recoil/atoms'
-import { MapFile } from '@eriscorp/dalib-ts'
+import { MapFile, type MapTile } from '@eriscorp/dalib-ts'
 import TilePicker, { type TileLayer } from '../components/mapmaker/TilePicker'
-import MapEditorCanvas, { type EditorTool, type TileChange } from '../components/mapmaker/MapEditorCanvas'
+import MapEditorCanvas, { type EditorTool, type TileChange, type Selection, type Clipboard } from '../components/mapmaker/MapEditorCanvas'
 import NewMapDialog from '../components/mapmaker/NewMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
+import { applyChanges, revertChanges, type ShapeMode } from '../utils/mapEditorTools'
 
 // ── Undo types ───────────────────────────────────────────────────────────────
 
 type UndoGroup = TileChange[]
-
 const MAX_UNDO = 100
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -43,13 +46,19 @@ const MapMakerPage: React.FC = () => {
   // Tool state
   const [tool, setTool] = useState<EditorTool>('draw')
   const [activeLayer, setActiveLayer] = useState<TileLayer>('background')
-  const [selectedTileId, setSelectedTileId] = useState(1)
+  const [selectedTileIds, setSelectedTileIds] = useState<number[]>([1])
   const [zoom, setZoom] = useState(1)
+  const [shapeMode, setShapeMode] = useState<ShapeMode>('rect-outline')
   const [showGrid, setShowGrid] = useState(true)
   const [showBg, setShowBg] = useState(true)
   const [showLfg, setShowLfg] = useState(true)
   const [showRfg, setShowRfg] = useState(true)
   const [showPassability, setShowPassability] = useState(false)
+
+  // Selection / clipboard / paste
+  const [selection, setSelection] = useState<Selection | null>(null)
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null)
+  const [pasteMode, setPasteMode] = useState(false)
 
   // Hover
   const [hoverTile, setHoverTile] = useState<{ tx: number; ty: number } | null>(null)
@@ -61,38 +70,31 @@ const MapMakerPage: React.FC = () => {
   // Dialogs
   const [newMapOpen, setNewMapOpen] = useState(false)
   const [dimPickerState, setDimPickerState] = useState<{
-    open: boolean
-    filePath: string
-    filename: string
-    fileBuffer: Uint8Array
+    open: boolean; filePath: string; filename: string; fileBuffer: Uint8Array
   } | null>(null)
 
-  // Force re-render of canvas after undo/redo
   const [canvasKey, setCanvasKey] = useState(0)
 
-  // ── New map ────────────────────────────────────────────────────────────────
+  // Derived
+  const selectedTileId = selectedTileIds[0] ?? 0
+
+  // ── New / Open / Save ──────────────────────────────────────────────────────
 
   const handleNewMap = useCallback((width: number, height: number) => {
     setMapFile(new MapFile(width, height))
     setFilePath(null)
     setDirty(false)
-    setUndoStack([])
-    setRedoStack([])
+    setUndoStack([]); setRedoStack([])
+    setSelection(null); setPasteMode(false)
     setCanvasKey(k => k + 1)
   }, [])
 
-  // ── Open map ───────────────────────────────────────────────────────────────
-
   const handleOpenMap = useCallback(async () => {
-    const path = await window.api.openFile([
-      { name: 'DA Map Files', extensions: ['map'] },
-    ])
+    const path = await window.api.openFile([{ name: 'DA Map Files', extensions: ['map'] }])
     if (!path) return
-
     const buf = await window.api.readFile(path)
     const bytes = new Uint8Array(buf)
     const filename = path.replace(/\\/g, '/').split('/').pop() ?? 'map'
-
     setDimPickerState({ open: true, filePath: path, filename, fileBuffer: bytes })
   }, [])
 
@@ -102,46 +104,32 @@ const MapMakerPage: React.FC = () => {
     setMapFile(mf)
     setFilePath(dimPickerState.filePath)
     setDirty(false)
-    setUndoStack([])
-    setRedoStack([])
+    setUndoStack([]); setRedoStack([])
+    setSelection(null); setPasteMode(false)
     setCanvasKey(k => k + 1)
     setDimPickerState(null)
   }, [dimPickerState])
-
-  const handleDimCancel = useCallback(() => {
-    setDimPickerState(null)
-  }, [])
-
-  // ── Save ───────────────────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
     if (!mapFile) return
     let savePath = filePath
     if (!savePath) {
-      savePath = await window.api.saveFile(
-        [{ name: 'DA Map Files', extensions: ['map'] }],
-      )
+      savePath = await window.api.saveFile([{ name: 'DA Map Files', extensions: ['map'] }])
       if (!savePath) return
     }
-    const data = mapFile.toUint8Array()
-    await window.api.writeBytes(savePath, data)
-    setFilePath(savePath)
-    setDirty(false)
+    await window.api.writeBytes(savePath, mapFile.toUint8Array())
+    setFilePath(savePath); setDirty(false)
   }, [mapFile, filePath])
 
   const handleSaveAs = useCallback(async () => {
     if (!mapFile) return
-    const savePath = await window.api.saveFile(
-      [{ name: 'DA Map Files', extensions: ['map'] }],
-    )
+    const savePath = await window.api.saveFile([{ name: 'DA Map Files', extensions: ['map'] }])
     if (!savePath) return
-    const data = mapFile.toUint8Array()
-    await window.api.writeBytes(savePath, data)
-    setFilePath(savePath)
-    setDirty(false)
+    await window.api.writeBytes(savePath, mapFile.toUint8Array())
+    setFilePath(savePath); setDirty(false)
   }, [mapFile])
 
-  // ── Tile changes ───────────────────────────────────────────────────────────
+  // ── Tile changes + undo/redo ───────────────────────────────────────────────
 
   const handleTileChange = useCallback((changes: TileChange[]) => {
     if (changes.length === 0) return
@@ -154,21 +142,14 @@ const MapMakerPage: React.FC = () => {
   }, [])
 
   const handleSampleTile = useCallback((tileId: number) => {
-    setSelectedTileId(tileId)
+    setSelectedTileIds([tileId])
     setTool('draw')
   }, [])
-
-  // ── Undo/redo ──────────────────────────────────────────────────────────────
 
   const handleUndo = useCallback(() => {
     if (!mapFile || undoStack.length === 0) return
     const group = undoStack[undoStack.length - 1]
-    // Apply in reverse
-    for (let i = group.length - 1; i >= 0; i--) {
-      const c = group[i]
-      const tile = mapFile.getTile(c.x, c.y)
-      mapFile.setTile(c.x, c.y, { ...tile, [c.layer]: c.oldValue })
-    }
+    revertChanges(mapFile, group)
     setUndoStack(prev => prev.slice(0, -1))
     setRedoStack(prev => [...prev, group])
     setCanvasKey(k => k + 1)
@@ -178,46 +159,259 @@ const MapMakerPage: React.FC = () => {
   const handleRedo = useCallback(() => {
     if (!mapFile || redoStack.length === 0) return
     const group = redoStack[redoStack.length - 1]
-    for (const c of group) {
-      const tile = mapFile.getTile(c.x, c.y)
-      mapFile.setTile(c.x, c.y, { ...tile, [c.layer]: c.newValue })
-    }
+    applyChanges(mapFile, group)
     setRedoStack(prev => prev.slice(0, -1))
     setUndoStack(prev => [...prev, group])
     setCanvasKey(k => k + 1)
     setDirty(true)
   }, [mapFile, redoStack])
 
+  // ── Clipboard ──────────────────────────────────────────────────────────────
+
+  const copySelection = useCallback(() => {
+    if (!mapFile || !selection) return
+    const tiles: MapTile[] = []
+    for (let dy = 0; dy < selection.h; dy++) {
+      for (let dx = 0; dx < selection.w; dx++) {
+        const tx = selection.x + dx
+        const ty = selection.y + dy
+        if (tx < mapFile.width && ty < mapFile.height) {
+          tiles.push({ ...mapFile.getTile(tx, ty) })
+        } else {
+          tiles.push({ background: 0, leftForeground: 0, rightForeground: 0 })
+        }
+      }
+    }
+    setClipboard({ tiles, w: selection.w, h: selection.h })
+  }, [mapFile, selection])
+
+  const cutSelection = useCallback(() => {
+    if (!mapFile || !selection) return
+    copySelection()
+    // Clear selected area
+    const changes: TileChange[] = []
+    for (let dy = 0; dy < selection.h; dy++) {
+      for (let dx = 0; dx < selection.w; dx++) {
+        const tx = selection.x + dx
+        const ty = selection.y + dy
+        if (tx >= mapFile.width || ty >= mapFile.height) continue
+        const tile = mapFile.getTile(tx, ty)
+        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
+          if (tile[layer] !== 0) {
+            changes.push({ x: tx, y: ty, layer, oldValue: tile[layer], newValue: 0 })
+          }
+        }
+      }
+    }
+    if (changes.length > 0) {
+      applyChanges(mapFile, changes)
+      handleTileChange(changes)
+      setCanvasKey(k => k + 1)
+    }
+    setSelection(null)
+  }, [mapFile, selection, copySelection, handleTileChange])
+
+  const deleteSelection = useCallback(() => {
+    if (!mapFile || !selection) return
+    const changes: TileChange[] = []
+    for (let dy = 0; dy < selection.h; dy++) {
+      for (let dx = 0; dx < selection.w; dx++) {
+        const tx = selection.x + dx
+        const ty = selection.y + dy
+        if (tx >= mapFile.width || ty >= mapFile.height) continue
+        const tile = mapFile.getTile(tx, ty)
+        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
+          if (tile[layer] !== 0) {
+            changes.push({ x: tx, y: ty, layer, oldValue: tile[layer], newValue: 0 })
+          }
+        }
+      }
+    }
+    if (changes.length > 0) {
+      applyChanges(mapFile, changes)
+      handleTileChange(changes)
+      setCanvasKey(k => k + 1)
+    }
+    setSelection(null)
+  }, [mapFile, selection, handleTileChange])
+
+  const handleRequestPaste = useCallback((tx: number, ty: number, keepPasting: boolean) => {
+    if (!mapFile || !clipboard) return
+    const changes: TileChange[] = []
+    for (let dy = 0; dy < clipboard.h; dy++) {
+      for (let dx = 0; dx < clipboard.w; dx++) {
+        const destX = tx + dx
+        const destY = ty + dy
+        if (destX < 0 || destY < 0 || destX >= mapFile.width || destY >= mapFile.height) continue
+        const clipTile = clipboard.tiles[dy * clipboard.w + dx]
+        const existingTile = mapFile.getTile(destX, destY)
+        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
+          if (clipTile[layer] !== 0 && clipTile[layer] !== existingTile[layer]) {
+            changes.push({ x: destX, y: destY, layer, oldValue: existingTile[layer], newValue: clipTile[layer] })
+          }
+        }
+      }
+    }
+    if (changes.length > 0) {
+      applyChanges(mapFile, changes)
+      handleTileChange(changes)
+      setCanvasKey(k => k + 1)
+    }
+    if (!keepPasting) setPasteMode(false)
+  }, [mapFile, clipboard, handleTileChange])
+
+  // ── Selection move/duplicate ───────────────────────────────────────────────
+
+  const handleSelectionMove = useCallback((dx: number, dy: number, duplicate: boolean) => {
+    if (!mapFile || !selection) return
+    const changes: TileChange[] = []
+
+    // Read source tiles
+    const srcTiles: MapTile[] = []
+    for (let sy = 0; sy < selection.h; sy++) {
+      for (let sx = 0; sx < selection.w; sx++) {
+        const tx = selection.x + sx
+        const ty = selection.y + sy
+        if (tx < mapFile.width && ty < mapFile.height) {
+          srcTiles.push({ ...mapFile.getTile(tx, ty) })
+        } else {
+          srcTiles.push({ background: 0, leftForeground: 0, rightForeground: 0 })
+        }
+      }
+    }
+
+    // Clear source (unless duplicating)
+    if (!duplicate) {
+      for (let sy = 0; sy < selection.h; sy++) {
+        for (let sx = 0; sx < selection.w; sx++) {
+          const tx = selection.x + sx
+          const ty = selection.y + sy
+          if (tx >= mapFile.width || ty >= mapFile.height) continue
+          const tile = mapFile.getTile(tx, ty)
+          for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
+            if (tile[layer] !== 0) {
+              changes.push({ x: tx, y: ty, layer, oldValue: tile[layer], newValue: 0 })
+            }
+          }
+        }
+      }
+    }
+
+    // Place at destination
+    for (let sy = 0; sy < selection.h; sy++) {
+      for (let sx = 0; sx < selection.w; sx++) {
+        const destX = selection.x + sx + dx
+        const destY = selection.y + sy + dy
+        if (destX < 0 || destY < 0 || destX >= mapFile.width || destY >= mapFile.height) continue
+        const srcTile = srcTiles[sy * selection.w + sx]
+        const existing = mapFile.getTile(destX, destY)
+        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
+          if (srcTile[layer] !== existing[layer]) {
+            // Check if this position was already changed (from clear step)
+            const existingChange = changes.find(c => c.x === destX && c.y === destY && c.layer === layer)
+            if (existingChange) {
+              existingChange.newValue = srcTile[layer]
+            } else {
+              changes.push({ x: destX, y: destY, layer, oldValue: existing[layer], newValue: srcTile[layer] })
+            }
+          }
+        }
+      }
+    }
+
+    if (changes.length > 0) {
+      applyChanges(mapFile, changes)
+      handleTileChange(changes)
+      setCanvasKey(k => k + 1)
+    }
+
+    // Move selection to new position
+    setSelection({
+      x: selection.x + dx,
+      y: selection.y + dy,
+      w: selection.w,
+      h: selection.h,
+    })
+  }, [mapFile, selection, handleTileChange])
+
+  // ── Tile picker callbacks ──────────────────────────────────────────────────
+
+  const handleSelectTile = useCallback((id: number) => {
+    setSelectedTileIds([id])
+  }, [])
+
+  const handleSelectTiles = useCallback((ids: number[]) => {
+    setSelectedTileIds(ids.length > 0 ? ids : [0])
+  }, [])
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); handleUndo() }
-    if (e.ctrlKey && e.key === 'y') { e.preventDefault(); handleRedo() }
+    // Ctrl combinations
+    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); handleUndo(); return }
+    if (e.ctrlKey && e.key === 'y') { e.preventDefault(); handleRedo(); return }
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault()
-      if (e.shiftKey) handleSaveAs()
-      else handleSave()
+      if (e.shiftKey) handleSaveAs(); else handleSave()
+      return
     }
-    if (e.key === 'd' && !e.ctrlKey) setTool('draw')
-    if (e.key === 'e' && !e.ctrlKey) setTool('erase')
-    if (e.key === 's' && !e.ctrlKey && !e.metaKey) setTool('sample')
-    if (e.key === 'g' && !e.ctrlKey) setShowGrid(g => !g)
-    if (e.key === 'f' && !e.ctrlKey) {
-      setActiveLayer(prev =>
-        prev === 'leftForeground' ? 'rightForeground'
-        : prev === 'rightForeground' ? 'leftForeground'
-        : prev
-      )
+    if (e.ctrlKey && e.key === 'c') { e.preventDefault(); copySelection(); return }
+    if (e.ctrlKey && e.key === 'x') { e.preventDefault(); cutSelection(); return }
+    if (e.ctrlKey && e.key === 'v') {
+      e.preventDefault()
+      if (clipboard) setPasteMode(true)
+      return
     }
-  }, [handleUndo, handleRedo, handleSave, handleSaveAs])
 
-  // ── File name display ──────────────────────────────────────────────────────
+    // Delete/Backspace
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selection) {
+      e.preventDefault(); deleteSelection(); return
+    }
+
+    // Escape
+    if (e.key === 'Escape') {
+      if (pasteMode) { setPasteMode(false); return }
+      if (selection) { setSelection(null); return }
+    }
+
+    // Tool shortcuts (no modifiers)
+    if (e.ctrlKey || e.metaKey) return
+    switch (e.key) {
+      case 'd': setTool('draw'); break
+      case 'e': setTool('erase'); break
+      case 's': setTool('sample'); break
+      case 'g': if (!e.shiftKey) setShowGrid(g => !g); else setTool('fill'); break
+      case 'l': setTool('line'); break
+      case 'u': if (e.shiftKey) {
+          setShapeMode(prev => {
+            const modes: ShapeMode[] = ['rect-outline', 'rect-filled', 'circle-outline', 'circle-filled']
+            return modes[(modes.indexOf(prev) + 1) % modes.length]
+          })
+        } else { setTool('shape') }
+        break
+      case 'v': setTool('select'); break
+      case 'r': setTool('randomFill'); break
+      case 'f': setActiveLayer(prev =>
+          prev === 'leftForeground' ? 'rightForeground'
+          : prev === 'rightForeground' ? 'leftForeground'
+          : prev
+        ); break
+      case 'G': setTool('fill'); break  // Shift+G = fill
+    }
+  }, [handleUndo, handleRedo, handleSave, handleSaveAs, copySelection, cutSelection, deleteSelection, clipboard, pasteMode, selection])
+
+  // ── File name ──────────────────────────────────────────────────────────────
 
   const fileName = filePath
     ? filePath.replace(/\\/g, '/').split('/').pop()
     : mapFile ? 'Untitled.map' : null
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  const toolBtnSx = {
+    '& .MuiToggleButton-root': { color: 'text.primary', px: 0.75 },
+    '& .MuiToggleButton-root.Mui-selected': { color: 'info.light', bgcolor: 'action.selected' },
+  } as const
 
   return (
     <Box
@@ -233,100 +427,60 @@ const MapMakerPage: React.FC = () => {
         '& .MuiIconButton-root': { color: 'text.primary' },
         '& .MuiIconButton-root.Mui-disabled': { color: 'text.disabled' },
       }}>
-        <Tooltip title="New Map">
-          <IconButton size="small" onClick={() => setNewMapOpen(true)}>
-            <AddIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Open Map">
-          <IconButton size="small" onClick={handleOpenMap}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Save (Ctrl+S)">
-          <span>
-            <IconButton size="small" onClick={handleSave} disabled={!mapFile}>
-              <SaveIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Save As (Ctrl+Shift+S)">
-          <span>
-            <IconButton size="small" onClick={handleSaveAs} disabled={!mapFile}>
-              <SaveAsIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {/* File ops */}
+        <Tooltip title="New Map"><IconButton size="small" onClick={() => setNewMapOpen(true)}><AddIcon fontSize="small" /></IconButton></Tooltip>
+        <Tooltip title="Open Map"><IconButton size="small" onClick={handleOpenMap}><FolderOpenIcon fontSize="small" /></IconButton></Tooltip>
+        <Tooltip title="Save (Ctrl+S)"><span><IconButton size="small" onClick={handleSave} disabled={!mapFile}><SaveIcon fontSize="small" /></IconButton></span></Tooltip>
+        <Tooltip title="Save As (Ctrl+Shift+S)"><span><IconButton size="small" onClick={handleSaveAs} disabled={!mapFile}><SaveAsIcon fontSize="small" /></IconButton></span></Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
         {/* Tools */}
-        <ToggleButtonGroup
-          value={tool}
-          exclusive
-          onChange={(_, v) => v && setTool(v)}
-          size="small"
-          sx={{
-            '& .MuiToggleButton-root': { color: 'text.primary' },
-            '& .MuiToggleButton-root.Mui-selected': { color: 'info.light', bgcolor: 'action.selected' },
-          }}
-        >
-          <ToggleButton value="draw">
-            <Tooltip title="Draw (D)"><BrushIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
-          <ToggleButton value="erase">
-            <Tooltip title="Erase (E)"><DeleteIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
-          <ToggleButton value="sample">
-            <Tooltip title="Sample (S)"><ColorizeIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
+        <ToggleButtonGroup value={tool} exclusive onChange={(_, v) => v && setTool(v)} size="small" sx={toolBtnSx}>
+          <ToggleButton value="draw"><Tooltip title="Draw (D)"><BrushIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="erase"><Tooltip title="Erase (E)"><DeleteIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="sample"><Tooltip title="Sample (S / Alt+click)"><ColorizeIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="fill"><Tooltip title="Fill (Shift+G)"><FormatColorFillIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="line"><Tooltip title="Line (L)"><TimelineIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="shape"><Tooltip title="Shape (U, Shift+U cycle)"><CropSquareIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="select"><Tooltip title="Select (V)"><SelectAllIcon fontSize="small" /></Tooltip></ToggleButton>
+          <ToggleButton value="randomFill"><Tooltip title="Random Fill (R)"><ShuffleIcon fontSize="small" /></Tooltip></ToggleButton>
         </ToggleButtonGroup>
+
+        {/* Shape mode selector */}
+        {tool === 'shape' && (
+          <Select
+            value={shapeMode}
+            onChange={(e) => setShapeMode(e.target.value as ShapeMode)}
+            size="small"
+            sx={{ fontSize: '0.7rem', height: 28, minWidth: 100, color: 'text.primary' }}
+          >
+            <MenuItem value="rect-outline">Rect Outline</MenuItem>
+            <MenuItem value="rect-filled">Rect Filled</MenuItem>
+            <MenuItem value="circle-outline">Circle Outline</MenuItem>
+            <MenuItem value="circle-filled">Circle Filled</MenuItem>
+          </Select>
+        )}
 
         <Divider orientation="vertical" flexItem />
 
         {/* Undo/redo */}
-        <Tooltip title="Undo (Ctrl+Z)">
-          <span>
-            <IconButton size="small" onClick={handleUndo} disabled={undoStack.length === 0}>
-              <UndoIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Redo (Ctrl+Y)">
-          <span>
-            <IconButton size="small" onClick={handleRedo} disabled={redoStack.length === 0}>
-              <RedoIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
+        <Tooltip title="Undo (Ctrl+Z)"><span><IconButton size="small" onClick={handleUndo} disabled={undoStack.length === 0}><UndoIcon fontSize="small" /></IconButton></span></Tooltip>
+        <Tooltip title="Redo (Ctrl+Y)"><span><IconButton size="small" onClick={handleRedo} disabled={redoStack.length === 0}><RedoIcon fontSize="small" /></IconButton></span></Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
         {/* Zoom */}
-        <Typography variant="caption" color="text.primary" sx={{ minWidth: 35 }}>
-          {Math.round(zoom * 100)}%
-        </Typography>
+        <Typography variant="caption" color="text.primary" sx={{ minWidth: 35 }}>{Math.round(zoom * 100)}%</Typography>
         <Slider
-          value={zoom}
-          onChange={(_, v) => setZoom(v as number)}
-          min={0.25}
-          max={2}
-          step={0.25}
-          sx={{
-            width: 100,
-            '& .MuiSlider-thumb': { color: 'text.primary' },
-            '& .MuiSlider-track': { color: 'text.primary' },
-            '& .MuiSlider-rail': { color: 'text.secondary' },
-          }}
+          value={zoom} onChange={(_, v) => setZoom(v as number)}
+          min={0.25} max={2} step={0.25}
+          sx={{ width: 100, '& .MuiSlider-thumb': { color: 'text.primary' }, '& .MuiSlider-track': { color: 'text.primary' }, '& .MuiSlider-rail': { color: 'text.secondary' } }}
           size="small"
         />
 
         <Tooltip title="Toggle Grid (G)">
-          <IconButton
-            size="small"
-            onClick={() => setShowGrid(g => !g)}
-            sx={{ color: showGrid ? 'info.light' : 'text.primary' }}
-          >
+          <IconButton size="small" onClick={() => setShowGrid(g => !g)} sx={{ color: showGrid ? 'info.light' : 'text.primary' }}>
             <GridOnIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -334,45 +488,14 @@ const MapMakerPage: React.FC = () => {
         <Divider orientation="vertical" flexItem />
 
         {/* Layer visibility */}
-        <Tooltip title="Toggle Background">
-          <IconButton
-            size="small"
-            onClick={() => setShowBg(v => !v)}
-            sx={{ color: showBg ? 'text.primary' : 'error.main' }}
-          >
-            <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>BG</Typography>
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Toggle Left Foreground">
-          <IconButton
-            size="small"
-            onClick={() => setShowLfg(v => !v)}
-            sx={{ color: showLfg ? 'text.primary' : 'error.main' }}
-          >
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', lineHeight: 1 }}>LF</Typography>
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Toggle Right Foreground">
-          <IconButton
-            size="small"
-            onClick={() => setShowRfg(v => !v)}
-            sx={{ color: showRfg ? 'text.primary' : 'error.main' }}
-          >
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', lineHeight: 1 }}>RF</Typography>
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Show Passability">
-          <IconButton
-            size="small"
-            onClick={() => setShowPassability(v => !v)}
-            sx={{ color: showPassability ? 'warning.main' : 'text.primary' }}
-          >
-            <BlockIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Tooltip title="Toggle Background"><IconButton size="small" onClick={() => setShowBg(v => !v)} sx={{ color: showBg ? 'text.primary' : 'error.main' }}><Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>BG</Typography></IconButton></Tooltip>
+        <Tooltip title="Toggle Left Foreground"><IconButton size="small" onClick={() => setShowLfg(v => !v)} sx={{ color: showLfg ? 'text.primary' : 'error.main' }}><Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', lineHeight: 1 }}>LF</Typography></IconButton></Tooltip>
+        <Tooltip title="Toggle Right Foreground"><IconButton size="small" onClick={() => setShowRfg(v => !v)} sx={{ color: showRfg ? 'text.primary' : 'error.main' }}><Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', lineHeight: 1 }}>RF</Typography></IconButton></Tooltip>
+        <Tooltip title="Show Passability"><IconButton size="small" onClick={() => setShowPassability(v => !v)} sx={{ color: showPassability ? 'warning.main' : 'text.primary' }}><BlockIcon fontSize="small" /></IconButton></Tooltip>
 
         {/* Status */}
         <Box sx={{ flexGrow: 1 }} />
+        {pasteMode && <Typography variant="caption" color="warning.main">PASTE MODE (click to place, Shift+click repeat, Esc cancel)</Typography>}
         {fileName && (
           <Typography variant="caption" color="text.secondary" noWrap>
             {fileName}{dirty ? ' *' : ''} {mapFile ? `(${mapFile.width}×${mapFile.height})` : ''}
@@ -382,36 +505,31 @@ const MapMakerPage: React.FC = () => {
           const t = mapFile.getTile(hoverTile.tx, hoverTile.ty)
           return (
             <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
-              ({hoverTile.tx}, {hoverTile.ty})
-              {' · '}bg:{t.background} lf:{t.leftForeground} rf:{t.rightForeground}
+              ({hoverTile.tx}, {hoverTile.ty}) · bg:{t.background} lf:{t.leftForeground} rf:{t.rightForeground}
             </Typography>
           )
         })()}
-        {hoverTile && !mapFile && (
+        {selectedTileIds.length > 1 && (
           <Typography variant="caption" color="text.disabled">
-            ({hoverTile.tx}, {hoverTile.ty})
+            {selectedTileIds.length} tiles selected
           </Typography>
         )}
-        {selectedTileId > 0 && (
-          <Typography variant="caption" color="text.disabled">
-            brush: {selectedTileId}
-          </Typography>
+        {selectedTileIds.length === 1 && selectedTileId > 0 && (
+          <Typography variant="caption" color="text.disabled">brush: {selectedTileId}</Typography>
         )}
       </Box>
 
-      {/* Body: tile picker + canvas */}
+      {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: tile picker */}
-        <Box sx={{
-          width: 280, flexShrink: 0,
-          display: 'flex', flexDirection: 'column',
-          borderRight: '1px solid', borderColor: 'divider',
-        }}>
+        <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
           <TilePicker
             clientPath={clientPath}
             activeLayer={activeLayer}
             selectedTileId={selectedTileId}
-            onSelectTile={setSelectedTileId}
+            selectedTileIds={selectedTileIds}
+            onSelectTile={handleSelectTile}
+            onSelectTiles={handleSelectTiles}
             onLayerChange={setActiveLayer}
           />
         </Box>
@@ -425,30 +543,32 @@ const MapMakerPage: React.FC = () => {
             tool={tool}
             activeLayer={activeLayer}
             selectedTileId={selectedTileId}
+            selectedTileIds={selectedTileIds}
             zoom={zoom}
+            shapeMode={shapeMode}
             showGrid={showGrid}
             showBg={showBg}
             showLfg={showLfg}
             showRfg={showRfg}
             showPassability={showPassability}
+            selection={selection}
+            clipboard={clipboard}
+            pasteMode={pasteMode}
             onTileChange={handleTileChange}
             onSampleTile={handleSampleTile}
             onHoverTile={setHoverTile}
             onZoomChange={setZoom}
+            onSelectionChange={setSelection}
+            onRequestPaste={handleRequestPaste}
+            onSelectionMove={handleSelectionMove}
           />
         ) : (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography color="text.secondary" gutterBottom>
-                Create a new map or open an existing one.
-              </Typography>
+              <Typography color="text.secondary" gutterBottom>Create a new map or open an existing one.</Typography>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setNewMapOpen(true)}>
-                  New Map
-                </Button>
-                <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleOpenMap}>
-                  Open Map
-                </Button>
+                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setNewMapOpen(true)}>New Map</Button>
+                <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleOpenMap}>Open Map</Button>
               </Box>
             </Box>
           </Box>
@@ -456,19 +576,12 @@ const MapMakerPage: React.FC = () => {
       </Box>
 
       {/* Dialogs */}
-      <NewMapDialog
-        open={newMapOpen}
-        onClose={() => setNewMapOpen(false)}
-        onCreate={handleNewMap}
-      />
+      <NewMapDialog open={newMapOpen} onClose={() => setNewMapOpen(false)} onCreate={handleNewMap} />
       {dimPickerState && (
         <DimensionPickerDialog
-          open={dimPickerState.open}
-          filename={dimPickerState.filename}
-          fileBuffer={dimPickerState.fileBuffer}
-          clientPath={clientPath}
-          onConfirm={handleDimConfirm}
-          onCancel={handleDimCancel}
+          open={dimPickerState.open} filename={dimPickerState.filename}
+          fileBuffer={dimPickerState.fileBuffer} clientPath={clientPath}
+          onConfirm={handleDimConfirm} onCancel={() => setDimPickerState(null)}
         />
       )}
     </Box>
