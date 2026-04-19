@@ -173,9 +173,6 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
           <ToggleButton value="leftForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>L-FG</ToggleButton>
           <ToggleButton value="rightForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>R-FG</ToggleButton>
         </ToggleButtonGroup>
-        <Typography variant="caption" sx={{ fontSize: '0.65rem', textAlign: 'center', color: 'text.primary' }}>
-          Press F to toggle L-FG / R-FG
-        </Typography>
       </Box>
 
       {/* Filter */}

@@ -148,6 +148,11 @@ interface TaliesinAPI {
   indexStatus: (libraryRoot: string) => Promise<{ exists: boolean; builtAt?: string }>
   indexDelete: (libraryRoot: string) => Promise<void>
   libraryResolve: (selectedPath: string) => Promise<string | null>
+  prefabList: (libraryPath: string) => Promise<{ filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[]>
+  prefabLoad: (libraryPath: string, filename: string) => Promise<unknown>
+  prefabSave: (libraryPath: string, filename: string, data: unknown) => Promise<void>
+  prefabDelete: (libraryPath: string, filename: string) => Promise<void>
+  prefabRename: (libraryPath: string, oldName: string, newName: string) => Promise<void>
 }
 
 declare global {

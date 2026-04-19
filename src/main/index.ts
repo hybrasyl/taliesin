@@ -443,3 +443,56 @@ ipcMain.handle('library:resolve', async (_, selectedPath: string) => {
 ipcMain.handle('index:delete', async (_, libraryRoot: string) => {
   return deleteIndex(libraryRoot)
 })
+
+// ── Prefabs ──────────────────────────────────────────────────────────────────
+
+function prefabDir(libraryPath: string): string {
+  return join(libraryPath, '..', '.creidhne', 'prefabs')
+}
+
+ipcMain.handle('prefab:list', async (_, libraryPath: string) => {
+  const dir = prefabDir(libraryPath)
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+    const summaries = []
+    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+      try {
+        const raw = await fs.readFile(join(dir, e.name), 'utf-8')
+        const data = JSON.parse(raw)
+        summaries.push({
+          filename: e.name,
+          name: data.name ?? e.name.replace(/\.json$/, ''),
+          width: data.width ?? 0,
+          height: data.height ?? 0,
+          createdAt: data.createdAt ?? '',
+          updatedAt: data.updatedAt ?? '',
+        })
+      } catch { /* skip malformed */ }
+    }
+    return summaries
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('prefab:load', async (_, libraryPath: string, filename: string) => {
+  const p = join(prefabDir(libraryPath), filename)
+  const raw = await fs.readFile(p, 'utf-8')
+  return JSON.parse(raw)
+})
+
+ipcMain.handle('prefab:save', async (_, libraryPath: string, filename: string, data: unknown) => {
+  const dir = prefabDir(libraryPath)
+  await fs.mkdir(dir, { recursive: true })
+  await fs.writeFile(join(dir, filename), JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('prefab:delete', async (_, libraryPath: string, filename: string) => {
+  await fs.unlink(join(prefabDir(libraryPath), filename))
+})
+
+ipcMain.handle('prefab:rename', async (_, libraryPath: string, oldName: string, newName: string) => {
+  const dir = prefabDir(libraryPath)
+  await fs.rename(join(dir, oldName), join(dir, newName))
+})

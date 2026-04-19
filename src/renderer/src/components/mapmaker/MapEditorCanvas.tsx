@@ -794,6 +794,10 @@ const MapEditorCanvas: React.FC<Props> = ({
             <ListItemText>Delete</ListItemText>
             <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Del</Typography>
           </MenuItem>,
+          <MenuItem key="prefab" onClick={() => handleMenuAction('createPrefab')}>
+            <ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Create Prefab</ListItemText>
+          </MenuItem>,
           <Divider key="d1" />,
         ]}
         {clipboard && (

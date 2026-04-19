@@ -22,17 +22,26 @@ import BlockIcon from '@mui/icons-material/Block'
 import AspectRatioIcon from '@mui/icons-material/AspectRatio'
 import ImageIcon from '@mui/icons-material/Image'
 import AnimationIcon from '@mui/icons-material/Animation'
+import MapIcon from '@mui/icons-material/Map'
+import ExtensionIcon from '@mui/icons-material/Extension'
 import { useRecoilValue } from 'recoil'
-import { clientPathState } from '../recoil/atoms'
+import { clientPathState, activeLibraryState } from '../recoil/atoms'
 import { MapFile, type MapTile } from '@eriscorp/dalib-ts'
 import TilePicker, { type TileLayer } from '../components/mapmaker/TilePicker'
 import MapEditorCanvas, { type EditorTool, type TileChange, type Selection, type Clipboard } from '../components/mapmaker/MapEditorCanvas'
 import NewMapDialog from '../components/mapmaker/NewMapDialog'
 import ResizeMapDialog from '../components/mapmaker/ResizeMapDialog'
 import ExportMapDialog from '../components/mapmaker/ExportMapDialog'
+import CreatePrefabDialog from '../components/mapmaker/CreatePrefabDialog'
+import PrefabSidebar from '../components/mapmaker/PrefabSidebar'
+import TabMapPopup from '../components/mapmaker/TabMapPopup'
+import DirectionalResizeButtons from '../components/mapmaker/DirectionalResizeButtons'
+import ShortcutHelpPanel from '../components/mapmaker/ShortcutHelpPanel'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { applyChanges, revertChanges, type ShapeMode, type TileCoord } from '../utils/mapEditorTools'
 import { floodFill } from '../utils/mapEditorTools'
+import { sanitizePrefabName, trimPrefab, type Prefab } from '../utils/prefabTypes'
+import { type MapAssets } from '../utils/mapRenderer'
 
 // ── Undo types ───────────────────────────────────────────────────────────────
 
@@ -43,6 +52,7 @@ const MAX_UNDO = 100
 
 const MapMakerPage: React.FC = () => {
   const clientPath = useRecoilValue(clientPathState)
+  const activeLibrary = useRecoilValue(activeLibraryState)
 
   // Map state
   const [mapFile, setMapFile] = useState<MapFile | null>(null)
@@ -83,6 +93,11 @@ const MapMakerPage: React.FC = () => {
   const [newMapOpen, setNewMapOpen] = useState(false)
   const [resizeOpen, setResizeOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [createPrefabOpen, setCreatePrefabOpen] = useState(false)
+  const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
+  const [showTabMap, setShowTabMap] = useState(false)
+  const [stampPrefab, setStampPrefab] = useState<Prefab | null>(null)
+  const prefabSidebarRef = useRef<{ refresh: () => void }>(null)
   const [dimPickerState, setDimPickerState] = useState<{
     open: boolean; filePath: string; filename: string; fileBuffer: Uint8Array
   } | null>(null)
@@ -421,8 +436,96 @@ const MapMakerPage: React.FC = () => {
       case 'tool-line': setTool('line'); break
       case 'tool-shape': setTool('shape'); break
       case 'tool-select': setTool('select'); break
+      case 'createPrefab': if (selection) setCreatePrefabOpen(true); break
     }
-  }, [cutSelection, copySelection, deleteSelection, clipboard, mapFile, activeLayer, selectedTileId, handleSampleTile, handleTileChange, showStatus])
+  }, [cutSelection, copySelection, deleteSelection, clipboard, mapFile, activeLayer, selectedTileId, handleSampleTile, handleTileChange, showStatus, selection])
+
+  // ── Create prefab from selection ────────────────────────────────────────────
+
+  const handleCreatePrefab = useCallback(async (name: string, includeGround: boolean) => {
+    if (!mapFile || !selection || !activeLibrary) return
+    const tiles: { background: number; leftForeground: number; rightForeground: number }[] = []
+    for (let dy = 0; dy < selection.h; dy++) {
+      for (let dx = 0; dx < selection.w; dx++) {
+        const tx = selection.x + dx
+        const ty = selection.y + dy
+        if (tx < mapFile.width && ty < mapFile.height) {
+          const t = mapFile.getTile(tx, ty)
+          tiles.push({
+            background: includeGround ? t.background : 0,
+            leftForeground: t.leftForeground,
+            rightForeground: t.rightForeground,
+          })
+        } else {
+          tiles.push({ background: 0, leftForeground: 0, rightForeground: 0 })
+        }
+      }
+    }
+    const prefab: Prefab = { name, width: selection.w, height: selection.h, tiles, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    const trimmed = trimPrefab(prefab)
+    const filename = sanitizePrefabName(name) + '.json'
+    await window.api.prefabSave(activeLibrary, filename, trimmed)
+    showStatus(`Prefab "${name}" saved`)
+  }, [mapFile, selection, activeLibrary, showStatus])
+
+  // ── Stamp prefab ───────────────────────────────────────────────────────────
+
+  const handleStampPrefab = useCallback((prefab: Prefab) => {
+    // Convert prefab to clipboard format and enter paste mode
+    const clipTiles: MapTile[] = prefab.tiles.map(t => ({
+      background: t.background,
+      leftForeground: t.leftForeground,
+      rightForeground: t.rightForeground,
+    }))
+    setClipboard({ tiles: clipTiles, w: prefab.width, h: prefab.height })
+    setPasteMode(true)
+    showStatus(`Stamping: ${prefab.name}`)
+  }, [showStatus])
+
+  // ── Directional resize ─────────────────────────────────────────────────────
+
+  const handleDirectionalResize = useCallback((side: 'top' | 'bottom' | 'left' | 'right', delta: number) => {
+    if (!mapFile) return
+    const oldW = mapFile.width
+    const oldH = mapFile.height
+
+    let newW = oldW, newH = oldH
+    let offsetX = 0, offsetY = 0
+
+    if (side === 'top')    { newH += delta; offsetY = delta > 0 ? delta : 0 }
+    if (side === 'bottom') { newH += delta }
+    if (side === 'left')   { newW += delta; offsetX = delta > 0 ? delta : 0 }
+    if (side === 'right')  { newW += delta }
+
+    if (newW < 1 || newH < 1 || newW > 512 || newH > 512) return
+
+    const newMap = new MapFile(newW, newH)
+
+    // Copy tiles with offset
+    const srcStartX = delta < 0 && side === 'left' ? Math.abs(delta) : 0
+    const srcStartY = delta < 0 && side === 'top' ? Math.abs(delta) : 0
+
+    for (let y = 0; y < oldH; y++) {
+      for (let x = 0; x < oldW; x++) {
+        const destX = x + offsetX - srcStartX
+        const destY = y + offsetY - srcStartY
+        if (destX >= 0 && destX < newW && destY >= 0 && destY < newH) {
+          if (x >= srcStartX && y >= srcStartY) {
+            newMap.setTile(destX, destY, { ...mapFile.getTile(x, y) })
+          }
+        }
+      }
+    }
+
+    setMapFile(newMap)
+    setDirty(true)
+    setUndoStack([]); setRedoStack([])
+    setSelection(null); setPasteMode(false)
+    setCanvasKey(k => k + 1)
+    const label = side === 'top' || side === 'bottom' ? 'row' : 'column'
+    const action = delta > 0 ? 'Added' : 'Removed'
+    showStatus(`${action} ${label} at ${side} (${newW}×${newH})`)
+  }, [mapFile, showStatus])
 
   // ── Tile picker callbacks ──────────────────────────────────────────────────
 
@@ -487,6 +590,7 @@ const MapMakerPage: React.FC = () => {
           : prev
         ); break
       case 'G': setTool('fill'); break  // Shift+G = fill
+      case 'p': if (stampPrefab) { handleStampPrefab(stampPrefab) } break
       case 't': {
         // Toggle ground ↔ wall
         if (activeLayer === 'background') {
@@ -600,6 +704,22 @@ const MapMakerPage: React.FC = () => {
         <Tooltip title="Resize Map"><span><IconButton size="small" onClick={() => setResizeOpen(true)} disabled={!mapFile}><AspectRatioIcon fontSize="small" /></IconButton></span></Tooltip>
         <Tooltip title="Export PNG"><span><IconButton size="small" onClick={() => setExportOpen(true)} disabled={!mapFile}><ImageIcon fontSize="small" /></IconButton></span></Tooltip>
 
+        <Divider orientation="vertical" flexItem />
+
+        <Tooltip title="Prefab Sidebar">
+          <IconButton size="small" onClick={() => setShowPrefabSidebar(v => !v)} sx={{ color: showPrefabSidebar ? 'info.light' : 'text.primary' }}>
+            <ExtensionIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Collision Map">
+          <span>
+            <IconButton size="small" onClick={() => setShowTabMap(v => !v)} disabled={!mapFile} sx={{ color: showTabMap ? 'info.light' : 'text.primary' }}>
+              <MapIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <ShortcutHelpPanel />
+
         {/* Status */}
         <Box sx={{ flexGrow: 1 }} />
         {statusMessage && (
@@ -646,36 +766,43 @@ const MapMakerPage: React.FC = () => {
           />
         </Box>
 
-        {/* Center: canvas */}
+        {/* Center: canvas + directional resize */}
         {mapFile ? (
-          <MapEditorCanvas
-            key={canvasKey}
-            mapFile={mapFile}
-            clientPath={clientPath}
-            tool={tool}
-            activeLayer={activeLayer}
-            selectedTileId={selectedTileId}
-            selectedTileIds={selectedTileIds}
-            zoom={zoom}
-            shapeMode={shapeMode}
-            showGrid={showGrid}
-            showBg={showBg}
-            showLfg={showLfg}
-            showRfg={showRfg}
-            showPassability={showPassability}
-            selection={selection}
-            clipboard={clipboard}
-            pasteMode={pasteMode}
-            onTileChange={handleTileChange}
-            onSampleTile={handleSampleTile}
-            onHoverTile={setHoverTile}
-            onZoomChange={setZoom}
-            onSelectionChange={setSelection}
-            onRequestPaste={handleRequestPaste}
-            onSelectionMove={handleSelectionMove}
-            showAnimation={showAnimation}
-            onContextAction={handleContextAction}
-          />
+          <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <MapEditorCanvas
+              key={canvasKey}
+              mapFile={mapFile}
+              clientPath={clientPath}
+              tool={tool}
+              activeLayer={activeLayer}
+              selectedTileId={selectedTileId}
+              selectedTileIds={selectedTileIds}
+              zoom={zoom}
+              shapeMode={shapeMode}
+              showGrid={showGrid}
+              showBg={showBg}
+              showLfg={showLfg}
+              showRfg={showRfg}
+              showPassability={showPassability}
+              selection={selection}
+              clipboard={clipboard}
+              pasteMode={pasteMode}
+              onTileChange={handleTileChange}
+              onSampleTile={handleSampleTile}
+              onHoverTile={setHoverTile}
+              onZoomChange={setZoom}
+              onSelectionChange={setSelection}
+              onRequestPaste={handleRequestPaste}
+              onSelectionMove={handleSelectionMove}
+              showAnimation={showAnimation}
+              onContextAction={handleContextAction}
+            />
+            <DirectionalResizeButtons
+              mapWidth={mapFile.width}
+              mapHeight={mapFile.height}
+              onResize={handleDirectionalResize}
+            />
+          </Box>
         ) : (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Box sx={{ textAlign: 'center' }}>
@@ -687,10 +814,39 @@ const MapMakerPage: React.FC = () => {
             </Box>
           </Box>
         )}
+
+        {/* Right: prefab sidebar */}
+        {showPrefabSidebar && (
+          <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', borderLeft: '1px solid', borderColor: 'divider' }}>
+            <PrefabSidebar
+              libraryPath={activeLibrary}
+              onStampPrefab={handleStampPrefab}
+              onStatus={showStatus}
+            />
+          </Box>
+        )}
       </Box>
+
+      {/* Tab map floating popup */}
+      {showTabMap && mapFile && (
+        <TabMapPopup
+          mapFile={mapFile}
+          assets={null}
+          onClose={() => setShowTabMap(false)}
+        />
+      )}
 
       {/* Dialogs */}
       <NewMapDialog open={newMapOpen} onClose={() => setNewMapOpen(false)} onCreate={handleNewMap} />
+      {selection && (
+        <CreatePrefabDialog
+          open={createPrefabOpen}
+          selectionWidth={selection.w}
+          selectionHeight={selection.h}
+          onClose={() => setCreatePrefabOpen(false)}
+          onCreate={handleCreatePrefab}
+        />
+      )}
       {dimPickerState && (
         <DimensionPickerDialog
           open={dimPickerState.open} filename={dimPickerState.filename}

@@ -109,6 +109,18 @@ const api = {
     ipcRenderer.invoke('index:delete', libraryRoot),
   libraryResolve: (selectedPath: string): Promise<string | null> =>
     ipcRenderer.invoke('library:resolve', selectedPath),
+
+  // Prefabs
+  prefabList: (libraryPath: string): Promise<{ filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[]> =>
+    ipcRenderer.invoke('prefab:list', libraryPath),
+  prefabLoad: (libraryPath: string, filename: string): Promise<unknown> =>
+    ipcRenderer.invoke('prefab:load', libraryPath, filename),
+  prefabSave: (libraryPath: string, filename: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('prefab:save', libraryPath, filename, data),
+  prefabDelete: (libraryPath: string, filename: string): Promise<void> =>
+    ipcRenderer.invoke('prefab:delete', libraryPath, filename),
+  prefabRename: (libraryPath: string, oldName: string, newName: string): Promise<void> =>
+    ipcRenderer.invoke('prefab:rename', libraryPath, oldName, newName),
 }
 
 if (process.contextIsolated) {

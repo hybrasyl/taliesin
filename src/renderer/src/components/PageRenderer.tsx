@@ -6,6 +6,7 @@ import MapEditorPage from '../pages/MapEditorPage'
 import WorldMapPage from '../pages/WorldMapPage'
 import ArchivePage from '../pages/ArchivePage'
 import MapMakerPage from '../pages/MapMakerPage'
+import PrefabCatalogPage from '../pages/PrefabCatalogPage'
 import MusicPage from '../pages/MusicPage'
 import SfxPage from '../pages/SfxPage'
 import SettingsPage from '../pages/SettingsPage'
@@ -19,6 +20,7 @@ const PageRenderer: React.FC = () => {
     case 'worldmap':   return <WorldMapPage />
     case 'archive':    return <ArchivePage />
     case 'mapmaker':   return <MapMakerPage />
+    case 'prefabs':    return <PrefabCatalogPage />
     case 'music':      return <MusicPage />
     case 'sfx':        return <SfxPage />
     case 'settings':   return <SettingsPage />

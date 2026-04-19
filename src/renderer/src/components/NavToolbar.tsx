@@ -6,6 +6,7 @@ import {
   GiWorld,
   GiArchiveResearch,
   GiBrickWall,
+  GiPuzzle,
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs
@@ -86,6 +87,11 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Map Maker">
         <IconButton sx={sx('mapmaker')} onClick={nav('mapmaker')}>
           <GiBrickWall />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Prefab Catalog">
+        <IconButton sx={sx('prefabs')} onClick={nav('prefabs')}>
+          <GiPuzzle />
         </IconButton>
       </Tooltip>
       <Tooltip title="Music Manager">
