@@ -7,7 +7,7 @@
  * Assets are loaded once per clientPath and cached for the lifetime of the renderer process.
  */
 
-import { DataArchive, HpfFile, Palette, PaletteTable, MapFile } from '@eriscorp/dalib-ts'
+import { DataArchive, HpfFile, Palette, PaletteTable, MapFile, TileAnimationTable, type TileAnimationEntry } from '@eriscorp/dalib-ts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,11 @@ export interface MapAssets {
    * Null when sotp.dat is absent from the client directory.
    */
   sotpTable: Uint8Array | null
+
+  /** Ground tile animation table (gndani.tbl from seo.dat). Null if absent. */
+  groundAnimationTable: TileAnimationTable | null
+  /** Foreground tile animation table (stcani.tbl from ia.dat). Null if absent. */
+  stcAnimationTable: TileAnimationTable | null
 }
 
 // ── Module-level caches ───────────────────────────────────────────────────────
@@ -91,6 +96,18 @@ export async function loadMapAssets(
   const sotpEntry = iaArchive.get('sotp.dat')
   const sotpTable: Uint8Array | null = sotpEntry ? sotpEntry.toUint8Array() : null
 
+  // Animation tables (optional)
+  let groundAnimationTable: TileAnimationTable | null = null
+  let stcAnimationTable: TileAnimationTable | null = null
+  try {
+    const gndAniEntry = seoArchive.get('gndani.tbl')
+    if (gndAniEntry) groundAnimationTable = TileAnimationTable.fromEntry(gndAniEntry)
+  } catch { /* absent or malformed */ }
+  try {
+    const stcAniEntry = iaArchive.get('stcani.tbl')
+    if (stcAniEntry) stcAnimationTable = TileAnimationTable.fromEntry(stcAniEntry)
+  } catch { /* absent or malformed */ }
+
   const assets: MapAssets = {
     groundPixels,
     groundTileCount,
@@ -100,6 +117,8 @@ export async function loadMapAssets(
     stcPaletteTable,
     stcPalettes,
     sotpTable,
+    groundAnimationTable,
+    stcAnimationTable,
   }
 
   assetCache.set(key, assets)
@@ -382,4 +401,24 @@ export function renderSchematicScaled(
       ctx.beginPath(); ctx.moveTo(0, y * ppt); ctx.lineTo(width * ppt, y * ppt); ctx.stroke()
     }
   }
+}
+
+// ── Animation helpers ────────────────────────────────────────────────────────
+
+/**
+ * Get the animated tile ID for a given tile at the current time.
+ * Returns the original tileId if no animation entry exists.
+ */
+export function getAnimatedTileId(
+  table: TileAnimationTable | null,
+  tileId: number,
+  elapsedMs: number,
+): number {
+  if (!table || tileId <= 0) return tileId
+  const entry = table.tryGetEntry(tileId)
+  if (!entry || entry.tileSequence.length <= 1) return tileId
+
+  const interval = entry.animationIntervalMs || 500
+  const frameIndex = Math.floor(elapsedMs / interval) % entry.tileSequence.length
+  return entry.tileSequence[frameIndex] ?? tileId
 }

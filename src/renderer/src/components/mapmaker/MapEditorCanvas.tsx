@@ -1,8 +1,19 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { Box, CircularProgress, Typography } from '@mui/material'
+import { Box, CircularProgress, Typography, Menu, MenuItem, Divider, ListItemIcon, ListItemText } from '@mui/material'
+import BrushIcon from '@mui/icons-material/Brush'
+import DeleteIcon from '@mui/icons-material/Delete'
+import FormatColorFillIcon from '@mui/icons-material/FormatColorFill'
+import TimelineIcon from '@mui/icons-material/Timeline'
+import CropSquareIcon from '@mui/icons-material/CropSquare'
+import SelectAllIcon from '@mui/icons-material/SelectAll'
+import ColorizeIcon from '@mui/icons-material/Colorize'
+import ContentCutIcon from '@mui/icons-material/ContentCut'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ContentPasteIcon from '@mui/icons-material/ContentPaste'
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import { MapFile, type MapTile } from '@eriscorp/dalib-ts'
 import {
-  loadMapAssets, getGroundBitmap, getStcBitmap,
+  loadMapAssets, getGroundBitmap, getStcBitmap, getAnimatedTileId,
   isoCanvasSize, tileToScreen, screenToTileCoords, isTilePassable,
   ISO_HTILE_W, ISO_VTILE_STEP, ISO_FOREGROUND_PAD,
   GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT,
@@ -54,6 +65,8 @@ interface Props {
   onSelectionChange: (sel: Selection | null) => void
   onRequestPaste: (tx: number, ty: number, keepPasting: boolean) => void
   onSelectionMove: (dx: number, dy: number, duplicate: boolean) => void
+  showAnimation: boolean
+  onContextAction: (action: string, tile?: TileCoord) => void
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -69,6 +82,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   selection, clipboard, pasteMode,
   onTileChange, onSampleTile, onHoverTile, onZoomChange,
   onSelectionChange, onRequestPaste, onSelectionMove,
+  showAnimation, onContextAction,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -91,6 +105,13 @@ const MapEditorCanvas: React.FC<Props> = ({
   const [selectStart, setSelectStart] = useState<TileCoord | null>(null)
   const [dragStart, setDragStart] = useState<TileCoord | null>(null)
   const [dragOffset, setDragOffset] = useState<TileCoord | null>(null)
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; tile: TileCoord } | null>(null)
+
+  // Animation
+  const elapsedRef = useRef(0)
+  const animFrameRef = useRef<number | null>(null)
 
   const { width: W, height: H } = mapFile
   const scale = zoom
@@ -120,12 +141,17 @@ const MapEditorCanvas: React.FC<Props> = ({
 
     const { tiles } = mapFile
 
+    const elapsed = elapsedRef.current
+    const gndAni = showAnimation ? assets.groundAnimationTable : null
+    const stcAni = showAnimation ? assets.stcAnimationTable : null
+
     if (showBg) {
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const bg = tiles[y * W + x]!.background
           if (bg <= 0) continue
-          const bm = await getGroundBitmap(bg, assets)
+          const animBg = getAnimatedTileId(gndAni, bg, elapsed)
+          const bm = await getGroundBitmap(animBg, assets)
           if (bm) {
             ctx.drawImage(bm, originX + (x - y) * HTILE_W - HTILE_W, originY + (x + y) * HALF_H)
           }
@@ -140,11 +166,13 @@ const MapEditorCanvas: React.FC<Props> = ({
         const fgBaseY = originY + (x + y) * HALF_H
 
         if (showLfg && tile.leftForeground > 0) {
-          const bm = await getStcBitmap(tile.leftForeground, assets)
+          const animLf = getAnimatedTileId(stcAni, tile.leftForeground, elapsed)
+          const bm = await getStcBitmap(animLf, assets)
           if (bm) ctx.drawImage(bm, fgBaseX - HTILE_W, fgBaseY - bm.height + HTILE_W)
         }
         if (showRfg && tile.rightForeground > 0) {
-          const bm = await getStcBitmap(tile.rightForeground, assets)
+          const animRf = getAnimatedTileId(stcAni, tile.rightForeground, elapsed)
+          const bm = await getStcBitmap(animRf, assets)
           if (bm) ctx.drawImage(bm, fgBaseX, fgBaseY - bm.height + HTILE_W)
         }
       }
@@ -166,7 +194,7 @@ const MapEditorCanvas: React.FC<Props> = ({
         }
       }
     }
-  }, [mapFile, scale, W, H, canvasW, canvasH, originX, originY, showBg, showLfg, showRfg, showPassability])
+  }, [mapFile, scale, W, H, canvasW, canvasH, originX, originY, showBg, showLfg, showRfg, showPassability, showAnimation])
 
   // Initial render + asset loading
   useEffect(() => {
@@ -200,6 +228,28 @@ const MapEditorCanvas: React.FC<Props> = ({
       await doFullRender()
     })
   }, [doFullRender])
+
+  // ── Animation loop ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const assets = assetsRef.current
+    const hasAnimations = showAnimation && assets &&
+      (assets.groundAnimationTable || assets.stcAnimationTable)
+    if (!hasAnimations) return
+
+    let lastTime = performance.now()
+    const tick = (now: number) => {
+      elapsedRef.current += now - lastTime
+      lastTime = now
+      queueRender()
+      animFrameRef.current = requestAnimationFrame(tick)
+    }
+    animFrameRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    }
+  }, [showAnimation, queueRender])
 
   // ── Ghost tile bitmap ──────────────────────────────────────────────────────
 
@@ -650,10 +700,21 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     e.preventDefault()
-    // Cancel in-progress operations
     if (lineStart) setLineStart(null)
     if (shapeStart) setShapeStart(null)
-  }, [lineStart, shapeStart])
+    const tile = eventToTile(e)
+    if (tile) {
+      setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, tile })
+    }
+  }, [lineStart, shapeStart, eventToTile])
+
+  const handleMenuClose = useCallback(() => setContextMenu(null), [])
+
+  const handleMenuAction = useCallback((action: string) => {
+    const tile = contextMenu?.tile
+    setContextMenu(null)
+    onContextAction(action, tile ?? undefined)
+  }, [contextMenu, onContextAction])
 
   // ── Wheel ──────────────────────────────────────────────────────────────────
 
@@ -709,6 +770,68 @@ const MapEditorCanvas: React.FC<Props> = ({
           onContextMenu={handleContextMenu}
         />
       </Box>
+
+      {/* Context menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleMenuClose}
+        anchorReference="anchorPosition"
+        anchorPosition={contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
+      >
+        {selection && [
+          <MenuItem key="cut" onClick={() => handleMenuAction('cut')}>
+            <ListItemIcon><ContentCutIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Cut</ListItemText>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+X</Typography>
+          </MenuItem>,
+          <MenuItem key="copy" onClick={() => handleMenuAction('copy')}>
+            <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Copy</ListItemText>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+C</Typography>
+          </MenuItem>,
+          <MenuItem key="del" onClick={() => handleMenuAction('delete')}>
+            <ListItemIcon><DeleteForeverIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Delete</ListItemText>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Del</Typography>
+          </MenuItem>,
+          <Divider key="d1" />,
+        ]}
+        {clipboard && (
+          <MenuItem onClick={() => handleMenuAction('paste')}>
+            <ListItemIcon><ContentPasteIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Paste</ListItemText>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+V</Typography>
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => handleMenuAction('sample')}>
+          <ListItemIcon><ColorizeIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Sample Tile</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('fillHere')}>
+          <ListItemIcon><FormatColorFillIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Fill From Here</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleMenuAction('toggleBg')}>
+          <ListItemText>{showBg ? 'Hide' : 'Show'} Background</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('toggleLfg')}>
+          <ListItemText>{showLfg ? 'Hide' : 'Show'} Left Foreground</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('toggleRfg')}>
+          <ListItemText>{showRfg ? 'Hide' : 'Show'} Right Foreground</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('togglePassability')}>
+          <ListItemText>{showPassability ? 'Hide' : 'Show'} Passability</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleMenuAction('tool-draw')}><ListItemIcon><BrushIcon fontSize="small" /></ListItemIcon><ListItemText>Draw</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-erase')}><ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon><ListItemText>Erase</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-fill')}><ListItemIcon><FormatColorFillIcon fontSize="small" /></ListItemIcon><ListItemText>Fill</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-line')}><ListItemIcon><TimelineIcon fontSize="small" /></ListItemIcon><ListItemText>Line</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-shape')}><ListItemIcon><CropSquareIcon fontSize="small" /></ListItemIcon><ListItemText>Shape</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-select')}><ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon><ListItemText>Select</ListItemText></MenuItem>
+      </Menu>
     </Box>
   )
 }
