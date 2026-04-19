@@ -2,7 +2,7 @@ import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
-export type Page = 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'sprites' | 'music' | 'sfx' | 'settings'
+export type Page = 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'music' | 'sfx' | 'settings'
 
 export interface DirtyEditor {
   label: string

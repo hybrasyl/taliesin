@@ -48,6 +48,8 @@ const api = {
   openFile: (filters?: Electron.FileFilter[]): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFile', filters),
   openDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:openDirectory'),
+  saveFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:saveFile', filters, defaultPath),
 
   // File system — returns raw bytes for dalib-ts to parse in the renderer
   readFile: (filePath: string): Promise<Buffer> => ipcRenderer.invoke('fs:readFile', filePath),

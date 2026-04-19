@@ -110,6 +110,14 @@ ipcMain.handle('dialog:openDirectory', async () => {
   return result.filePaths[0] ?? null
 })
 
+ipcMain.handle('dialog:saveFile', async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
+  const result = await dialog.showSaveDialog({
+    filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+    defaultPath: defaultPath ?? undefined,
+  })
+  return result.filePath ?? null
+})
+
 ipcMain.handle('fs:readFile', async (_, filePath: string) => {
   const buffer = await fs.readFile(filePath)
   // Transfer as Uint8Array so dalib-ts can parse it in the renderer

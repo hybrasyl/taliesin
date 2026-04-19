@@ -217,7 +217,7 @@ export default function MapRenderCanvas({
             scale: zoom,
             pixPerTile: 0,
             originX: mapHeight * ISO_HTILE_W,
-            originY: 480,                         // ISO_FOREGROUND_PAD
+            originY: 512,                         // ISO_FOREGROUND_PAD
             canvasW: w, canvasH: h,
             mapW: mapWidth, mapH: mapHeight,
           }

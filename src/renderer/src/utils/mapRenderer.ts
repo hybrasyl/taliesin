@@ -11,16 +11,16 @@ import { DataArchive, HpfFile, Palette, PaletteTable, MapFile } from '@eriscorp/
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const GROUND_TILE_WIDTH  = 56
-const GROUND_TILE_HEIGHT = 27
-const GROUND_TILE_BYTES  = GROUND_TILE_WIDTH * GROUND_TILE_HEIGHT  // 1512
+export const GROUND_TILE_WIDTH  = 56
+export const GROUND_TILE_HEIGHT = 27
+export const GROUND_TILE_BYTES  = GROUND_TILE_WIDTH * GROUND_TILE_HEIGHT  // 1512
 
 /** Half tile dimensions used for isometric projection. */
 const HTILE_W = GROUND_TILE_WIDTH  / 2   // 28
 const HTILE_H = GROUND_TILE_HEIGHT         // 27 (visual half-height is 14 but the tile image is 27)
 
 /** Vertical padding above origin to accommodate tall foreground objects. */
-const FOREGROUND_PAD = 480
+const FOREGROUND_PAD = 512
 
 // ── Asset types ───────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ export async function loadMapAssets(
 
 // ── Tile rendering helpers ────────────────────────────────────────────────────
 
-function pixelsToImageData(
+export function pixelsToImageData(
   pixels: Uint8Array,
   palette: Palette,
   width: number,
@@ -134,7 +134,7 @@ function pixelsToImageData(
   return img
 }
 
-async function getGroundBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
+export async function getGroundBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
   if (tileIndex <= 0 || tileIndex > assets.groundTileCount) return null
 
   const cached = groundBitmapCache.get(tileIndex)
@@ -157,7 +157,7 @@ function isValidStcIndex(n: number): boolean {
   return n > 0 && ((n > 12 && n < 10000) || n > 10012)
 }
 
-async function getStcBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
+export async function getStcBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
   if (!isValidStcIndex(tileIndex)) return null
 
   const cached = stcBitmapCache.get(tileIndex)

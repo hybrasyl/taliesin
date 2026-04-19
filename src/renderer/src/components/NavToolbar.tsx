@@ -5,7 +5,7 @@ import {
   GiScrollQuill,
   GiWorld,
   GiArchiveResearch,
-  GiSpellBook,
+  GiBrickWall,
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs
@@ -83,9 +83,9 @@ const NavToolbar: React.FC = () => {
           <GiArchiveResearch />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Sprite Viewer">
-        <IconButton sx={sx('sprites')} onClick={nav('sprites')}>
-          <GiSpellBook />
+      <Tooltip title="Map Maker">
+        <IconButton sx={sx('mapmaker')} onClick={nav('mapmaker')}>
+          <GiBrickWall />
         </IconButton>
       </Tooltip>
       <Tooltip title="Music Manager">

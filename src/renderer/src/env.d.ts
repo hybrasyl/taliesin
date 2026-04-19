@@ -122,6 +122,7 @@ interface TaliesinAPI {
   saveSettings: (settings: unknown) => Promise<void>
   openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
   openDirectory: () => Promise<string | null>
+  saveFile: (filters?: { name: string; extensions: string[] }[], defaultPath?: string) => Promise<string | null>
   readFile: (filePath: string) => Promise<Buffer>
   listDir: (dirPath: string) => Promise<DirEntry[]>
   copyFile: (src: string, dst: string) => Promise<void>
