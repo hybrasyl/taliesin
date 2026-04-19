@@ -1,6 +1,6 @@
 import { MapFile } from '@eriscorp/dalib-ts'
 import { createNoise2D } from 'simplex-noise'
-import type { TileTheme, TerrainParams, DungeonParams } from './tileThemeTypes'
+import type { TileAtlas, BgFamily, WallFamily } from './tileThemeTypes'
 
 // ── Seeded PRNG (mulberry32) ────────────────────────────────────────────────
 
@@ -14,21 +14,153 @@ function mulberry32(seed: number): () => number {
   }
 }
 
+/** Pick a random tile from a family, weighted by frequency in the atlas. */
+function pickTile(family: BgFamily, atlas: TileAtlas, rng: () => number): number {
+  const tiles = family.tiles
+  if (tiles.length === 0) return 0
+
+  // Build cumulative weights from frequency
+  const weights: number[] = []
+  let total = 0
+  for (const t of tiles) {
+    const freq = atlas.bgFrequency[String(t)] ?? 1
+    total += freq
+    weights.push(total)
+  }
+
+  const r = rng() * total
+  for (let i = 0; i < weights.length; i++) {
+    if (r < weights[i]) return tiles[i]
+  }
+  return tiles[tiles.length - 1]
+}
+
+/** Pick a tile that is a known neighbor of the given context tiles, from within `family`. */
+function pickAdjacentTile(
+  contextTiles: number[],
+  family: BgFamily,
+  atlas: TileAtlas,
+  rng: () => number,
+): number {
+  const familySet = new Set(family.tiles)
+
+  // For each context tile, collect neighbor weights within this family
+  // A tile that is a known neighbor of ALL context tiles gets the highest score
+  const scores = new Map<number, number>()
+
+  for (const adj of contextTiles) {
+    if (adj === 0) continue
+    const neighbors = atlas.bgAdjacency[String(adj)]
+    if (!neighbors) continue
+    for (const [nId, count] of Object.entries(neighbors)) {
+      const id = Number(nId)
+      if (familySet.has(id)) {
+        scores.set(id, (scores.get(id) ?? 0) + count)
+      }
+    }
+  }
+
+  if (scores.size === 0) return pickTile(family, atlas, rng)
+
+  // Weighted random from scored candidates
+  const candidates = [...scores.entries()]
+  let total = 0
+  for (const [, w] of candidates) total += w
+  const r = rng() * total
+  let acc = 0
+  for (const [tile, w] of candidates) {
+    acc += w
+    if (r < acc) return tile
+  }
+  return candidates[candidates.length - 1][0]
+}
+
+/** Pick a random wall pair from a family, weighted by frequency. */
+function pickWallPair(family: WallFamily, rng: () => number): [number, number] {
+  if (family.pairs.length === 0) return [0, 0]
+  // Simple uniform random for now (pair-level frequency not stored individually)
+  const idx = Math.floor(rng() * family.pairs.length)
+  return family.pairs[idx]
+}
+
+// ── Terrain params ──────────────────────────────────────────────────────────
+
+export interface TerrainParams {
+  width: number
+  height: number
+  seed: number
+  // Noise
+  scale: number
+  octaves: number
+  persistence: number
+  lacunarity: number
+  // Family selection
+  primaryFamilyIdx: number
+  secondaryFamilyIdx: number
+  secondaryThreshold: number   // noise value where secondary takes over
+  // Walls
+  wallFamilyIdx: number
+  wallDensity: number          // 0-1, fraction of tiles that get walls
+  wallThreshold: number        // noise threshold for wall placement
+}
+
+export const TERRAIN_DEFAULTS = {
+  scale: 0.06,
+  octaves: 3,
+  persistence: 0.5,
+  lacunarity: 2.0,
+  secondaryThreshold: 0.55,
+  wallDensity: 0.05,
+  wallThreshold: 0.75,
+}
+
+// ── Dungeon params ──────────────────────────────────────────────────────────
+
+export interface DungeonParams {
+  width: number
+  height: number
+  seed: number
+  roomCount: number
+  minRoomSize: number
+  maxRoomSize: number
+  corridorWidth: number
+  // Family selection
+  floorFamilyIdx: number
+  wallFamilyIdx: number
+  corridorFamilyIdx: number
+}
+
+export const DUNGEON_DEFAULTS = {
+  roomCount: 8,
+  minRoomSize: 4,
+  maxRoomSize: 12,
+  corridorWidth: 1,
+}
+
 // ── Noise Terrain Generator ─────────────────────────────────────────────────
 
-export function generateTerrain(params: TerrainParams, theme: TileTheme): MapFile {
+export function generateTerrain(params: TerrainParams, atlas: TileAtlas): MapFile {
   const { width, height, seed, scale, octaves, persistence, lacunarity,
-    secondaryThreshold, accentThreshold, fgThreshold } = params
+    primaryFamilyIdx, secondaryFamilyIdx, secondaryThreshold,
+    wallFamilyIdx, wallDensity, wallThreshold } = params
 
-  const prng = mulberry32(seed)
-  const noise2D = createNoise2D(prng)
-  const fgNoise2D = createNoise2D(prng)
+  const primaryFamily = atlas.bgFamilies[primaryFamilyIdx]
+  const secondaryFamily = atlas.bgFamilies[secondaryFamilyIdx]
+  const wallFamily = wallFamilyIdx >= 0 ? atlas.wallFamilies[wallFamilyIdx] : null
 
+  if (!primaryFamily || !secondaryFamily) {
+    return new MapFile(width, height)
+  }
+
+  const rng = mulberry32(seed)
+  const noise2D = createNoise2D(rng)
+  const wallNoise2D = createNoise2D(rng)
   const map = new MapFile(width, height)
 
+  // First pass: assign background tiles
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // Multi-octave noise for background terrain
+      // Multi-octave noise
       let amplitude = 1
       let frequency = scale
       let noiseVal = 0
@@ -40,28 +172,29 @@ export function generateTerrain(params: TerrainParams, theme: TileTheme): MapFil
         amplitude *= persistence
         frequency *= lacunarity
       }
+      noiseVal = (noiseVal / maxAmplitude + 1) / 2  // normalize to [0, 1]
 
-      // Normalize to [0, 1]
-      noiseVal = (noiseVal / maxAmplitude + 1) / 2
+      // Pick family based on threshold
+      const family = noiseVal < secondaryThreshold ? primaryFamily : secondaryFamily
 
-      // Assign background tile based on thresholds
-      let bg: number
-      if (noiseVal < secondaryThreshold) {
-        bg = theme.primaryGround
-      } else if (noiseVal < accentThreshold) {
-        bg = theme.secondaryGround
-      } else {
-        bg = theme.accentGround
+      // Pick tile using adjacency to both left and above neighbors
+      const context: number[] = []
+      if (x > 0) context.push(map.getTile(x - 1, y).background)
+      if (y > 0) context.push(map.getTile(x, y - 1).background)
+      const bg = context.length > 0
+        ? pickAdjacentTile(context, family, atlas, rng)
+        : pickTile(family, atlas, rng)
+
+      // Wall placement via separate noise
+      let lfg = 0, rfg = 0
+      if (wallFamily && wallDensity > 0) {
+        const wallNoise = (wallNoise2D(x * scale * 1.5, y * scale * 1.5) + 1) / 2
+        if (wallNoise > wallThreshold) {
+          ;[lfg, rfg] = pickWallPair(wallFamily, rng)
+        }
       }
 
-      // Foreground scattering via separate noise
-      let lfg = 0
-      const fgVal = (fgNoise2D(x * scale * 2, y * scale * 2) + 1) / 2
-      if (fgVal > fgThreshold && theme.decorationTile > 0) {
-        lfg = theme.decorationTile
-      }
-
-      map.setTile(x, y, { background: bg, leftForeground: lfg, rightForeground: 0 })
+      map.setTile(x, y, { background: bg, leftForeground: lfg, rightForeground: rfg })
     }
   }
 
@@ -73,23 +206,35 @@ export function generateTerrain(params: TerrainParams, theme: TileTheme): MapFil
 interface Room {
   x: number; y: number
   w: number; h: number
-  cx: number; cy: number  // center
+  cx: number; cy: number
 }
 
-export function generateDungeon(params: DungeonParams, theme: TileTheme): MapFile {
-  const { width, height, seed, roomCount, minRoomSize, maxRoomSize, corridorWidth } = params
-  const rng = mulberry32(seed)
+export function generateDungeon(params: DungeonParams, atlas: TileAtlas): MapFile {
+  const { width, height, seed, roomCount, minRoomSize, maxRoomSize, corridorWidth,
+    floorFamilyIdx, wallFamilyIdx, corridorFamilyIdx } = params
 
+  const floorFamily = atlas.bgFamilies[floorFamilyIdx]
+  const wallFamily = wallFamilyIdx >= 0 ? atlas.wallFamilies[wallFamilyIdx] : null
+  const corridorFamily = atlas.bgFamilies[corridorFamilyIdx]
+
+  if (!floorFamily || !corridorFamily) {
+    return new MapFile(width, height)
+  }
+
+  const rng = mulberry32(seed)
   const map = new MapFile(width, height)
 
-  // Fill entire map with walls
+  // Fill entire map with floor + walls (solid), using adjacency for coherent ground
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      map.setTile(x, y, {
-        background: theme.primaryGround,
-        leftForeground: theme.wallTile,
-        rightForeground: theme.wallTileRight,
-      })
+      const context: number[] = []
+      if (x > 0) context.push(map.getTile(x - 1, y).background)
+      if (y > 0) context.push(map.getTile(x, y - 1).background)
+      const bg = context.length > 0
+        ? pickAdjacentTile(context, floorFamily, atlas, rng)
+        : pickTile(floorFamily, atlas, rng)
+      const [lfg, rfg] = wallFamily ? pickWallPair(wallFamily, rng) : [0, 0]
+      map.setTile(x, y, { background: bg, leftForeground: lfg, rightForeground: rfg })
     }
   }
 
@@ -103,7 +248,6 @@ export function generateDungeon(params: DungeonParams, theme: TileTheme): MapFil
     const x = Math.floor(rng() * (width - w - 2)) + 1
     const y = Math.floor(rng() * (height - h - 2)) + 1
 
-    // Check overlap with existing rooms (1-tile margin)
     const overlaps = rooms.some(r =>
       x - 1 < r.x + r.w && x + w + 1 > r.x &&
       y - 1 < r.y + r.h && y + h + 1 > r.y
@@ -112,53 +256,35 @@ export function generateDungeon(params: DungeonParams, theme: TileTheme): MapFil
 
     rooms.push({ x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) })
 
-    // Clear room interior
+    // Clear room interior with corridor/floor tiles, using adjacency for coherence
     for (let ry = y; ry < y + h; ry++) {
       for (let rx = x; rx < x + w; rx++) {
-        map.setTile(rx, ry, {
-          background: theme.pathTile,
-          leftForeground: 0,
-          rightForeground: 0,
-        })
+        const context: number[] = []
+        if (rx > x) context.push(map.getTile(rx - 1, ry).background)
+        if (ry > y) context.push(map.getTile(rx, ry - 1).background)
+        const bg = context.length > 0
+          ? pickAdjacentTile(context, corridorFamily, atlas, rng)
+          : pickTile(corridorFamily, atlas, rng)
+        map.setTile(rx, ry, { background: bg, leftForeground: 0, rightForeground: 0 })
       }
     }
   }
 
   // Connect rooms via L-shaped corridors
   if (rooms.length > 1) {
-    // Sort by position for more natural connections
     const sorted = [...rooms].sort((a, b) => a.cx + a.cy - (b.cx + b.cy))
 
     for (let i = 0; i < sorted.length - 1; i++) {
       const a = sorted[i]
       const b = sorted[i + 1]
-
-      // Decide corridor direction: horizontal-first or vertical-first
       const hFirst = rng() > 0.5
 
       if (hFirst) {
-        carveHCorridor(map, a.cx, b.cx, a.cy, corridorWidth, theme)
-        carveVCorridor(map, a.cy, b.cy, b.cx, corridorWidth, theme)
+        carveCorridor(map, a.cx, a.cy, b.cx, a.cy, corridorWidth, corridorFamily, atlas, rng)
+        carveCorridor(map, b.cx, a.cy, b.cx, b.cy, corridorWidth, corridorFamily, atlas, rng)
       } else {
-        carveVCorridor(map, a.cy, b.cy, a.cx, corridorWidth, theme)
-        carveHCorridor(map, a.cx, b.cx, b.cy, corridorWidth, theme)
-      }
-    }
-  }
-
-  // Scatter decorations in rooms
-  if (theme.decorationTile > 0) {
-    for (const room of rooms) {
-      for (let ry = room.y + 1; ry < room.y + room.h - 1; ry++) {
-        for (let rx = room.x + 1; rx < room.x + room.w - 1; rx++) {
-          if (rng() < 0.03) {
-            const tile = map.getTile(rx, ry)
-            map.setTile(rx, ry, {
-              ...tile,
-              leftForeground: theme.decorationTile,
-            })
-          }
-        }
+        carveCorridor(map, a.cx, a.cy, a.cx, b.cy, corridorWidth, corridorFamily, atlas, rng)
+        carveCorridor(map, a.cx, b.cy, b.cx, b.cy, corridorWidth, corridorFamily, atlas, rng)
       }
     }
   }
@@ -166,46 +292,30 @@ export function generateDungeon(params: DungeonParams, theme: TileTheme): MapFil
   return map
 }
 
-function carveHCorridor(
-  map: MapFile, x1: number, x2: number, y: number,
-  width: number, theme: TileTheme
+function carveCorridor(
+  map: MapFile,
+  x1: number, y1: number, x2: number, y2: number,
+  width: number,
+  family: BgFamily, atlas: TileAtlas, rng: () => number,
 ): void {
-  const minX = Math.min(x1, x2)
-  const maxX = Math.max(x1, x2)
   const halfW = Math.floor(width / 2)
+  const dx = Math.sign(x2 - x1) || 0
+  const dy = Math.sign(y2 - y1) || 0
 
-  for (let x = minX; x <= maxX; x++) {
-    for (let dy = -halfW; dy <= halfW; dy++) {
-      const ty = y + dy
-      if (ty >= 0 && ty < map.height && x >= 0 && x < map.width) {
-        map.setTile(x, ty, {
-          background: theme.pathTile,
-          leftForeground: 0,
-          rightForeground: 0,
-        })
+  let cx = x1, cy = y1
+  while (true) {
+    // Carve a cross-section perpendicular to movement
+    for (let d = -halfW; d <= halfW; d++) {
+      const tx = dy !== 0 ? cx + d : cx  // perpendicular to vertical movement
+      const ty = dx !== 0 ? cy + d : cy  // perpendicular to horizontal movement
+      if (tx >= 0 && tx < map.width && ty >= 0 && ty < map.height) {
+        const bg = pickTile(family, atlas, rng)
+        map.setTile(tx, ty, { background: bg, leftForeground: 0, rightForeground: 0 })
       }
     }
-  }
-}
 
-function carveVCorridor(
-  map: MapFile, y1: number, y2: number, x: number,
-  width: number, theme: TileTheme
-): void {
-  const minY = Math.min(y1, y2)
-  const maxY = Math.max(y1, y2)
-  const halfW = Math.floor(width / 2)
-
-  for (let y = minY; y <= maxY; y++) {
-    for (let dx = -halfW; dx <= halfW; dx++) {
-      const tx = x + dx
-      if (tx >= 0 && tx < map.width && y >= 0 && y < map.height) {
-        map.setTile(tx, y, {
-          background: theme.pathTile,
-          leftForeground: 0,
-          rightForeground: 0,
-        })
-      }
-    }
+    if (cx === x2 && cy === y2) break
+    cx += dx
+    cy += dy
   }
 }

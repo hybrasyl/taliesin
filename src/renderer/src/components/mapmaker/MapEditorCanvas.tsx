@@ -67,6 +67,7 @@ interface Props {
   onSelectionMove: (dx: number, dy: number, duplicate: boolean) => void
   showAnimation: boolean
   onContextAction: (action: string, tile?: TileCoord) => void
+  renderVersion?: number
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   selection, clipboard, pasteMode,
   onTileChange, onSampleTile, onHoverTile, onZoomChange,
   onSelectionChange, onRequestPaste, onSelectionMove,
-  showAnimation, onContextAction,
+  showAnimation, onContextAction, renderVersion,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -228,6 +229,11 @@ const MapEditorCanvas: React.FC<Props> = ({
       await doFullRender()
     })
   }, [doFullRender])
+
+  // Re-render when renderVersion changes (undo/redo, external mutations)
+  useEffect(() => {
+    if (renderVersion !== undefined) queueRender()
+  }, [renderVersion, queueRender])
 
   // ── Animation loop ─────────────────────────────────────────────────────────
 

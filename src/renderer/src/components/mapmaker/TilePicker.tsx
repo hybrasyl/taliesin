@@ -69,7 +69,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
     let cancelled = false
     const loadBitmaps = async () => {
       const map = new Map<number, ImageBitmap>()
-      for (let i = 1; i <= assets.groundTileCount; i++) {
+      for (let i = 0; i <= assets.groundTileCount; i++) {
         if (cancelled) return
         const bm = await getGroundBitmap(i, assets)
         if (bm) map.set(i, bm)
@@ -93,7 +93,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
   // Filter tile IDs
   const tileIds = useMemo(() => {
     const ids = isBg
-      ? Array.from({ length: assets?.groundTileCount ?? 0 }, (_, i) => i + 1)
+      ? Array.from({ length: (assets?.groundTileCount ?? 0) + 1 }, (_, i) => i)
       : fgEntryIds
     if (!filter.trim()) return ids
     const q = filter.trim()
@@ -109,6 +109,15 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
     estimateSize: () => rowH,
     overscan: 8,
   })
+
+  // Scroll to selected tile when it changes (e.g. eyedropper sample)
+  useEffect(() => {
+    if (selectedTileId <= 0) return
+    const idx = tileIds.indexOf(selectedTileId)
+    if (idx < 0) return
+    const row = Math.floor(idx / COLS)
+    virtualizer.scrollToIndex(row, { align: 'center' })
+  }, [selectedTileId, tileIds, virtualizer])
 
   // Multi-select click handler
   const handleTileClick = useCallback((tileId: number, e: React.MouseEvent) => {

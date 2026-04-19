@@ -67,6 +67,7 @@ interface MapTab {
   clipboard: Clipboard | null
   pasteMode: boolean
   canvasKey: number
+  renderVersion: number
 }
 
 let nextCanvasKey = 0
@@ -83,6 +84,7 @@ function createTab(mapFile: MapFile | null = null, filePath: string | null = nul
     clipboard: null,
     pasteMode: false,
     canvasKey: ++nextCanvasKey,
+    renderVersion: 0,
   }
 }
 
@@ -116,6 +118,7 @@ const MapMakerPage: React.FC = () => {
   const clipboard = activeTab?.clipboard ?? null
   const pasteMode = activeTab?.pasteMode ?? false
   const canvasKey = activeTab?.canvasKey ?? 0
+  const renderVersion = activeTab?.renderVersion ?? 0
 
   const updateTab = useCallback((id: string, patch: Partial<MapTab>) => {
     setTabs(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
@@ -300,11 +303,11 @@ const MapMakerPage: React.FC = () => {
     updateTab(activeTabId, {
       undoStack: undoStack.slice(0, -1),
       redoStack: [...redoStack, group],
-      canvasKey: ++nextCanvasKey,
+      renderVersion: renderVersion + 1,
       dirty: true,
     })
     showStatus('Undo')
-  }, [mapFile, activeTabId, undoStack, redoStack, updateTab, showStatus])
+  }, [mapFile, activeTabId, undoStack, redoStack, renderVersion, updateTab, showStatus])
 
   const handleRedo = useCallback(() => {
     if (!mapFile || !activeTabId || redoStack.length === 0) return
@@ -313,11 +316,11 @@ const MapMakerPage: React.FC = () => {
     updateTab(activeTabId, {
       redoStack: redoStack.slice(0, -1),
       undoStack: [...undoStack, group],
-      canvasKey: ++nextCanvasKey,
+      renderVersion: renderVersion + 1,
       dirty: true,
     })
     showStatus('Redo')
-  }, [mapFile, activeTabId, redoStack, undoStack, updateTab, showStatus])
+  }, [mapFile, activeTabId, redoStack, undoStack, renderVersion, updateTab, showStatus])
 
   // ── Clipboard ──────────────────────────────────────────────────────────────
 
@@ -359,10 +362,10 @@ const MapMakerPage: React.FC = () => {
     if (changes.length > 0) {
       applyChanges(mapFile, changes)
       handleTileChange(changes)
-      updateTab(activeTabId, { canvasKey: ++nextCanvasKey })
+      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
     }
     updateTab(activeTabId, { selection: null })
-  }, [mapFile, selection, activeTabId, copySelection, handleTileChange, updateTab])
+  }, [mapFile, selection, activeTabId, copySelection, handleTileChange, updateTab, renderVersion])
 
   const deleteSelection = useCallback(() => {
     if (!mapFile || !selection || !activeTabId) return
@@ -383,10 +386,10 @@ const MapMakerPage: React.FC = () => {
     if (changes.length > 0) {
       applyChanges(mapFile, changes)
       handleTileChange(changes)
-      updateTab(activeTabId, { canvasKey: ++nextCanvasKey })
+      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
     }
     updateTab(activeTabId, { selection: null })
-  }, [mapFile, selection, activeTabId, handleTileChange, updateTab])
+  }, [mapFile, selection, activeTabId, handleTileChange, updateTab, renderVersion])
 
   const handleRequestPaste = useCallback((tx: number, ty: number, keepPasting: boolean) => {
     if (!mapFile || !clipboard || !activeTabId) return
@@ -408,10 +411,10 @@ const MapMakerPage: React.FC = () => {
     if (changes.length > 0) {
       applyChanges(mapFile, changes)
       handleTileChange(changes)
-      updateTab(activeTabId, { canvasKey: ++nextCanvasKey })
+      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
     }
     if (!keepPasting) updateTab(activeTabId, { pasteMode: false })
-  }, [mapFile, clipboard, activeTabId, handleTileChange, updateTab])
+  }, [mapFile, clipboard, activeTabId, handleTileChange, updateTab, renderVersion])
 
   // ── Selection move/duplicate ───────────────────────────────────────────────
 
@@ -471,13 +474,13 @@ const MapMakerPage: React.FC = () => {
     if (changes.length > 0) {
       applyChanges(mapFile, changes)
       handleTileChange(changes)
-      updateTab(activeTabId, { canvasKey: ++nextCanvasKey })
+      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
     }
 
     updateTab(activeTabId, {
       selection: { x: selection.x + dx, y: selection.y + dy, w: selection.w, h: selection.h },
     })
-  }, [mapFile, selection, activeTabId, handleTileChange, updateTab])
+  }, [mapFile, selection, activeTabId, handleTileChange, updateTab, renderVersion])
 
   // ── Map resize ─────────────────────────────────────────────────────────────
 
@@ -526,7 +529,7 @@ const MapMakerPage: React.FC = () => {
           if (changes.length > 0) {
             applyChanges(mapFile, changes)
             handleTileChange(changes)
-            updateTab(activeTabId, { canvasKey: ++nextCanvasKey })
+            updateTab(activeTabId, { renderVersion: renderVersion + 1 })
             showStatus(`Filled ${changes.length} tiles`)
           }
         }
@@ -543,7 +546,7 @@ const MapMakerPage: React.FC = () => {
       case 'tool-select': setTool('select'); break
       case 'createPrefab': if (selection) setCreatePrefabOpen(true); break
     }
-  }, [cutSelection, copySelection, deleteSelection, clipboard, mapFile, activeLayer, selectedTileId, handleSampleTile, handleTileChange, showStatus, selection, activeTabId, updateTab])
+  }, [cutSelection, copySelection, deleteSelection, clipboard, mapFile, activeLayer, selectedTileId, handleSampleTile, handleTileChange, showStatus, selection, activeTabId, updateTab, renderVersion])
 
   // ── Create prefab from selection ────────────────────────────────────────────
 
@@ -954,6 +957,7 @@ const MapMakerPage: React.FC = () => {
               onSelectionMove={handleSelectionMove}
               showAnimation={showAnimation}
               onContextAction={handleContextAction}
+              renderVersion={renderVersion}
             />
             <DirectionalResizeButtons
               mapWidth={mapFile.width}
