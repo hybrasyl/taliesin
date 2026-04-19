@@ -11,11 +11,12 @@ import {
   GiCardboardBox,
   GiMusicalNotes,
   GiSoundWaves,
-  GiSettingsKnobs
+  GiSettingsKnobs,
+  GiAnvil
 } from 'react-icons/gi'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useRecoilState, useRecoilValue } from 'recoil'
-import { currentPageState, activeLibraryState, Page } from '../recoil/atoms'
+import { currentPageState, activeLibraryState, companionPathState, Page } from '../recoil/atoms'
 import { worldName } from '../hooks/useCatalog'
 import AboutDialog from './AboutDialog'
 
@@ -48,6 +49,7 @@ const NavToolbar: React.FC = () => {
   const [currentPage, setCurrentPage] = useRecoilState(currentPageState)
   const activeLibrary = useRecoilValue(activeLibraryState)
   const libName = activeLibrary ? worldName(activeLibrary) : null
+  const companionPath = useRecoilValue(companionPathState)
   const [aboutOpen, setAboutOpen] = React.useState(false)
 
   const nav = (page: Page) => () => setCurrentPage(page)
@@ -131,6 +133,17 @@ const NavToolbar: React.FC = () => {
         <IconButton sx={sx('settings')} onClick={nav('settings')}>
           <GiSettingsKnobs />
         </IconButton>
+      </Tooltip>
+      <Tooltip title={companionPath ? 'Launch Creidhne' : 'Set Creidhne path in Settings'}>
+        <span>
+          <IconButton
+            sx={btnSx}
+            disabled={!companionPath}
+            onClick={() => companionPath && window.api.launchCompanion(companionPath)}
+          >
+            <GiAnvil />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="About Taliesin">
         <IconButton sx={btnSx} onClick={() => setAboutOpen(true)}>

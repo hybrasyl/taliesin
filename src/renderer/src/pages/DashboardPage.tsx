@@ -8,11 +8,10 @@ import BuildIcon from '@mui/icons-material/Build'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SettingsIcon from '@mui/icons-material/Settings'
 import HistoryIcon from '@mui/icons-material/History'
-import LaunchIcon from '@mui/icons-material/Launch'
 import GamepadIcon from '@mui/icons-material/Gamepad'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import {
-  clientPathState, activeLibraryState, currentPageState, packDirState, companionPathState, type Page,
+  clientPathState, activeLibraryState, currentPageState, packDirState, type Page,
 } from '../recoil/atoms'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 
@@ -99,7 +98,6 @@ const DashboardPage: React.FC = () => {
   const clientPath = useRecoilValue(clientPathState)
   const activeLibrary = useRecoilValue(activeLibraryState)
   const packDir = useRecoilValue(packDirState)
-  const companionPath = useRecoilValue(companionPathState)
   const setCurrentPage = useSetRecoilState(currentPageState)
   const { index, loading: indexLoading, building, build } = useWorldIndex()
 
@@ -254,25 +252,6 @@ const DashboardPage: React.FC = () => {
           </Grid>
         </>
       )}
-
-      {/* Companion App */}
-      <Divider sx={{ mb: 2 }} />
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<LaunchIcon />}
-          onClick={() => companionPath && window.api.launchCompanion(companionPath)}
-          disabled={!companionPath}
-        >
-          Launch Creidhne
-        </Button>
-        {!companionPath && (
-          <Typography variant="caption" color="text.disabled">
-            Set the Creidhne path in Settings to enable.
-          </Typography>
-        )}
-      </Box>
 
       {/* Recently visited */}
       {recentPages.length > 0 && (
