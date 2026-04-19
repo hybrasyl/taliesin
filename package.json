@@ -1,6 +1,6 @@
 {
   "name": "taliesin",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Dark Ages client asset viewer — companion to Creidhne",
   "main": "./out/main/index.js",
   "author": "Caeldeth",
@@ -32,6 +32,8 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "@tanstack/react-virtual": "^3.13.23",
+    "@types/archiver": "^7.0.0",
+    "archiver": "^7.0.1",
     "music-metadata": "^11.12.3",
     "react-icons": "^5.6.0",
     "recoil": "^0.7.7",

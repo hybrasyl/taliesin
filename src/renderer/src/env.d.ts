@@ -120,6 +120,7 @@ interface TaliesinAPI {
   getUserDataPath: () => Promise<string>
   loadSettings: () => Promise<Record<string, unknown>>
   saveSettings: (settings: unknown) => Promise<void>
+  launchCompanion: (exePath: string) => Promise<boolean>
   openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
   openDirectory: () => Promise<string | null>
   saveFile: (filters?: { name: string; extensions: string[] }[], defaultPath?: string) => Promise<string | null>
@@ -153,6 +154,13 @@ interface TaliesinAPI {
   prefabSave: (libraryPath: string, filename: string, data: unknown) => Promise<void>
   prefabDelete: (libraryPath: string, filename: string) => Promise<void>
   prefabRename: (libraryPath: string, oldName: string, newName: string) => Promise<void>
+  packScan: (dirPath: string) => Promise<unknown[]>
+  packLoad: (filePath: string) => Promise<unknown>
+  packSave: (filePath: string, data: unknown) => Promise<void>
+  packDelete: (filePath: string) => Promise<void>
+  packAddAsset: (packDir: string, sourcePath: string, targetFilename: string) => Promise<void>
+  packRemoveAsset: (packDir: string, filename: string) => Promise<void>
+  packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string) => Promise<void>
 }
 
 declare global {

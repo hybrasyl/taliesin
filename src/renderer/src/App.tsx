@@ -13,6 +13,8 @@ import {
   musicWorkingDirsState,
   activeMusicWorkingDirState,
   ffmpegPathState,
+  packDirState,
+  companionPathState,
   musEncodeKbpsState,
   musEncodeSampleRateState,
   dirtyEditorState,
@@ -43,6 +45,8 @@ export default function App(): React.ReactElement {
   const [, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
   const [, setActiveMusicWorkingDir] = useRecoilState(activeMusicWorkingDirState)
   const [, setFfmpegPath]          = useRecoilState(ffmpegPathState)
+  const [, setPackDir]             = useRecoilState(packDirState)
+  const [, setCompanionPath]       = useRecoilState(companionPathState)
   const [, setMusEncodeKbps]       = useRecoilState(musEncodeKbpsState)
   const [, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
   const [, setCurrentPage] = useRecoilState(currentPageState)
@@ -67,6 +71,8 @@ export default function App(): React.ReactElement {
       if (Array.isArray(settings.musicWorkingDirs)) setMusicWorkingDirs(settings.musicWorkingDirs as string[])
       if (typeof settings.activeMusicWorkingDir === 'string') setActiveMusicWorkingDir(settings.activeMusicWorkingDir)
       if (typeof settings.ffmpegPath === 'string') setFfmpegPath(settings.ffmpegPath)
+      if (typeof settings.packDir === 'string') setPackDir(settings.packDir)
+      if (typeof settings.companionPath === 'string') setCompanionPath(settings.companionPath)
       if (typeof settings.musEncodeKbps === 'number') setMusEncodeKbps(settings.musEncodeKbps)
       if (typeof settings.musEncodeSampleRate === 'number') setMusEncodeSampleRate(settings.musEncodeSampleRate)
       settingsLoaded.current = true
@@ -83,6 +89,8 @@ export default function App(): React.ReactElement {
   const musicWorkingDirs     = useRecoilValue(musicWorkingDirsState)
   const activeMusicWorkingDir = useRecoilValue(activeMusicWorkingDirState)
   const ffmpegPath             = useRecoilValue(ffmpegPathState)
+  const packDir                = useRecoilValue(packDirState)
+  const companionPath          = useRecoilValue(companionPathState)
   const musEncodeKbps          = useRecoilValue(musEncodeKbpsState)
   const musEncodeSampleRate    = useRecoilValue(musEncodeSampleRateState)
 
@@ -92,11 +100,11 @@ export default function App(): React.ReactElement {
       theme, clientPath, libraries, activeLibrary,
       mapDirectories, activeMapDirectory,
       musicLibraryPath, musicWorkingDirs, activeMusicWorkingDir,
-      ffmpegPath, musEncodeKbps, musEncodeSampleRate,
+      ffmpegPath, packDir, companionPath, musEncodeKbps, musEncodeSampleRate,
     })
   }, [theme, clientPath, libraries, activeLibrary, mapDirectories, activeMapDirectory,
       musicLibraryPath, musicWorkingDirs, activeMusicWorkingDir,
-      ffmpegPath, musEncodeKbps, musEncodeSampleRate])
+      ffmpegPath, packDir, companionPath, musEncodeKbps, musEncodeSampleRate])
 
   useEffect(() => { dirtyEditorRef.current = dirtyEditor }, [dirtyEditor])
 

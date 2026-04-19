@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import {
-  Box, Typography, Select, MenuItem, IconButton, Tooltip,
+  Box, Typography, Select, MenuItem, IconButton, Tooltip, Button,
   FormControl, InputLabel, type SelectChangeEvent,
 } from '@mui/material'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -8,6 +8,8 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
 import StopIcon from '@mui/icons-material/Stop'
+import SaveAltIcon from '@mui/icons-material/SaveAlt'
+import ImageIcon from '@mui/icons-material/Image'
 import { Palette, type DataArchive, type DataArchiveEntry } from '@eriscorp/dalib-ts'
 import { toImageData } from '@eriscorp/dalib-ts/helpers/imageData'
 import {
@@ -400,17 +402,92 @@ const HexPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
 
 // ── Main preview dispatcher ──────────────────────────────────────────────────
 
+// ── Export helpers ────────────────────────────────────────────────────────────
+
+async function extractRaw(entry: DataArchiveEntry) {
+  const defaultName = entry.entryName
+  const savePath = await window.api.saveFile(
+    [{ name: 'All Files', extensions: ['*'] }],
+    defaultName,
+  )
+  if (!savePath) return
+  const buf = entry.toUint8Array()
+  await window.api.writeBytes(savePath, buf)
+}
+
+async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
+  const palNames = getPaletteNames(archive)
+  const palette = palNames.length > 0 ? loadPaletteByName(archive, palNames[0]) : null
+  const rendered = renderEntry(entry, archive, palette)
+  if (!rendered || rendered.frames.length === 0) return
+
+  if (rendered.frames.length === 1) {
+    // Single frame — save directly
+    const frame = rendered.frames[0]
+    const canvas = document.createElement('canvas')
+    canvas.width = frame.width
+    canvas.height = frame.height
+    const ctx = canvas.getContext('2d')!
+    ctx.putImageData(toImageData(frame), 0, 0)
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed')), 'image/png')
+    )
+    const baseName = entry.entryName.replace(/\.[^.]+$/, '')
+    const savePath = await window.api.saveFile(
+      [{ name: 'PNG Image', extensions: ['png'] }],
+      `${baseName}.png`,
+    )
+    if (!savePath) return
+    await window.api.writeBytes(savePath, new Uint8Array(await blob.arrayBuffer()))
+  } else {
+    // Multi-frame — save to directory
+    const dir = await window.api.openDirectory()
+    if (!dir) return
+    const baseName = entry.entryName.replace(/\.[^.]+$/, '')
+    for (let i = 0; i < rendered.frames.length; i++) {
+      const frame = rendered.frames[i]
+      const canvas = document.createElement('canvas')
+      canvas.width = frame.width
+      canvas.height = frame.height
+      const ctx = canvas.getContext('2d')!
+      ctx.putImageData(toImageData(frame), 0, 0)
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed')), 'image/png')
+      )
+      const filename = `${baseName}_${String(i + 1).padStart(3, '0')}.png`
+      await window.api.writeBytes(`${dir}/${filename}`, new Uint8Array(await blob.arrayBuffer()))
+    }
+  }
+}
+
+// ── Main preview dispatcher ──────────────────────────────────────────────────
+
 const ArchivePreview: React.FC<Props> = ({ entry, archive }) => {
   const type = classifyEntry(entry)
+  const isRenderable = type === 'sprite' || type === 'palette' || type === 'image'
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 1.5, gap: 1 }}>
-      {/* Entry header */}
-      <Box>
-        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{entry.entryName}</Typography>
-        <Typography variant="caption" color="text.secondary">
-          {formatBytes(entry.fileSize)} · {type}
-        </Typography>
+      {/* Entry header + extract buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{entry.entryName}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatBytes(entry.fileSize)} · {type}
+          </Typography>
+        </Box>
+        <Tooltip title="Extract Raw">
+          <IconButton size="small" onClick={() => extractRaw(entry)} sx={{ color: 'text.primary' }}>
+            <SaveAltIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        {isRenderable && (
+          <Tooltip title={`Export as PNG`}>
+            <IconButton size="small" onClick={() => exportAsPng(entry, archive)} sx={{ color: 'text.primary' }}>
+              <ImageIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Format-specific preview */}

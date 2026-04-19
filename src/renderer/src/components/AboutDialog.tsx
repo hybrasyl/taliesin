@@ -35,10 +35,10 @@ const AboutDialog: React.FC<Props> = ({ open, onClose }) => {
           Version {version}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <Link href="https://www.hybrasyl.com" target="_blank" rel="noopener noreferrer" variant="body2">
+          <Link href="https://www.hybrasyl.com" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ color: 'info.light' }}>
             hybrasyl.com
           </Link>
-          <Link href="https://github.com/hybrasyl" target="_blank" rel="noopener noreferrer" variant="body2">
+          <Link href="https://github.com/hybrasyl" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ color: 'info.light' }}>
             GitHub
           </Link>
         </Box>

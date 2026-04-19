@@ -4,6 +4,7 @@ import {
   Divider, Chip, Tooltip,
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import { DataArchive, type DataArchiveEntry } from '@eriscorp/dalib-ts'
 import { useRecoilValue } from 'recoil'
 import { clientPathState } from '../recoil/atoms'
@@ -26,6 +27,8 @@ const ArchivePage: React.FC = () => {
   const [filter, setFilter]           = useState('')
   const [selected, setSelected]       = useState<DataArchiveEntry | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const [extracting, setExtracting] = useState(false)
 
   const entries = useMemo(() => archive?.entries ?? [], [archive])
 
@@ -84,6 +87,21 @@ const ArchivePage: React.FC = () => {
     })
   }, [])
 
+  const handleExtractAll = useCallback(async () => {
+    if (!archive) return
+    const dir = await window.api.openDirectory()
+    if (!dir) return
+    setExtracting(true)
+    try {
+      for (const entry of archive.entries) {
+        const buf = entry.toUint8Array()
+        await window.api.writeBytes(`${dir}/${entry.entryName}`, buf)
+      }
+    } finally {
+      setExtracting(false)
+    }
+  }, [archive])
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
@@ -130,6 +148,18 @@ const ArchivePage: React.FC = () => {
             <Typography variant="caption" color="text.disabled">
               {entries.length} entries
             </Typography>
+            <Tooltip title="Extract All to Directory">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={extracting ? <CircularProgress size={14} /> : <SaveAltIcon />}
+                onClick={handleExtractAll}
+                disabled={extracting}
+                sx={{ ml: 1 }}
+              >
+                {extracting ? 'Extracting...' : 'Extract All'}
+              </Button>
+            </Tooltip>
           </>
         )}
       </Box>

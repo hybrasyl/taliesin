@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box, Typography, Select, MenuItem, FormControl, InputLabel,
-  Button, Divider, Tooltip, IconButton, List, ListItem, ListItemText,
+  Button, Divider, Tooltip, IconButton, List, ListItem, ListItemButton, ListItemText,
   Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  CircularProgress, Alert
+  CircularProgress, Alert, Tabs, Tab
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -11,15 +11,16 @@ import HelpIcon from '@mui/icons-material/Help'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import LaunchIcon from '@mui/icons-material/Launch'
 import { useRecoilState } from 'recoil'
 import {
   themeState, clientPathState, librariesState, activeLibraryState,
   mapDirectoriesState, activeMapDirectoryState,
   musicLibraryPathState, musicWorkingDirsState, activeMusicWorkingDirState,
   ffmpegPathState, musEncodeKbpsState, musEncodeSampleRateState,
+  packDirState, companionPathState,
   ThemeName, type MapDirectory
 } from '../recoil/atoms'
-import AboutDialog from '../components/AboutDialog'
 
 const THEMES: { value: ThemeName; label: string }[] = [
   { value: 'hybrasyl', label: 'Hybrasyl' },
@@ -28,7 +29,40 @@ const THEMES: { value: ThemeName; label: string }[] = [
   { value: 'grinneal', label: 'Grinneal' }
 ]
 
-// ── Index status sub-component (mirrors Creidhne's IndexStatus) ──────────────
+// ── Shared path input ────────────────────────────────────────────────────────
+
+function PathInput({ value, onChange, placeholder, onBrowse }: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  onBrowse: () => void
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box
+        component="input"
+        spellCheck={false}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        sx={{
+          flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
+          bgcolor: 'background.paper', color: 'text.primary',
+          border: '1px solid', borderColor: 'divider', borderRadius: 1,
+          outline: 'none', fontFamily: 'inherit',
+          '&:focus': { borderColor: 'primary.main' }
+        }}
+      />
+      <Tooltip title="Browse...">
+        <IconButton size="small" onClick={onBrowse}>
+          <FolderOpenIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  )
+}
+
+// ── Index status sub-component ───────────────────────────────────────────────
 
 interface IndexStatusProps {
   status: { exists: boolean; builtAt?: string } | undefined
@@ -41,7 +75,7 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={14} />
-        <Typography variant="caption" color="text.secondary">Building…</Typography>
+        <Typography variant="caption" color="text.secondary">Building...</Typography>
       </Box>
     )
   }
@@ -52,31 +86,92 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
         <>
           <Chip
             label={`Index built ${new Date(status.builtAt!).toLocaleDateString()}`}
-            size="small"
-            color="success"
-            variant="outlined"
+            size="small" color="success" variant="outlined"
           />
           <Tooltip title="Rebuild index">
-            <IconButton size="small" onClick={onBuild}>
-              <RefreshIcon fontSize="small" />
-            </IconButton>
+            <IconButton size="small" onClick={onBuild}><RefreshIcon fontSize="small" /></IconButton>
           </Tooltip>
         </>
       ) : (
         <>
           <Chip label="Index not built" size="small" color="warning" variant="outlined" />
-          <Button size="small" variant="outlined" onClick={onBuild}>
-            Build Index
-          </Button>
+          <Button size="small" variant="outlined" onClick={onBuild}>Build Index</Button>
         </>
       )}
     </Box>
   )
 }
 
-// ── Manage Libraries ─────────────────────────────────────────────────────────
+// ── Tab: General ─────────────────────────────────────────────────────────────
 
-function ManageLibraries() {
+function GeneralTab() {
+  const [theme, setTheme] = useRecoilState(themeState)
+  const [clientPath, setClientPath] = useRecoilState(clientPathState)
+  const [companionPath, setCompanionPath] = useRecoilState(companionPathState)
+  return (
+    <Box>
+      {/* Theme */}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Theme</Typography>
+      <FormControl size="small" sx={{ minWidth: 280, mb: 4, display: 'block', mt: 1 }}>
+        <InputLabel>Theme</InputLabel>
+        <Select value={theme} label="Theme" onChange={(e) => setTheme(e.target.value as ThemeName)}>
+          {THEMES.map((t) => (
+            <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* DA Client Path */}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Dark Ages Client</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+        Path to your Dark Ages install directory. Used to open .dat archives and load tile assets.
+      </Typography>
+      <Box sx={{ mb: 4 }}>
+        <PathInput
+          value={clientPath ?? ''}
+          onChange={(v) => setClientPath(v || null)}
+          placeholder="e.g. C:\Program Files (x86)\Dark Ages"
+          onBrowse={async () => { const d = await window.api.openDirectory(); if (d) setClientPath(d) }}
+        />
+      </Box>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Companion App Path */}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Companion App</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+        Path to the Creidhne executable. Enables the "Launch Creidhne" button on the Dashboard.
+      </Typography>
+      <Box sx={{ mb: 2 }}>
+        <PathInput
+          value={companionPath ?? ''}
+          onChange={(v) => setCompanionPath(v || null)}
+          placeholder="e.g. D:\tools\Creidhne.exe"
+          onBrowse={async () => {
+            const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe'] }])
+            if (f) setCompanionPath(f)
+          }}
+        />
+      </Box>
+      {companionPath && (
+        <Button
+          variant="outlined" size="small" startIcon={<LaunchIcon />}
+          onClick={() => window.api.launchCompanion(companionPath)}
+          sx={{ mb: 4 }}
+        >
+          Test Launch
+        </Button>
+      )}
+
+    </Box>
+  )
+}
+
+// ── Tab: Libraries ───────────────────────────────────────────────────────────
+
+function LibrariesTab() {
   const [libraries, setLibraries] = useRecoilState(librariesState)
   const [activeLibrary, setActiveLibrary] = useRecoilState(activeLibraryState)
   const [selected, setSelected] = useState<string | null>(null)
@@ -133,14 +228,14 @@ function ManageLibraries() {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold' }}>
-          Manage Libraries
+        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+          Hybrasyl World Libraries
         </Typography>
         <Tooltip
           title="Add the world/xml directory of your Hybrasyl repo (e.g. C:\hybrasyl\world\xml). Each library shares an index with Creidhne at world/.creidhne/index.json."
           placement="top"
         >
-          <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
+          <IconButton size="small" sx={{ ml: 1 }}>
             <HelpIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -152,25 +247,17 @@ function ManageLibraries() {
         </Button>
         <Tooltip title="Remove selected library">
           <span>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteIcon />}
-              disabled={!selected}
-              onClick={() => setConfirmOpen(true)}
-            >
+            <Button variant="contained" color="error" startIcon={<DeleteIcon />}
+              disabled={!selected} onClick={() => setConfirmOpen(true)}>
               Remove
             </Button>
           </span>
         </Tooltip>
         <Tooltip title="Set selected library as active">
           <span>
-            <Button
-              variant="contained"
-              color="success"
+            <Button variant="contained" color="success"
               disabled={!selected || selected === activeLibrary}
-              onClick={() => selected && setActiveLibrary(selected)}
-            >
+              onClick={() => selected && setActiveLibrary(selected)}>
               Set Active
             </Button>
           </span>
@@ -192,13 +279,11 @@ function ManageLibraries() {
           </ListItem>
         )}
         {libraries.map((lib) => (
-          <ListItem
+          <ListItemButton
             key={lib}
-            component="div"
             onClick={() => setSelected(lib)}
             selected={selected === lib}
-            sx={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start', py: 1.5,
-              '&.Mui-selected': { bgcolor: 'action.selected' } }}
+            sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1.5 }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Typography variant="body2" sx={{ flex: 1, color: 'text.button', wordBreak: 'break-all' }}>
@@ -215,7 +300,7 @@ function ManageLibraries() {
                 onBuild={() => handleBuildIndex(lib)}
               />
             </Box>
-          </ListItem>
+          </ListItemButton>
         ))}
       </List>
 
@@ -236,14 +321,13 @@ function ManageLibraries() {
   )
 }
 
-// ── Manage Map Directories ────────────────────────────────────────────────────
+// ── Tab: Map Directories ─────────────────────────────────────────────────────
 
-function ManageMapDirectories() {
+function MapDirectoriesTab() {
   const [mapDirectories, setMapDirectories] = useRecoilState(mapDirectoriesState)
   const [activeMapDirectory, setActiveMapDirectory] = useRecoilState(activeMapDirectoryState)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
-
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string>('')
   const [pendingName, setPendingName] = useState<string>('')
@@ -279,11 +363,11 @@ function ManageMapDirectories() {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold' }}>
-          Map Directories
+        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+          Binary .map File Directories
         </Typography>
         <Tooltip title="Directories containing binary .map files. Used by the Map Catalog to manage and import maps." placement="top">
-          <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
+          <IconButton size="small" sx={{ ml: 1 }}>
             <HelpIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -319,10 +403,9 @@ function ManageMapDirectories() {
           </ListItem>
         )}
         {mapDirectories.map((entry) => (
-          <ListItem key={entry.path} component="div"
+          <ListItemButton key={entry.path}
             onClick={() => setSelected(entry.path)}
-            selected={selected === entry.path}
-            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}>
+            selected={selected === entry.path}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
               <ListItemText
                 primary={entry.name} secondary={entry.path}
@@ -333,11 +416,10 @@ function ManageMapDirectories() {
                 <Chip label="Active" size="small" color="primary" icon={<CheckCircleIcon />} sx={{ flexShrink: 0 }} />
               )}
             </Box>
-          </ListItem>
+          </ListItemButton>
         ))}
       </List>
 
-      {/* Add dialog */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add Map Directory</DialogTitle>
         <DialogContent sx={{ pt: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -353,7 +435,6 @@ function ManageMapDirectories() {
         </DialogActions>
       </Dialog>
 
-      {/* Remove confirm dialog */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Remove Directory</DialogTitle>
         <DialogContent>
@@ -373,9 +454,9 @@ function ManageMapDirectories() {
   )
 }
 
-// ── Music Settings ────────────────────────────────────────────────────────────
+// ── Tab: Music ───────────────────────────────────────────────────────────────
 
-function ManageMusicSettings() {
+function MusicTab() {
   const [musicLibraryPath, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
   const [musicWorkingDirs, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
   const [activeMusicWorkingDir, setActiveMusicWorkingDir] = useRecoilState(activeMusicWorkingDirState)
@@ -384,11 +465,6 @@ function ManageMusicSettings() {
   const [musEncodeSampleRate, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
-
-  const handleBrowseLibrary = async () => {
-    const dir = await window.api.openDirectory()
-    if (dir) setMusicLibraryPath(dir)
-  }
 
   const handleAddWorkingDir = async () => {
     const dir = await window.api.openDirectory()
@@ -409,108 +485,60 @@ function ManageMusicSettings() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold' }}>
-          Music Manager
-        </Typography>
-        <Tooltip
-          title="Music Library: the master source directory for .mp3/.ogg/.mus files. Working Directories: output destinations where packs are deployed as N.mus files."
-          placement="top"
-        >
-          <IconButton size="small" sx={{ ml: 1, color: 'text.button' }}>
-            <HelpIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
       {/* Library path */}
-      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
-        Music Library
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Music Library</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
         Master source directory containing your audio files (.mp3, .ogg, .mus).
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <Box
-          component="input"
-          spellCheck={false}
-          placeholder="e.g. D:\music-library"
+      <Box sx={{ mb: 3 }}>
+        <PathInput
           value={musicLibraryPath ?? ''}
-          onChange={(e) => setMusicLibraryPath((e.target as HTMLInputElement).value || null)}
-          sx={{
-            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
-            bgcolor: 'background.paper', color: 'text.primary',
-            border: '1px solid', borderColor: 'divider', borderRadius: 1,
-            outline: 'none', fontFamily: 'inherit',
-            '&:focus': { borderColor: 'primary.main' }
-          }}
+          onChange={(v) => setMusicLibraryPath(v || null)}
+          placeholder="e.g. D:\music-library"
+          onBrowse={async () => { const d = await window.api.openDirectory(); if (d) setMusicLibraryPath(d) }}
         />
-        <Tooltip title="Browse…">
-          <IconButton size="small" onClick={handleBrowseLibrary}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
       </Box>
 
+      <Divider sx={{ mb: 3 }} />
+
       {/* ffmpeg path */}
-      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
-        ffmpeg Path
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>ffmpeg Path</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
         Path to the ffmpeg binary. Leave blank to use system ffmpeg (must be on PATH).
         Required for converting .wav and .ogg files during pack deploy.
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <Box
-          component="input"
-          spellCheck={false}
-          placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
+      <Box sx={{ mb: 3 }}>
+        <PathInput
           value={ffmpegPath ?? ''}
-          onChange={(e) => setFfmpegPath((e.target as HTMLInputElement).value || null)}
-          sx={{
-            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
-            bgcolor: 'background.paper', color: 'text.primary',
-            border: '1px solid', borderColor: 'divider', borderRadius: 1,
-            outline: 'none', fontFamily: 'inherit',
-            '&:focus': { borderColor: 'primary.main' }
-          }}
-        />
-        <Tooltip title="Browse…">
-          <IconButton size="small" onClick={async () => {
+          onChange={(v) => setFfmpegPath(v || null)}
+          placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
+          onBrowse={async () => {
             const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe', '*'] }])
             if (f) setFfmpegPath(f)
-          }}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+          }}
+        />
       </Box>
 
+      <Divider sx={{ mb: 3 }} />
+
       {/* Encode settings */}
-      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
-        .mus Encode Settings
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Used when converting .wav/.ogg files during pack deploy. Defaults match original DA client files (22050 Hz, 64 kbps). Channel layout is preserved from the source file.
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>.mus Encode Settings</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+        Used when converting .wav/.ogg files during pack deploy. Defaults match original DA client files (22050 Hz, 64 kbps).
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Sample Rate</InputLabel>
-          <Select
-            value={musEncodeSampleRate}
-            label="Sample Rate"
-            onChange={(e) => setMusEncodeSampleRate(Number(e.target.value))}
-          >
+          <Select value={musEncodeSampleRate} label="Sample Rate"
+            onChange={(e) => setMusEncodeSampleRate(Number(e.target.value))}>
             <MenuItem value={22050}>22050 Hz (DA original)</MenuItem>
             <MenuItem value={44100}>44100 Hz (Hybrasyl)</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Bitrate</InputLabel>
-          <Select
-            value={musEncodeKbps}
-            label="Bitrate"
-            onChange={(e) => setMusEncodeKbps(Number(e.target.value))}
-          >
+          <Select value={musEncodeKbps} label="Bitrate"
+            onChange={(e) => setMusEncodeKbps(Number(e.target.value))}>
             <MenuItem value={64}>64 kbps (DA original)</MenuItem>
             <MenuItem value={128}>128 kbps</MenuItem>
             <MenuItem value={192}>192 kbps</MenuItem>
@@ -518,11 +546,11 @@ function ManageMusicSettings() {
         </FormControl>
       </Box>
 
+      <Divider sx={{ mb: 3 }} />
+
       {/* Working directories */}
-      <Typography variant="subtitle2" sx={{ color: 'text.button', mb: 0.5 }}>
-        Working Directories
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Working Directories</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
         Output directories where packs are deployed as numbered <code>.mus</code> files.
       </Typography>
 
@@ -556,10 +584,9 @@ function ManageMusicSettings() {
           </ListItem>
         )}
         {musicWorkingDirs.map((dir) => (
-          <ListItem key={dir} component="div"
+          <ListItemButton key={dir}
             onClick={() => setSelected(dir)}
-            selected={selected === dir}
-            sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}>
+            selected={selected === dir}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
               <ListItemText
                 primary={dir}
@@ -569,7 +596,7 @@ function ManageMusicSettings() {
                 <Chip label="Active" size="small" color="primary" icon={<CheckCircleIcon />} sx={{ flexShrink: 0 }} />
               )}
             </Box>
-          </ListItem>
+          </ListItemButton>
         ))}
       </List>
 
@@ -590,84 +617,67 @@ function ManageMusicSettings() {
   )
 }
 
-// ── Settings Page ─────────────────────────────────────────────────────────────
+// ── Tab: Asset Packs ─────────────────────────────────────────────────────────
 
-const SettingsPage: React.FC = () => {
-  const [theme, setTheme] = useRecoilState(themeState)
-  const [clientPath, setClientPath] = useRecoilState(clientPathState)
-  const [aboutOpen, setAboutOpen] = useState(false)
-
-  const handleBrowseClient = async () => {
-    const dir = await window.api.openDirectory()
-    if (dir) setClientPath(dir)
-  }
+function AssetPacksTab() {
+  const [packDir, setPackDir] = useRecoilState(packDirState)
 
   return (
-    <Box sx={{ p: 3, maxWidth: 680 }}>
-      <Typography variant="h4" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
-        Settings
+    <Box>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Asset Pack Working Directory</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+        Directory where .datf asset pack projects are stored. Each pack is a JSON project file with associated PNG assets.
       </Typography>
-
-      {/* Theme */}
-      <FormControl size="small" sx={{ minWidth: 280, mb: 4 }}>
-        <InputLabel>Theme</InputLabel>
-        <Select value={theme} label="Theme" onChange={(e) => setTheme(e.target.value as ThemeName)}>
-          {THEMES.map((t) => (
-            <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <Divider sx={{ mb: 3 }} />
-
-      {/* DA client path */}
-      <Typography variant="h6" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
-        Dark Ages Client
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Path to your Dark Ages install directory. Used to open .dat archives.
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
-        <Box
-          component="input"
-          spellCheck={false}
-          placeholder="e.g. C:\Program Files (x86)\Dark Ages"
-          value={clientPath ?? ''}
-          onChange={(e) => setClientPath((e.target as HTMLInputElement).value || null)}
-          sx={{
-            flex: 1, px: 1.5, py: '6px', fontSize: '0.875rem',
-            bgcolor: 'background.paper', color: 'text.primary',
-            border: '1px solid', borderColor: 'divider', borderRadius: 1,
-            outline: 'none', fontFamily: 'inherit',
-            '&:focus': { borderColor: 'primary.main' }
-          }}
+      <Box sx={{ mb: 2 }}>
+        <PathInput
+          value={packDir ?? ''}
+          onChange={(v) => setPackDir(v || null)}
+          placeholder="e.g. D:\asset-packs"
+          onBrowse={async () => { const d = await window.api.openDirectory(); if (d) setPackDir(d) }}
         />
-        <Tooltip title="Browse...">
-          <IconButton size="small" onClick={handleBrowseClient}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+      </Box>
+      {!packDir && (
+        <Alert severity="info" sx={{ mt: 1 }}>
+          Set a working directory to enable the Asset Pack Manager.
+        </Alert>
+      )}
+    </Box>
+  )
+}
+
+// ── Settings Page ────────────────────────────────────────────────────────────
+
+const TAB_LABELS = ['General', 'Libraries', 'Map Directories', 'Music', 'Asset Packs']
+
+const SettingsPage: React.FC = () => {
+  const [tab, setTab] = useState(0)
+
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ px: 3, pt: 2 }}>
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Settings
+        </Typography>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          {TAB_LABELS.map((label) => (
+            <Tab key={label} label={label} />
+          ))}
+        </Tabs>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
-
-      <ManageLibraries />
-
-      <Divider sx={{ mt: 3, mb: 3 }} />
-
-      <ManageMapDirectories />
-
-      <Divider sx={{ mt: 3, mb: 3 }} />
-
-      <ManageMusicSettings />
-
-      <Divider sx={{ mt: 3, mb: 3 }} />
-
-      <Button variant="outlined" size="small" onClick={() => setAboutOpen(true)}>
-        About Taliesin
-      </Button>
-
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <Box sx={{ flex: 1, overflow: 'auto', p: 3, maxWidth: 680 }}>
+        {tab === 0 && <GeneralTab />}
+        {tab === 1 && <LibrariesTab />}
+        {tab === 2 && <MapDirectoriesTab />}
+        {tab === 3 && <MusicTab />}
+        {tab === 4 && <AssetPacksTab />}
+      </Box>
     </Box>
   )
 }
