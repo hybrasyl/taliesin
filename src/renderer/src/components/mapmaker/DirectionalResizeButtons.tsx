@@ -38,8 +38,8 @@ const DirectionalResizeButtons: React.FC<Props> = ({ mapWidth, mapHeight, onResi
         )}
       </Box>
 
-      {/* Bottom edge */}
-      <Box sx={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', gap: 0.5 }}>
+      {/* Bottom edge — offset above horizontal scrollbar */}
+      <Box sx={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', gap: 0.5 }}>
         <Tooltip title="Add row at bottom">
           <IconButton size="small" sx={btnSx} onClick={() => onResize('bottom', 1)}>
             <AddIcon sx={{ fontSize: 14 }} />
@@ -54,8 +54,8 @@ const DirectionalResizeButtons: React.FC<Props> = ({ mapWidth, mapHeight, onResi
         )}
       </Box>
 
-      {/* Left edge */}
-      <Box sx={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {/* Left edge — offset past vertical scrollbar */}
+      <Box sx={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Tooltip title="Add column at left" placement="right">
           <IconButton size="small" sx={btnSx} onClick={() => onResize('left', 1)}>
             <AddIcon sx={{ fontSize: 14 }} />
@@ -70,8 +70,8 @@ const DirectionalResizeButtons: React.FC<Props> = ({ mapWidth, mapHeight, onResi
         )}
       </Box>
 
-      {/* Right edge */}
-      <Box sx={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {/* Right edge — offset past vertical scrollbar */}
+      <Box sx={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Tooltip title="Add column at right" placement="left">
           <IconButton size="small" sx={btnSx} onClick={() => onResize('right', 1)}>
             <AddIcon sx={{ fontSize: 14 }} />

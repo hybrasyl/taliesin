@@ -126,6 +126,20 @@ const api = {
   prefabRename: (libraryPath: string, oldName: string, newName: string): Promise<void> =>
     ipcRenderer.invoke('prefab:rename', libraryPath, oldName, newName),
 
+  // Tile Frequency Scanner
+  tileScanAnalyze: (dirPaths: string[]): Promise<{ background: [number, number][]; leftForeground: [number, number][]; rightForeground: [number, number][]; fileCount: number; tileCount: number }> =>
+    ipcRenderer.invoke('tileScan:analyze', dirPaths),
+
+  // Tile Themes
+  themeList: (): Promise<{ filename: string; name: string }[]> =>
+    ipcRenderer.invoke('theme:list'),
+  themeLoad: (filename: string): Promise<unknown> =>
+    ipcRenderer.invoke('theme:load', filename),
+  themeSave: (filename: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('theme:save', filename, data),
+  themeDelete: (filename: string): Promise<void> =>
+    ipcRenderer.invoke('theme:delete', filename),
+
   // Asset Packs (.datf)
   packScan: (dirPath: string): Promise<unknown[]> =>
     ipcRenderer.invoke('pack:scan', dirPath),

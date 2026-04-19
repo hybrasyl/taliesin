@@ -748,7 +748,11 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+  // Register a non-passive wheel listener so preventDefault() works reliably.
+  // React's synthetic onWheel is passive in modern browsers, which silently
+  // ignores preventDefault() and lets the browser handle Ctrl+Wheel as zoom.
+  const wheelHandlerRef = useRef<(e: WheelEvent) => void>()
+  wheelHandlerRef.current = (e: WheelEvent) => {
     if (e.shiftKey) {
       e.preventDefault()
       const delta = e.deltaY > 0 ? -0.25 : 0.25
@@ -759,7 +763,15 @@ const MapEditorCanvas: React.FC<Props> = ({
       const container = scrollRef.current
       if (container) container.scrollLeft += e.deltaY
     }
-  }, [zoom, onZoomChange])
+  }
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => wheelHandlerRef.current?.(e)
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
 
   // ── Cursor ─────────────────────────────────────────────────────────────────
 
@@ -775,7 +787,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Box ref={scrollRef} sx={{ position: 'relative', overflow: 'auto', flex: 1 }} onWheel={handleWheel}>
+    <Box ref={scrollRef} sx={{ position: 'relative', overflow: 'auto', flex: 1, minWidth: 0, minHeight: 0 }}>
       {(loading || statusMsg) && (
         <Box sx={{ position: 'absolute', top: 6, left: 6, zIndex: 10, display: 'flex', alignItems: 'center', gap: 0.75, pointerEvents: 'none' }}>
           {loading && <CircularProgress size={12} />}

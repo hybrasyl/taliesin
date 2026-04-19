@@ -582,3 +582,92 @@ ipcMain.handle('pack:compile', async (_, packDir: string, manifest: unknown, ass
     archive.finalize()
   })
 })
+
+// ── Tile Frequency Scanner ──────────────────────────────────────────────────
+
+ipcMain.handle('tileScan:analyze', async (_, dirPaths: string[]) => {
+  const bgFreq = new Map<number, number>()
+  const lfgFreq = new Map<number, number>()
+  const rfgFreq = new Map<number, number>()
+  let fileCount = 0
+  let tileCount = 0
+
+  for (const dirPath of dirPaths) {
+    let entries: Awaited<ReturnType<typeof fs.readdir>>
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    const mapFiles = entries.filter(e => e.isFile() && /\.map$/i.test(e.name))
+
+    for (const entry of mapFiles) {
+      try {
+        const buf = await fs.readFile(join(dirPath, entry.name))
+        const totalTiles = Math.floor(buf.length / 6)
+        fileCount++
+        tileCount += totalTiles
+
+        for (let i = 0; i < totalTiles; i++) {
+          const offset = i * 6
+          const bg = buf.readInt16LE(offset)
+          const lfg = buf.readInt16LE(offset + 2)
+          const rfg = buf.readInt16LE(offset + 4)
+          if (bg !== 0) bgFreq.set(bg, (bgFreq.get(bg) ?? 0) + 1)
+          if (lfg !== 0) lfgFreq.set(lfg, (lfgFreq.get(lfg) ?? 0) + 1)
+          if (rfg !== 0) rfgFreq.set(rfg, (rfgFreq.get(rfg) ?? 0) + 1)
+        }
+      } catch { /* skip unreadable files */ }
+    }
+  }
+
+  const sortAndCap = (m: Map<number, number>, cap: number): [number, number][] =>
+    [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, cap)
+
+  return {
+    background: sortAndCap(bgFreq, 200),
+    leftForeground: sortAndCap(lfgFreq, 200),
+    rightForeground: sortAndCap(rfgFreq, 200),
+    fileCount,
+    tileCount,
+  }
+})
+
+// ── Tile Themes ─────────────────────────────────────────────────────────────
+
+const themeDir = join(settingsPath, 'themes')
+
+ipcMain.handle('theme:list', async () => {
+  try {
+    await fs.mkdir(themeDir, { recursive: true })
+    const entries = await fs.readdir(themeDir, { withFileTypes: true })
+    const summaries = []
+    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+      try {
+        const raw = await fs.readFile(join(themeDir, e.name), 'utf-8')
+        const data = JSON.parse(raw)
+        summaries.push({
+          filename: e.name,
+          name: data.name ?? e.name.replace(/\.json$/, ''),
+        })
+      } catch { /* skip malformed */ }
+    }
+    return summaries
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('theme:load', async (_, filename: string) => {
+  const raw = await fs.readFile(join(themeDir, filename), 'utf-8')
+  return JSON.parse(raw)
+})
+
+ipcMain.handle('theme:save', async (_, filename: string, data: unknown) => {
+  await fs.mkdir(themeDir, { recursive: true })
+  await fs.writeFile(join(themeDir, filename), JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('theme:delete', async (_, filename: string) => {
+  await fs.unlink(join(themeDir, filename))
+})

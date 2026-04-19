@@ -8,3 +8,31 @@ body {
   overflow: hidden;
   user-select: none;
 }
+
+/* Custom scrollbars — colors driven by CSS vars set per-theme in App.tsx */
+:root {
+  --scrollbar-thumb: rgba(58, 158, 144, 0.5);
+  --scrollbar-thumb-hover: rgba(58, 158, 144, 0.8);
+  --scrollbar-track: rgba(6, 12, 18, 0.4);
+}
+::-webkit-scrollbar {
+  width: 16px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-left: 8px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 6px;
+  border-left: 8px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
