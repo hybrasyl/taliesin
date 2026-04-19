@@ -6,6 +6,7 @@ import { promisify } from 'util'
 
 const execFileAsync = promisify(execFile)
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { spawn } from 'child_process'
 import { createSettingsManager } from './settingsManager'
 import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
@@ -95,6 +96,18 @@ ipcMain.handle('settings:load', () => settingsManager.load())
 ipcMain.handle('settings:save', (_, settings) => settingsManager.save(settings))
 ipcMain.handle('get-user-data-path', () => settingsPath)
 
+// ── Companion app launch ─────────────────────────────────────────────────────
+
+ipcMain.handle('app:launchCompanion', async (_, exePath: string) => {
+  try {
+    await fs.access(exePath)
+    spawn(exePath, [], { detached: true, stdio: 'ignore' }).unref()
+    return true
+  } catch {
+    return false
+  }
+})
+
 // ── File system ───────────────────────────────────────────────────────────────
 
 ipcMain.handle('dialog:openFile', async (_, filters?: Electron.FileFilter[]) => {
@@ -129,7 +142,16 @@ ipcMain.handle('fs:listDir', async (_, dirPath: string) => {
   return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory() }))
 })
 
-ipcMain.handle('app:getVersion', () => app.getVersion())
+ipcMain.handle('app:getVersion', async () => {
+  // app.getVersion() returns Electron's version in dev mode; read package.json directly
+  try {
+    const pkgPath = join(__dirname, '../../package.json')
+    const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
+    return pkg.version ?? app.getVersion()
+  } catch {
+    return app.getVersion()
+  }
+})
 
 // ── Catalog ───────────────────────────────────────────────────────────────────
 
@@ -495,4 +517,68 @@ ipcMain.handle('prefab:delete', async (_, libraryPath: string, filename: string)
 ipcMain.handle('prefab:rename', async (_, libraryPath: string, oldName: string, newName: string) => {
   const dir = prefabDir(libraryPath)
   await fs.rename(join(dir, oldName), join(dir, newName))
+})
+
+// ── Asset Packs (.datf) ──────────────────────────────────────────────────────
+
+ipcMain.handle('pack:scan', async (_, dirPath: string) => {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    const packs = []
+    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+      try {
+        const raw = await fs.readFile(join(dirPath, e.name), 'utf-8')
+        const data = JSON.parse(raw)
+        if (data.pack_id && data.content_type) {
+          packs.push({ filename: e.name, ...data })
+        }
+      } catch { /* skip malformed */ }
+    }
+    return packs
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('pack:load', async (_, filePath: string) => {
+  const raw = await fs.readFile(filePath, 'utf-8')
+  return JSON.parse(raw)
+})
+
+ipcMain.handle('pack:save', async (_, filePath: string, data: unknown) => {
+  await fs.mkdir(dirname(filePath), { recursive: true })
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('pack:delete', async (_, filePath: string) => {
+  await fs.unlink(filePath)
+})
+
+ipcMain.handle('pack:addAsset', async (_, packDir: string, sourcePath: string, targetFilename: string) => {
+  await fs.mkdir(packDir, { recursive: true })
+  await fs.copyFile(sourcePath, join(packDir, targetFilename))
+})
+
+ipcMain.handle('pack:removeAsset', async (_, packDir: string, filename: string) => {
+  try { await fs.unlink(join(packDir, filename)) } catch { /* already gone */ }
+})
+
+ipcMain.handle('pack:compile', async (_, packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string) => {
+  const archiver = (await import('archiver')).default
+  const { createWriteStream } = await import('fs')
+
+  return new Promise<void>((resolve, reject) => {
+    const output = createWriteStream(outputPath)
+    const archive = archiver('zip', { zlib: { level: 9 } })
+
+    output.on('close', () => resolve())
+    archive.on('error', (err: Error) => reject(err))
+
+    archive.pipe(output)
+    archive.append(JSON.stringify(manifest, null, 2), { name: '_manifest.json' })
+    for (const filename of assetFilenames) {
+      archive.file(join(packDir, filename), { name: filename })
+    }
+    archive.finalize()
+  })
 })

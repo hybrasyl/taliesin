@@ -2,7 +2,7 @@ import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
-export type Page = 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'prefabs' | 'music' | 'sfx' | 'settings'
+export type Page = 'dashboard' | 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'prefabs' | 'assetpacks' | 'music' | 'sfx' | 'settings'
 
 export interface DirtyEditor {
   label: string
@@ -16,7 +16,7 @@ export const themeState = atom<ThemeName>({
 
 export const currentPageState = atom<Page>({
   key: 'currentPageState',
-  default: 'catalog'
+  default: 'dashboard'
 })
 
 export const dirtyEditorState = atom<DirtyEditor | null>({
@@ -100,6 +100,16 @@ export const activeMusicWorkingDirState = atom<string | null>({
 // Path to ffmpeg binary (null = use system PATH)
 export const ffmpegPathState = atom<string | null>({
   key: 'ffmpegPathState',
+  default: null
+})
+
+export const packDirState = atom<string | null>({
+  key: 'packDirState',
+  default: null
+})
+
+export const companionPathState = atom<string | null>({
+  key: 'companionPathState',
   default: null
 })
 

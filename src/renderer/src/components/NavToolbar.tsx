@@ -1,19 +1,23 @@
 import React from 'react'
 import { Toolbar, IconButton, Tooltip, Divider, Box, Typography } from '@mui/material'
 import {
+  GiCastle,
   GiTreasureMap,
   GiScrollQuill,
   GiWorld,
   GiArchiveResearch,
   GiBrickWall,
   GiPuzzle,
+  GiCardboardBox,
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs
 } from 'react-icons/gi'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useRecoilState, useRecoilValue } from 'recoil'
 import { currentPageState, activeLibraryState, Page } from '../recoil/atoms'
 import { worldName } from '../hooks/useCatalog'
+import AboutDialog from './AboutDialog'
 
 const iconSx = {
   '& svg': {
@@ -44,6 +48,7 @@ const NavToolbar: React.FC = () => {
   const [currentPage, setCurrentPage] = useRecoilState(currentPageState)
   const activeLibrary = useRecoilValue(activeLibraryState)
   const libName = activeLibrary ? worldName(activeLibrary) : null
+  const [aboutOpen, setAboutOpen] = React.useState(false)
 
   const nav = (page: Page) => () => setCurrentPage(page)
   const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)
@@ -60,6 +65,14 @@ const NavToolbar: React.FC = () => {
         </Typography>
       )}
       <Box sx={{ flexGrow: 1 }} />
+
+      <Tooltip title="Dashboard">
+        <IconButton sx={sx('dashboard')} onClick={nav('dashboard')}>
+          <GiCastle />
+        </IconButton>
+      </Tooltip>
+
+      <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
 
       <Tooltip title="Map Catalog">
         <IconButton sx={sx('catalog')} onClick={nav('catalog')}>
@@ -94,6 +107,11 @@ const NavToolbar: React.FC = () => {
           <GiPuzzle />
         </IconButton>
       </Tooltip>
+      <Tooltip title="Asset Pack Manager">
+        <IconButton sx={sx('assetpacks')} onClick={nav('assetpacks')}>
+          <GiCardboardBox />
+        </IconButton>
+      </Tooltip>
       <Tooltip title="Music Manager">
         <IconButton sx={sx('music')} onClick={nav('music')}>
           <GiMusicalNotes />
@@ -114,6 +132,13 @@ const NavToolbar: React.FC = () => {
           <GiSettingsKnobs />
         </IconButton>
       </Tooltip>
+      <Tooltip title="About Taliesin">
+        <IconButton sx={btnSx} onClick={() => setAboutOpen(true)}>
+          <InfoOutlinedIcon sx={{ fontSize: '1.2em' }} />
+        </IconButton>
+      </Tooltip>
+
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </Toolbar>
   )
 }

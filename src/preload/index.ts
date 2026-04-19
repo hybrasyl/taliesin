@@ -44,6 +44,10 @@ const api = {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings: unknown) => ipcRenderer.invoke('settings:save', settings),
 
+  // Companion app
+  launchCompanion: (exePath: string): Promise<boolean> =>
+    ipcRenderer.invoke('app:launchCompanion', exePath),
+
   // Dialogs
   openFile: (filters?: Electron.FileFilter[]): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFile', filters),
@@ -121,6 +125,22 @@ const api = {
     ipcRenderer.invoke('prefab:delete', libraryPath, filename),
   prefabRename: (libraryPath: string, oldName: string, newName: string): Promise<void> =>
     ipcRenderer.invoke('prefab:rename', libraryPath, oldName, newName),
+
+  // Asset Packs (.datf)
+  packScan: (dirPath: string): Promise<unknown[]> =>
+    ipcRenderer.invoke('pack:scan', dirPath),
+  packLoad: (filePath: string): Promise<unknown> =>
+    ipcRenderer.invoke('pack:load', filePath),
+  packSave: (filePath: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('pack:save', filePath, data),
+  packDelete: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('pack:delete', filePath),
+  packAddAsset: (packDir: string, sourcePath: string, targetFilename: string): Promise<void> =>
+    ipcRenderer.invoke('pack:addAsset', packDir, sourcePath, targetFilename),
+  packRemoveAsset: (packDir: string, filename: string): Promise<void> =>
+    ipcRenderer.invoke('pack:removeAsset', packDir, filename),
+  packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string): Promise<void> =>
+    ipcRenderer.invoke('pack:compile', packDir, manifest, assetFilenames, outputPath),
 }
 
 if (process.contextIsolated) {
