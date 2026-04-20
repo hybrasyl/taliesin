@@ -504,10 +504,10 @@ const MapMakerPage: React.FC = () => {
       dirty: true,
       undoStack: [], redoStack: [],
       selection: null, pasteMode: false,
-      canvasKey: ++nextCanvasKey,
+      renderVersion: renderVersion + 1,
     })
     showStatus(`Resized to ${newW}×${newH}`)
-  }, [mapFile, activeTabId, updateTab, showStatus])
+  }, [mapFile, activeTabId, updateTab, showStatus, renderVersion])
 
   // ── Context menu action handler ────────────────────────────────────────────
 
@@ -631,12 +631,12 @@ const MapMakerPage: React.FC = () => {
       dirty: true,
       undoStack: [], redoStack: [],
       selection: null, pasteMode: false,
-      canvasKey: ++nextCanvasKey,
+      renderVersion: renderVersion + 1,
     })
     const label = side === 'top' || side === 'bottom' ? 'row' : 'column'
     const action = delta > 0 ? 'Added' : 'Removed'
     showStatus(`${action} ${label} at ${side} (${newW}×${newH})`)
-  }, [mapFile, activeTabId, updateTab, showStatus])
+  }, [mapFile, activeTabId, updateTab, showStatus, renderVersion])
 
   // ── Selection setter ──────────────────────────────────────────────────────
 
