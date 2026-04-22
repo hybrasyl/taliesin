@@ -379,6 +379,9 @@ function MapFieldsTab({
           <FormControlLabel
             control={<Switch size="small" checked={data.allowCasting} onChange={e => set('allowCasting', e.target.checked)} />}
             label="Casting" />
+          <FormControlLabel
+            control={<Switch size="small" checked={data.dynamicLighting} onChange={e => set('dynamicLighting', e.target.checked)} />}
+            label="Dynamic Lighting" />
         </Box>
 
         {/* Description — direct child element only (not reactor/sign descriptions) */}

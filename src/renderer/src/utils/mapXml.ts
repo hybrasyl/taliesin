@@ -154,6 +154,7 @@ export function parseMapXml(xml: string): MapData {
     y: parseInt(attr(root, 'Y', '40'), 10),
     isEnabled: attr(root, 'IsEnabled', 'true') !== 'false',
     allowCasting: attr(root, 'AllowCasting', 'true') !== 'false',
+    dynamicLighting: attr(root, 'DynamicLighting', 'false') === 'true',
     description: descText || undefined,
     flags,
     warps,
@@ -177,6 +178,7 @@ export function serializeMapXml(data: MapData): string {
     `Y="${data.y}"`,
     `IsEnabled="${data.isEnabled}"`,
     `AllowCasting="${data.allowCasting}"`,
+    ...(data.dynamicLighting ? [`DynamicLighting="true"`] : []),
   ].join(' ')
 
   lines.push(`<Map ${rootAttrs}>`)

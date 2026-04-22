@@ -76,6 +76,7 @@ export interface MapData {
   y: number
   isEnabled: boolean
   allowCasting: boolean
+  dynamicLighting: boolean
   description?: string
   flags: MapFlag[]
   warps: MapWarp[]
@@ -93,6 +94,7 @@ export const DEFAULT_MAP: MapData = {
   y: 40,
   isEnabled: true,
   allowCasting: true,
+  dynamicLighting: false,
   description: '',
   flags: [],
   warps: [],
