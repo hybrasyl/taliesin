@@ -30,6 +30,18 @@ export interface MusicPack {
   updatedAt: string
 }
 
+export interface MusicFileMeta {
+  title: string | null
+  artist: string | null
+  genre: string | null
+  album: string | null
+  duration: number | null
+  bitrate: number | null
+  sampleRate: number | null
+  channels: number | null
+  prompt: string | null
+}
+
 const api = {
   // Window controls
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
@@ -75,7 +87,7 @@ const api = {
     ipcRenderer.invoke('catalog:scan', dirPath),
 
   // Music Manager
-  musicReadFileMeta: (filePath: string): Promise<{ title: string | null; artist: string | null; genre: string | null; album: string | null } | null> =>
+  musicReadFileMeta: (filePath: string): Promise<MusicFileMeta | null> =>
     ipcRenderer.invoke('music:readFileMeta', filePath),
   musicScan: (dirPath: string): Promise<MusicScanEntry[]> =>
     ipcRenderer.invoke('music:scan', dirPath),

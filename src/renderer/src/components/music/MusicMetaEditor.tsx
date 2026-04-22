@@ -6,10 +6,11 @@ import {
 import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import type { MusicEntry } from '../../hooks/useMusicLibrary'
+import { MAX_TAG_LENGTH, formatDuration, type MusicEntry } from '../../hooks/useMusicLibrary'
 
 interface Props {
   entry: MusicEntry | null
+  meta: MusicMeta | null
   draft: MusicMeta
   dirty: boolean
   /** Map IDs that reference this track (from world index) */
@@ -27,14 +28,30 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatChannels(n: number | undefined): string | null {
+  if (n == null) return null
+  if (n === 1) return 'Mono'
+  if (n === 2) return 'Stereo'
+  return `${n} ch`
+}
+
+const InfoChip: React.FC<{ label: React.ReactNode }> = ({ label }) => (
+  <Typography variant="caption" color="text.secondary">
+    {label}
+  </Typography>
+)
+
 const MusicMetaEditor: React.FC<Props> = ({
-  entry, draft, dirty, usedByMaps, onUpdate, onSave, onPlay, onRemove, isPlaying
+  entry, meta, draft, dirty, usedByMaps, onUpdate, onSave, onPlay, onRemove, isPlaying
 }) => {
   const [tagInput, setTagInput] = React.useState('')
+  const tagTrimmed = tagInput.trim()
+  const tagTooLong = tagTrimmed.length > MAX_TAG_LENGTH
+  const canAddTag = tagTrimmed.length > 0 && !tagTooLong
 
   const handleAddTag = () => {
-    const tag = tagInput.trim().toLowerCase()
-    if (!tag) return
+    const tag = tagTrimmed.toLowerCase()
+    if (!tag || tag.length > MAX_TAG_LENGTH) return
     const current = draft.tags ?? []
     if (!current.includes(tag)) {
       onUpdate({ tags: [...current, tag] })
@@ -53,6 +70,11 @@ const MusicMetaEditor: React.FC<Props> = ({
       </Box>
     )
   }
+
+  const durationStr = formatDuration(meta?.duration)
+  const bitrateStr  = meta?.bitrate    != null ? `${Math.round(meta.bitrate / 1000)} kbps` : null
+  const sampleStr   = meta?.sampleRate != null ? `${(meta.sampleRate / 1000).toFixed(1)} kHz` : null
+  const channelsStr = formatChannels(meta?.channels)
 
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
@@ -86,15 +108,15 @@ const MusicMetaEditor: React.FC<Props> = ({
 
       <Divider />
 
-      {/* File info */}
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Typography variant="caption" color="text.secondary">
-          Size: <strong>{formatBytes(entry.sizeBytes)}</strong>
-        </Typography>
+      {/* Audio properties */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, rowGap: 0.5 }}>
+        {durationStr && <InfoChip label={<>Duration: <strong>{durationStr}</strong></>} />}
+        {bitrateStr  && <InfoChip label={<>Bitrate: <strong>{bitrateStr}</strong></>} />}
+        {sampleStr   && <InfoChip label={<>Sample rate: <strong>{sampleStr}</strong></>} />}
+        {channelsStr && <InfoChip label={<strong>{channelsStr}</strong>} />}
+        <InfoChip label={<>Size: <strong>{formatBytes(entry.sizeBytes)}</strong></>} />
         {entry.musicId !== null && (
-          <Typography variant="caption" color="text.secondary">
-            Music ID: <strong>{entry.musicId}</strong>
-          </Typography>
+          <InfoChip label={<>Music ID: <strong>{entry.musicId}</strong></>} />
         )}
       </Box>
 
@@ -120,6 +142,32 @@ const MusicMetaEditor: React.FC<Props> = ({
         placeholder="Optional notes about this track"
       />
 
+      {/* Description */}
+      <TextField
+        label="Description"
+        size="small"
+        fullWidth
+        multiline
+        rows={2}
+        value={draft.description ?? ''}
+        onChange={(e) => onUpdate({ description: e.target.value })}
+        placeholder="Longer prose about the track (auto-filled from genre tag on import)"
+      />
+
+      {/* Prompt — read-only, only when file has a TXXX:PROMPT frame */}
+      {meta?.prompt && (
+        <TextField
+          label="Prompt"
+          size="small"
+          fullWidth
+          multiline
+          maxRows={6}
+          value={meta.prompt}
+          slotProps={{ input: { readOnly: true } }}
+          helperText="From ID3 TXXX:PROMPT frame"
+        />
+      )}
+
       {/* Tags */}
       <Box>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
@@ -135,16 +183,18 @@ const MusicMetaEditor: React.FC<Props> = ({
             />
           ))}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
           <TextField
             size="small"
             placeholder="Add tag…"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag() } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canAddTag) { e.preventDefault(); handleAddTag() } }}
+            error={tagTooLong}
+            helperText={tagTooLong ? `Tags must be ${MAX_TAG_LENGTH} characters or less` : ' '}
             sx={{ flex: 1 }}
           />
-          <IconButton size="small" onClick={handleAddTag}>
+          <IconButton size="small" onClick={handleAddTag} disabled={!canAddTag} sx={{ mt: 0.5 }}>
             <AddIcon fontSize="small" />
           </IconButton>
         </Box>

@@ -13,7 +13,7 @@ import {
   musEncodeKbpsState,
   musEncodeSampleRateState,
 } from '../recoil/atoms'
-import { useMusicLibrary } from '../hooks/useMusicLibrary'
+import { useMusicLibrary, countEntriesWithLongTags, needsEnrichment } from '../hooks/useMusicLibrary'
 import { useMusicPacks } from '../hooks/useMusicPacks'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import MusicList from '../components/music/MusicList'
@@ -165,19 +165,32 @@ const MusicPage: React.FC = () => {
                   sx={{ flex: 1 }}
                 />
               </Box>
-            ) : (() => {
-              const unenriched = lib.entries.filter((e) => !lib.metadata[e.filename]?.name).length
-              return unenriched > 0 ? (
-                <Box sx={{ px: 2, py: 0.75, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            ) : lib.entries.length > 0 ? (() => {
+              const unenriched = lib.entries.filter((e) => needsEnrichment(lib.metadata[e.filename])).length
+              const longTagCount = countEntriesWithLongTags(lib.metadata)
+              return (
+                <Box sx={{ px: 2, py: 0.75, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}>
                   <Typography variant="caption" color="text.secondary">
-                    {unenriched} track{unenriched !== 1 ? 's' : ''} without metadata
+                    {unenriched > 0
+                      ? `${unenriched} of ${lib.entries.length} tracks need enrichment`
+                      : `${lib.entries.length} tracks`}
+                    {longTagCount > 0 ? ` · ${longTagCount} with overlong tags` : ''}
                   </Typography>
-                  <Button size="small" variant="text" onClick={lib.enrichAll}>
-                    Read tags from files
+                  <Box sx={{ flex: 1 }} />
+                  {unenriched > 0 && (
+                    <Button size="small" variant="text" onClick={() => lib.enrichAll()}>
+                      Read tags from files
+                    </Button>
+                  )}
+                  <Button size="small" variant="text" onClick={() => lib.enrichAll({ force: true })}>
+                    Refresh all from files
+                  </Button>
+                  <Button size="small" variant="text" onClick={lib.migrateLongTags}>
+                    Clean up long tags
                   </Button>
                 </Box>
-              ) : null
-            })()}
+              )
+            })() : null}
             <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {/* Left: track list */}
             <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -205,6 +218,7 @@ const MusicPage: React.FC = () => {
                 <>
                   <MusicMetaEditor
                     entry={lib.selectedEntry}
+                    meta={lib.selectedMeta}
                     draft={lib.draft}
                     dirty={lib.dirty}
                     usedByMaps={usedByMaps}

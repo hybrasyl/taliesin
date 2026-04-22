@@ -18,7 +18,26 @@ interface MusicScanEntry {
 interface MusicMeta {
   name?: string
   notes?: string
+  description?: string
   tags?: string[]
+  duration?: number
+  bitrate?: number
+  sampleRate?: number
+  channels?: number
+  /** Read-only: generation prompt from ID3 TXXX:PROMPT frame (e.g. Suno). */
+  prompt?: string
+}
+
+interface MusicFileMeta {
+  title: string | null
+  artist: string | null
+  genre: string | null
+  album: string | null
+  duration: number | null
+  bitrate: number | null
+  sampleRate: number | null
+  channels: number | null
+  prompt: string | null
 }
 
 interface MusicPackTrack {
@@ -136,7 +155,7 @@ interface TaliesinAPI {
   catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
   catalogSave: (dirPath: string, data: unknown) => Promise<void>
   catalogScan: (dirPath: string) => Promise<MapScanEntry[]>
-  musicReadFileMeta: (filePath: string) => Promise<{ title: string | null; artist: string | null; genre: string | null; album: string | null } | null>
+  musicReadFileMeta: (filePath: string) => Promise<MusicFileMeta | null>
   musicScan: (dirPath: string) => Promise<MusicScanEntry[]>
   musicMetadataLoad: (dirPath: string) => Promise<Record<string, MusicMeta>>
   musicMetadataSave: (dirPath: string, data: Record<string, MusicMeta>) => Promise<void>

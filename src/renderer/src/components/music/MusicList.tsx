@@ -6,7 +6,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import SyncIcon from '@mui/icons-material/Sync'
 import AddIcon from '@mui/icons-material/Add'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { MusicEntry } from '../../hooks/useMusicLibrary'
+import { formatDuration, type MusicEntry } from '../../hooks/useMusicLibrary'
 
 interface Props {
   entries: MusicEntry[]
@@ -149,9 +149,19 @@ const MusicList: React.FC<Props> = ({
                     ) : null
                   })()}
                 </Box>
-                <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0 }}>
-                  {formatBytes(entry.sizeBytes)}
-                </Typography>
+                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <Typography variant="caption" color="text.disabled">
+                    {formatBytes(entry.sizeBytes)}
+                  </Typography>
+                  {(() => {
+                    const d = formatDuration(meta?.duration)
+                    return d ? (
+                      <Typography variant="caption" color="text.disabled" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {d}
+                      </Typography>
+                    ) : null
+                  })()}
+                </Box>
               </Box>
             )
           })}

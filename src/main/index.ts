@@ -245,17 +245,58 @@ ipcMain.handle('fs:listArchive', async (_, filePath: string) => {
 
 const MUSIC_SOURCE_EXTS = new Set(['.mp3', '.ogg', '.mus', '.wav', '.flac'])
 
+/**
+ * Find a TXXX user-defined text frame by description (e.g. "PROMPT") across
+ * ID3v2.3 / ID3v2.4 native tag lists. music-metadata surfaces TXXX entries
+ * either with id "TXXX:<desc>" (flattened) or id "TXXX" with value.description.
+ */
+function findTxxxFrame(native: Record<string, { id: string; value: unknown }[]> | undefined, desc: string): string | null {
+  if (!native) return null
+  const wantedId = `TXXX:${desc}`
+  for (const entries of Object.values(native)) {
+    for (const entry of entries) {
+      if (entry.id === wantedId) {
+        const v = entry.value
+        if (typeof v === 'string') return v
+        if (v && typeof v === 'object' && 'text' in v) {
+          const t = (v as { text: unknown }).text
+          if (Array.isArray(t)) return t.join('\n')
+          if (typeof t === 'string') return t
+        }
+        return null
+      }
+      if (entry.id === 'TXXX' && entry.value && typeof entry.value === 'object') {
+        const v = entry.value as { description?: string; text?: unknown }
+        if (v.description === desc) {
+          if (Array.isArray(v.text)) return v.text.join('\n')
+          if (typeof v.text === 'string') return v.text
+        }
+      }
+    }
+  }
+  return null
+}
+
 ipcMain.handle('music:readFileMeta', async (_, filePath: string) => {
   try {
     const { parseBuffer } = await import('music-metadata')
     const buf = await fs.readFile(filePath)
-    const meta = await parseBuffer(buf, undefined, { duration: false, skipCovers: true })
+    const meta = await parseBuffer(buf, undefined, { duration: true, skipCovers: true })
     const { title, artist, genre, album } = meta.common
+    const { duration, bitrate, sampleRate, numberOfChannels } = meta.format
+    // music-metadata returns genre as string[]; flatten to a single joined string
+    const genreStr = Array.isArray(genre) ? genre.join(', ') : (genre ?? null)
+    const prompt = findTxxxFrame(meta.native as Record<string, { id: string; value: unknown }[]>, 'PROMPT')
     return {
-      title:  title  ?? null,
-      artist: artist ?? null,
-      genre:  genre  ?? null,
-      album:  album  ?? null,
+      title:      title        ?? null,
+      artist:     artist       ?? null,
+      genre:      genreStr     || null,
+      album:      album        ?? null,
+      duration:   duration     ?? null,
+      bitrate:    bitrate      ?? null,
+      sampleRate: sampleRate   ?? null,
+      channels:   numberOfChannels ?? null,
+      prompt:     prompt?.trim() || null,
     }
   } catch {
     return null
