@@ -122,23 +122,27 @@ cover missing-dir, empty-dir, and recursive discovery.
 
 ---
 
-## 7. `deployTrack` re-encodes every track even when source is already MP3 (P3)
+## ~~7. `deployTrack` re-encodes every track even when source is already MP3 (P3)~~ — FIXED
 
-**File**: [src/main/index.ts:370-387](../src/main/index.ts#L370-L387)
+**File**: `src/main/handlers.ts` `deployTrackFn`
 
-**Problem**: deliberate per the inline comment ("MP3→MP3 generation
-loss is negligible when downsampling to 64kbps anyway"), but worth
-flagging. Re-encoding adds latency and a subtle quality hit on every
-deploy.
+`deployTrackFn` now reads the source's bitrate + sample rate via
+`music-metadata` when the source is `.mp3`. If both already match the
+deploy target, it `fs.copyFile`s directly — saving an ffmpeg roundtrip
+per track and avoiding the subtle MP3→MP3 generation loss. Any parse
+failure (corrupt mp3, unsupported codec) falls through to the safe
+re-encode path.
 
-**Test reference**:
-`re-encodes every track through ffmpeg with the requested kbps and
-sample rate` in
-[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
+`music-metadata` is now imported once at the start of `musicDeployPack`
+and the `parseBuffer` reference is passed into `deployTrackFn` — when
+done as parallel `await import('music-metadata')` calls, Vitest's mock
+substitution races and one of the parallel callers falls through to
+the real module. One import per pack also avoids redundant module
+initialization.
 
-**Suggested fix** (optional): when source is `.mp3` AND already at the
-target kbps + sample rate, copy directly. Re-encode otherwise. Can
-defer indefinitely — current behavior is intentional.
+Four new tests in
+[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts):
+fast-path hit, bitrate mismatch, parse failure, non-mp3 source.
 
 ---
 

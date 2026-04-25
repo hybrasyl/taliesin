@@ -692,9 +692,9 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     expect(files.has('/dest/music-pack.json')).toBe(false)
   })
 
-  it('re-encodes every track through ffmpeg with the requested kbps and sample rate', async () => {
-    // NOTE: deployTrack unconditionally re-encodes (see index.ts comment at L377).
-    // Asserting this catches any regression that adds a "direct copy" fast path.
+  it('re-encodes through ffmpeg when the source bitrate/sample-rate does not match', async () => {
+    // Default parseBuffer mock returns 128000 bps / 44100 Hz; deploy targets
+    // 96 kbps / 44100 Hz → bitrate mismatch ⇒ ffmpeg fallback.
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
@@ -706,6 +706,65 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     expect(args).toContain('96k')
     expect(args).toContain('44100')
     expect(args).toContain('libmp3lame')
+  })
+
+  it('fast-paths a .mp3 source already at the target bitrate + sample rate via copyFile', async () => {
+    files.set('/lib/song1.mp3', Buffer.from('S1'))
+    files.set('/lib/song2.mp3', Buffer.from('S2'))
+    musicMetadata.parseBuffer.mockImplementation(async () => ({
+      common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
+      format: { duration: 60, bitrate: 64000, sampleRate: 22050, numberOfChannels: 2 },
+      native: {},
+    }))
+
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+
+    expect(childProcess.execFile).not.toHaveBeenCalled()
+    expect(files.get('/dest/1.mus')?.toString('utf-8')).toBe('S1')
+    expect(files.get('/dest/2.mus')?.toString('utf-8')).toBe('S2')
+  })
+
+  it('falls back to ffmpeg when only the sample rate matches', async () => {
+    files.set('/lib/song1.mp3', Buffer.from('S1'))
+    files.set('/lib/song2.mp3', Buffer.from('S2'))
+    musicMetadata.parseBuffer.mockImplementation(async () => ({
+      common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
+      format: { duration: 60, bitrate: 128000, sampleRate: 22050, numberOfChannels: 2 }, // 128 kbps ≠ 64 kbps
+      native: {},
+    }))
+
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+
+    expect(childProcess.execFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('falls back to ffmpeg when music-metadata throws (corrupt mp3 → safe re-encode)', async () => {
+    files.set('/lib/song1.mp3', Buffer.from('S1'))
+    files.set('/lib/song2.mp3', Buffer.from('S2'))
+    musicMetadata.parseBuffer.mockImplementation(async () => {
+      throw new Error('parse error')
+    })
+
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+
+    expect(childProcess.execFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips the metadata check entirely for non-mp3 sources', async () => {
+    files.set('/lib/song1.ogg', Buffer.from('S1'))
+    files.set('/lib/song2.wav', Buffer.from('S2'))
+    const oggPack = {
+      ...pack,
+      tracks: [
+        { musicId: 1, sourceFile: 'song1.ogg' },
+        { musicId: 2, sourceFile: 'song2.wav' },
+      ],
+    }
+
+    await invoke('music:deploy-pack', '/lib', oggPack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+
+    expect(musicMetadata.parseBuffer).not.toHaveBeenCalled()
+    expect(childProcess.execFile).toHaveBeenCalledTimes(2)
   })
 
   it('falls back to "ffmpeg" on PATH when ffmpegPath is null', async () => {

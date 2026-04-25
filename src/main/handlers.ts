@@ -244,7 +244,27 @@ export async function musicPacksSave(dirPath: string, packs: unknown): Promise<v
 interface DeployTrack { musicId: number; sourceFile: string }
 interface DeployPack  { id: string; name: string; description?: string; tracks: DeployTrack[] }
 
-async function deployTrackFn(srcPath: string, destPath: string, ffmpegBin: string, kbps: number, sampleRate: number): Promise<void> {
+type ParseBuffer = typeof import('music-metadata').parseBuffer
+
+async function deployTrackFn(
+  parseBuffer: ParseBuffer,
+  srcPath: string, destPath: string,
+  ffmpegBin: string, kbps: number, sampleRate: number,
+): Promise<void> {
+  // Fast path: a .mp3 source already encoded at the target bitrate + sample
+  // rate can just be copied. Saves an ffmpeg roundtrip per track and avoids
+  // the subtle quality hit of re-encoding mp3→mp3. Any parse failure falls
+  // through to the safe re-encode below.
+  if (srcPath.toLowerCase().endsWith('.mp3')) {
+    try {
+      const buf = await fs.readFile(srcPath)
+      const meta = await parseBuffer(buf, undefined, { duration: false, skipCovers: true })
+      if (meta.format.bitrate === kbps * 1000 && meta.format.sampleRate === sampleRate) {
+        await fs.copyFile(srcPath, destPath)
+        return
+      }
+    } catch { /* fall through to re-encode */ }
+  }
   await execFileAsync(ffmpegBin, [
     '-y',
     '-i', srcPath,
@@ -283,8 +303,12 @@ export async function musicDeployPack(
   await Promise.all(
     existing.filter((e) => !e.isDirectory()).map((e) => fs.unlink(join(destDir, e.name)))
   )
+  // Import music-metadata once for the whole pack — parallel dynamic imports
+  // race in Vitest's mock substitution and cause one of the calls to fall
+  // through to the real module.
+  const { parseBuffer } = await import('music-metadata')
   await Promise.all(
-    resolved.map((r) => deployTrackFn(r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate))
+    resolved.map((r) => deployTrackFn(parseBuffer, r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate))
   )
   const manifest = {
     packId: pack.id, packName: pack.name,
