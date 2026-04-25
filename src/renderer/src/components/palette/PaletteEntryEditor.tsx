@@ -7,6 +7,7 @@ import Tooltip from '@mui/material/Tooltip'
 import { PaletteEntry } from '../../utils/paletteTypes'
 import { PixelBuffer, parseHex } from '../../utils/duotone'
 import DuotonePreview from './DuotonePreview'
+import ColorSwatchPicker from './ColorSwatchPicker'
 
 interface Props {
   entry: PaletteEntry
@@ -118,11 +119,10 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
 
         <Stack direction="row" spacing={2} alignItems="center">
           <Stack direction="row" spacing={0.5} alignItems="center">
-            <input
-              type="color"
-              value={hexValid(entry.shadowColor) ? entry.shadowColor : '#000000'}
-              onChange={e => handleHex('shadowColor')(e.target.value)}
-              style={{ width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer' }}
+            <ColorSwatchPicker
+              value={entry.shadowColor}
+              fallback="#000000"
+              onChange={v => update({ shadowColor: v })}
             />
             <TextField
               label="Shadow"
@@ -139,11 +139,10 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           </Tooltip>
 
           <Stack direction="row" spacing={0.5} alignItems="center">
-            <input
-              type="color"
-              value={hexValid(entry.highlightColor) ? entry.highlightColor : '#FFFFFF'}
-              onChange={e => handleHex('highlightColor')(e.target.value)}
-              style={{ width: 28, height: 28, border: 'none', background: 'transparent', cursor: 'pointer' }}
+            <ColorSwatchPicker
+              value={entry.highlightColor}
+              fallback="#FFFFFF"
+              onChange={v => update({ highlightColor: v })}
             />
             <TextField
               label="Highlight"

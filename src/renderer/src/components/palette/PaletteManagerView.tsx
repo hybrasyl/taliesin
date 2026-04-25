@@ -8,18 +8,22 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import SaveIcon from '@mui/icons-material/Save'
 import UndoIcon from '@mui/icons-material/Undo'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import ImageIcon from '@mui/icons-material/Image'
+import ClearIcon from '@mui/icons-material/Clear'
 import { useRecoilState } from 'recoil'
 import { activePaletteIdState } from '../../recoil/atoms'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
-import { Palette, PaletteEntry } from '../../utils/paletteTypes'
-import { buildLuminanceRamp } from '../../utils/duotone'
+import { Palette, PaletteEntry, VariantDef } from '../../utils/paletteTypes'
+import { buildLuminanceRamp, PixelBuffer } from '../../utils/duotone'
 import {
   scanPalettes, loadPalette, savePalette, deletePalette,
   PaletteSummary,
 } from '../../utils/paletteIO'
+import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import PaletteEntryEditor from './PaletteEntryEditor'
 import CreatePaletteDialog from './CreatePaletteDialog'
+import VariantOverrideEditor from './VariantOverrideEditor'
 
 interface Props {
   packDir: string
@@ -56,6 +60,7 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
   const [draft, setDraft] = useState<Palette | null>(null)
   const [original, setOriginal] = useState<Palette | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [testIconBuf, setTestIconBuf] = useState<PixelBuffer | null>(null)
 
   const {
     markDirty, markClean, saveRef, guard,
@@ -90,6 +95,30 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
 
   const dirty = draft !== null && original !== null && JSON.stringify(draft) !== JSON.stringify(original)
   useEffect(() => { if (dirty) markDirty() }, [dirty, markDirty])
+
+  // Load test icon as PixelBuffer when path changes
+  useEffect(() => {
+    let cancelled = false
+    const path = draft?.testIconPath
+    if (!path) { setTestIconBuf(null); return }
+    loadPixelBufferFromPath(path)
+      .then(buf => { if (!cancelled) setTestIconBuf(buf) })
+      .catch(err => {
+        if (cancelled) return
+        setTestIconBuf(null)
+        onStatus(`Test icon load failed: ${err instanceof Error ? err.message : String(err)}`)
+      })
+    return () => { cancelled = true }
+  }, [draft?.testIconPath, onStatus])
+
+  const handlePickTestIcon = useCallback(async () => {
+    const path = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
+    if (path) setDraft(prev => prev ? { ...prev, testIconPath: path } : prev)
+  }, [])
+
+  const handleClearTestIcon = useCallback(() => {
+    setDraft(prev => prev ? { ...prev, testIconPath: undefined } : prev)
+  }, [])
 
   const update = useCallback((patch: Partial<Palette>) => {
     setDraft(prev => prev ? { ...prev, ...patch } : prev)
@@ -212,6 +241,22 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                 onChange={e => update({ description: e.target.value })}
                 sx={{ flex: 1 }}
               />
+              <Tooltip title={draft.testIconPath ?? 'Pick a test icon to preview the palette against'}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ImageIcon />}
+                  onClick={handlePickTestIcon}
+                  sx={{ minWidth: 0 }}
+                >
+                  Test Icon
+                </Button>
+              </Tooltip>
+              {draft.testIconPath && (
+                <Tooltip title="Clear test icon">
+                  <IconButton size="small" onClick={handleClearTestIcon}><ClearIcon fontSize="small" /></IconButton>
+                </Tooltip>
+              )}
               <Stack direction="row" spacing={1}>
                 <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSave} disabled={!dirty}>Save</Button>
                 <Button variant="outlined" size="small" startIcon={<UndoIcon />} onClick={handleRevert} disabled={!dirty}>Revert</Button>
@@ -226,7 +271,7 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                 <PaletteEntryEditor
                   key={idx}
                   entry={entry}
-                  preview={PREVIEW}
+                  preview={testIconBuf ?? PREVIEW}
                   onChange={next => updateEntry(idx, next)}
                   onDelete={() => deleteEntry(idx)}
                 />
@@ -235,6 +280,11 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
               <Box sx={{ p: 1.5 }}>
                 <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addEntry}>Add Entry</Button>
               </Box>
+              <Divider />
+              <VariantOverrideEditor
+                variants={draft.variants}
+                onChange={(next: VariantDef[] | undefined) => update({ variants: next })}
+              />
             </Box>
           </>
         )}

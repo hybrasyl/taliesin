@@ -1,6 +1,13 @@
 // Palette JSON contract: the MonoGame client reads only `id`, `entries[].id`,
 // `shadowColor`, and `highlightColor`. All other fields are Taliesin-side
 // metadata and must stay optional so the client parser can ignore them.
+//
+// Client-ready export: not needed. The working JSON written by Taliesin is
+// the same JSON the MonoGame client consumes — no separate export step.
+// If the schemas ever diverge, add a `palette:export` IPC that emits a
+// slimmed copy (drop `notes`, `lastModified`, `description`, `testIconPath`,
+// `defaultDarkFactor`, `defaultLightFactor`, `defaultClampBlack`,
+// `defaultClampWhite`, `category`, `variants`) at a user-chosen path.
 
 export interface PaletteEntry {
   id: string
