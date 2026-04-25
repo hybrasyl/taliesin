@@ -40,24 +40,38 @@ assert the guard (missing track + empty `srcLibDir`).
 
 ---
 
-## 3. No path-traversal validation on IPC path arguments (P1)
+## ~~3. No path-traversal validation on IPC path arguments (P1)~~ — PARTIAL
 
-**Files**: throughout [src/main/index.ts](../src/main/index.ts) — every
-handler that takes a path argument (catalog, prefab, palette, theme,
-pack, music, sfx, fs).
+**Files**: `src/main/pathSafety.ts` (new), `src/main/handlers.ts`
 
-**Problem**: handlers accept paths from the renderer with no check that
-they stay inside the expected library/pack root. A compromised renderer
-(or a future feature that takes paths from external input) could read
-or overwrite arbitrary files.
+Added `assertInside(parent, candidate)` in `src/main/pathSafety.ts` —
+uses `normalize` + `join` (no cwd dependency, so it's safe in tests with
+synthetic POSIX-style paths and on Windows production paths alike).
 
-**Test reference**: none yet — Phase 4 IPC tests cover happy paths
-only. Add traversal-rejection tests as part of the fix.
+Wired into every Category-B handler — the ones that compose a path from
+a known parent dir + a renderer-supplied component:
 
-**Suggested fix**: add a `assertInside(parentDir, candidate)` helper
-that resolves both to absolute paths and checks the candidate is a
-descendant of the parent. Call it on every path argument that should
-be scoped to a known root.
+- prefab: `prefabLoad/Save/Delete/Rename` (filename, oldName, newName)
+- pack: `packAddAsset/RemoveAsset/Compile` (targetFilename, filename, assetFilenames[])
+- palette: `paletteCalibrationLoad/Save` (paletteId)
+- theme: `themeLoad/Save/Delete` (filename)
+- music: `musicDeployPack` (track.sourceFile, ${musicId}.mus)
+
+**Still uncovered (Category A)**: handlers that take a full absolute
+path directly — `fs:readFile`, `fs:listDir`, `fs:writeFile`, `pack:load`,
+`palette:load`, `catalog:load`, `index:build`, `app:launchCompanion`,
+etc. There is no implicit "parent root" the handler knows about, so
+`assertInside` doesn't apply. Locking these down would require tracking
+the active library / settings / app roots in `HandlerContext` and
+rejecting any path outside that allow-list. Defer until there's a
+concrete threat model — current trust model assumes the renderer
+authored these paths via OS dialogs.
+
+12 unit tests in
+[`src/main/__tests__/pathSafety.test.ts`](../src/main/__tests__/pathSafety.test.ts)
+cover the helper directly (escape via `..`, near-miss prefix, absolute
+candidates, etc.). 10 traversal-rejection tests added to
+[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
 
 ---
 

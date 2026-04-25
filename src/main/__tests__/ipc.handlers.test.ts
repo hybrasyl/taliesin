@@ -464,6 +464,27 @@ describe('prefab handlers', () => {
     expect(files.has('/lib/world/.creidhne/prefabs/foo.json')).toBe(false)
   })
 
+  it('prefab:save rejects a traversal in filename', async () => {
+    await expect(
+      invoke('prefab:save', '/lib/world/xml', '../../escape.json', { x: 1 })
+    ).rejects.toThrow(/Path traversal/)
+  })
+
+  it('prefab:load rejects a traversal in filename', async () => {
+    await expect(
+      invoke('prefab:load', '/lib/world/xml', '../boom.json')
+    ).rejects.toThrow(/Path traversal/)
+  })
+
+  it('prefab:rename rejects a traversal in either name', async () => {
+    await expect(
+      invoke('prefab:rename', '/lib/world/xml', 'old.json', '../escape.json')
+    ).rejects.toThrow(/Path traversal/)
+    await expect(
+      invoke('prefab:rename', '/lib/world/xml', '../old.json', 'new.json')
+    ).rejects.toThrow(/Path traversal/)
+  })
+
   it('prefab:rename moves the file to the new name', async () => {
     files.set('/lib/world/.creidhne/prefabs/old.json', Buffer.from('{}', 'utf-8'))
     await invoke('prefab:rename', '/lib/world/xml', 'old.json', 'new.json')
@@ -500,6 +521,20 @@ describe('asset pack handlers', () => {
   it('pack:removeAsset deletes silently when the file is gone', async () => {
     await expect(invoke('pack:removeAsset', '/pack', 'gone.png')).resolves.toBeUndefined()
   })
+
+  it('pack:addAsset rejects a traversal in targetFilename', async () => {
+    files.set('/src/icon.png', Buffer.from('PNGDATA'))
+    await expect(
+      invoke('pack:addAsset', '/pack', '/src/icon.png', '../escape.png')
+    ).rejects.toThrow(/Path traversal/)
+    expect(files.has('/escape.png')).toBe(false)
+  })
+
+  it('pack:removeAsset rejects a traversal in filename', async () => {
+    await expect(
+      invoke('pack:removeAsset', '/pack', '../../boom.png')
+    ).rejects.toThrow(/Path traversal/)
+  })
 })
 
 describe('palette handlers', () => {
@@ -520,6 +555,18 @@ describe('palette handlers', () => {
   it('palette:calibrationSave writes JSON under _calibrations/', async () => {
     await invoke('palette:calibrationSave', '/p', 'fire', { source: 'x' })
     expect(files.has('/p/_calibrations/fire.json')).toBe(true)
+  })
+
+  it('palette:calibrationSave rejects a traversal in paletteId', async () => {
+    await expect(
+      invoke('palette:calibrationSave', '/p', '../boom', { source: 'x' })
+    ).rejects.toThrow(/Path traversal/)
+  })
+
+  it('palette:calibrationLoad rejects a traversal in paletteId', async () => {
+    await expect(
+      invoke('palette:calibrationLoad', '/p', '../../etc/passwd')
+    ).rejects.toThrow(/Path traversal/)
   })
 
   it('frame:scan returns sorted PNG filenames from _frames/', async () => {
@@ -547,6 +594,16 @@ describe('theme handlers', () => {
     files.set('/appdata/Erisco/Taliesin/themes/x.json', Buffer.from('{}'))
     await invoke('theme:delete', 'x.json')
     expect(files.has('/appdata/Erisco/Taliesin/themes/x.json')).toBe(false)
+  })
+
+  it('theme:save rejects a traversal in filename', async () => {
+    await expect(
+      invoke('theme:save', '../../boom.json', { name: 'X' })
+    ).rejects.toThrow(/Path traversal/)
+  })
+
+  it('theme:delete rejects a traversal in filename', async () => {
+    await expect(invoke('theme:delete', '../boom.json')).rejects.toThrow(/Path traversal/)
   })
 })
 
@@ -614,6 +671,15 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     expect(files.has('/dest/leftover.mus')).toBe(true)
     expect(files.has('/dest/music-pack.json')).toBe(false)
     expect(childProcess.execFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects a traversal in track.sourceFile without touching the destination', async () => {
+    files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
+    const evilPack = { ...pack, tracks: [{ musicId: 1, sourceFile: '../../etc/passwd' }] }
+    await expect(
+      invoke('music:deploy-pack', '/lib', evilPack, '/dest', null, 64, 22050)
+    ).rejects.toThrow(/Path traversal/)
+    expect(files.has('/dest/leftover.mus')).toBe(true)
   })
 
   it('throws without touching the destination when the source library directory is empty', async () => {

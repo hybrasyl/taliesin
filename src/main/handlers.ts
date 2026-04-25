@@ -12,6 +12,7 @@ import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
 import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
+import { assertInside } from './pathSafety'
 import type { createSettingsManager } from './settingsManager'
 
 const execFileAsync = promisify(execFile)
@@ -259,13 +260,20 @@ export async function musicDeployPack(
   ffmpegPath: string | null, musEncodeKbps: number, musEncodeSampleRate: number,
 ): Promise<void> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
-  // Validate every source file BEFORE touching the destination. Otherwise a
-  // missing srcLibDir or stale track entry wipes the user's deployed pack and
-  // leaves them with nothing.
+  // Resolve and validate every track's source path up front. assertInside
+  // rejects path-traversal attempts; fs.stat catches missing files. Both
+  // checks run BEFORE touching destDir, so a stale or malicious entry can't
+  // wipe the user's deployed pack and leave them with nothing.
+  const resolved: { src: string; dst: string; original: string }[] = []
   const missing: string[] = []
-  await Promise.all(pack.tracks.map(async (track) => {
-    try { await fs.stat(join(srcLibDir, track.sourceFile)) }
-    catch { missing.push(track.sourceFile) }
+  for (const track of pack.tracks) {
+    const src = assertInside(srcLibDir, track.sourceFile)
+    const dst = assertInside(destDir, `${track.musicId}.mus`)
+    resolved.push({ src, dst, original: track.sourceFile })
+  }
+  await Promise.all(resolved.map(async (r) => {
+    try { await fs.stat(r.src) }
+    catch { missing.push(r.original) }
   }))
   if (missing.length > 0) {
     throw new Error(`Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`)
@@ -276,13 +284,7 @@ export async function musicDeployPack(
     existing.filter((e) => !e.isDirectory()).map((e) => fs.unlink(join(destDir, e.name)))
   )
   await Promise.all(
-    pack.tracks.map((track) =>
-      deployTrackFn(
-        join(srcLibDir, track.sourceFile),
-        join(destDir, `${track.musicId}.mus`),
-        ffmpegBin, musEncodeKbps, musEncodeSampleRate,
-      )
-    )
+    resolved.map((r) => deployTrackFn(r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate))
   )
   const manifest = {
     packId: pack.id, packName: pack.name,
@@ -393,23 +395,24 @@ export async function prefabList(libraryPath: string) {
 }
 
 export async function prefabLoad(libraryPath: string, filename: string) {
-  const p = join(prefabDir(libraryPath), filename)
+  const p = assertInside(prefabDir(libraryPath), filename)
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
 export async function prefabSave(libraryPath: string, filename: string, data: unknown): Promise<void> {
   const dir = prefabDir(libraryPath)
+  const p = assertInside(dir, filename)
   await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(join(dir, filename), JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
 export async function prefabDelete(libraryPath: string, filename: string): Promise<void> {
-  await fs.unlink(join(prefabDir(libraryPath), filename))
+  await fs.unlink(assertInside(prefabDir(libraryPath), filename))
 }
 
 export async function prefabRename(libraryPath: string, oldName: string, newName: string): Promise<void> {
   const dir = prefabDir(libraryPath)
-  await fs.rename(join(dir, oldName), join(dir, newName))
+  await fs.rename(assertInside(dir, oldName), assertInside(dir, newName))
 }
 
 // ── Asset packs (.datf) ──────────────────────────────────────────────────────
@@ -445,15 +448,20 @@ export async function packDelete(filePath: string): Promise<void> {
 }
 
 export async function packAddAsset(packDir: string, sourcePath: string, targetFilename: string): Promise<void> {
+  const dest = assertInside(packDir, targetFilename)
   await fs.mkdir(packDir, { recursive: true })
-  await fs.copyFile(sourcePath, join(packDir, targetFilename))
+  await fs.copyFile(sourcePath, dest)
 }
 
 export async function packRemoveAsset(packDir: string, filename: string): Promise<void> {
-  try { await fs.unlink(join(packDir, filename)) } catch { /* already gone */ }
+  const target = assertInside(packDir, filename)
+  try { await fs.unlink(target) } catch { /* already gone */ }
 }
 
 export async function packCompile(packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string): Promise<void> {
+  // Validate every asset filename before opening the output stream — prevents
+  // a malicious entry from leaking files outside packDir into the archive.
+  const resolved = assetFilenames.map((f) => ({ name: f, abs: assertInside(packDir, f) }))
   const archiver = (await import('archiver')).default
   const { createWriteStream } = await import('fs')
   return new Promise<void>((resolve, reject) => {
@@ -463,8 +471,8 @@ export async function packCompile(packDir: string, manifest: unknown, assetFilen
     archive.on('error', (err: Error) => reject(err))
     archive.pipe(output)
     archive.append(JSON.stringify(manifest, null, 2), { name: '_manifest.json' })
-    for (const filename of assetFilenames) {
-      archive.file(join(packDir, filename), { name: filename })
+    for (const { name, abs } of resolved) {
+      archive.file(abs, { name })
     }
     archive.finalize()
   })
@@ -507,14 +515,15 @@ export async function paletteDelete(filePath: string): Promise<void> {
 }
 
 export async function paletteCalibrationLoad(packDir: string, paletteId: string): Promise<Record<string, unknown>> {
-  const path = join(calibrationsSubdir(packDir), `${paletteId}.json`)
+  const path = assertInside(calibrationsSubdir(packDir), `${paletteId}.json`)
   try { return JSON.parse(await fs.readFile(path, 'utf-8')) } catch { return {} }
 }
 
 export async function paletteCalibrationSave(packDir: string, paletteId: string, data: unknown): Promise<void> {
   const dir = calibrationsSubdir(packDir)
+  const path = assertInside(dir, `${paletteId}.json`)
   await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(join(dir, `${paletteId}.json`), JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8')
 }
 
 export async function frameScan(packDir: string): Promise<string[]> {
@@ -592,17 +601,19 @@ export async function themeList(ctx: HandlerContext) {
 }
 
 export async function themeLoad(ctx: HandlerContext, filename: string) {
-  return JSON.parse(await fs.readFile(join(ctx.settingsPath, 'themes', filename), 'utf-8'))
+  const p = assertInside(join(ctx.settingsPath, 'themes'), filename)
+  return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
 export async function themeSave(ctx: HandlerContext, filename: string, data: unknown): Promise<void> {
   const themeDir = join(ctx.settingsPath, 'themes')
+  const p = assertInside(themeDir, filename)
   await fs.mkdir(themeDir, { recursive: true })
-  await fs.writeFile(join(themeDir, filename), JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
 export async function themeDelete(ctx: HandlerContext, filename: string): Promise<void> {
-  await fs.unlink(join(ctx.settingsPath, 'themes', filename))
+  await fs.unlink(assertInside(join(ctx.settingsPath, 'themes'), filename))
 }
 
 // ── Registration ────────────────────────────────────────────────────────────
