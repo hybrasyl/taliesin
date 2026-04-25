@@ -180,6 +180,15 @@ interface TaliesinAPI {
   packAddAsset: (packDir: string, sourcePath: string, targetFilename: string) => Promise<void>
   packRemoveAsset: (packDir: string, filename: string) => Promise<void>
   packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string) => Promise<void>
+  sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
+  sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
+  sfxIndexLoad: (activeLibrary: string) => Promise<Record<string, { name?: string; comment?: string }>>
+  sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) => Promise<void>
+  tileScanAnalyze: (dirPaths: string[]) => Promise<{ background: [number, number][]; leftForeground: [number, number][]; rightForeground: [number, number][]; fileCount: number; tileCount: number }>
+  themeList: () => Promise<{ filename: string; name: string }[]>
+  themeLoad: (filename: string) => Promise<unknown>
+  themeSave: (filename: string, data: unknown) => Promise<void>
+  themeDelete: (filename: string) => Promise<void>
   paletteScan: (packDir: string) => Promise<{ filename: string; id: string; name: string; entryCount: number }[]>
   paletteLoad: (filePath: string) => Promise<unknown>
   paletteSave: (filePath: string, data: unknown) => Promise<void>
