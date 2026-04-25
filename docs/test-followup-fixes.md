@@ -80,20 +80,18 @@ writing them through to disk.
 
 ---
 
-## 5. `mapRenderer` caches dat archives indefinitely (P2)
+## ~~5. `mapRenderer` caches dat archives indefinitely (P2)~~ — FIXED
 
-**File**: [src/renderer/src/utils/mapRenderer.ts](../src/renderer/src/utils/mapRenderer.ts)
+**File**: `src/renderer/src/utils/mapRenderer.ts`
 
-**Problem**: per-clientPath caches of `seo.dat` / `ia.dat` and their
-parsed bitmaps are never evicted. Switching clients during a long
-session leaks memory; the cache only grows.
-
-**Test reference**: not yet covered — the Phase 3b `MapEditorCanvas`
-tests run with `clientPath: null` to avoid loading.
-
-**Suggested fix**: bound the cache (LRU with a small N, e.g. 2 active
-clientPaths), or invalidate on clientPath change. Add a regression test
-that asserts cache size stays bounded after N client switches.
+`assetCache` is now LRU-bounded (limit=2) via small `lruTouch` / `lruGet`
+helpers. Tile bitmap caches were moved INSIDE `MapAssets` so they're
+scoped to a specific client and evicted alongside the assets — this also
+fixes a quiet correctness bug where a re-visited client could serve
+bitmaps left over from another client. New test file
+[`src/renderer/src/utils/__tests__/mapRenderer.test.ts`](../src/renderer/src/utils/__tests__/mapRenderer.test.ts)
+covers the LRU semantics directly. The unused `clearTileCache` export
+was removed; `clearAllCaches()` is the new explicit reset hook.
 
 ---
 

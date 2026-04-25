@@ -4,7 +4,8 @@
  * Ground layer:  seo.dat → TILEA.BMP (56×27 px, 1512 bytes/tile) + mpt palette table/palettes
  * Foreground:    ia.dat  → stcNNNNN.hpf (28px wide, variable height)  + stc palette table/palettes
  *
- * Assets are loaded once per clientPath and cached for the lifetime of the renderer process.
+ * Assets are cached LRU-style by clientPath. Tile bitmap caches live INSIDE
+ * MapAssets so they're scoped to a specific client and evicted alongside it.
  */
 
 import { DataArchive, HpfFile, Palette, PaletteTable, MapFile, TileAnimationTable } from '@eriscorp/dalib-ts'
@@ -44,18 +45,55 @@ export interface MapAssets {
   groundAnimationTable: TileAnimationTable | null
   /** Foreground tile animation table (stcani.tbl from ia.dat). Null if absent. */
   stcAnimationTable: TileAnimationTable | null
+
+  /** Rendered ground tile bitmaps, keyed by tile index. Per-asset-set so bitmaps from a previous client can't leak into a new render. */
+  groundBitmapCache: Map<number, ImageBitmap>
+  /** Rendered stc bitmaps, keyed by tile index. */
+  stcBitmapCache: Map<number, ImageBitmap>
 }
 
-// ── Module-level caches ───────────────────────────────────────────────────────
+// ── LRU helpers ───────────────────────────────────────────────────────────────
 
-/** Loaded asset sets, keyed by normalised clientPath. */
+/**
+ * Insert or refresh `key` in `map` and evict oldest entries until size ≤ limit.
+ * Map preserves insertion order, so deleting+re-setting marks the key as MRU.
+ */
+export function lruTouch<K, V>(map: Map<K, V>, key: K, value: V, limit: number): void {
+  if (map.has(key)) map.delete(key)
+  map.set(key, value)
+  while (map.size > limit) {
+    const oldest = map.keys().next().value
+    if (oldest === undefined) break
+    map.delete(oldest)
+  }
+}
+
+/** Read `key` and bump it to MRU position. Returns `undefined` if absent. */
+export function lruGet<K, V>(map: Map<K, V>, key: K): V | undefined {
+  const v = map.get(key)
+  if (v === undefined) return undefined
+  map.delete(key)
+  map.set(key, v)
+  return v
+}
+
+// ── Module-level cache ────────────────────────────────────────────────────────
+
+/** How many distinct clientPaths we keep loaded at once. */
+const ASSET_CACHE_LIMIT = 2
+
+/** Loaded asset sets, keyed by normalised clientPath. LRU bounded. */
 const assetCache = new Map<string, MapAssets>()
 
-/** Rendered ground tile bitmaps, keyed by tile index. */
-const groundBitmapCache = new Map<number, ImageBitmap>()
+/** Number of currently cached asset sets (test/debug helper). */
+export function _assetCacheSize(): number {
+  return assetCache.size
+}
 
-/** Rendered stc bitmaps, keyed by tile index. */
-const stcBitmapCache = new Map<number, ImageBitmap>()
+/** Drop every cached asset set. Useful in tests and on full app reset. */
+export function clearAllCaches(): void {
+  assetCache.clear()
+}
 
 // ── Asset loading ─────────────────────────────────────────────────────────────
 
@@ -67,7 +105,7 @@ export async function loadMapAssets(
 ): Promise<MapAssets> {
   const key = clientPath.replace(/\\/g, '/').replace(/\/+$/, '')
 
-  const cached = assetCache.get(key)
+  const cached = lruGet(assetCache, key)
   if (cached) return cached
 
   onProgress?.('Loading seo.dat…')
@@ -118,12 +156,11 @@ export async function loadMapAssets(
     sotpTable,
     groundAnimationTable,
     stcAnimationTable,
+    groundBitmapCache: new Map(),
+    stcBitmapCache:    new Map(),
   }
 
-  assetCache.set(key, assets)
-  // Clear tile bitmap caches when new assets are loaded
-  groundBitmapCache.clear()
-  stcBitmapCache.clear()
+  lruTouch(assetCache, key, assets, ASSET_CACHE_LIMIT)
 
   onProgress?.('Assets ready.')
   return assets
@@ -155,7 +192,7 @@ export function pixelsToImageData(
 export async function getGroundBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
   if (tileIndex <= 0 || tileIndex > assets.groundTileCount) return null
 
-  const cached = groundBitmapCache.get(tileIndex)
+  const cached = assets.groundBitmapCache.get(tileIndex)
   if (cached) return cached
 
   const start = (tileIndex - 1) * GROUND_TILE_BYTES
@@ -166,7 +203,7 @@ export async function getGroundBitmap(tileIndex: number, assets: MapAssets): Pro
 
   const imgData = pixelsToImageData(pixels, palette, GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT)
   const bitmap  = await createImageBitmap(imgData)
-  groundBitmapCache.set(tileIndex, bitmap)
+  assets.groundBitmapCache.set(tileIndex, bitmap)
   return bitmap
 }
 
@@ -178,7 +215,7 @@ function isValidStcIndex(n: number): boolean {
 export async function getStcBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
   if (!isValidStcIndex(tileIndex)) return null
 
-  const cached = stcBitmapCache.get(tileIndex)
+  const cached = assets.stcBitmapCache.get(tileIndex)
   if (cached) return cached
 
   const entryName = `stc${String(tileIndex).padStart(5, '0')}.hpf`
@@ -192,7 +229,7 @@ export async function getStcBitmap(tileIndex: number, assets: MapAssets): Promis
 
   const imgData = pixelsToImageData(hpf.data, palette, hpf.pixelWidth, hpf.pixelHeight)
   const bitmap  = await createImageBitmap(imgData)
-  stcBitmapCache.set(tileIndex, bitmap)
+  assets.stcBitmapCache.set(tileIndex, bitmap)
   return bitmap
 }
 
@@ -284,12 +321,6 @@ export async function renderMap(
   }
 
   if (scale !== 1) ctx.restore()
-}
-
-/** Clear all cached tile bitmaps (e.g. when switching client paths). */
-export function clearTileCache(): void {
-  groundBitmapCache.clear()
-  stcBitmapCache.clear()
 }
 
 // ── Exported coordinate utilities ─────────────────────────────────────────────
