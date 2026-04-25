@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { parseMapXml, serializeMapXml } from '../mapXml'
 import type { MapData } from '../../data/mapData'
