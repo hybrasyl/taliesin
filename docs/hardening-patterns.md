@@ -7,7 +7,7 @@ will hit too. This is the durable reference; port the patterns when
 they're needed.
 
 The original defect log is in
-[`test-followup-fixes.md`](./test-followup-fixes.md). This doc is the
+[`test-followup-fixes.md`](./completed/test-followup-fixes.md). This doc is the
 distilled "what we learned, what to copy."
 
 ---

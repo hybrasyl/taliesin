@@ -3,7 +3,7 @@
 ## Goal
 
 Close out the second half of follow-up #3 from
-[`test-followup-fixes.md`](../test-followup-fixes.md). Reject any
+[`test-followup-fixes.md`](../completed/test-followup-fixes.md). Reject any
 renderer-supplied absolute path that doesn't fall inside one of the
 known session roots (active library, active pack, music library,
 settings dir).

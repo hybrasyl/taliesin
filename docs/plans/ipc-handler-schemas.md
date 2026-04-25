@@ -3,7 +3,7 @@
 ## Goal
 
 Close out follow-up #4 from
-[`test-followup-fixes.md`](../test-followup-fixes.md). Every
+[`test-followup-fixes.md`](../completed/test-followup-fixes.md). Every
 `ipcMain.handle` callback that receives a non-string payload validates
 that payload against a schema and rejects malformed input, instead of
 trusting the renderer to send well-formed data.

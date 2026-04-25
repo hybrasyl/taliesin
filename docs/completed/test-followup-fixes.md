@@ -35,7 +35,7 @@ doesn't exist.
 before touching the destination. If any source is missing it throws with
 the offending filenames and leaves the existing deployed pack intact.
 Two new positive tests in
-[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+[`src/main/__tests__/ipc.handlers.test.ts`](../../src/main/__tests__/ipc.handlers.test.ts)
 assert the guard (missing track + empty `srcLibDir`).
 
 ---
@@ -77,10 +77,10 @@ introducing a session-scoped allowed-root set in `HandlerContext`:
   `packDir` fields — without them the launcher whitelist and pack roots
   couldn't survive a settings reload.
 
-24 unit tests in [`pathSafety.test.ts`](../src/main/__tests__/pathSafety.test.ts)
+24 unit tests in [`pathSafety.test.ts`](../../src/main/__tests__/pathSafety.test.ts)
 cover the helpers (12 for `assertInside`, 6 for `assertInsideAnyRoot`,
 3 for `isInsideAnyRoot`). 50+ traversal-rejection tests in
-[`ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+[`ipc.handlers.test.ts`](../../src/main/__tests__/ipc.handlers.test.ts)
 exercise every Category-A handler — the throwing ones via
 `expect(...).rejects.toThrow()`, and the swallowing ones (`fs:exists`,
 `music:scan`, `music:client:scan`, `music:readFileMeta`, `palette:scan`,
@@ -129,10 +129,10 @@ ourselves earlier, and existing try/catch returns an empty shape on
 unreadable disk content.
 
 32 unit tests in
-[`src/main/__tests__/schemas.test.ts`](../src/main/__tests__/schemas.test.ts)
+[`src/main/__tests__/schemas.test.ts`](../../src/main/__tests__/schemas.test.ts)
 exercise each schema with happy + rejection cases. 12 handler-level
 "rejects malformed input" tests in
-[`ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+[`ipc.handlers.test.ts`](../../src/main/__tests__/ipc.handlers.test.ts)
 verify the IPC boundary throws `Invalid <channel> payload`, plus one
 positive test confirms the breadcrumb actually lands in
 `ipc-validation.log` under settingsPath.
@@ -148,7 +148,7 @@ helpers. Tile bitmap caches were moved INSIDE `MapAssets` so they're
 scoped to a specific client and evicted alongside the assets — this also
 fixes a quiet correctness bug where a re-visited client could serve
 bitmaps left over from another client. New test file
-[`src/renderer/src/utils/__tests__/mapRenderer.test.ts`](../src/renderer/src/utils/__tests__/mapRenderer.test.ts)
+[`src/renderer/src/utils/__tests__/mapRenderer.test.ts`](../../src/renderer/src/utils/__tests__/mapRenderer.test.ts)
 covers the LRU semantics directly. The unused `clearTileCache` export
 was removed; `clearAllCaches()` is the new explicit reset hook.
 
@@ -162,7 +162,7 @@ was removed; `clearAllCaches()` is the new explicit reset hook.
 returning `[]` on any failure — same shape as `musicClientScan`. The
 `mkdir` workaround in the MusicPackPage integration test has been
 removed. Three new positive tests in
-[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+[`src/main/__tests__/ipc.handlers.test.ts`](../../src/main/__tests__/ipc.handlers.test.ts)
 cover missing-dir, empty-dir, and recursive discovery.
 
 ---
@@ -186,7 +186,7 @@ the real module. One import per pack also avoids redundant module
 initialization.
 
 Four new tests in
-[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts):
+[`src/main/__tests__/ipc.handlers.test.ts`](../../src/main/__tests__/ipc.handlers.test.ts):
 fast-path hit, bitrate mismatch, parse failure, non-mp3 source.
 
 ---
