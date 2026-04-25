@@ -9,6 +9,7 @@ node_modules/
 build/
 dist/
 out/
+coverage/
 
 # Electron artifacts
 *.exe
