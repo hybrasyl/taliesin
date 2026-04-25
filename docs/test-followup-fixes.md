@@ -13,6 +13,7 @@ current behavior so a fix has a regression target.
 ## 1. XML `parsererror` detection is dead code (P1)
 
 **Files**:
+
 - [src/renderer/src/utils/mapXml.ts:30-31](../src/renderer/src/utils/mapXml.ts#L30-L31)
 - [src/renderer/src/utils/worldMapXml.ts:28-29](../src/renderer/src/utils/worldMapXml.ts#L28-L29)
 
@@ -30,6 +31,7 @@ tests with `returns sensible defaults for an empty Map element` /
 document the actual current behavior.
 
 **Suggested fix**: detect either pattern:
+
 ```ts
 const isParserError =
   root.tagName === 'parsererror' ||
@@ -53,7 +55,7 @@ missing or the pack's track list references non-existent files, the
 destination is wiped and nothing is deployed — net data loss.
 
 **Test reference**: `music:deploy-pack — destination-clearing hotspot`
-in [src/main/__tests__/ipc.handlers.test.ts](../src/main/__tests__/ipc.handlers.test.ts).
+in [`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
 The test `still clears the destination even when the pack has zero
 tracks` documents the current behavior so a fix has a regression target.
 
@@ -121,7 +123,34 @@ that asserts cache size stays bounded after N client switches.
 
 ---
 
-## 6. `deployTrack` re-encodes every track even when source is already MP3 (P3)
+## 6. `musicScan` throws unhandled ENOENT on a missing directory (P2)
+
+**File**: [src/main/handlers.ts](../src/main/handlers.ts) — `scanMusicDir` /
+`musicScan`.
+
+**Problem**: `scanMusicDir` calls `fs.readdir` with no error handling.
+When the music library path doesn't exist (e.g. user deleted it,
+unmounted drive, fresh install pointing at a placeholder), the auto-scan
+in [src/renderer/src/hooks/useMusicLibrary.ts](../src/renderer/src/hooks/useMusicLibrary.ts)
+gets an unhandled rejection and React surfaces an error boundary instead
+of an empty state.
+
+Compare `musicClientScan` in the same file — it wraps the same readdir
+in `try { ... } catch { return [] }` and degrades gracefully.
+
+**Test reference**: the MusicPackPage integration test seeds the library
+directory in the in-memory fs to work around this. See the
+`FOLLOW-UP` comment in
+[`src/renderer/src/__tests__/integration/MusicPackPage.integration.test.tsx`](../src/renderer/src/__tests__/integration/MusicPackPage.integration.test.tsx).
+
+**Suggested fix**: wrap the top-level `scanMusicDir(rootDir)` call in
+musicScan with the same try/catch pattern as `musicClientScan`. Return
+`[]` for missing directories. After the fix, drop the `mkdir` workaround
+in the integration test.
+
+---
+
+## 7. `deployTrack` re-encodes every track even when source is already MP3 (P3)
 
 **File**: [src/main/index.ts:370-387](../src/main/index.ts#L370-L387)
 
@@ -133,7 +162,7 @@ deploy.
 **Test reference**:
 `re-encodes every track through ffmpeg with the requested kbps and
 sample rate` in
-[src/main/__tests__/ipc.handlers.test.ts](../src/main/__tests__/ipc.handlers.test.ts).
+[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
 
 **Suggested fix** (optional): when source is `.mp3` AND already at the
 target kbps + sample rate, copy directly. Re-encode otherwise. Can
@@ -144,6 +173,7 @@ defer indefinitely — current behavior is intentional.
 ## Tracking
 
 When fixing each item:
+
 1. Update the corresponding test from "documents current behavior" to
    "asserts correct behavior" (or add a new positive-case test).
 2. Strike the entry through here with the commit SHA: `~~item~~ (sha)`.

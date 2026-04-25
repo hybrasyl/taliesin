@@ -13,15 +13,19 @@ export default defineConfig({
         '**/*.config.*',
       ],
       thresholds: {
-        lines: 21,
-        branches: 12,
-        functions: 18,
-        statements: 19,
+        lines: 25,
+        branches: 15,
+        functions: 21,
+        statements: 23,
         // index.ts is now a thin app-lifecycle shim (Phase 5 refactor).
         // The real handler bodies live in handlers.ts and are tested via
         // both ipc.handlers.test.ts (registry) and integration tests.
         'src/main/index.ts':                        { lines: 25, branches: 8,  functions: 0,  statements: 25 },
-        'src/main/handlers.ts':                     { lines: 60, branches: 30, functions: 65, statements: 60 },
+        'src/main/handlers.ts':                     { lines: 65, branches: 35, functions: 70, statements: 64 },
+        'src/renderer/src/pages/ArchivePage.tsx':           { lines: 85, branches: 70, functions: 75, statements: 82 },
+        'src/renderer/src/pages/AssetPackPage.tsx':         { lines: 70, branches: 70, functions: 60, statements: 65 },
+        'src/renderer/src/pages/MusicPage.tsx':             { lines: 44, branches: 35, functions: 28, statements: 40 },
+        'src/renderer/src/components/music/PacksPanel.tsx': { lines: 55, branches: 50, functions: 40, statements: 53 },
         'src/main/settingsManager.ts':              { lines: 100, branches: 70, functions: 100, statements: 90 },
         'src/renderer/src/utils/duotone.ts':        { lines: 100, branches: 80, functions: 100, statements: 100 },
         'src/renderer/src/utils/variants.ts':       { lines: 95,  branches: 95, functions: 100, statements: 95 },
