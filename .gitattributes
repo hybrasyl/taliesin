@@ -1,0 +1,20 @@
+# Normalize all text files to LF in the repo. Working copies on Windows
+# can still check out as CRLF if the user has core.autocrlf=true, but the
+# stored blob is always LF — silences the "LF will be replaced by CRLF"
+# warning on commit and prevents mixed line endings from sneaking in.
+* text=auto eol=lf
+
+# Binary asset types that may appear under packs/ or test fixtures.
+*.png   binary
+*.gif   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.dat   binary
+*.lod   binary
+*.hyb   binary
+*.mus   binary
+*.mp3   binary
+*.ogg   binary
+*.wav   binary
+*.datf  binary
