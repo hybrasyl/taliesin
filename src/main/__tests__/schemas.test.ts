@@ -105,6 +105,23 @@ describe('taliesinSettingsSchema', () => {
   it('rejects a wrong-type field', () => {
     expect(() => taliesinSettingsSchema.parse({ ...validSettings, musEncodeKbps: '64' })).toThrow()
   })
+
+  it('accepts null for path fields backed by Recoil atoms with null defaults', () => {
+    // Atoms like packDirState / companionPathState are typed `string | null`,
+    // and App.tsx forwards them straight into the save payload. Schema must
+    // tolerate null or settings:save throws on every change until every such
+    // field has been set to a string.
+    const withNulls = {
+      ...validSettings,
+      clientPath: null,
+      musicLibraryPath: null,
+      activeMusicWorkingDir: null,
+      ffmpegPath: null,
+      packDir: null,
+      companionPath: null
+    }
+    expect(() => taliesinSettingsSchema.parse(withNulls)).not.toThrow()
+  })
 })
 
 describe('paletteSchema', () => {
