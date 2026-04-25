@@ -11,9 +11,11 @@ import { createSettingsManager } from './settingsManager'
 import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 
-// Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local)
+// Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local).
+// Electron removed 'cache' from getPath, so we resolve LOCALAPPDATA ourselves.
 const settingsPath = join(app.getPath('appData'), 'Erisco', 'Taliesin')
-const cachePath = join(app.getPath('cache'), 'Erisco', 'Taliesin')
+const localAppData = process.env.LOCALAPPDATA ?? join(app.getPath('home'), 'AppData', 'Local')
+const cachePath = join(localAppData, 'Erisco', 'Taliesin')
 app.setPath('userData', cachePath)
 
 const settingsManager = createSettingsManager(settingsPath)
@@ -518,7 +520,7 @@ ipcMain.handle('prefab:list', async (_, libraryPath: string) => {
   try {
     await fs.mkdir(dir, { recursive: true })
     const entries = await fs.readdir(dir, { withFileTypes: true })
-    const summaries = []
+    const summaries: { filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[] = []
     for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(dir, e.name), 'utf-8')
@@ -565,7 +567,7 @@ ipcMain.handle('prefab:rename', async (_, libraryPath: string, oldName: string, 
 ipcMain.handle('pack:scan', async (_, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
-    const packs = []
+    const packs: Record<string, unknown>[] = []
     for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(dirPath, e.name), 'utf-8')
@@ -702,7 +704,7 @@ ipcMain.handle('tileScan:analyze', async (_, dirPaths: string[]) => {
   let tileCount = 0
 
   for (const dirPath of dirPaths) {
-    let entries: Awaited<ReturnType<typeof fs.readdir>>
+    let entries
     try {
       entries = await fs.readdir(dirPath, { withFileTypes: true })
     } catch {
@@ -750,7 +752,7 @@ ipcMain.handle('theme:list', async () => {
   try {
     await fs.mkdir(themeDir, { recursive: true })
     const entries = await fs.readdir(themeDir, { withFileTypes: true })
-    const summaries = []
+    const summaries: { filename: string; name: string }[] = []
     for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(themeDir, e.name), 'utf-8')
