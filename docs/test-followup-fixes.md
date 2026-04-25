@@ -45,24 +45,16 @@ A duplicate of this pattern exists in
 
 ---
 
-## 2. `music:deploy-pack` clears destination before validating source (P0)
+## ~~2. `music:deploy-pack` clears destination before validating source (P0)~~ — FIXED
 
-**File**: [src/main/index.ts:401-406](../src/main/index.ts#L401-L406)
+**File**: `src/main/handlers.ts` `musicDeployPack`
 
-**Problem**: the handler clears every top-level file in `destDir`
-**before** it checks that any source files exist. If `srcLibDir` is
-missing or the pack's track list references non-existent files, the
-destination is wiped and nothing is deployed — net data loss.
-
-**Test reference**: `music:deploy-pack — destination-clearing hotspot`
-in [`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
-The test `still clears the destination even when the pack has zero
-tracks` documents the current behavior so a fix has a regression target.
-
-**Suggested fix**: enumerate and validate every track's source path
-before clearing the destination. If any source is missing, throw
-without touching the destination. Optionally write to a temp dir and
-swap atomically.
+`musicDeployPack` now validates every track's source file with `fs.stat`
+before touching the destination. If any source is missing it throws with
+the offending filenames and leaves the existing deployed pack intact.
+Two new positive tests in
+[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+assert the guard (missing track + empty `srcLibDir`).
 
 ---
 

@@ -550,7 +550,7 @@ describe('theme handlers', () => {
   })
 })
 
-describe('music:deploy-pack — destination-clearing hotspot (index.ts:401–406)', () => {
+describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicDeployPack)', () => {
   const pack = {
     id: 'p1', name: 'P', tracks: [
       { musicId: 1, sourceFile: 'song1.mp3' },
@@ -597,13 +597,33 @@ describe('music:deploy-pack — destination-clearing hotspot (index.ts:401–406
     expect(typeof manifest.exportedAt).toBe('string')
   })
 
-  it('still clears the destination even when the pack has zero tracks', async () => {
-    // KNOWN: there's no source-validity guard — the dest is cleared
-    // unconditionally before any source check. Document the current
-    // behavior so a future fix has a regression target.
+  it('clears the destination when the pack has zero tracks (no sources to validate)', async () => {
+    // Zero tracks ⇒ nothing to validate ⇒ proceed with clear+manifest.
     files.set('/dest/leftover.mus', Buffer.from('OLD'))
     await invoke('music:deploy-pack', '/lib', { ...pack, tracks: [] }, '/dest', null, 64, 22050)
     expect(files.has('/dest/leftover.mus')).toBe(false)
+  })
+
+  it('throws without touching the destination when a source file is missing', async () => {
+    files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
+    files.set('/lib/song1.mp3', Buffer.from('S1'))
+    // song2.mp3 deliberately missing
+    await expect(
+      invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
+    ).rejects.toThrow(/song2\.mp3/)
+    expect(files.has('/dest/leftover.mus')).toBe(true)
+    expect(files.has('/dest/music-pack.json')).toBe(false)
+    expect(childProcess.execFile).not.toHaveBeenCalled()
+  })
+
+  it('throws without touching the destination when the source library directory is empty', async () => {
+    files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
+    // /lib has no source files at all
+    await expect(
+      invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
+    ).rejects.toThrow(/song1\.mp3/)
+    expect(files.has('/dest/leftover.mus')).toBe(true)
+    expect(files.has('/dest/music-pack.json')).toBe(false)
   })
 
   it('re-encodes every track through ffmpeg with the requested kbps and sample rate', async () => {

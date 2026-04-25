@@ -258,6 +258,17 @@ export async function musicDeployPack(
   ffmpegPath: string | null, musEncodeKbps: number, musEncodeSampleRate: number,
 ): Promise<void> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
+  // Validate every source file BEFORE touching the destination. Otherwise a
+  // missing srcLibDir or stale track entry wipes the user's deployed pack and
+  // leaves them with nothing.
+  const missing: string[] = []
+  await Promise.all(pack.tracks.map(async (track) => {
+    try { await fs.stat(join(srcLibDir, track.sourceFile)) }
+    catch { missing.push(track.sourceFile) }
+  }))
+  if (missing.length > 0) {
+    throw new Error(`Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`)
+  }
   await fs.mkdir(destDir, { recursive: true })
   const existing = await fs.readdir(destDir, { withFileTypes: true })
   await Promise.all(
