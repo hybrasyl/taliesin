@@ -92,22 +92,50 @@ without any extra "set active" round-trip.
 
 ---
 
-## 4. IPC handlers accept `unknown` payloads without schema validation (P2)
+## ~~4. IPC handlers accept `unknown` payloads without schema validation (P2)~~ — FIXED
 
-**File**: [src/main/index.ts](../src/main/index.ts)
+**Files**: `src/main/schemas/` (new), `src/main/schemaLog.ts` (new),
+`src/main/handlers.ts`
 
-**Problem**: every `ipcMain.handle` callback that receives a non-string
-payload types it as `unknown` and trusts the renderer to send
-well-formed data. Malformed JSON written to disk could crash later
-loads or corrupt user files.
+Added zod 4.x and a per-payload schema module under `src/main/schemas/`:
+`settings`, `palette` (+ `calibrationFile`), `prefab`, `music`
+(`MusicMetaData`, `MusicPackArray`, `DeployPack`), `pack`
+(`PackProject`, `PackManifest`, `PackCompileFilenames`), `catalog`,
+`sfx`, `theme` (`TileTheme`).
 
-**Test reference**: none — the IPC happy-path tests assume valid input.
-Worth a focused round of fuzzing tests after the schemas are in place.
+`schemaLog.ts` exposes `parseOrLog(ctx, channel, schema, payload)`. On
+rejection it (a) appends a one-line breadcrumb to
+`<settingsPath>/ipc-validation.log` (rotates at 256KB → `.old.log`)
+and (b) throws `Invalid <channel> payload: <issues>`. The log write is
+best-effort and never blocks the real IPC failure.
 
-**Suggested fix**: define zod (or similar) schemas for `settings`,
-`pack`, `palette`, `prefab`, `theme`, `MusicMeta`, `MusicPack` and
-parse at the IPC boundary. Reject + log invalid payloads instead of
-writing them through to disk.
+Wired through every save-side handler:
+
+- `settings:save` → `taliesinSettingsSchema`
+- `catalog:save` → `catalogDataSchema`
+- `music:metadata:save` → `musicMetaDataSchema`
+- `music:packs:save` → `musicPackArraySchema`
+- `music:deploy-pack` (pack arg) → `deployPackSchema`
+- `sfx:index:save` → `sfxIndexSchema`
+- `prefab:save` → `prefabSchema` (also enforces `tiles.length === w*h`)
+- `pack:save` → `packProjectSchema`
+- `pack:compile` → `packManifestSchema` + `packCompileFilenamesSchema`
+- `palette:save` → `paletteSchema` (hex-color regex on shadow/highlight)
+- `palette:calibrationSave` → `calibrationFileSchema`
+- `theme:save` → `tileThemeSchema`
+
+Load-side handlers don't need IPC schemas — they return data we wrote
+ourselves earlier, and existing try/catch returns an empty shape on
+unreadable disk content.
+
+32 unit tests in
+[`src/main/__tests__/schemas.test.ts`](../src/main/__tests__/schemas.test.ts)
+exercise each schema with happy + rejection cases. 12 handler-level
+"rejects malformed input" tests in
+[`ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+verify the IPC boundary throws `Invalid <channel> payload`, plus one
+positive test confirms the breadcrumb actually lands in
+`ipc-validation.log` under settingsPath.
 
 ---
 

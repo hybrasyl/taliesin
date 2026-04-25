@@ -110,6 +110,13 @@ const {
         ensureDir(dirOf(norm))
         dirs.get(dirOf(norm))!.add(baseOf(norm))
       }),
+      appendFile: vi.fn(async (path: string, content: string) => {
+        const norm = path.replace(/\\/g, '/')
+        const existing = files.get(norm)?.toString('utf-8') ?? ''
+        files.set(norm, Buffer.from(existing + content, 'utf-8'))
+        ensureDir(dirOf(norm))
+        dirs.get(dirOf(norm))!.add(baseOf(norm))
+      }),
       copyFile: vi.fn(async (src: string, dst: string) => {
         const sNorm = src.replace(/\\/g, '/')
         const dNorm = dst.replace(/\\/g, '/')
@@ -348,8 +355,17 @@ describe('settings handlers', () => {
   })
 
   it('settings:save forwards the payload to the settings manager', async () => {
-    await invoke('settings:save', { libraries: ['x'], mapDirectories: [] })
-    expect(settingsManager.save).toHaveBeenCalledWith({ libraries: ['x'], mapDirectories: [] })
+    const fullSettings = {
+      libraries: ['x'],
+      activeLibrary: null,
+      mapDirectories: [],
+      activeMapDirectory: null,
+      musicWorkingDirs: [],
+      musEncodeKbps: 64,
+      musEncodeSampleRate: 22050
+    }
+    await invoke('settings:save', fullSettings)
+    expect(settingsManager.save).toHaveBeenCalledWith(fullSettings)
   })
 
   it('get-user-data-path returns a non-empty settings path string', async () => {
@@ -517,7 +533,15 @@ describe('prefab handlers', () => {
   })
 
   it('prefab:save writes JSON under <library>/../.creidhne/prefabs', async () => {
-    await invoke('prefab:save', '/lib/world/xml', 'foo.json', { name: 'foo' })
+    const validPrefab = {
+      name: 'foo',
+      width: 1,
+      height: 1,
+      tiles: [{ background: 0, leftForeground: 0, rightForeground: 0 }],
+      createdAt: 't',
+      updatedAt: 't'
+    }
+    await invoke('prefab:save', '/lib/world/xml', 'foo.json', validPrefab)
     expect(files.has('/lib/world/.creidhne/prefabs/foo.json')).toBe(true)
   })
 
@@ -537,8 +561,16 @@ describe('prefab handlers', () => {
   })
 
   it('prefab:save rejects a traversal in filename', async () => {
+    const validPrefab = {
+      name: 'X',
+      width: 1,
+      height: 1,
+      tiles: [{ background: 0, leftForeground: 0, rightForeground: 0 }],
+      createdAt: 't',
+      updatedAt: 't'
+    }
     await expect(
-      invoke('prefab:save', '/lib/world/xml', '../../escape.json', { x: 1 })
+      invoke('prefab:save', '/lib/world/xml', '../../escape.json', validPrefab)
     ).rejects.toThrow(/Path traversal/)
   })
 
@@ -577,7 +609,17 @@ describe('asset pack handlers', () => {
   })
 
   it('pack:save writes the JSON manifest', async () => {
-    await invoke('pack:save', '/p/x.json', { pack_id: 'x', content_type: 'ability_icons' })
+    const validProject = {
+      pack_id: 'x',
+      pack_version: '1.0.0',
+      content_type: 'ability_icons',
+      priority: 0,
+      covers: {},
+      assets: [],
+      createdAt: 't',
+      updatedAt: 't'
+    }
+    await invoke('pack:save', '/p/x.json', validProject)
     const saved = JSON.parse(files.get('/p/x.json')!.toString('utf-8'))
     expect(saved.pack_id).toBe('x')
   })
@@ -634,14 +676,27 @@ describe('palette handlers', () => {
   })
 
   it('palette:calibrationSave writes JSON under _calibrations/', async () => {
-    await invoke('palette:calibrationSave', '/p', 'fire', { source: 'x' })
+    const validCalibration = {
+      'eagle.png': {
+        entries: {
+          fire: {
+            darkFactor: 0.3,
+            lightFactor: 0.3,
+            midpointLow: 0.25,
+            midpointHigh: 0.75,
+            lastCalibrated: '2026-04-25T00:00:00Z'
+          }
+        }
+      }
+    }
+    await invoke('palette:calibrationSave', '/p', 'fire', validCalibration)
     expect(files.has('/p/_calibrations/fire.json')).toBe(true)
   })
 
   it('palette:calibrationSave rejects a traversal in paletteId', async () => {
-    await expect(
-      invoke('palette:calibrationSave', '/p', '../boom', { source: 'x' })
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('palette:calibrationSave', '/p', '../boom', {})).rejects.toThrow(
+      /Path traversal/
+    )
   })
 
   it('palette:calibrationLoad rejects a traversal in paletteId', async () => {
@@ -670,7 +725,20 @@ describe('theme handlers', () => {
   })
 
   it('theme:save writes JSON under the themes dir', async () => {
-    await invoke('theme:save', 'desert.json', { name: 'Desert' })
+    const validTheme = {
+      name: 'Desert',
+      createdAt: 't',
+      updatedAt: 't',
+      primaryGround: 1,
+      secondaryGround: 2,
+      accentGround: 3,
+      pathTile: 4,
+      wallTile: 5,
+      wallTileRight: 6,
+      decorationTile: 7,
+      edgeTile: 8
+    }
+    await invoke('theme:save', 'desert.json', validTheme)
     expect(files.has('/appdata/Erisco/Taliesin/themes/desert.json')).toBe(true)
   })
 
@@ -681,7 +749,20 @@ describe('theme handlers', () => {
   })
 
   it('theme:save rejects a traversal in filename', async () => {
-    await expect(invoke('theme:save', '../../boom.json', { name: 'X' })).rejects.toThrow(
+    const validTheme = {
+      name: 'X',
+      createdAt: 't',
+      updatedAt: 't',
+      primaryGround: 1,
+      secondaryGround: 2,
+      accentGround: 3,
+      pathTile: 4,
+      wallTile: 5,
+      wallTileRight: 6,
+      decorationTile: 7,
+      edgeTile: 8
+    }
+    await expect(invoke('theme:save', '../../boom.json', validTheme)).rejects.toThrow(
       /Path traversal/
     )
   })
@@ -966,7 +1047,14 @@ describe('music metadata + packs', () => {
   })
 
   it('music:packs:save persists JSON to <dir>/music-packs.json', async () => {
-    await invoke('music:packs:save', '/lib', [{ id: 'x' }])
+    const validPack = {
+      id: 'x',
+      name: 'X',
+      tracks: [],
+      createdAt: 't',
+      updatedAt: 't'
+    }
+    await invoke('music:packs:save', '/lib', [validPack])
     const saved = JSON.parse(files.get('/lib/music-packs.json')!.toString('utf-8'))
     expect(saved[0].id).toBe('x')
   })
@@ -1078,6 +1166,89 @@ describe('Category-A path-traversal rejection', () => {
     }
     expect(result.fileCount).toBe(0)
     expect(result.tileCount).toBe(0)
+  })
+})
+
+// ── Schema rejection at IPC boundary ────────────────────────────────────────
+//
+// Every save-side handler parses its non-string payload through a zod schema
+// and throws "Invalid <channel> payload: ..." on rejection. Existing happy-
+// path tests already cover the accept side; this block locks down the
+// reject side for each handler with a deliberately malformed payload.
+
+describe('Schema rejection at IPC boundary', () => {
+  // [channel, malformedPayloadAsTrailingArgs]
+  const cases: [string, unknown[]][] = [
+    ['settings:save', [{ libraries: 'not-an-array' }]],
+    ['catalog:save', ['/lib/maps', { 'lod0001.map': { name: 42 } }]],
+    ['music:metadata:save', ['/lib/music', { 'a.mp3': { tags: 'rock' /* should be array */ } }]],
+    ['music:packs:save', ['/lib/music', [{ id: 'x' /* missing required fields */ }]]],
+    [
+      'music:deploy-pack',
+      ['/lib/src', { id: 'p', name: 'P' /* missing tracks */ }, '/lib/dst', null, 64, 22050]
+    ],
+    ['sfx:index:save', ['/lib', { '31.mp3': { name: 42 } }]],
+    [
+      'prefab:save',
+      [
+        '/lib/world/xml',
+        'p.json',
+        {
+          name: 'X',
+          width: 1,
+          height: 1,
+          tiles: [] /* len mismatch */,
+          createdAt: 't',
+          updatedAt: 't'
+        }
+      ]
+    ],
+    ['pack:save', ['/p/x.json', { pack_id: '' /* empty */, content_type: 'x' }]],
+    [
+      'pack:compile',
+      ['/p', { pack_id: 'x' /* missing schema_version etc */ }, ['a.png'], '/p/out.datf']
+    ],
+    ['palette:save', ['/p/p.json', { id: 'x' /* missing many fields */ }]],
+    [
+      'palette:calibrationSave',
+      [
+        '/p',
+        'fire',
+        {
+          'eagle.png': {
+            entries: {
+              fire: {
+                /* missing lastCalibrated */ darkFactor: 0.3,
+                lightFactor: 0.3,
+                midpointLow: 0.25,
+                midpointHigh: 0.75
+              }
+            }
+          }
+        }
+      ]
+    ],
+    ['theme:save', ['x.json', { name: 'X' /* missing all tile fields */ }]]
+  ]
+
+  it.each(cases)(
+    '%s rejects a malformed payload with an "Invalid ... payload" error',
+    async (channel, args) => {
+      await expect(invoke(channel, ...args)).rejects.toThrow(/Invalid .* payload/)
+    }
+  )
+
+  it('schema-failure breadcrumbs are appended to ipc-validation.log under settingsPath', async () => {
+    const logPath = '/appdata/Erisco/Taliesin/ipc-validation.log'
+    files.delete(logPath)
+    await expect(invoke('settings:save', { libraries: 'still-not-an-array' })).rejects.toThrow()
+    // Allow the best-effort void log call to land before assertion.
+    await new Promise((r) => setTimeout(r, 10))
+    const buf = files.get(logPath)
+    expect(buf).toBeDefined()
+    const line = buf!.toString('utf-8')
+    expect(line).toContain('[settings:save]')
+    expect(line).toContain('libraries')
   })
 })
 

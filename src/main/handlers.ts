@@ -20,6 +20,22 @@ import {
 } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
+import { parseOrLog } from './schemaLog'
+import {
+  taliesinSettingsSchema,
+  paletteSchema,
+  calibrationFileSchema,
+  prefabSchema,
+  musicMetaDataSchema,
+  musicPackArraySchema,
+  deployPackSchema,
+  packProjectSchema,
+  packManifestSchema,
+  packCompileFilenamesSchema,
+  catalogDataSchema,
+  sfxIndexSchema,
+  tileThemeSchema
+} from './schemas'
 import type { createSettingsManager, TaliesinSettings } from './settingsManager'
 
 const execFileAsync = promisify(execFile)
@@ -75,11 +91,11 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  const typed = settings as Parameters<HandlerContext['settingsManager']['save']>[0]
-  await ctx.settingsManager.save(typed)
+  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings)
+  await ctx.settingsManager.save(parsed as TaliesinSettings)
   // Refresh the allowed-root set so subsequent path-validating handlers
   // see the new active library / pack / etc. without waiting for a restart.
-  applySettingsRoots(ctx, typed)
+  applySettingsRoots(ctx, parsed as TaliesinSettings)
 }
 
 export function getUserDataPath(ctx: HandlerContext): string {
@@ -221,9 +237,10 @@ export async function catalogSave(
   data: unknown
 ): Promise<void> {
   const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const parsed = parseOrLog(ctx, 'catalog:save', catalogDataSchema, data)
   const p = getCatalogPath(safeDir)
   await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function catalogScan(
@@ -353,9 +370,10 @@ export async function musicMetadataSave(
   data: unknown
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const parsed = parseOrLog(ctx, 'music:metadata:save', musicMetaDataSchema, data)
   const p = join(safe, 'music-library.json')
   await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function musicPacksLoad(ctx: HandlerContext, dirPath: string): Promise<unknown> {
@@ -374,9 +392,10 @@ export async function musicPacksSave(
   packs: unknown
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const parsed = parseOrLog(ctx, 'music:packs:save', musicPackArraySchema, packs)
   const p = join(safe, 'music-packs.json')
   await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(packs, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 interface DeployTrack {
@@ -433,12 +452,13 @@ async function deployTrackFn(
 export async function musicDeployPack(
   ctx: HandlerContext,
   srcLibDir: string,
-  pack: DeployPack,
+  pack: unknown,
   destDir: string,
   ffmpegPath: string | null,
   musEncodeKbps: number,
   musEncodeSampleRate: number
 ): Promise<void> {
+  const parsedPack = parseOrLog(ctx, 'music:deploy-pack', deployPackSchema, pack) as DeployPack
   const ffmpegBin = ffmpegPath || 'ffmpeg'
   const safeSrcLib = assertInsideAnyRoot(allRoots(ctx), srcLibDir)
   const safeDest = assertInsideAnyRoot(allRoots(ctx), destDir)
@@ -448,7 +468,7 @@ export async function musicDeployPack(
   // wipe the user's deployed pack and leave them with nothing.
   const resolved: { src: string; dst: string; original: string }[] = []
   const missing: string[] = []
-  for (const track of pack.tracks) {
+  for (const track of parsedPack.tracks) {
     const src = assertInside(safeSrcLib, track.sourceFile)
     const dst = assertInside(safeDest, `${track.musicId}.mus`)
     resolved.push({ src, dst, original: track.sourceFile })
@@ -464,7 +484,7 @@ export async function musicDeployPack(
   )
   if (missing.length > 0) {
     throw new Error(
-      `Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`
+      `Cannot deploy pack "${parsedPack.name}": missing source file(s): ${missing.join(', ')}`
     )
   }
   await fs.mkdir(safeDest, { recursive: true })
@@ -482,10 +502,10 @@ export async function musicDeployPack(
     )
   )
   const manifest = {
-    packId: pack.id,
-    packName: pack.name,
+    packId: parsedPack.id,
+    packName: parsedPack.name,
     exportedAt: new Date().toISOString(),
-    tracks: pack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile }))
+    tracks: parsedPack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile }))
   }
   await fs.writeFile(join(safeDest, 'music-pack.json'), JSON.stringify(manifest, null, 2), 'utf-8')
 }
@@ -560,8 +580,9 @@ export async function sfxIndexSave(
   data: unknown
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
+  const parsed = parseOrLog(ctx, 'sfx:index:save', sfxIndexSchema, data)
   const p = join(safe, '..', 'sfx-index.json')
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 // ── BIK video conversion ─────────────────────────────────────────────────────
@@ -701,10 +722,11 @@ export async function prefabSave(
   data: unknown
 ): Promise<void> {
   const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const parsed = parseOrLog(ctx, 'prefab:save', prefabSchema, data)
   const dir = prefabDir(safeLib)
   const p = assertInside(dir, filename)
   await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function prefabDelete(
@@ -764,8 +786,9 @@ export async function packSave(
   data: unknown
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const parsed = parseOrLog(ctx, 'pack:save', packProjectSchema, data)
   await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(safe, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function packDelete(ctx: HandlerContext, filePath: string): Promise<void> {
@@ -803,14 +826,21 @@ export async function packCompile(
   ctx: HandlerContext,
   packDir: string,
   manifest: unknown,
-  assetFilenames: string[],
+  assetFilenames: unknown,
   outputPath: string
 ): Promise<void> {
   const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
   const safeOut = assertInsideAnyRoot(allRoots(ctx), outputPath)
+  const parsedManifest = parseOrLog(ctx, 'pack:compile', packManifestSchema, manifest)
+  const parsedFilenames = parseOrLog(
+    ctx,
+    'pack:compile',
+    packCompileFilenamesSchema,
+    assetFilenames
+  )
   // Validate every asset filename before opening the output stream — prevents
   // a malicious entry from leaking files outside packDir into the archive.
-  const resolved = assetFilenames.map((f) => ({ name: f, abs: assertInside(safePack, f) }))
+  const resolved = parsedFilenames.map((f) => ({ name: f, abs: assertInside(safePack, f) }))
   const archiver = (await import('archiver')).default
   const { createWriteStream } = await import('fs')
   return new Promise<void>((resolve, reject) => {
@@ -819,7 +849,7 @@ export async function packCompile(
     output.on('close', () => resolve())
     archive.on('error', (err: Error) => reject(err))
     archive.pipe(output)
-    archive.append(JSON.stringify(manifest, null, 2), { name: '_manifest.json' })
+    archive.append(JSON.stringify(parsedManifest, null, 2), { name: '_manifest.json' })
     for (const { name, abs } of resolved) {
       archive.file(abs, { name })
     }
@@ -870,8 +900,9 @@ export async function paletteSave(
   data: unknown
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const parsed = parseOrLog(ctx, 'palette:save', paletteSchema, data)
   await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(safe, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function paletteDelete(ctx: HandlerContext, filePath: string): Promise<void> {
@@ -903,10 +934,11 @@ export async function paletteCalibrationSave(
   data: unknown
 ): Promise<void> {
   const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const parsed = parseOrLog(ctx, 'palette:calibrationSave', calibrationFileSchema, data)
   const dir = calibrationsSubdir(safePack)
   const path = assertInside(dir, `${paletteId}.json`)
   await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(path, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function frameScan(ctx: HandlerContext, packDir: string): Promise<string[]> {
@@ -1008,10 +1040,11 @@ export async function themeSave(
   filename: string,
   data: unknown
 ): Promise<void> {
+  const parsed = parseOrLog(ctx, 'theme:save', tileThemeSchema, data)
   const themeDir = join(ctx.settingsPath, 'themes')
   const p = assertInside(themeDir, filename)
   await fs.mkdir(themeDir, { recursive: true })
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
+  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 
 export async function themeDelete(ctx: HandlerContext, filename: string): Promise<void> {

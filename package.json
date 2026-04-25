@@ -42,7 +42,8 @@
     "recoil": "^0.7.7",
     "simplex-noise": "^4.0.3",
     "unzipper": "^0.12.3",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",
