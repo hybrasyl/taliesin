@@ -368,6 +368,12 @@ export function isTilePassable(
   return lfOk && rfOk
 }
 
+// Schematic legend colors — kept in sync with the duplicate definitions in
+// catalog/MapCanvas.tsx and catalog/DimensionPickerDialog.tsx.
+const COLOR_VOID   = '#1a1a2e'
+const COLOR_FLOOR  = '#2d5a3d'
+const COLOR_OBJECT = '#8b4513'
+
 /**
  * Schematic (flat-grid) render at an explicit pixels-per-tile scale.
  * Mirrors renderSchematic but accepts scale externally instead of measuring the container.
