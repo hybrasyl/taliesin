@@ -75,7 +75,7 @@ Configure the DA client install path (used to locate archives), the Hybrasyl wor
 
 ### Asset Pack Manager
 
-Create and edit modern Chaos.Client `.datf` asset packs — ZIP archives of PNG assets plus a JSON manifest. Provides content-type templates (ability icons, nation badges) for new packs, edits pack metadata and the asset list, and supports deletion. Requires a pack working directory configured in Settings. Compilation to client-ready format and embedded sprite support are not yet implemented.
+Create and edit modern Hybrasyl Client `.datf` asset packs — ZIP archives of PNG assets plus a JSON manifest. Provides content-type templates (ability icons, nation badges) for new packs, edits pack metadata and the asset list, and supports deletion. Requires a pack working directory configured in Settings. Compilation to client-ready format and embedded sprite support are not yet implemented.
 
 ### Palette & Duotone
 
@@ -85,7 +85,7 @@ Define named color palettes and generate element-colored variants of grayscale i
 
 **Better Procedural Map Generation** — the current Map Maker generator works against vanilla DA tiles only. A richer generator that draws from custom asset packs (themed tile sets, prefab biomes, terrain palettes) unlocks once the Asset Pack Manager covers tile content types.
 
-**Expanded Asset Pack content types** — the Asset Pack Manager today targets ability icons and nation badges. New content types will be added as the Chaos.Client `.datf` spec covers them: ground tiles, wall/foreground tiles, creature sprites, UI sprites, sound effects, video, multi-type bundles.
+**Expanded Asset Pack content types** — the Asset Pack Manager today targets ability icons and nation badges. New content types will be added as the Hybrasyl Client `.datf` spec covers them: ground tiles, wall/foreground tiles, creature sprites, UI sprites, sound effects, video, multi-type bundles.
 
 ## Installation
 
