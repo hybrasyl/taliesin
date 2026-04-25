@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import {
-  Box, Typography, Button, IconButton, Tooltip, List, ListItem, ListItemText,
+  Box, Typography, Button, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText,
   TextField, Divider, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableHead, TableRow, TableCell, TableBody, MenuItem, Select,
   FormControl, InputLabel
@@ -118,12 +118,11 @@ const PacksPanel: React.FC<Props> = ({
             </ListItem>
           )}
           {packs.map((pack) => (
-            <ListItem
+            <ListItemButton
               key={pack.id}
-              component="div"
               onClick={() => onSelectPack(pack.id)}
               selected={pack.id === selectedPackId}
-              sx={{ cursor: 'pointer', '&.Mui-selected': { bgcolor: 'action.selected' } }}
+              sx={{ '&.Mui-selected': { bgcolor: 'action.selected' } }}
             >
               <ListItemText
                 primary={pack.name}
@@ -131,7 +130,7 @@ const PacksPanel: React.FC<Props> = ({
                 primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                 secondaryTypographyProps={{ variant: 'caption' }}
               />
-            </ListItem>
+            </ListItemButton>
           ))}
         </List>
       </Box>

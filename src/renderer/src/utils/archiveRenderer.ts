@@ -8,9 +8,12 @@ import {
   HpfFile, Palette,
   renderEpf, renderSpfPalettized, renderSpfColorized,
   renderMpf, renderEfa, renderHpf,
-  SpfFormatType,
   type DataArchive, type DataArchiveEntry, type RgbaFrame, type EfaBlendingType,
 } from '@eriscorp/dalib-ts'
+
+// dalib-ts exports SpfFormatType as `declare const enum`, which isolatedModules
+// won't let us reference by name. Mirror the underlying values here.
+const SPF_FORMAT_PALETTIZED = 0
 import { toImageData } from '@eriscorp/dalib-ts/helpers/imageData'
 
 export { toImageData }
@@ -113,7 +116,7 @@ export function renderEntry(
       const frames: RgbaFrame[] = []
       for (let i = 0; i < view.count; i++) {
         const frame = view.get(i)
-        if (view.format === SpfFormatType.Palettized) {
+        if (view.format === SPF_FORMAT_PALETTIZED) {
           const pal = view.primaryColors ?? palette
           if (!pal) return null
           frames.push(renderSpfPalettized(frame, pal))

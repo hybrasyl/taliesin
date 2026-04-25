@@ -77,7 +77,7 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     window.api.loadSettings().then((s) => {
       const settings = s as Record<string, unknown>
-      if (settings.theme && settings.theme in themes) setTheme(settings.theme as ThemeName)
+      if (typeof settings.theme === 'string' && settings.theme in themes) setTheme(settings.theme as ThemeName)
       if (typeof settings.clientPath === 'string') setClientPath(settings.clientPath)
       if (Array.isArray(settings.libraries)) setLibraries(settings.libraries as string[])
       if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)

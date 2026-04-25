@@ -24,3 +24,29 @@ export interface TileAtlas {
   bgAdjacency: Record<string, Record<string, number>>  // bgId -> neighborBgId -> count
   bgFrequency: Record<string, number>                   // bgId -> count
 }
+
+// ── Tile Themes (user-named role-to-tile-id assignments) ─────────────────────
+
+export interface TileTheme {
+  name: string
+  createdAt: string
+  updatedAt: string
+  primaryGround: number
+  secondaryGround: number
+  accentGround: number
+  pathTile: number
+  wallTile: number
+  wallTileRight: number
+  decorationTile: number
+  edgeTile: number
+}
+
+// Output shape of the tileScan:analyze IPC: per-layer [tileId, count] tuples,
+// sorted descending by frequency.
+export interface TileFrequencyResult {
+  background: [number, number][]
+  leftForeground: [number, number][]
+  rightForeground: [number, number][]
+  fileCount: number
+  tileCount: number
+}

@@ -296,7 +296,7 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
       const buf = archive.getEntryBuffer(entry)
       const extension = entry.entryName.toLowerCase().slice(entry.entryName.lastIndexOf('.'))
       const mime = extension === '.wav' ? 'audio/wav' : extension === '.ogg' ? 'audio/ogg' : 'audio/mpeg'
-      const blob = new Blob([buf], { type: mime })
+      const blob = new Blob([new Uint8Array(buf)], { type: mime })
       const url = URL.createObjectURL(blob)
 
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
@@ -341,7 +341,7 @@ const BmpPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     setError(null)
     try {
       const buf = archive.getEntryBuffer(entry)
-      const blob = new Blob([buf], { type: 'image/bmp' })
+      const blob = new Blob([new Uint8Array(buf)], { type: 'image/bmp' })
       const url = URL.createObjectURL(blob)
       setSrc(prev => { if (prev) URL.revokeObjectURL(prev); return url })
     } catch (e) {

@@ -14,7 +14,7 @@ import {
 import type { TileAtlas } from '../../utils/tileThemeTypes'
 import atlasData from '../../data/tileAtlas.json'
 
-const atlas = atlasData as TileAtlas
+const atlas = atlasData as unknown as TileAtlas
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
