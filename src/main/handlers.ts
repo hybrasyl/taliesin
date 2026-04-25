@@ -214,7 +214,8 @@ async function scanMusicDir(rootDir: string, relDir = ''): Promise<{ filename: s
 }
 
 export async function musicScan(dirPath: string) {
-  return scanMusicDir(dirPath)
+  try { return await scanMusicDir(dirPath) }
+  catch { return [] }
 }
 
 export async function musicMetadataLoad(dirPath: string): Promise<Record<string, unknown>> {

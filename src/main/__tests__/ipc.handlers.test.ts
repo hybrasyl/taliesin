@@ -651,6 +651,28 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
   })
 })
 
+describe('music:scan', () => {
+  it('returns [] when the directory does not exist (graceful degrade)', async () => {
+    expect(await invoke('music:scan', '/does/not/exist')).toEqual([])
+  })
+
+  it('returns [] for an empty directory', async () => {
+    dirs.set('/empty', new Set())
+    expect(await invoke('music:scan', '/empty')).toEqual([])
+  })
+
+  it('discovers music files recursively with sizes', async () => {
+    files.set('/lib/a.mp3',     Buffer.from('AAA'))
+    files.set('/lib/sub/b.ogg', Buffer.from('BBBB'))
+    files.set('/lib/skip.txt',  Buffer.from('NOPE'))
+    const result = await invoke('music:scan', '/lib') as { filename: string; sizeBytes: number }[]
+    expect(result.sort((x, y) => x.filename.localeCompare(y.filename))).toEqual([
+      { filename: 'a.mp3',     sizeBytes: 3 },
+      { filename: 'sub/b.ogg', sizeBytes: 4 },
+    ])
+  })
+})
+
 describe('music metadata + packs', () => {
   it('music:metadata:load returns {} when the file does not exist', async () => {
     expect(await invoke('music:metadata:load', '/lib')).toEqual({})

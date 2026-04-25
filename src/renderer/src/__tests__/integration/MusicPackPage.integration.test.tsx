@@ -51,9 +51,6 @@ const LIB_DIR = '/music-lib'
 beforeEach(async () => {
   const fs = await memfs
   fs.reset()
-  // Seed LIB_DIR so the auto-scan in useMusicLibrary doesn't ENOENT.
-  // (FOLLOW-UP: musicScan handler should catch missing dirs like musicClientScan does.)
-  await (fs.fsModule.promises.mkdir as (p: string, o?: unknown) => Promise<void>)(LIB_DIR, { recursive: true })
   vi.clearAllMocks()
   // execFile mock simulates a successful ffmpeg run via callback.
   execFile.mockImplementation((_cmd: string, _args: string[], cb?: (e: Error | null) => void) => {

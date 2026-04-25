@@ -115,30 +115,16 @@ that asserts cache size stays bounded after N client switches.
 
 ---
 
-## 6. `musicScan` throws unhandled ENOENT on a missing directory (P2)
+## ~~6. `musicScan` throws unhandled ENOENT on a missing directory (P2)~~ — FIXED
 
-**File**: [src/main/handlers.ts](../src/main/handlers.ts) — `scanMusicDir` /
-`musicScan`.
+**File**: `src/main/handlers.ts` `musicScan`
 
-**Problem**: `scanMusicDir` calls `fs.readdir` with no error handling.
-When the music library path doesn't exist (e.g. user deleted it,
-unmounted drive, fresh install pointing at a placeholder), the auto-scan
-in [src/renderer/src/hooks/useMusicLibrary.ts](../src/renderer/src/hooks/useMusicLibrary.ts)
-gets an unhandled rejection and React surfaces an error boundary instead
-of an empty state.
-
-Compare `musicClientScan` in the same file — it wraps the same readdir
-in `try { ... } catch { return [] }` and degrades gracefully.
-
-**Test reference**: the MusicPackPage integration test seeds the library
-directory in the in-memory fs to work around this. See the
-`FOLLOW-UP` comment in
-[`src/renderer/src/__tests__/integration/MusicPackPage.integration.test.tsx`](../src/renderer/src/__tests__/integration/MusicPackPage.integration.test.tsx).
-
-**Suggested fix**: wrap the top-level `scanMusicDir(rootDir)` call in
-musicScan with the same try/catch pattern as `musicClientScan`. Return
-`[]` for missing directories. After the fix, drop the `mkdir` workaround
-in the integration test.
+`musicScan` now wraps the top-level `scanMusicDir` call in try/catch
+returning `[]` on any failure — same shape as `musicClientScan`. The
+`mkdir` workaround in the MusicPackPage integration test has been
+removed. Three new positive tests in
+[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+cover missing-dir, empty-dir, and recursive discovery.
 
 ---
 
