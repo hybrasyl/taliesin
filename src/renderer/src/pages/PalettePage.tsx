@@ -7,6 +7,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import { useRecoilState, useSetRecoilState } from 'recoil'
 import { packDirState, currentPageState } from '../recoil/atoms'
 import PaletteManagerView from '../components/palette/PaletteManagerView'
+import ColorizeView from '../components/palette/ColorizeView'
 
 const PalettePage: React.FC = () => {
   const [packDir, setPackDir] = useRecoilState(packDirState)
@@ -67,13 +68,7 @@ const PalettePage: React.FC = () => {
 
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {tab === 'palettes' && <PaletteManagerView packDir={packDir} onStatus={showStatus} />}
-        {tab === 'colorize' && (
-          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <Typography color="text.disabled">
-              Colorize view lands in Phase 2: pick an icon, pick a palette, choose variants per element, save outputs.
-            </Typography>
-          </Box>
-        )}
+        {tab === 'colorize' && <ColorizeView packDir={packDir} onStatus={showStatus} />}
       </Box>
     </Box>
   )

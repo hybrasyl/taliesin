@@ -7,10 +7,20 @@ export interface PaletteSummary {
   entryCount: number
 }
 
-export function basenameFromPath(path: string): string {
+export function filenameFromPath(path: string): string {
   const norm = path.replace(/\\/g, '/')
   const slash = norm.lastIndexOf('/')
-  const file = slash >= 0 ? norm.slice(slash + 1) : norm
+  return slash >= 0 ? norm.slice(slash + 1) : norm
+}
+
+export function dirnameFromPath(path: string): string {
+  const norm = path.replace(/\\/g, '/')
+  const slash = norm.lastIndexOf('/')
+  return slash >= 0 ? norm.slice(0, slash) : ''
+}
+
+export function basenameFromPath(path: string): string {
+  const file = filenameFromPath(path)
   const dot = file.lastIndexOf('.')
   return dot > 0 ? file.slice(0, dot) : file
 }
