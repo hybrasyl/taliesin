@@ -139,6 +139,8 @@ describe('ArchivePage — round-trip integration', () => {
 
     expect(await screen.findByText('legend.dat')).toBeInTheDocument()
     expect(screen.getByText(/2 entries/)).toBeInTheDocument()
+    // Groups are collapsed by default; expand .epf to reveal its entries.
+    await user.click(await screen.findByText('.epf'))
     expect(screen.getByText('icon.epf')).toBeInTheDocument()
   })
 
@@ -153,6 +155,7 @@ describe('ArchivePage — round-trip integration', () => {
     await renderPage({ openFile: async () => `${CLIENT_PATH}/legend.dat` })
     await user.click(await screen.findByRole('button', { name: /open archive/i }))
 
+    await user.click(await screen.findByText('.epf'))
     await user.click(await screen.findByText('icon.epf'))
     await waitFor(() => expect(renderer.classifyEntry).toHaveBeenCalled())
     // ArchivePreview header reflects the entry name + classified type ("sprite")
@@ -161,7 +164,7 @@ describe('ArchivePage — round-trip integration', () => {
     expect(screen.getByText(/sprite/)).toBeInTheDocument()
   })
 
-  it('quick-open chip launches loadArchive with <clientPath>/<name>', async () => {
+  it('client-archive select launches loadArchive with <clientPath>/<name>', async () => {
     const fs = await memfs
     fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xCA, 0xFE]))
     dalib.setEntries([
@@ -170,10 +173,53 @@ describe('ArchivePage — round-trip integration', () => {
 
     const user = userEvent.setup()
     await renderPage()
-    await user.click(await screen.findByText('seo'))
+
+    // Wait for the dat-file scan to populate the dropdown.
+    const select = await screen.findByLabelText('Client archives')
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'seo.dat' }))
 
     expect(await screen.findByText('seo.dat')).toBeInTheDocument()
+    await user.click(await screen.findByText('.epf'))
     expect(screen.getByText('tile.epf')).toBeInTheDocument()
+  })
+
+  it('client-archive select includes one-level-deep subfolder dats (e.g., npc/npc.dat)', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/npc/npc.dat`, Buffer.from([0xBE, 0xEF]))
+    dalib.setEntries([
+      { entryName: 'merchant.epf', fileSize: 10, toUint8Array: () => new Uint8Array() },
+    ])
+
+    const user = userEvent.setup()
+    await renderPage()
+
+    const select = await screen.findByLabelText('Client archives')
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'npc/npc.dat' }))
+
+    expect(await screen.findByText('npc.dat')).toBeInTheDocument()
+    await user.click(await screen.findByText('.epf'))
+    expect(screen.getByText('merchant.epf')).toBeInTheDocument()
+  })
+
+  it('does not auto-expand any group when an archive is loaded', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE]))
+    dalib.setEntries([
+      { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array() },
+      { entryName: 'palette.pal', fileSize: 1024, toUint8Array: () => new Uint8Array() },
+    ])
+
+    const user = userEvent.setup()
+    await renderPage({ openFile: async () => `${CLIENT_PATH}/legend.dat` })
+    await user.click(await screen.findByRole('button', { name: /open archive/i }))
+
+    // Group headers are visible but their child entries are not (collapsed).
+    expect(await screen.findByText('.epf')).toBeInTheDocument()
+    expect(screen.getByText('.pal')).toBeInTheDocument()
+    expect(screen.queryByText('icon.epf')).toBeNull()
+    expect(screen.queryByText('palette.pal')).toBeNull()
   })
 
   it('Extract All round-trips through openDirectory + writeBytes for every entry', async () => {
