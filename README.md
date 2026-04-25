@@ -14,20 +14,18 @@ Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne ma
 
 | Feature               | Status         |
 | --------------------- | -------------- |
-| Dashboard             | 🚧 In Progress |
+| Dashboard             | ✅ Complete    |
 | Map Catalog           | ✅ Complete    |
 | Map XML Editor        | ✅ Complete    |
-| Map Maker             | 🚧 In Progress |
+| Map Maker             | ✅ Complete    |
 | World Map Editor      | ✅ Complete    |
 | Music Manager         | ✅ Complete    |
 | Sound Effects Browser | ✅ Complete    |
-| Archive Browser       | 🚧 In Progress |
-| Asset Pack Manager    | 🚧 In Progress |
-| Prefab Catalog        | 🚧 In Progress |
-| Palette & Duotone     | 🚧 In Progress |
+| Archive Browser       | ✅ Complete    |
+| Prefab Catalog        | ✅ Complete    |
 | Settings              | ✅ Complete    |
-| Sprite Viewer         | ⬜ Not Started |
-| Sound Effects Manager | ⬜ Not Started |
+| Asset Pack Manager    | 🚧 In Progress |
+| Palette & Duotone     | 🚧 In Progress |
 
 ### Dashboard
 
@@ -65,29 +63,23 @@ Browse and play DA client sound effects sourced directly from `legend.dat`. Entr
 
 ### Archive Browser
 
-Inspect entries in DA client `.dat` archive files (read-only). Lists all entries grouped by extension with name and size, supports filter-by-name, and previews several formats: tileset images (.tsi), PCX images with palette selection, terrain animation tables (.hea), font metadata (.fnt), JPF inspection, and BIK video playback (transcoded to MP4 on demand). A quick-open dropdown enumerates all `.dat` files under the configured client folder, including subdirectories. Supports extracting individual entries or the full archive to disk. Sprite formats (.spf/.epf/.mpf/.efa) are not yet previewed.
-
-### Asset Pack Manager
-
-Create and edit modern Chaos.Client `.datf` asset packs — ZIP archives of PNG assets plus a JSON manifest. Provides content-type templates (ability icons, nation badges) for new packs, edits pack metadata and the asset list, and supports deletion. Requires a pack working directory configured in Settings. Compilation to client-ready format and embedded sprite support are not yet implemented.
+Inspect entries in DA client `.dat` archive files (read-only). Lists all entries grouped by extension with name and size, supports filter-by-name, and previews several formats: tileset images (.tsi), PCX images with palette selection, terrain animation tables (.hea), font metadata (.fnt), JPF inspection, and BIK video playback (transcoded to MP4 on demand). A quick-open dropdown enumerates all `.dat` files under the configured client folder, including subdirectories. Supports extracting individual entries or the full archive to disk. Repacking and writing back to legacy `.dat` archives is intentionally out of scope — new content ships via the Asset Pack Manager (`.datf`) instead.
 
 ### Prefab Catalog
 
 Browse and manage reusable map tile patterns saved from the Map Maker. Each prefab is a width × height block of tiles stored as JSON in the active world library. Supports filter-by-name, isometric preview rendered with real client tile bitmaps, rename, and delete. Prefabs are stamped back into a map via the Prefab sidebar in the Map Maker.
 
-### Palette & Duotone
-
-Define named color palettes and generate element-colored variants of grayscale icon assets via a duotone algorithm. The **Palettes** tab lists all palettes and per-entry color editors (shadow + highlight pickers, dark/light factor sliders). The **Colorize** tab renders a grid of variants for a chosen icon × palette entry, with an auto-detection heuristic surfacing the highest-quality variant. Calibration choices are persisted alongside the palette. Full scope is in [`docs/taliesin_duotone_scope.md`](docs/taliesin_duotone_scope.md).
-
 ### Settings
 
 Configure the DA client install path (used to locate archives), the Hybrasyl world library path (shared with Creidhne), the music library and working directories, ffmpeg path, asset pack directory, an optional Creidhne companion launcher path, and the application theme. Settings are persisted across sessions.
 
-### Planned Features
+### Asset Pack Manager
 
-**Sprite Viewer** — browse and preview DA client sprites loaded from archives or standalone files. Supports `.spf`, `.epf`, `.mpf`, and `.efa` formats via dalib-ts, with frame-by-frame navigation, animated preview, and palette selection.
+Create and edit modern Chaos.Client `.datf` asset packs — ZIP archives of PNG assets plus a JSON manifest. Provides content-type templates (ability icons, nation badges) for new packs, edits pack metadata and the asset list, and supports deletion. Requires a pack working directory configured in Settings. Compilation to client-ready format and embedded sprite support are not yet implemented.
 
-**Sound Effects Manager** — a companion to the Sound Effects Browser focused on managing SFX assets directly. Planned scope to be defined.
+### Palette & Duotone
+
+Define named color palettes and generate element-colored variants of grayscale icon assets via a duotone algorithm. The **Palettes** tab lists all palettes and per-entry color editors (shadow + highlight pickers, dark/light factor sliders). The **Colorize** tab renders a grid of variants for a chosen icon × palette entry, with an auto-detection heuristic surfacing the highest-quality variant. Calibration choices are persisted alongside the palette. Full scope is in [`docs/taliesin_duotone_scope.md`](docs/taliesin_duotone_scope.md).
 
 ## Installation
 
