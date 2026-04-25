@@ -55,43 +55,30 @@ Specifically missing:
 - **Output location**: `{packDir}/_colorized/` sibling folder, consistent with the existing `_palettes/_calibrations/_frames/_masters` convention. Easy to wipe and regenerate.
 - **Manifest**: write `manifest.json` per batch under `{packDir}/_colorized/` with `{ paletteId, ranAt, entries: [{ source, entryId, output, variantId, calibrationSource: 'saved'|'auto'|'override' }] }`. Downstream tooling can read this without scraping filenames.
 
-## Implementation Slice
+## Implementation (shipped)
 
-1. **Grayscale master pipeline.**
-   - New renderer util `grayscaleMaster.ts` that, given a source path, returns a cached master path under `{packDir}/_masters/{basename}.png`, regenerating only when source mtime > master mtime.
-   - Add `master:stat` and `master:write` IPC (or extend existing IPC); ensure `_masters/` is inside the session-scoped allowed roots.
-   - Switch ColorizeView's per-source render to read from the master so single-icon and batch share one path.
+1. **Grayscale master pipeline.** ✅ commit `bc23b38`
+   - [src/renderer/src/utils/grayscaleMaster.ts](../../src/renderer/src/utils/grayscaleMaster.ts) caches BT.601 grayscale of each source under `{packDir}/_masters/{basename}.png`. Mtime-based invalidation; regenerates when source mtime > master mtime, master is missing, or `force=true`.
+   - Generic `fs:stat` IPC added in main; reuses existing `fs:writeBytes`/`fs:readFile` so no new schema needed (load-side returns null on stat failure).
+   - __Deferred-by-decision: ColorizeView swap.__ The plan called for ColorizeView to read through the master so single-icon and batch share one path. On reflection the master is purely a batch-side optimization (the duotone algorithm is luminance-only, so applying to the color source produces equivalent output). ColorizeView already works; touching it would only warm the master cache for free, which has no practical value since batch warms its own cache lazily. Skipped.
 
-2. **Batch IPC + worker.**
-   - New main-process handler `palette:batchColorize` that takes `{ packDir, paletteId, sources: string[], options: { useCalibration, autoDetect, overrideVariantId?, regenerateMasters } }` and streams progress events back via a channel.
-   - Algorithm runs in renderer for now (Canvas API already proven correct in tests); main process handles fs reads/writes and progress emit. Defer `sharp`/Node-side rendering until performance forces it.
+2. **Batch pipeline.** ✅ commit `bbc6b30`
+   - [src/renderer/src/utils/batchPipeline.ts](../../src/renderer/src/utils/batchPipeline.ts) — `runBatch(packDir, paletteId, sources, options, onProgress, deps?)` orchestrates the full flow.
+   - __Architectural revision__: no new `palette:batchColorize` IPC. The original plan put orchestration in the main process; in practice the renderer already has Canvas + access to `fs:writeBytes`/`fs:writeFile`/`fs:ensureDir`, so the pipeline drives the loop locally and reports progress via callback. Simpler, no IPC streaming-channel work needed, gives BatchView direct React-state control over progress UI.
+   - Variant selection priority: `overrideVariantId` > saved calibration (when `useCalibration=true`) > auto-detect (when `autoDetect=true`) > balanced default.
    - Output naming: `{asset_id}_{palette_id}_{entry_id}.png`.
+   - Per-pair errors collected as failures and reported in result without aborting the run.
 
-3. **BatchView UI.**
-   - New tab in PalettePage.tsx: `palette | colorize | batch`.
-   - Source selector: folder picker.
-   - Palette dropdown (reuse `PaletteSummary` loader from `paletteIO.ts`).
-   - Options panel: 4 checkboxes + variant override dropdown.
-   - Progress strip with live "x / N — current file" + per-file status (ok/skip/fail).
-   - Completion summary card (counts + failure list).
+3. **BatchView UI.** ✅ commit `242aaef`
+   - [src/renderer/src/components/palette/BatchView.tsx](../../src/renderer/src/components/palette/BatchView.tsx) — folder picker, palette dropdown, options panel (4 checkboxes + variant override), live progress strip, completion summary card with first-10 failure list.
+   - Wired into [src/renderer/src/pages/PalettePage.tsx](../../src/renderer/src/pages/PalettePage.tsx) as the third tab.
 
-4. **Determinism guarantee.**
-   - Verify per §11 that re-running a batch over the same calibration produces byte-identical PNGs. Canvas `toBlob` PNG output should already be deterministic for identical pixel data; add a checksum test.
-
-## Critical Files to Touch
-
-- New: `src/renderer/src/components/palette/BatchView.tsx` — folder-picker source, palette dropdown, options panel, progress strip, completion summary
-- New: `src/renderer/src/utils/grayscaleMaster.ts` — mtime-cached master loader
-- New: `src/renderer/src/utils/batchPipeline.ts` — orchestrates calibration resolution → variant selection → render → write; emits per-file progress; aggregates manifest entries
-- New: `src/main/schemas/batch.ts` — Zod schemas for batch IPC payloads
-- Edit: [src/renderer/src/pages/PalettePage.tsx](../../src/renderer/src/pages/PalettePage.tsx) — add `batch` tab
-- Edit: [src/main/handlers.ts](../../src/main/handlers.ts) — add `palette:batchColorize` (streaming progress channel) + `master:stat` and `master:write` IPC; ensure `_colorized/` and `_masters/` are inside the session-scoped allowed roots
-- Edit: [src/preload/index.ts](../../src/preload/index.ts) — expose new IPC on `window.api` with subscribe-style progress callback
-- Reuse: `applyDuotone`, `toGrayscale`, `autoDetectBest`, `loadCalibrations`, `outputFilename`, the existing folder-picker dialog used for palette/frame dirs
+4. **Determinism guarantee.** ✅ in commit at end of branch
+   - Unit test in [src/renderer/src/utils/__tests__/batchPipeline.test.ts](../../src/renderer/src/utils/__tests__/batchPipeline.test.ts) — runs `runBatch` twice with a deterministic encoder stub and asserts byte-identical writes + identical manifest (modulo `ranAt`). Proves the orchestration layer is deterministic.
+   - PNG byte-determinism beyond that point depends on Chromium's `canvas.toBlob('image/png')` being deterministic for identical pixel data. This holds in practice but cannot be unit-tested in jsdom; manual smoke test is `git diff` on the output folder after a re-run.
 
 ## Verification
 
-- Unit tests for `grayscaleMaster.ts` (mtime cache hit/miss, master regeneration on source change).
-- Unit tests for `batchPipeline.ts` (calibration override precedence, auto-detect fallback, output filename templating).
-- Integration: run a batch over a test fixture pack with 3 icons × 4 entries; confirm 12 outputs, masters cached, progress events fired in order, second run is no-op (idempotent and byte-identical PNGs).
-- Manual: launch dev (user runs Electron themselves), open the new Batch tab, point at the elements palette + an icon folder, run with default options, inspect output folder.
+- ✅ Unit tests for `grayscaleMaster.ts` (12 cases — mtime cache hit/miss, master regeneration on source change, force flag).
+- ✅ Unit tests for `batchPipeline.ts` (17 cases — variant decision matrix, override precedence, auto-detect fallback, source-load failure isolation, per-entry failure recovery, Windows-path normalization, two-run determinism).
+- Manual smoke (run by user, see release checklist): launch Electron dev, open Palettes & Duotone → Batch tab, point at the elements palette + an icon folder, Run Batch with defaults, inspect `{packDir}/_colorized/` for outputs + `manifest.json`, re-run and `git diff` to confirm determinism.

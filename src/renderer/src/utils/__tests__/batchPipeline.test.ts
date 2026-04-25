@@ -398,3 +398,56 @@ describe('runBatch', () => {
     expect(result.manifest.entries[0].source).toBe('C:/icons/eagle.png')
   })
 })
+
+// ── determinism (scope §11) ──────────────────────────────────────────────────
+//
+// Two consecutive runs with identical inputs must produce identical writes.
+// This guards the orchestration layer; PNG byte-determinism beyond this point
+// depends on Chromium's canvas.toBlob('image/png') being deterministic for
+// identical pixel data, which holds in practice but cannot be unit-tested in
+// jsdom. Manual smoke test: run a batch twice and `git diff` the outputs.
+
+describe('runBatch determinism', () => {
+  // Deterministic encoder: byte-stable function of pixel content.
+  const stableEncode = async (buf: PixelBuffer): Promise<Uint8Array> => {
+    const out = new Uint8Array(buf.data.length)
+    for (let i = 0; i < buf.data.length; i++) out[i] = buf.data[i] ^ 0x55
+    return out
+  }
+
+  function captureWrites(
+    writeBytes: ReturnType<typeof vi.fn>
+  ): Map<string, Uint8Array> {
+    const map = new Map<string, Uint8Array>()
+    for (const [path, bytes] of writeBytes.mock.calls) {
+      map.set(path as string, bytes as Uint8Array)
+    }
+    return map
+  }
+
+  it('produces byte-identical writes across two runs with the same inputs', async () => {
+    const sources = ['/icons/eagle.png', '/icons/wolf.png']
+
+    const writeBytes1 = vi.fn().mockResolvedValue(undefined)
+    const deps1 = makeDeps({ encodePng: stableEncode, writeBytes: writeBytes1 })
+    const result1 = await runBatch('/pack', 'elements', sources, baseOptions, () => {}, deps1)
+
+    const writeBytes2 = vi.fn().mockResolvedValue(undefined)
+    const deps2 = makeDeps({ encodePng: stableEncode, writeBytes: writeBytes2 })
+    const result2 = await runBatch('/pack', 'elements', sources, baseOptions, () => {}, deps2)
+
+    const writes1 = captureWrites(writeBytes1)
+    const writes2 = captureWrites(writeBytes2)
+
+    expect([...writes2.keys()].sort()).toEqual([...writes1.keys()].sort())
+    for (const [path, bytes1] of writes1) {
+      const bytes2 = writes2.get(path)
+      expect(bytes2).toBeDefined()
+      expect(Array.from(bytes2!)).toEqual(Array.from(bytes1))
+    }
+
+    // Manifest entries (everything except the timestamp) must match too.
+    const stripTime = (m: typeof result1.manifest) => ({ ...m, ranAt: 'IGNORED' })
+    expect(stripTime(result2.manifest)).toEqual(stripTime(result1.manifest))
+  })
+})
