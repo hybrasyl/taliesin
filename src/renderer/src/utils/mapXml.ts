@@ -155,10 +155,14 @@ export function parseMapXml(xml: string): MapData {
 
   const descText = childText(root, 'Description')
 
+  const musicRaw = attr(root, 'Music')
+  const musicNum = musicRaw === '' ? NaN : parseInt(musicRaw, 10)
+  const music = Number.isFinite(musicNum) && musicNum >= 1 && musicNum <= 256 ? musicNum : undefined
+
   return {
     id: parseInt(attr(root, 'Id', '0'), 10),
     name: childText(root, 'Name'),
-    music: parseInt(attr(root, 'Music', '0'), 10),
+    music,
     x: parseInt(attr(root, 'X', '40'), 10),
     y: parseInt(attr(root, 'Y', '40'), 10),
     isEnabled: attr(root, 'IsEnabled', 'true') !== 'false',
@@ -182,7 +186,7 @@ export function serializeMapXml(data: MapData): string {
 
   const rootAttrs = [
     `Id="${data.id}"`,
-    `Music="${data.music}"`,
+    ...(data.music != null ? [`Music="${data.music}"`] : []),
     `X="${data.x}"`,
     `Y="${data.y}"`,
     `IsEnabled="${data.isEnabled}"`,

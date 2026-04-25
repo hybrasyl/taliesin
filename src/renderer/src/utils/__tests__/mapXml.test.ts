@@ -5,7 +5,6 @@ import type { MapData } from '../../data/mapData'
 const MINIMAL: MapData = {
   id: 0,
   name: '',
-  music: 0,
   x: 40,
   y: 40,
   isEnabled: true,
@@ -27,12 +26,23 @@ describe('parseMapXml', () => {
     const data = parseMapXml('<Map><Name>Test</Name></Map>')
     expect(data.id).toBe(0)
     expect(data.name).toBe('Test')
-    expect(data.music).toBe(0)
+    expect(data.music).toBeUndefined()
     expect(data.x).toBe(40)
     expect(data.y).toBe(40)
     expect(data.isEnabled).toBe(true)
     expect(data.allowCasting).toBe(true)
     expect(data.dynamicLighting).toBe(false)
+  })
+
+  it('treats Music="0" as no music (undefined) for back-compat', () => {
+    const data = parseMapXml('<Map Music="0"><Name>X</Name></Map>')
+    expect(data.music).toBeUndefined()
+  })
+
+  it('treats out-of-range or non-numeric Music as undefined', () => {
+    expect(parseMapXml('<Map Music="-1"></Map>').music).toBeUndefined()
+    expect(parseMapXml('<Map Music="257"></Map>').music).toBeUndefined()
+    expect(parseMapXml('<Map Music="abc"></Map>').music).toBeUndefined()
   })
 
   it('parses explicit root attributes', () => {
@@ -179,13 +189,18 @@ describe('parseMapXml', () => {
 })
 
 describe('serializeMapXml', () => {
-  it('serializes minimal map', () => {
+  it('serializes minimal map without Music attribute when unset', () => {
     const xml = serializeMapXml(build({ name: 'Test' }))
     expect(xml).toContain('<?xml version="1.0" encoding="utf-8"?>')
-    expect(xml).toContain('<Map Id="0" Music="0" X="40" Y="40" IsEnabled="true" AllowCasting="true">')
+    expect(xml).toContain('<Map Id="0" X="40" Y="40" IsEnabled="true" AllowCasting="true">')
+    expect(xml).not.toContain('Music=')
     expect(xml).toContain('<Name>Test</Name>')
     expect(xml).not.toContain('DynamicLighting')
     expect(xml).not.toContain('<Warps>')
+  })
+
+  it('emits Music attribute when set', () => {
+    expect(serializeMapXml(build({ music: 42 }))).toContain('Music="42"')
   })
 
   it('emits DynamicLighting only when true', () => {
