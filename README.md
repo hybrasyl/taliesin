@@ -81,6 +81,12 @@ Create and edit modern Chaos.Client `.datf` asset packs — ZIP archives of PNG 
 
 Define named color palettes and generate element-colored variants of grayscale icon assets via a duotone algorithm. The **Palettes** tab lists all palettes and per-entry color editors (shadow + highlight pickers, dark/light factor sliders). The **Colorize** tab renders a grid of variants for a chosen icon × palette entry, with an auto-detection heuristic surfacing the highest-quality variant. Calibration choices are persisted alongside the palette. Full scope is in [`docs/taliesin_duotone_scope.md`](docs/taliesin_duotone_scope.md).
 
+### Planned Features
+
+**Better Procedural Map Generation** — the current Map Maker generator works against vanilla DA tiles only. A richer generator that draws from custom asset packs (themed tile sets, prefab biomes, terrain palettes) unlocks once the Asset Pack Manager covers tile content types.
+
+**Expanded Asset Pack content types** — the Asset Pack Manager today targets ability icons and nation badges. New content types will be added as the Chaos.Client `.datf` spec covers them: ground tiles, wall/foreground tiles, creature sprites, UI sprites, sound effects, video, multi-type bundles.
+
 ## Installation
 
 Pre-built releases for Windows are available on the [releases page](../../releases).
