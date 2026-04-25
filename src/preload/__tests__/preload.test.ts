@@ -3,8 +3,9 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 // Source files (read at test time, not imported — these reference electron at module load).
-const PRELOAD = readFileSync(join(__dirname, '..', 'index.ts'), 'utf-8')
-const MAIN    = readFileSync(join(__dirname, '..', '..', 'main', 'index.ts'), 'utf-8')
+// Handler registrations moved from main/index.ts → main/handlers.ts in Phase 5.
+const PRELOAD  = readFileSync(join(__dirname, '..', 'index.ts'), 'utf-8')
+const HANDLERS = readFileSync(join(__dirname, '..', '..', 'main', 'handlers.ts'), 'utf-8')
 
 const CHANNEL_RE = /['"]([\w:.\-]+)['"]/g
 
@@ -21,8 +22,8 @@ function extractChannels(source: string, callPattern: RegExp): Set<string> {
 
 const preloadInvoke = extractChannels(PRELOAD, /ipcRenderer\.invoke\(\s*['"][^'"]+['"]/g)
 const preloadSend   = extractChannels(PRELOAD, /ipcRenderer\.send\(\s*['"][^'"]+['"]/g)
-const mainHandle    = extractChannels(MAIN,    /ipcMain\.handle\(\s*['"][^'"]+['"]/g)
-const mainOn        = extractChannels(MAIN,    /ipcMain\.on\(\s*['"][^'"]+['"]/g)
+const mainHandle    = extractChannels(HANDLERS,    /ipcMain\.handle\(\s*['"][^'"]+['"]/g)
+const mainOn        = extractChannels(HANDLERS,    /ipcMain\.on\(\s*['"][^'"]+['"]/g)
 
 describe('Preload ↔ Main IPC contract', () => {
   it('every channel preload sends has a matching ipcMain.on handler', () => {
