@@ -143,7 +143,13 @@ const grinnealTheme = responsiveFontSizes(
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#6a7a50' } } }
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#6a7a50' } } },
+      MuiSlider: {
+        defaultProps: { color: 'secondary' },
+        styleOverrides: {
+          rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      }
     }
   })
 )

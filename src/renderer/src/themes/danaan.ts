@@ -149,7 +149,13 @@ const danaanTheme = responsiveFontSizes(
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#b8922a' } } }
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#b8922a' } } },
+      MuiSlider: {
+        defaultProps: { color: 'secondary' },
+        styleOverrides: {
+          rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      }
     }
   })
 )

@@ -151,7 +151,13 @@ const chadulTheme = responsiveFontSizes(
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#2e7a3a' } } }
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#2e7a3a' } } },
+      MuiSlider: {
+        defaultProps: { color: 'secondary' },
+        styleOverrides: {
+          rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      }
     }
   })
 )

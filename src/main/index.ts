@@ -624,6 +624,61 @@ ipcMain.handle('pack:compile', async (_, packDir: string, manifest: unknown, ass
   })
 })
 
+// ── Palettes & Duotone ──────────────────────────────────────────────────────
+
+const palettesSubdir = (packDir: string) => join(packDir, '_palettes')
+const calibrationsSubdir = (packDir: string) => join(packDir, '_calibrations')
+
+ipcMain.handle('palette:scan', async (_, packDir: string) => {
+  try {
+    const dir = palettesSubdir(packDir)
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+    const palettes: { filename: string; id: string; name: string; entryCount: number }[] = []
+    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+      try {
+        const raw = await fs.readFile(join(dir, e.name), 'utf-8')
+        const data = JSON.parse(raw)
+        if (data.id && Array.isArray(data.entries)) {
+          palettes.push({ filename: e.name, id: data.id, name: data.name ?? data.id, entryCount: data.entries.length })
+        }
+      } catch { /* skip malformed */ }
+    }
+    return palettes.sort((a, b) => a.id.localeCompare(b.id))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('palette:load', async (_, filePath: string) => {
+  const raw = await fs.readFile(filePath, 'utf-8')
+  return JSON.parse(raw)
+})
+
+ipcMain.handle('palette:save', async (_, filePath: string, data: unknown) => {
+  await fs.mkdir(dirname(filePath), { recursive: true })
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('palette:delete', async (_, filePath: string) => {
+  try { await fs.unlink(filePath) } catch { /* already gone */ }
+})
+
+ipcMain.handle('palette:calibrationLoad', async (_, packDir: string, paletteId: string) => {
+  const path = join(calibrationsSubdir(packDir), `${paletteId}.json`)
+  try {
+    const raw = await fs.readFile(path, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+})
+
+ipcMain.handle('palette:calibrationSave', async (_, packDir: string, paletteId: string, data: unknown) => {
+  const dir = calibrationsSubdir(packDir)
+  await fs.mkdir(dir, { recursive: true })
+  await fs.writeFile(join(dir, `${paletteId}.json`), JSON.stringify(data, null, 2), 'utf-8')
+})
+
 // ── Tile Frequency Scanner ──────────────────────────────────────────────────
 
 ipcMain.handle('tileScan:analyze', async (_, dirPaths: string[]) => {

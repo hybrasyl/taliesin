@@ -180,6 +180,12 @@ interface TaliesinAPI {
   packAddAsset: (packDir: string, sourcePath: string, targetFilename: string) => Promise<void>
   packRemoveAsset: (packDir: string, filename: string) => Promise<void>
   packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string) => Promise<void>
+  paletteScan: (packDir: string) => Promise<{ filename: string; id: string; name: string; entryCount: number }[]>
+  paletteLoad: (filePath: string) => Promise<unknown>
+  paletteSave: (filePath: string, data: unknown) => Promise<void>
+  paletteDelete: (filePath: string) => Promise<void>
+  paletteCalibrationLoad: (packDir: string, paletteId: string) => Promise<Record<string, Record<string, unknown>>>
+  paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown) => Promise<void>
 }
 
 declare global {

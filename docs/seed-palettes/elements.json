@@ -1,0 +1,26 @@
+{
+  "id": "elements",
+  "name": "Elements",
+  "description": "Seed palette — 17 element entries for form-swap ability icons. Copy this into {packDir}/_palettes/elements.json and edit the entries to match your element color scheme.",
+  "version": 1,
+  "lastModified": "2026-04-24T00:00:00Z",
+  "entries": [
+    { "id": "fire",      "name": "Fire",      "shadowColor": "#7A1A00", "highlightColor": "#FF8A3D", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "water",     "name": "Water",     "shadowColor": "#0A2B66", "highlightColor": "#4FB3FF", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "earth",     "name": "Earth",     "shadowColor": "#3A2010", "highlightColor": "#B07A44", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "wind",      "name": "Wind",      "shadowColor": "#4A6A5A", "highlightColor": "#CFEFD8", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "light",     "name": "Light",     "shadowColor": "#8A7A2A", "highlightColor": "#FFF6B8", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "dark",      "name": "Dark",      "shadowColor": "#14052A", "highlightColor": "#7A4FB3", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "primary" },
+    { "id": "lightning", "name": "Lightning", "shadowColor": "#332A00", "highlightColor": "#FFEE66", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.4, "category": "composite" },
+    { "id": "ice",       "name": "Ice",       "shadowColor": "#1A3A55", "highlightColor": "#B8F0FF", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "nature",    "name": "Nature",    "shadowColor": "#143A1A", "highlightColor": "#7ACF4A", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "metal",     "name": "Metal",     "shadowColor": "#2A2E33", "highlightColor": "#C0CAD4", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "poison",    "name": "Poison",    "shadowColor": "#2A0A3A", "highlightColor": "#9CE060", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "sound",     "name": "Sound",     "shadowColor": "#2A2A5A", "highlightColor": "#C4C4FF", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "mental",    "name": "Mental",    "shadowColor": "#3A1A4A", "highlightColor": "#E0A4FF", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "composite" },
+    { "id": "void",      "name": "Void",      "shadowColor": "#0A0A14", "highlightColor": "#5A5A7A", "defaultDarkFactor": 0.4, "defaultLightFactor": 0.2, "category": "advanced" },
+    { "id": "chaos",     "name": "Chaos",     "shadowColor": "#4A0033", "highlightColor": "#FF55AA", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "advanced" },
+    { "id": "order",     "name": "Order",     "shadowColor": "#1A3A5A", "highlightColor": "#CFE6FF", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "advanced" },
+    { "id": "spirit",    "name": "Spirit",    "shadowColor": "#3A3A1A", "highlightColor": "#FFEED0", "defaultDarkFactor": 0.3, "defaultLightFactor": 0.3, "category": "advanced" }
+  ]
+}

@@ -9,6 +9,7 @@ import {
   GiBrickWall,
   GiPuzzle,
   GiCardboardBox,
+  GiPaintBrush,
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs,
@@ -112,6 +113,11 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Asset Pack Manager">
         <IconButton sx={sx('assetpacks')} onClick={nav('assetpacks')}>
           <GiCardboardBox />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Palettes & Duotone">
+        <IconButton sx={sx('palettes')} onClick={nav('palettes')}>
+          <GiPaintBrush />
         </IconButton>
       </Tooltip>
       <Tooltip title="Music Manager">

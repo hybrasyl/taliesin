@@ -2,7 +2,7 @@ import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
-export type Page = 'dashboard' | 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'prefabs' | 'assetpacks' | 'music' | 'sfx' | 'settings'
+export type Page = 'dashboard' | 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'prefabs' | 'assetpacks' | 'palettes' | 'music' | 'sfx' | 'settings'
 
 export interface DirtyEditor {
   label: string
@@ -110,6 +110,20 @@ export const packDirState = atom<string | null>({
 
 export const companionPathState = atom<string | null>({
   key: 'companionPathState',
+  default: null
+})
+
+// ── Palettes & Duotone ───────────────────────────────────────────────────────
+// Palette data (definitions, calibrations, outputs) is stored inside the
+// currently selected asset-pack working directory (packDirState).
+
+export const activePaletteIdState = atom<string | null>({
+  key: 'activePaletteIdState',
+  default: null
+})
+
+export const activeColorizeSourceState = atom<string | null>({
+  key: 'activeColorizeSourceState',
   default: null
 })
 

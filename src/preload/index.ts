@@ -167,6 +167,20 @@ const api = {
     ipcRenderer.invoke('pack:removeAsset', packDir, filename),
   packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string): Promise<void> =>
     ipcRenderer.invoke('pack:compile', packDir, manifest, assetFilenames, outputPath),
+
+  // Palettes & Duotone (stored under the active asset-pack working directory)
+  paletteScan: (packDir: string): Promise<{ filename: string; id: string; name: string; entryCount: number }[]> =>
+    ipcRenderer.invoke('palette:scan', packDir),
+  paletteLoad: (filePath: string): Promise<unknown> =>
+    ipcRenderer.invoke('palette:load', filePath),
+  paletteSave: (filePath: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('palette:save', filePath, data),
+  paletteDelete: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('palette:delete', filePath),
+  paletteCalibrationLoad: (packDir: string, paletteId: string): Promise<Record<string, Record<string, unknown>>> =>
+    ipcRenderer.invoke('palette:calibrationLoad', packDir, paletteId),
+  paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('palette:calibrationSave', packDir, paletteId, data),
 }
 
 if (process.contextIsolated) {
