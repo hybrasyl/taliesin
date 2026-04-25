@@ -285,8 +285,7 @@ export default function WorldMapEditorPanel({
 
   // ── Derived mode computed values ──────────────────────────────────────────
 
-  const refKeySet   = new Set(referencePoints?.map(pointKey) ?? [])
-  const groupKeySet = new Set(data.points.map(pointKey))
+  const refKeySet = new Set(referencePoints?.map(pointKey) ?? [])
 
   const orphanKeys: Set<string> = new Set(
     data.points.filter(p => referencePoints && !refKeySet.has(pointKey(p))).map(pointKey)

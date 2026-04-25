@@ -10,7 +10,6 @@ import { useRecoilValue } from 'recoil'
 import { mapDirectoriesState, clientPathState } from '../../recoil/atoms'
 import {
   loadMapAssets, getGroundBitmap, getStcBitmap,
-  GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT,
   type MapAssets,
 } from '../../utils/mapRenderer'
 import type { TileTheme, TileFrequencyResult } from '../../utils/tileThemeTypes'

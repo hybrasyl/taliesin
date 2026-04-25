@@ -21,7 +21,7 @@ import {
 } from '../../utils/mapRenderer'
 import {
   floodFill, bresenhamLine, getShapeCoords, applyChanges,
-  type TileChange, type TileCoord, type ShapeMode, type TileLayerKey,
+  type TileChange, type TileCoord, type ShapeMode,
 } from '../../utils/mapEditorTools'
 import type { TileLayer } from './TilePicker'
 

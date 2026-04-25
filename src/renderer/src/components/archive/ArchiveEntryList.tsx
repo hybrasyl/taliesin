@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback } from 'react'
-import { Box, Typography, IconButton, Collapse } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { useVirtualizer } from '@tanstack/react-virtual'

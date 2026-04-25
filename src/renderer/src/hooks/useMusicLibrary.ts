@@ -121,7 +121,6 @@ function parseFilename(filename: string): number | null {
 
 function mergeEntries(
   scanned: MusicScanEntry[],
-  meta: MusicMetaData
 ): MusicEntry[] {
   return scanned
     .map((s) => ({
@@ -257,7 +256,7 @@ export function useMusicLibrary(dirPath: string | null) {
       window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData),
     ]).then(([scanned, existingMeta]) => {
       setMetadata(existingMeta)
-      setEntries(mergeEntries(scanned, existingMeta))
+      setEntries(mergeEntries(scanned))
     }).finally(() => setScanning(false))
   }, [dirPath])
 
@@ -270,7 +269,7 @@ export function useMusicLibrary(dirPath: string | null) {
         window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData),
       ])
       setMetadata(existingMeta)
-      setEntries(mergeEntries(scanned, existingMeta))
+      setEntries(mergeEntries(scanned))
     } finally {
       setScanning(false)
     }

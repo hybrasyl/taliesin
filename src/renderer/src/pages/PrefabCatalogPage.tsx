@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Box, Typography, TextField, IconButton, Tooltip, Divider,
+  Box, Typography, TextField, IconButton, Tooltip,
   List, ListItemButton, ListItemText, Button, Dialog, DialogTitle,
   DialogContent, DialogActions,
 } from '@mui/material'

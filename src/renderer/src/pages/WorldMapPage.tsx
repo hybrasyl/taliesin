@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useRecoilValue } from 'recoil'
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
+  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogContentText, DialogTitle, Divider, IconButton,
   InputAdornment, List, ListItem, ListItemButton, ListItemText,
   Snackbar, TextField, Tooltip, Typography,
@@ -17,7 +17,7 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import WorldMapEditorPanel from '../components/worldmapeditor/WorldMapEditorPanel'
 import { parseWorldMapXml, serializeWorldMapXml } from '../utils/worldMapXml'
 import {
-  DEFAULT_WORLD_MAP, computeWorldMapFilename,
+  DEFAULT_WORLD_MAP,
   pointKey, type WorldMapData, type WorldMapMeta,
 } from '../data/worldMapData'
 

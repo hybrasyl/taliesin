@@ -15,7 +15,7 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
-import { DEFAULT_MAP, computeMapFilename, type MapData } from '../data/mapData'
+import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
   name: string

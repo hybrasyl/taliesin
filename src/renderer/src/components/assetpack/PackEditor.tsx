@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   Box, Typography, TextField, Button, IconButton, Tooltip,
   Table, TableHead, TableRow, TableCell, TableBody, CircularProgress, Divider,
@@ -52,7 +52,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const [draft, setDraft] = useState<PackProject>(pack)
   const [dirty, setDirty] = useState(false)
   const [compiling, setCompiling] = useState(false)
-  const previewRefs = useRef<Map<string, HTMLImageElement>>(new Map())
 
   useEffect(() => {
     setDraft(pack)

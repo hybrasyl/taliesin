@@ -98,7 +98,6 @@ const MusicPage: React.FC = () => {
   // Map cross-reference: which maps use this track's music ID
   const usedByMaps = useMemo(() => {
     if (!lib.selectedEntry || lib.selectedEntry.musicId === null || !worldIndex) return []
-    const id = lib.selectedEntry.musicId
     // mapDetails don't include music field yet — placeholder for when index is extended
     return []
   }, [lib.selectedEntry, worldIndex])

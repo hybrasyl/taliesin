@@ -7,7 +7,7 @@
  * Assets are loaded once per clientPath and cached for the lifetime of the renderer process.
  */
 
-import { DataArchive, HpfFile, Palette, PaletteTable, MapFile, TileAnimationTable, type TileAnimationEntry } from '@eriscorp/dalib-ts'
+import { DataArchive, HpfFile, Palette, PaletteTable, MapFile, TileAnimationTable } from '@eriscorp/dalib-ts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ export const GROUND_TILE_BYTES  = GROUND_TILE_WIDTH * GROUND_TILE_HEIGHT  // 151
 
 /** Half tile dimensions used for isometric projection. */
 const HTILE_W = GROUND_TILE_WIDTH  / 2   // 28
-const HTILE_H = GROUND_TILE_HEIGHT         // 27 (visual half-height is 14 but the tile image is 27)
 
 /** Vertical padding above origin to accommodate tall foreground objects. */
 const FOREGROUND_PAD = 512

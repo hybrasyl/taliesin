@@ -3,7 +3,6 @@ import { Box, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mu
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   loadMapAssets, getGroundBitmap, getStcBitmap,
-  GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT,
   type MapAssets,
 } from '../../utils/mapRenderer'
 
@@ -88,7 +87,6 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
   }, [assets, fgBitmaps])
 
   const isBg = activeLayer === 'background'
-  const isFg = activeLayer === 'foreground' || activeLayer === 'leftForeground' || activeLayer === 'rightForeground'
 
   // Filter tile IDs
   const tileIds = useMemo(() => {

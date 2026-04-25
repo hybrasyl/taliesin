@@ -92,7 +92,6 @@ export function loadPaletteByName(archive: DataArchive, entryName: string): Pale
  */
 export function renderEntry(
   entry: DataArchiveEntry,
-  archive: DataArchive,
   palette: Palette | null
 ): RenderedEntry | null {
   const extension = ext(entry)

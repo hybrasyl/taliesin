@@ -47,7 +47,6 @@ import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { applyChanges, revertChanges, type ShapeMode, type TileCoord } from '../utils/mapEditorTools'
 import { floodFill } from '../utils/mapEditorTools'
 import { sanitizePrefabName, trimPrefab, type Prefab } from '../utils/prefabTypes'
-import { type MapAssets } from '../utils/mapRenderer'
 
 // ── Undo types ───────────────────────────────────────────────────────────────
 
@@ -212,8 +211,6 @@ const MapMakerPage: React.FC = () => {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
   const [showTabMap, setShowTabMap] = useState(false)
-  const [stampPrefab, setStampPrefab] = useState<Prefab | null>(null)
-  const prefabSidebarRef = useRef<{ refresh: () => void }>(null)
   const [dimPickerState, setDimPickerState] = useState<{
     open: boolean; filePath: string; filename: string; fileBuffer: Uint8Array
   } | null>(null)
@@ -709,7 +706,6 @@ const MapMakerPage: React.FC = () => {
           : prev
         ); break
       case 'G': setTool('fill'); break
-      case 'p': if (stampPrefab) { handleStampPrefab(stampPrefab) } break
       case 't': {
         if (activeLayer === 'background') {
           setActiveLayer(lastFgLayer)
@@ -720,7 +716,7 @@ const MapMakerPage: React.FC = () => {
         break
       }
     }
-  }, [handleUndo, handleRedo, handleSave, handleSaveAs, copySelection, cutSelection, deleteSelection, clipboard, pasteMode, selection, activeTabId, updateTab, handleCloseTab, handleStampPrefab, stampPrefab, activeLayer, lastFgLayer])
+  }, [handleUndo, handleRedo, handleSave, handleSaveAs, copySelection, cutSelection, deleteSelection, clipboard, pasteMode, selection, activeTabId, updateTab, handleCloseTab, activeLayer, lastFgLayer])
 
   // ── File name ──────────────────────────────────────────────────────────────
 

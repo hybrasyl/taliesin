@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import {
-  Box, Typography, Select, MenuItem, IconButton, Tooltip, Button,
+  Box, Typography, Select, MenuItem, IconButton, Tooltip,
   FormControl, InputLabel, type SelectChangeEvent,
 } from '@mui/material'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -15,7 +15,7 @@ import { toImageData } from '@eriscorp/dalib-ts/helpers/imageData'
 import {
   renderEntry, renderPaletteGrid, classifyEntry,
   loadPaletteByName, getPaletteNames, formatBytes,
-  type RenderedEntry, type PreviewType,
+  type RenderedEntry,
 } from '../../utils/archiveRenderer'
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ const SpritePreview: React.FC<{
     }
 
     try {
-      const result = renderEntry(entry, archive, palette)
+      const result = renderEntry(entry, palette)
       setRendered(result)
       if (!result) setError('No palette selected or incompatible format.')
     } catch (e) {
@@ -418,7 +418,7 @@ async function extractRaw(entry: DataArchiveEntry) {
 async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
   const palNames = getPaletteNames(archive)
   const palette = palNames.length > 0 ? loadPaletteByName(archive, palNames[0]) : null
-  const rendered = renderEntry(entry, archive, palette)
+  const rendered = renderEntry(entry, palette)
   if (!rendered || rendered.frames.length === 0) return
 
   if (rendered.frames.length === 1) {

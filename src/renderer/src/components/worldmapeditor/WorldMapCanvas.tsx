@@ -94,12 +94,10 @@ function findHit(imgX: number, imgY: number, points: WorldMapPoint[]): number {
 // ── Point drawing ─────────────────────────────────────────────────────────────
 
 const BOX_SIZE    = 12   // 12×12 image-space pixels (same as xml-map-maker mapbox.png)
-const BOX_HALF    = BOX_SIZE / 2
 
 function drawPoint(
   ctx: CanvasRenderingContext2D,
   p: WorldMapPoint,
-  index: number,
   selected: boolean,
   s: ScaleState,
 ) {
@@ -242,7 +240,7 @@ export default function WorldMapCanvas({
 
     // Points
     for (let i = 0; i < points.length; i++) {
-      drawPoint(ctx, points[i]!, i, i === selectedIndex, s)
+      drawPoint(ctx, points[i]!, i === selectedIndex, s)
     }
 
     // Hover crosshair / ghost box in place mode
