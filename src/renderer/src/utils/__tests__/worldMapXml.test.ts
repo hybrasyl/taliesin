@@ -40,12 +40,17 @@ describe('parseWorldMapXml', () => {
     expect(data.points[0].targetY).toBe(0)
   })
 
-  it('returns sensible defaults for an empty WorldMap element', () => {
-    // Chromium-only parsererror behavior is not reproducible in jsdom; assert degraded data.
+  it('returns sensible defaults for a well-formed but empty WorldMap element', () => {
     const data = parseWorldMapXml('<WorldMap></WorldMap>')
     expect(data.name).toBe('')
     expect(data.clientMap).toBe('')
     expect(data.points).toEqual([])
+  })
+
+  it('throws on truly malformed XML (parsererror documentElement)', () => {
+    expect(() => parseWorldMapXml('<WorldMap><Name>x</WorldMap>')).toThrow(/XML parse error/)
+    expect(() => parseWorldMapXml('<<<>>')).toThrow(/XML parse error/)
+    expect(() => parseWorldMapXml('')).toThrow(/XML parse error/)
   })
 })
 

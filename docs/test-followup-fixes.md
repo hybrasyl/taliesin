@@ -10,38 +10,20 @@ current behavior so a fix has a regression target.
 
 ---
 
-## 1. XML `parsererror` detection is dead code (P1)
+## ~~1. XML `parsererror` detection is dead code (P1)~~ — FIXED
 
-**Files**:
+**Files**: `src/renderer/src/utils/mapXml.ts`, `src/renderer/src/utils/worldMapXml.ts`
 
-- [src/renderer/src/utils/mapXml.ts:30-31](../src/renderer/src/utils/mapXml.ts#L30-L31)
-- [src/renderer/src/utils/worldMapXml.ts:28-29](../src/renderer/src/utils/worldMapXml.ts#L28-L29)
+Both parsers now check three patterns: `root.tagName === 'parsererror'`,
+descendant `querySelector`, and `doc.getElementsByTagName`. Truly
+malformed XML now throws with the `<parsererror>` text instead of
+silently returning degraded data. jsdom probe confirmed it produces a
+`parsererror` documentElement on bad input (matching Chromium), so the
+fix is exercised by deterministic tests.
 
-**Problem**: `root.querySelector('parsererror')` only searches descendants
-of `documentElement`. When XML is malformed, Chromium's `DOMParser`
-returns a document where `parsererror` IS the `documentElement` — so the
-descendant search never finds it and the `throw` never fires.
-jsdom is even more lenient (often produces no `parsererror` element at
-all). Net effect: malformed XML silently returns degraded data with
-empty fields instead of surfacing an error.
-
-**Test reference**: replaced the original `throws on malformed XML`
-tests with `returns sensible defaults for an empty Map element` /
-`returns sensible defaults for an empty WorldMap element` — these
-document the actual current behavior.
-
-**Suggested fix**: detect either pattern:
-
-```ts
-const isParserError =
-  root.tagName === 'parsererror' ||
-  root.querySelector('parsererror') ||
-  doc.getElementsByTagName('parsererror').length > 0
-```
-
-A duplicate of this pattern exists in
-[src/renderer/src/utils/archiveRenderer.ts](../src/renderer/src/utils/archiveRenderer.ts)
-— audit it when fixing the renderer-side parsers.
+`archiveRenderer.ts` was checked while fixing this — it does not use
+DOMParser, so the speculative duplicate noted in the original entry
+doesn't exist.
 
 ---
 

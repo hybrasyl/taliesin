@@ -162,15 +162,19 @@ describe('parseMapXml', () => {
     expect(b.spawnGroup?.baseLevel).toBe(99)
   })
 
-  it('returns sensible defaults for an empty map element', () => {
-    // The renderer relies on Chromium's DOMParser to surface parsererror nodes;
-    // jsdom is more lenient. We assert the degraded-data path instead.
+  it('returns sensible defaults for a well-formed but empty Map element', () => {
     const data = parseMapXml('<Map></Map>')
     expect(data.id).toBe(0)
     expect(data.name).toBe('')
     expect(data.flags).toEqual([])
     expect(data.warps).toEqual([])
     expect(data.npcs).toEqual([])
+  })
+
+  it('throws on truly malformed XML (parsererror documentElement)', () => {
+    expect(() => parseMapXml('<Map><Name>foo</Map>')).toThrow(/XML parse error/)
+    expect(() => parseMapXml('<<<>>')).toThrow(/XML parse error/)
+    expect(() => parseMapXml('')).toThrow(/XML parse error/)
   })
 })
 

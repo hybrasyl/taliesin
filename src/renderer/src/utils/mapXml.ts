@@ -27,8 +27,17 @@ export function parseMapXml(xml: string): MapData {
   const doc = new DOMParser().parseFromString(stripped, 'text/xml')
   const root = doc.documentElement
 
-  const parseError = root.querySelector('parsererror')
-  if (parseError) throw new Error(`XML parse error: ${parseError.textContent}`)
+  // When XML is malformed, browsers (Chromium + jsdom) return a document whose
+  // documentElement IS the <parsererror> — `root.querySelector('parsererror')`
+  // alone misses that case because it only searches descendants.
+  if (
+    root.tagName === 'parsererror' ||
+    root.querySelector('parsererror') ||
+    doc.getElementsByTagName('parsererror').length > 0
+  ) {
+    const errEl = root.tagName === 'parsererror' ? root : doc.getElementsByTagName('parsererror')[0]
+    throw new Error(`XML parse error: ${errEl.textContent ?? ''}`)
+  }
 
   // Flags — space/comma separated text inside <Flags>
   const flagsText = childText(root, 'Flags')

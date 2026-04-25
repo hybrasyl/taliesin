@@ -25,8 +25,16 @@ export function parseWorldMapXml(xml: string): WorldMapData {
   const doc = new DOMParser().parseFromString(stripped, 'text/xml')
   const root = doc.documentElement
 
-  const parseError = root.querySelector('parsererror')
-  if (parseError) throw new Error(`XML parse error: ${parseError.textContent}`)
+  // See parseMapXml: malformed XML yields a document whose documentElement IS
+  // the <parsererror>, which a descendant-only querySelector never finds.
+  if (
+    root.tagName === 'parsererror' ||
+    root.querySelector('parsererror') ||
+    doc.getElementsByTagName('parsererror').length > 0
+  ) {
+    const errEl = root.tagName === 'parsererror' ? root : doc.getElementsByTagName('parsererror')[0]
+    throw new Error(`XML parse error: ${errEl.textContent ?? ''}`)
+  }
 
   const points: WorldMapPoint[] = []
   for (const pointEl of root.querySelectorAll('Points > Point')) {
