@@ -68,6 +68,7 @@ temp/
 *.tmp
 *.swp
 *.swo
+*.tsbuildinfo
 
 # =========================
 # Package manager caches
