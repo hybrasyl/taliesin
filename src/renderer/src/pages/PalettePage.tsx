@@ -6,11 +6,12 @@ import { useRecoilState, useSetRecoilState } from 'recoil'
 import { packDirState, currentPageState } from '../recoil/atoms'
 import PaletteManagerView from '../components/palette/PaletteManagerView'
 import ColorizeView from '../components/palette/ColorizeView'
+import BatchView from '../components/palette/BatchView'
 
 const PalettePage: React.FC = () => {
   const [packDir, setPackDir] = useRecoilState(packDirState)
   const setCurrentPage = useSetRecoilState(currentPageState)
-  const [tab, setTab] = useState<'palettes' | 'colorize'>('palettes')
+  const [tab, setTab] = useState<'palettes' | 'colorize' | 'batch'>('palettes')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   const showStatus = useCallback((msg: string) => {
@@ -79,6 +80,7 @@ const PalettePage: React.FC = () => {
       >
         <Tab value="palettes" label="Palettes" />
         <Tab value="colorize" label="Colorize" />
+        <Tab value="batch" label="Batch" />
       </Tabs>
 
       <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -87,6 +89,9 @@ const PalettePage: React.FC = () => {
         </Box>
         <Box sx={{ display: tab === 'colorize' ? 'block' : 'none', height: '100%' }}>
           <ColorizeView packDir={packDir} active={tab === 'colorize'} onStatus={showStatus} />
+        </Box>
+        <Box sx={{ display: tab === 'batch' ? 'block' : 'none', height: '100%' }}>
+          <BatchView packDir={packDir} active={tab === 'batch'} onStatus={showStatus} />
         </Box>
       </Box>
     </Box>
