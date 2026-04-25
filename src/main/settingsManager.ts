@@ -20,6 +20,8 @@ export interface TaliesinSettings {
   ffmpegPath?: string
   musEncodeKbps: number
   musEncodeSampleRate: number
+  packDir?: string
+  companionPath?: string
 }
 
 const DEFAULTS: TaliesinSettings = {
@@ -63,7 +65,9 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
     ffmpegPath: typeof data.ffmpegPath === 'string' ? data.ffmpegPath : undefined,
     musEncodeKbps: typeof data.musEncodeKbps === 'number' ? data.musEncodeKbps : 64,
     musEncodeSampleRate:
-      typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050
+      typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050,
+    packDir: typeof data.packDir === 'string' ? data.packDir : undefined,
+    companionPath: typeof data.companionPath === 'string' ? data.companionPath : undefined
   }
 }
 

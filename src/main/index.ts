@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
-import { registerHandlers } from './handlers'
+import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 
 // Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local).
 // Electron removed 'cache' from getPath, so we resolve LOCALAPPDATA ourselves.
@@ -12,6 +12,21 @@ const cachePath = join(localAppData, 'Erisco', 'Taliesin')
 app.setPath('userData', cachePath)
 
 const settingsManager = createSettingsManager(settingsPath)
+
+// Exported so tests can seed `blessedRoots` with the synthetic paths their
+// in-memory filesystem uses. In production this is used purely internally.
+export const ctx: HandlerContext = {
+  settingsPath,
+  settingsManager,
+  appGetVersion: () => app.getVersion(),
+  settingsRoots: new Set<string>(),
+  blessedRoots: new Set<string>()
+}
+
+// Hydrate ctx.settingsRoots from the persisted settings as soon as we boot
+// so the first IPC call from the renderer can already see active library /
+// pack / music dirs etc. as authorised paths.
+settingsManager.load().then((s) => applySettingsRoots(ctx, s))
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -70,7 +85,4 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-registerHandlers(
-  { ipcMain, BrowserWindow, dialog },
-  { settingsPath, settingsManager, appGetVersion: () => app.getVersion() }
-)
+registerHandlers({ ipcMain, BrowserWindow, dialog }, ctx)

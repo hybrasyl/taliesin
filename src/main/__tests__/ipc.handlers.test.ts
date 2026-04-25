@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
+import { normalize as pathNormalize } from 'path'
 
 // Hoisted shared state — populated by the electron mock at registration time
 // and consumed by tests after import('../index') triggers the registrations.
@@ -315,7 +316,12 @@ function reset() {
 // ── Setup: import index.ts to register handlers ───────────────────────────────
 
 beforeAll(async () => {
-  await import('../index')
+  const indexModule = await import('../index')
+  // Wide-open root for the in-memory test filesystem. assertInsideAnyRoot
+  // accepts every absolute path when '/' is in the allowed set, which lets
+  // existing handler tests keep using synthetic paths. Phase 3 dedicated
+  // negative tests override this per-case to verify rejection works.
+  indexModule.ctx.blessedRoots.add('/')
 })
 
 beforeEach(() => {
@@ -475,7 +481,9 @@ describe('hybindex handlers', () => {
     const idx = { libraryPath: '/lib', builtAt: 't' }
     hybindex.buildIndex.mockResolvedValueOnce(idx)
     expect(await invoke('index:build', '/lib')).toBe(idx)
-    expect(hybindex.saveIndex).toHaveBeenCalledWith('/lib', idx)
+    // Path is normalized by assertInsideAnyRoot before being passed through;
+    // on Windows this swaps slashes, so compare against the platform-normalized form.
+    expect(hybindex.saveIndex).toHaveBeenCalledWith(pathNormalize('/lib'), idx)
   })
 
   it('index:status delegates to getIndexStatus', async () => {
@@ -485,11 +493,11 @@ describe('hybindex handlers', () => {
 
   it('index:delete delegates to deleteIndex', async () => {
     await invoke('index:delete', '/lib')
-    expect(hybindex.deleteIndex).toHaveBeenCalledWith('/lib')
+    expect(hybindex.deleteIndex).toHaveBeenCalledWith(pathNormalize('/lib'))
   })
 
   it('library:resolve delegates to resolveLibraryPath', async () => {
-    expect(await invoke('library:resolve', '/picked')).toBe('/picked/world/xml')
+    expect(await invoke('library:resolve', '/picked')).toBe(pathNormalize('/picked') + '/world/xml')
   })
 })
 
@@ -961,5 +969,153 @@ describe('music metadata + packs', () => {
     await invoke('music:packs:save', '/lib', [{ id: 'x' }])
     const saved = JSON.parse(files.get('/lib/music-packs.json')!.toString('utf-8'))
     expect(saved[0].id).toBe('x')
+  })
+})
+
+// ── Category-A path-traversal rejection ──────────────────────────────────────
+//
+// Each handler that takes a renderer-supplied absolute path validates it
+// against ctx.roots. This block narrows the allowed roots to /library, then
+// invokes every channel with a path under /escape and asserts it's denied.
+
+describe('Category-A path-traversal rejection', () => {
+  // Channels that reject by throwing when the path is outside allowed roots.
+  // First arg of every entry is the path that should be rejected.
+  const throwingCases: [string, unknown[]][] = [
+    ['fs:readFile', ['/escape/x']],
+    ['fs:listDir', ['/escape']],
+    ['fs:copyFile', ['/escape/x', '/library/x']],
+    ['fs:writeFile', ['/escape/x', 'data']],
+    ['fs:writeBytes', ['/escape/x', new Uint8Array(0)]],
+    ['fs:ensureDir', ['/escape/dir']],
+    ['fs:deleteFile', ['/escape/x']],
+    ['fs:listArchive', ['/escape/a.dat']],
+    ['catalog:save', ['/escape/maps', {}]],
+    ['catalog:scan', ['/escape/maps']],
+    ['music:metadata:save', ['/escape/music', {}]],
+    ['music:packs:save', ['/escape/music', []]],
+    ['music:packs:load', ['/escape/music']],
+    ['music:metadata:load', ['/escape/music']],
+    [
+      'music:deploy-pack',
+      ['/escape/lib', { tracks: [], id: 'p', name: 'p' }, '/library/dst', null, 64, 22050]
+    ],
+    ['sfx:list', ['/escape/client']],
+    ['sfx:readEntry', ['/escape/client', 'a.mp3']],
+    ['sfx:index:load', ['/escape/lib']],
+    ['sfx:index:save', ['/escape/lib', {}]],
+    ['bik:convert', [new Uint8Array(0), null, '/escape/cache']],
+    ['index:read', ['/escape/lib']],
+    ['index:build', ['/escape/lib']],
+    ['index:status', ['/escape/lib']],
+    ['index:delete', ['/escape/lib']],
+    ['library:resolve', ['/escape/picked']],
+    ['prefab:load', ['/escape/lib', 'a.json']],
+    ['prefab:save', ['/escape/lib', 'a.json', {}]],
+    ['prefab:delete', ['/escape/lib', 'a.json']],
+    ['prefab:rename', ['/escape/lib', 'a.json', 'b.json']],
+    ['pack:load', ['/escape/p.json']],
+    ['pack:save', ['/escape/p.json', {}]],
+    ['pack:delete', ['/escape/p.json']],
+    ['pack:addAsset', ['/escape/pack', '/library/a.png', 'b.png']],
+    ['pack:removeAsset', ['/escape/pack', 'a.png']],
+    ['pack:compile', ['/escape/pack', {}, [], '/library/out.datf']],
+    ['palette:load', ['/escape/p.json']],
+    ['palette:save', ['/escape/p.json', {}]],
+    ['palette:calibrationLoad', ['/escape/pack', 'fire']],
+    ['palette:calibrationSave', ['/escape/pack', 'fire', {}]],
+    ['frame:scan', ['/escape/pack']],
+    ['catalog:load', ['/escape/maps']],
+    ['prefab:list', ['/escape/lib']]
+  ]
+
+  // Channels that swallow root-rejection errors and return an "empty" shape
+  // (matching their existing behaviour for missing/unreadable directories).
+  // The bad path can't be read, but the renderer gets a non-throwing answer.
+  const swallowingCases: [string, unknown[], unknown][] = [
+    ['fs:exists', ['/escape/x'], false],
+    ['music:scan', ['/escape/music'], []],
+    ['music:client:scan', ['/escape/client'], []],
+    ['music:readFileMeta', ['/escape/song.mp3'], null],
+    ['palette:scan', ['/escape/pack'], []],
+    ['palette:delete', ['/escape/p.json'], undefined],
+    ['pack:scan', ['/escape/packs'], []]
+  ]
+
+  let savedBlessed: Set<string>
+  let indexModule: typeof import('../index')
+
+  beforeEach(async () => {
+    indexModule = await import('../index')
+    savedBlessed = new Set(indexModule.ctx.blessedRoots)
+    indexModule.ctx.blessedRoots.clear()
+    indexModule.ctx.blessedRoots.add('/library')
+  })
+
+  afterEach(() => {
+    indexModule.ctx.blessedRoots.clear()
+    savedBlessed.forEach((r) => indexModule.ctx.blessedRoots.add(r))
+  })
+
+  it.each(throwingCases)(
+    '%s rejects an absolute path outside allowed roots',
+    async (channel, args) => {
+      await expect(invoke(channel, ...args)).rejects.toThrow()
+    }
+  )
+
+  it.each(swallowingCases)(
+    '%s swallows root rejection and returns the empty shape',
+    async (channel, args, expected) => {
+      expect(await invoke(channel, ...args)).toEqual(expected)
+    }
+  )
+
+  it('tileScan:analyze skips disallowed dirs and returns no aggregated tile data', async () => {
+    const result = (await invoke('tileScan:analyze', ['/escape/maps'])) as {
+      fileCount: number
+      tileCount: number
+    }
+    expect(result.fileCount).toBe(0)
+    expect(result.tileCount).toBe(0)
+  })
+})
+
+// ── Dialog auto-bless integration ────────────────────────────────────────────
+
+describe('Dialog auto-bless integration', () => {
+  let savedBlessed: Set<string>
+  let indexModule: typeof import('../index')
+
+  beforeEach(async () => {
+    indexModule = await import('../index')
+    savedBlessed = new Set(indexModule.ctx.blessedRoots)
+    indexModule.ctx.blessedRoots.clear()
+    indexModule.ctx.blessedRoots.add('/library')
+  })
+
+  afterEach(() => {
+    indexModule.ctx.blessedRoots.clear()
+    savedBlessed.forEach((r) => indexModule.ctx.blessedRoots.add(r))
+  })
+
+  it('dialog:openFile blesses the picked file path so a subsequent fs:readFile succeeds', async () => {
+    dialogReplies.openFile = ['/blessed/file.txt']
+    files.set('/blessed/file.txt', Buffer.from('hello', 'utf-8'))
+
+    // Without auto-bless this read would throw — /blessed is not under /library.
+    const picked = await invoke('dialog:openFile')
+    expect(picked).toBe('/blessed/file.txt')
+    const buf = await invoke<Buffer>('fs:readFile', '/blessed/file.txt')
+    expect(Buffer.from(buf).toString('utf-8')).toBe('hello')
+  })
+
+  it('dialog:openDirectory blesses the picked dir so files inside become readable', async () => {
+    dialogReplies.openDirectory = '/blessed-dir'
+    files.set('/blessed-dir/foo.txt', Buffer.from('x', 'utf-8'))
+
+    expect(await invoke('dialog:openDirectory')).toBe('/blessed-dir')
+    const buf = await invoke<Buffer>('fs:readFile', '/blessed-dir/foo.txt')
+    expect(Buffer.from(buf).toString('utf-8')).toBe('x')
   })
 })

@@ -24,3 +24,45 @@ export function assertInside(parent: string, candidate: string): string {
   }
   return absCandidate
 }
+
+/**
+ * Reject a renderer-supplied path that doesn't fall inside any of the
+ * currently-allowed session roots. Used by Category-A handlers that take
+ * a full absolute path with no implicit parent (`fs:readFile`, `pack:load`,
+ * etc.) — the renderer can't address arbitrary disk locations, only paths
+ * the user has authorised this session.
+ *
+ * Returns the normalized absolute path on success.
+ */
+export function assertInsideAnyRoot(roots: Iterable<string>, candidate: string): string {
+  let firstError: Error | null = null
+  let rootCount = 0
+  for (const root of roots) {
+    rootCount++
+    try {
+      return assertInside(root, candidate)
+    } catch (err) {
+      if (!firstError) firstError = err as Error
+    }
+  }
+  if (rootCount === 0) {
+    throw new Error(`Path "${candidate}" rejected: no allowed roots configured`)
+  }
+  throw new Error(`Path "${candidate}" is not inside any allowed root`)
+}
+
+/**
+ * Predicate variant of `assertInsideAnyRoot` for use in zod refinements
+ * and other contexts where throwing is the wrong shape.
+ */
+export function isInsideAnyRoot(roots: Iterable<string>, candidate: string): boolean {
+  for (const root of roots) {
+    try {
+      assertInside(root, candidate)
+      return true
+    } catch {
+      /* try next */
+    }
+  }
+  return false
+}

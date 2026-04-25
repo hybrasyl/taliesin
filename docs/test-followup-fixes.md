@@ -40,16 +40,13 @@ assert the guard (missing track + empty `srcLibDir`).
 
 ---
 
-## ~~3. No path-traversal validation on IPC path arguments (P1)~~ — PARTIAL
+## ~~3. No path-traversal validation on IPC path arguments (P1)~~ — FIXED
 
-**Files**: `src/main/pathSafety.ts` (new), `src/main/handlers.ts`
+**Files**: `src/main/pathSafety.ts`, `src/main/handlers.ts`,
+`src/main/index.ts`, `src/main/settingsManager.ts`
 
-Added `assertInside(parent, candidate)` in `src/main/pathSafety.ts` —
-uses `normalize` + `join` (no cwd dependency, so it's safe in tests with
-synthetic POSIX-style paths and on Windows production paths alike).
-
-Wired into every Category-B handler — the ones that compose a path from
-a known parent dir + a renderer-supplied component:
+**Category-B (handler composes path = parent + filename)** — already
+landed earlier with `assertInside`:
 
 - prefab: `prefabLoad/Save/Delete/Rename` (filename, oldName, newName)
 - pack: `packAddAsset/RemoveAsset/Compile` (targetFilename, filename, assetFilenames[])
@@ -57,21 +54,41 @@ a known parent dir + a renderer-supplied component:
 - theme: `themeLoad/Save/Delete` (filename)
 - music: `musicDeployPack` (track.sourceFile, ${musicId}.mus)
 
-**Still uncovered (Category A)**: handlers that take a full absolute
-path directly — `fs:readFile`, `fs:listDir`, `fs:writeFile`, `pack:load`,
-`palette:load`, `catalog:load`, `index:build`, `app:launchCompanion`,
-etc. There is no implicit "parent root" the handler knows about, so
-`assertInside` doesn't apply. Locking these down would require tracking
-the active library / settings / app roots in `HandlerContext` and
-rejecting any path outside that allow-list. Defer until there's a
-concrete threat model — current trust model assumes the renderer
-authored these paths via OS dialogs.
+**Category-A (handler takes a full absolute path)** — closed out by
+introducing a session-scoped allowed-root set in `HandlerContext`:
 
-12 unit tests in
-[`src/main/__tests__/pathSafety.test.ts`](../src/main/__tests__/pathSafety.test.ts)
-cover the helper directly (escape via `..`, near-miss prefix, absolute
-candidates, etc.). 10 traversal-rejection tests added to
-[`src/main/__tests__/ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts).
+- `pathSafety.ts` adds `assertInsideAnyRoot(roots, candidate)` and
+  predicate `isInsideAnyRoot` for use in zod schema refinements.
+- `HandlerContext` carries `settingsRoots: Set<string>` (derived from
+  user settings: clientPath, activeLibrary, activeMapDirectory,
+  musicLibraryPath, activeMusicWorkingDir, packDir) and
+  `blessedRoots: Set<string>` (one-shot consent from OS dialog returns).
+- `applySettingsRoots(ctx, settings)` refreshes the settings-derived
+  set at startup and after every `saveSettings`. Dialog blessings
+  persist across that refresh.
+- Every Category-A handler now validates its path argument against
+  `allRoots(ctx)` via `assertInsideAnyRoot` — `fs:*`, `catalog:*`,
+  `music:*`, `sfx:*`, `bik:convert`, `index:*`, `library:resolve`,
+  `prefab:*`, `pack:*`, `palette:*`, `frame:scan`, `tileScan:analyze`.
+- `app:launchCompanion` is locked down separately: only the exact path
+  stored in `settings.companionPath` may be spawned (process exec is a
+  bigger blast radius than file read, so root-membership isn't enough).
+- `settingsManager` gained the previously-stripped `companionPath` and
+  `packDir` fields — without them the launcher whitelist and pack roots
+  couldn't survive a settings reload.
+
+24 unit tests in [`pathSafety.test.ts`](../src/main/__tests__/pathSafety.test.ts)
+cover the helpers (12 for `assertInside`, 6 for `assertInsideAnyRoot`,
+3 for `isInsideAnyRoot`). 50+ traversal-rejection tests in
+[`ipc.handlers.test.ts`](../src/main/__tests__/ipc.handlers.test.ts)
+exercise every Category-A handler — the throwing ones via
+`expect(...).rejects.toThrow()`, and the swallowing ones (`fs:exists`,
+`music:scan`, `music:client:scan`, `music:readFileMeta`, `palette:scan`,
+`palette:delete`, `pack:scan`) by asserting they return their empty
+shape rather than touching the filesystem. Two positive tests verify
+the dialog auto-bless flow: a path picked via `dialog:openFile` /
+`dialog:openDirectory` becomes immediately readable through `fs:readFile`
+without any extra "set active" round-trip.
 
 ---
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { join, normalize } from 'path'
-import { assertInside } from '../pathSafety'
+import { assertInside, assertInsideAnyRoot, isInsideAnyRoot } from '../pathSafety'
 
 const norm = (p: string) => normalize(p)
 const childOf = (parent: string, child: string) => normalize(join(normalize(parent), child))
@@ -56,5 +56,61 @@ describe('assertInside', () => {
   it('accepts a normalized-out path that stays inside', () => {
     // /parent + sub/../foo.json  →  /parent/foo.json
     expect(assertInside('/parent', 'sub/../foo.json')).toBe(childOf('/parent', 'foo.json'))
+  })
+})
+
+describe('assertInsideAnyRoot', () => {
+  it('accepts a path inside the only configured root', () => {
+    const roots = new Set([norm('/lib')])
+    expect(assertInsideAnyRoot(roots, childOf('/lib', 'maps/x.map'))).toBe(
+      childOf('/lib', 'maps/x.map')
+    )
+  })
+
+  it('accepts a path inside any of several configured roots', () => {
+    const roots = new Set([norm('/lib'), norm('/packs'), norm('/music')])
+    expect(assertInsideAnyRoot(roots, childOf('/packs', 'icons.datf'))).toBe(
+      childOf('/packs', 'icons.datf')
+    )
+    expect(assertInsideAnyRoot(roots, childOf('/music', 'theme.mp3'))).toBe(
+      childOf('/music', 'theme.mp3')
+    )
+  })
+
+  it('rejects a path that escapes every configured root', () => {
+    const roots = new Set([norm('/lib'), norm('/packs')])
+    expect(() => assertInsideAnyRoot(roots, norm('/etc/passwd'))).toThrow(/not inside any allowed/)
+  })
+
+  it('rejects a near-miss prefix against every root', () => {
+    const roots = new Set([norm('/lib')])
+    expect(() => assertInsideAnyRoot(roots, norm('/lib-evil/x'))).toThrow(/not inside any allowed/)
+  })
+
+  it('rejects when no roots are configured', () => {
+    expect(() => assertInsideAnyRoot(new Set<string>(), norm('/anywhere'))).toThrow(
+      /no allowed roots/
+    )
+  })
+
+  it('returns the normalized absolute path on success', () => {
+    const roots = new Set([norm('/lib')])
+    expect(assertInsideAnyRoot(roots, '/lib/sub/../foo')).toBe(childOf('/lib', 'foo'))
+  })
+})
+
+describe('isInsideAnyRoot', () => {
+  it('returns true for a path inside one of the roots', () => {
+    const roots = new Set([norm('/lib'), norm('/packs')])
+    expect(isInsideAnyRoot(roots, childOf('/packs', 'a.json'))).toBe(true)
+  })
+
+  it('returns false for a path outside every root', () => {
+    const roots = new Set([norm('/lib')])
+    expect(isInsideAnyRoot(roots, norm('/etc/passwd'))).toBe(false)
+  })
+
+  it('returns false when no roots are configured', () => {
+    expect(isInsideAnyRoot(new Set<string>(), norm('/anywhere'))).toBe(false)
   })
 })

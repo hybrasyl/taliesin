@@ -19,8 +19,8 @@ import {
   deleteIndex
 } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
-import { assertInside } from './pathSafety'
-import type { createSettingsManager } from './settingsManager'
+import { assertInside, assertInsideAnyRoot } from './pathSafety'
+import type { createSettingsManager, TaliesinSettings } from './settingsManager'
 
 const execFileAsync = promisify(execFile)
 
@@ -28,6 +28,44 @@ export interface HandlerContext {
   settingsPath: string
   settingsManager: ReturnType<typeof createSettingsManager>
   appGetVersion: () => string
+  /** Path roots derived from current settings (active library, pack dir, etc.). */
+  settingsRoots: Set<string>
+  /** Paths blessed this session via OS dialog selections (one-shot user consent). */
+  blessedRoots: Set<string>
+}
+
+/**
+ * Iterate every currently-allowed path root: the settings dir, settings-derived
+ * roots, and session-blessed roots. Used by `assertInsideAnyRoot` at every
+ * Category-A handler boundary.
+ */
+export function* allRoots(ctx: HandlerContext): Iterable<string> {
+  yield ctx.settingsPath
+  yield* ctx.settingsRoots
+  yield* ctx.blessedRoots
+}
+
+/**
+ * Replace the settings-derived root set from a TaliesinSettings snapshot.
+ * Dialog-blessed roots are preserved across this call. Invoke after settings
+ * load on startup and after every saveSettings IPC call.
+ */
+export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
+  ctx.settingsRoots.clear()
+  if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
+  if (settings.activeLibrary) ctx.settingsRoots.add(settings.activeLibrary)
+  if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
+  if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
+  if (settings.activeMusicWorkingDir) ctx.settingsRoots.add(settings.activeMusicWorkingDir)
+  if (settings.packDir) ctx.settingsRoots.add(settings.packDir)
+}
+
+/**
+ * Add a session-blessed root (typically from an OS dialog return). Idempotent.
+ * Blessings persist for the rest of the process lifetime.
+ */
+export function blessRoot(ctx: HandlerContext, path: string | null | undefined): void {
+  if (path) ctx.blessedRoots.add(path)
 }
 
 // ── Settings / app ───────────────────────────────────────────────────────────
@@ -37,16 +75,25 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  return ctx.settingsManager.save(
-    settings as Parameters<HandlerContext['settingsManager']['save']>[0]
-  )
+  const typed = settings as Parameters<HandlerContext['settingsManager']['save']>[0]
+  await ctx.settingsManager.save(typed)
+  // Refresh the allowed-root set so subsequent path-validating handlers
+  // see the new active library / pack / etc. without waiting for a restart.
+  applySettingsRoots(ctx, typed)
 }
 
 export function getUserDataPath(ctx: HandlerContext): string {
   return ctx.settingsPath
 }
 
-export async function launchCompanion(exePath: string): Promise<boolean> {
+export async function launchCompanion(ctx: HandlerContext, exePath: string): Promise<boolean> {
+  // Whitelist: only the exe path explicitly configured in Settings may be
+  // launched. spawn() bypasses the file-read root check (a process is much
+  // bigger blast radius than a file read), so we lock it down to one
+  // settings-controlled target. Different launcher? Update Settings first.
+  const settings = await ctx.settingsManager.load()
+  const allowed = settings.companionPath
+  if (!allowed || exePath !== allowed) return false
   try {
     await fs.access(exePath)
     spawn(exePath, [], { detached: true, stdio: 'ignore' }).unref()
@@ -67,51 +114,71 @@ export async function getAppVersion(ctx: HandlerContext): Promise<string> {
 }
 
 // ── File system ──────────────────────────────────────────────────────────────
+//
+// Category-A handlers: each path argument is renderer-supplied with no
+// implicit parent, so we validate against ctx.roots up front.
 
-export async function readFile(filePath: string): Promise<Buffer> {
-  return fs.readFile(filePath)
+export async function readFile(ctx: HandlerContext, filePath: string): Promise<Buffer> {
+  return fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath))
 }
 
-export async function listDir(dirPath: string): Promise<{ name: string; isDirectory: boolean }[]> {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true })
+export async function listDir(
+  ctx: HandlerContext,
+  dirPath: string
+): Promise<{ name: string; isDirectory: boolean }[]> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const entries = await fs.readdir(safe, { withFileTypes: true })
   return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory() }))
 }
 
-export async function copyFile(src: string, dst: string): Promise<void> {
-  await fs.mkdir(dirname(dst), { recursive: true })
-  await fs.copyFile(src, dst)
+export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
+  const safeSrc = assertInsideAnyRoot(allRoots(ctx), src)
+  const safeDst = assertInsideAnyRoot(allRoots(ctx), dst)
+  await fs.mkdir(dirname(safeDst), { recursive: true })
+  await fs.copyFile(safeSrc, safeDst)
 }
 
-export async function writeFile(filePath: string, content: string): Promise<void> {
-  await fs.mkdir(dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, content, 'utf-8')
+export async function writeFile(
+  ctx: HandlerContext,
+  filePath: string,
+  content: string
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  await fs.mkdir(dirname(safe), { recursive: true })
+  await fs.writeFile(safe, content, 'utf-8')
 }
 
-export async function writeBytes(filePath: string, data: Uint8Array): Promise<void> {
-  await fs.mkdir(dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, Buffer.from(data))
+export async function writeBytes(
+  ctx: HandlerContext,
+  filePath: string,
+  data: Uint8Array
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  await fs.mkdir(dirname(safe), { recursive: true })
+  await fs.writeFile(safe, Buffer.from(data))
 }
 
-export async function exists(filePath: string): Promise<boolean> {
+export async function exists(ctx: HandlerContext, filePath: string): Promise<boolean> {
   try {
-    await fs.access(filePath)
+    await fs.access(assertInsideAnyRoot(allRoots(ctx), filePath))
     return true
   } catch {
     return false
   }
 }
 
-export async function ensureDir(dirPath: string): Promise<void> {
-  await fs.mkdir(dirPath, { recursive: true })
+export async function ensureDir(ctx: HandlerContext, dirPath: string): Promise<void> {
+  await fs.mkdir(assertInsideAnyRoot(allRoots(ctx), dirPath), { recursive: true })
 }
 
-export async function deleteFile(filePath: string): Promise<void> {
-  await fs.unlink(filePath)
+export async function deleteFile(ctx: HandlerContext, filePath: string): Promise<void> {
+  await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
 }
 
-export async function listArchive(filePath: string): Promise<string[]> {
+export async function listArchive(ctx: HandlerContext, filePath: string): Promise<string[]> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const buf = await fs.readFile(filePath)
+  const buf = await fs.readFile(safe)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries.map((e) => e.entryName)
 }
@@ -135,8 +202,12 @@ function getCatalogPath(dirPath: string): string {
   return join(dirPath, 'map-catalog.json')
 }
 
-export async function catalogLoad(dirPath: string): Promise<Record<string, unknown>> {
-  const p = getCatalogPath(dirPath)
+export async function catalogLoad(
+  ctx: HandlerContext,
+  dirPath: string
+): Promise<Record<string, unknown>> {
+  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = getCatalogPath(safeDir)
   try {
     return JSON.parse(await fs.readFile(p, 'utf-8'))
   } catch {
@@ -144,20 +215,27 @@ export async function catalogLoad(dirPath: string): Promise<Record<string, unkno
   }
 }
 
-export async function catalogSave(dirPath: string, data: unknown): Promise<void> {
-  const p = getCatalogPath(dirPath)
+export async function catalogSave(
+  ctx: HandlerContext,
+  dirPath: string,
+  data: unknown
+): Promise<void> {
+  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = getCatalogPath(safeDir)
   await fs.mkdir(dirname(p), { recursive: true })
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
 export async function catalogScan(
+  ctx: HandlerContext,
   dirPath: string
 ): Promise<{ filename: string; sizeBytes: number }[]> {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true })
+  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const entries = await fs.readdir(safeDir, { withFileTypes: true })
   const maps = entries.filter((e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name))
   return Promise.all(
     maps.map(async (e) => {
-      const stat = await fs.stat(join(dirPath, e.name))
+      const stat = await fs.stat(join(safeDir, e.name))
       return { filename: e.name, sizeBytes: stat.size }
     })
   )
@@ -197,10 +275,11 @@ function findTxxxFrame(
   return null
 }
 
-export async function musicReadFileMeta(filePath: string) {
+export async function musicReadFileMeta(ctx: HandlerContext, filePath: string) {
   try {
+    const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
     const { parseBuffer } = await import('music-metadata')
-    const buf = await fs.readFile(filePath)
+    const buf = await fs.readFile(safe)
     const meta = await parseBuffer(buf, undefined, { duration: true, skipCovers: true })
     const { title, artist, genre, album } = meta.common
     const { duration, bitrate, sampleRate, numberOfChannels } = meta.format
@@ -246,16 +325,21 @@ async function scanMusicDir(
   return nested.flat()
 }
 
-export async function musicScan(dirPath: string) {
+export async function musicScan(ctx: HandlerContext, dirPath: string) {
   try {
-    return await scanMusicDir(dirPath)
+    const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+    return await scanMusicDir(safe)
   } catch {
     return []
   }
 }
 
-export async function musicMetadataLoad(dirPath: string): Promise<Record<string, unknown>> {
-  const p = join(dirPath, 'music-library.json')
+export async function musicMetadataLoad(
+  ctx: HandlerContext,
+  dirPath: string
+): Promise<Record<string, unknown>> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = join(safe, 'music-library.json')
   try {
     return JSON.parse(await fs.readFile(p, 'utf-8'))
   } catch {
@@ -263,14 +347,20 @@ export async function musicMetadataLoad(dirPath: string): Promise<Record<string,
   }
 }
 
-export async function musicMetadataSave(dirPath: string, data: unknown): Promise<void> {
-  const p = join(dirPath, 'music-library.json')
+export async function musicMetadataSave(
+  ctx: HandlerContext,
+  dirPath: string,
+  data: unknown
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = join(safe, 'music-library.json')
   await fs.mkdir(dirname(p), { recursive: true })
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function musicPacksLoad(dirPath: string): Promise<unknown> {
-  const p = join(dirPath, 'music-packs.json')
+export async function musicPacksLoad(ctx: HandlerContext, dirPath: string): Promise<unknown> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = join(safe, 'music-packs.json')
   try {
     return JSON.parse(await fs.readFile(p, 'utf-8'))
   } catch {
@@ -278,8 +368,13 @@ export async function musicPacksLoad(dirPath: string): Promise<unknown> {
   }
 }
 
-export async function musicPacksSave(dirPath: string, packs: unknown): Promise<void> {
-  const p = join(dirPath, 'music-packs.json')
+export async function musicPacksSave(
+  ctx: HandlerContext,
+  dirPath: string,
+  packs: unknown
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const p = join(safe, 'music-packs.json')
   await fs.mkdir(dirname(p), { recursive: true })
   await fs.writeFile(p, JSON.stringify(packs, null, 2), 'utf-8')
 }
@@ -336,6 +431,7 @@ async function deployTrackFn(
 }
 
 export async function musicDeployPack(
+  ctx: HandlerContext,
   srcLibDir: string,
   pack: DeployPack,
   destDir: string,
@@ -344,6 +440,8 @@ export async function musicDeployPack(
   musEncodeSampleRate: number
 ): Promise<void> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
+  const safeSrcLib = assertInsideAnyRoot(allRoots(ctx), srcLibDir)
+  const safeDest = assertInsideAnyRoot(allRoots(ctx), destDir)
   // Resolve and validate every track's source path up front. assertInside
   // rejects path-traversal attempts; fs.stat catches missing files. Both
   // checks run BEFORE touching destDir, so a stale or malicious entry can't
@@ -351,8 +449,8 @@ export async function musicDeployPack(
   const resolved: { src: string; dst: string; original: string }[] = []
   const missing: string[] = []
   for (const track of pack.tracks) {
-    const src = assertInside(srcLibDir, track.sourceFile)
-    const dst = assertInside(destDir, `${track.musicId}.mus`)
+    const src = assertInside(safeSrcLib, track.sourceFile)
+    const dst = assertInside(safeDest, `${track.musicId}.mus`)
     resolved.push({ src, dst, original: track.sourceFile })
   }
   await Promise.all(
@@ -369,10 +467,10 @@ export async function musicDeployPack(
       `Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`
     )
   }
-  await fs.mkdir(destDir, { recursive: true })
-  const existing = await fs.readdir(destDir, { withFileTypes: true })
+  await fs.mkdir(safeDest, { recursive: true })
+  const existing = await fs.readdir(safeDest, { withFileTypes: true })
   await Promise.all(
-    existing.filter((e) => !e.isDirectory()).map((e) => fs.unlink(join(destDir, e.name)))
+    existing.filter((e) => !e.isDirectory()).map((e) => fs.unlink(join(safeDest, e.name)))
   )
   // Import music-metadata once for the whole pack — parallel dynamic imports
   // race in Vitest's mock substitution and cause one of the calls to fall
@@ -389,14 +487,16 @@ export async function musicDeployPack(
     exportedAt: new Date().toISOString(),
     tracks: pack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile }))
   }
-  await fs.writeFile(join(destDir, 'music-pack.json'), JSON.stringify(manifest, null, 2), 'utf-8')
+  await fs.writeFile(join(safeDest, 'music-pack.json'), JSON.stringify(manifest, null, 2), 'utf-8')
 }
 
 export async function musicClientScan(
+  ctx: HandlerContext,
   clientPath: string
 ): Promise<{ filename: string; sizeBytes: number }[]> {
-  const musicDir = join(clientPath, 'music')
   try {
+    const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
+    const musicDir = join(safe, 'music')
     const entries = await fs.readdir(musicDir, { withFileTypes: true })
     const files = entries.filter((e) => !e.isDirectory() && /^\d+\.mus$/i.test(e.name))
     return Promise.all(
@@ -413,10 +513,12 @@ export async function musicClientScan(
 // ── SFX ──────────────────────────────────────────────────────────────────────
 
 export async function sfxList(
+  ctx: HandlerContext,
   clientPath: string
 ): Promise<{ entryName: string; sizeBytes: number }[]> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(clientPath, 'legend.dat')
+  const legendPath = join(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries
@@ -424,9 +526,14 @@ export async function sfxList(
     .map((e) => ({ entryName: e.entryName, sizeBytes: e.fileSize }))
 }
 
-export async function sfxReadEntry(clientPath: string, entryName: string): Promise<Buffer> {
+export async function sfxReadEntry(
+  ctx: HandlerContext,
+  clientPath: string,
+  entryName: string
+): Promise<Buffer> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(clientPath, 'legend.dat')
+  const legendPath = join(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   const entry = archive.get(entryName)
@@ -434,8 +541,12 @@ export async function sfxReadEntry(clientPath: string, entryName: string): Promi
   return Buffer.from(archive.getEntryBuffer(entry))
 }
 
-export async function sfxIndexLoad(activeLibrary: string): Promise<Record<string, unknown>> {
-  const p = join(activeLibrary, '..', 'sfx-index.json')
+export async function sfxIndexLoad(
+  ctx: HandlerContext,
+  activeLibrary: string
+): Promise<Record<string, unknown>> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
+  const p = join(safe, '..', 'sfx-index.json')
   try {
     return JSON.parse(await fs.readFile(p, 'utf-8'))
   } catch {
@@ -443,8 +554,13 @@ export async function sfxIndexLoad(activeLibrary: string): Promise<Record<string
   }
 }
 
-export async function sfxIndexSave(activeLibrary: string, data: unknown): Promise<void> {
-  const p = join(activeLibrary, '..', 'sfx-index.json')
+export async function sfxIndexSave(
+  ctx: HandlerContext,
+  activeLibrary: string,
+  data: unknown
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
+  const p = join(safe, '..', 'sfx-index.json')
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
@@ -458,17 +574,19 @@ export async function sfxIndexSave(activeLibrary: string, data: unknown): Promis
  * Returns the absolute path to the cached MP4.
  */
 export async function bikConvert(
+  ctx: HandlerContext,
   bytes: Uint8Array,
   ffmpegPath: string | null,
   cacheDir: string
 ): Promise<string> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
+  const safeCache = assertInsideAnyRoot(allRoots(ctx), cacheDir)
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 32)
-  await fs.mkdir(cacheDir, { recursive: true })
+  await fs.mkdir(safeCache, { recursive: true })
   // assertInside guards against a malicious cacheDir + hash combination escaping
   // the cache root; hash is 32 hex chars from createHash so this should always
   // resolve cleanly, but the check keeps the safety invariant locally enforced.
-  const mp4Path = assertInside(cacheDir, `${hash}.mp4`)
+  const mp4Path = assertInside(safeCache, `${hash}.mp4`)
   try {
     await fs.access(mp4Path)
     return mp4Path // cache hit
@@ -476,7 +594,7 @@ export async function bikConvert(
     /* fall through to conversion */
   }
 
-  const bikPath = assertInside(cacheDir, `${hash}.bik`)
+  const bikPath = assertInside(safeCache, `${hash}.bik`)
   await fs.writeFile(bikPath, Buffer.from(bytes))
   try {
     await execFileAsync(ffmpegBin, [
@@ -505,26 +623,27 @@ export async function bikConvert(
 
 // ── World index ──────────────────────────────────────────────────────────────
 
-export async function indexRead(libraryRoot: string) {
-  return loadIndex(libraryRoot)
+export async function indexRead(ctx: HandlerContext, libraryRoot: string) {
+  return loadIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
 }
 
-export async function indexBuild(libraryRoot: string) {
-  const idx = await buildIndex(libraryRoot)
-  await saveIndex(libraryRoot, idx)
+export async function indexBuild(ctx: HandlerContext, libraryRoot: string) {
+  const safe = assertInsideAnyRoot(allRoots(ctx), libraryRoot)
+  const idx = await buildIndex(safe)
+  await saveIndex(safe, idx)
   return idx
 }
 
-export async function indexStatus(libraryRoot: string) {
-  return getIndexStatus(libraryRoot)
+export async function indexStatus(ctx: HandlerContext, libraryRoot: string) {
+  return getIndexStatus(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
 }
 
-export async function libraryResolve(selectedPath: string) {
-  return resolveLibraryPath(selectedPath)
+export async function libraryResolve(ctx: HandlerContext, selectedPath: string) {
+  return resolveLibraryPath(assertInsideAnyRoot(allRoots(ctx), selectedPath))
 }
 
-export async function indexDelete(libraryRoot: string) {
-  return deleteIndex(libraryRoot)
+export async function indexDelete(ctx: HandlerContext, libraryRoot: string) {
+  return deleteIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
 }
 
 // ── Prefabs ──────────────────────────────────────────────────────────────────
@@ -533,8 +652,9 @@ function prefabDir(libraryPath: string): string {
   return join(libraryPath, '..', '.creidhne', 'prefabs')
 }
 
-export async function prefabList(libraryPath: string) {
-  const dir = prefabDir(libraryPath)
+export async function prefabList(ctx: HandlerContext, libraryPath: string) {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const dir = prefabDir(safeLib)
   try {
     await fs.mkdir(dir, { recursive: true })
     const entries = await fs.readdir(dir, { withFileTypes: true })
@@ -568,44 +688,58 @@ export async function prefabList(libraryPath: string) {
   }
 }
 
-export async function prefabLoad(libraryPath: string, filename: string) {
-  const p = assertInside(prefabDir(libraryPath), filename)
+export async function prefabLoad(ctx: HandlerContext, libraryPath: string, filename: string) {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const p = assertInside(prefabDir(safeLib), filename)
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
 export async function prefabSave(
+  ctx: HandlerContext,
   libraryPath: string,
   filename: string,
   data: unknown
 ): Promise<void> {
-  const dir = prefabDir(libraryPath)
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const dir = prefabDir(safeLib)
   const p = assertInside(dir, filename)
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function prefabDelete(libraryPath: string, filename: string): Promise<void> {
-  await fs.unlink(assertInside(prefabDir(libraryPath), filename))
+export async function prefabDelete(
+  ctx: HandlerContext,
+  libraryPath: string,
+  filename: string
+): Promise<void> {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  await fs.unlink(assertInside(prefabDir(safeLib), filename))
 }
 
 export async function prefabRename(
+  ctx: HandlerContext,
   libraryPath: string,
   oldName: string,
   newName: string
 ): Promise<void> {
-  const dir = prefabDir(libraryPath)
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const dir = prefabDir(safeLib)
   await fs.rename(assertInside(dir, oldName), assertInside(dir, newName))
 }
 
 // ── Asset packs (.datf) ──────────────────────────────────────────────────────
 
-export async function packScan(dirPath: string): Promise<Record<string, unknown>[]> {
+export async function packScan(
+  ctx: HandlerContext,
+  dirPath: string
+): Promise<Record<string, unknown>[]> {
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+    const entries = await fs.readdir(safe, { withFileTypes: true })
     const packs: Record<string, unknown>[] = []
     for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
       try {
-        const raw = await fs.readFile(join(dirPath, e.name), 'utf-8')
+        const raw = await fs.readFile(join(safe, e.name), 'utf-8')
         const data = JSON.parse(raw)
         if (data.pack_id && data.content_type) {
           packs.push({ filename: e.name, ...data })
@@ -620,31 +754,44 @@ export async function packScan(dirPath: string): Promise<Record<string, unknown>
   }
 }
 
-export async function packLoad(filePath: string) {
-  return JSON.parse(await fs.readFile(filePath, 'utf-8'))
+export async function packLoad(ctx: HandlerContext, filePath: string) {
+  return JSON.parse(await fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath), 'utf-8'))
 }
 
-export async function packSave(filePath: string, data: unknown): Promise<void> {
-  await fs.mkdir(dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+export async function packSave(
+  ctx: HandlerContext,
+  filePath: string,
+  data: unknown
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  await fs.mkdir(dirname(safe), { recursive: true })
+  await fs.writeFile(safe, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function packDelete(filePath: string): Promise<void> {
-  await fs.unlink(filePath)
+export async function packDelete(ctx: HandlerContext, filePath: string): Promise<void> {
+  await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
 }
 
 export async function packAddAsset(
+  ctx: HandlerContext,
   packDir: string,
   sourcePath: string,
   targetFilename: string
 ): Promise<void> {
-  const dest = assertInside(packDir, targetFilename)
-  await fs.mkdir(packDir, { recursive: true })
-  await fs.copyFile(sourcePath, dest)
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safeSrc = assertInsideAnyRoot(allRoots(ctx), sourcePath)
+  const dest = assertInside(safePack, targetFilename)
+  await fs.mkdir(safePack, { recursive: true })
+  await fs.copyFile(safeSrc, dest)
 }
 
-export async function packRemoveAsset(packDir: string, filename: string): Promise<void> {
-  const target = assertInside(packDir, filename)
+export async function packRemoveAsset(
+  ctx: HandlerContext,
+  packDir: string,
+  filename: string
+): Promise<void> {
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const target = assertInside(safePack, filename)
   try {
     await fs.unlink(target)
   } catch {
@@ -653,18 +800,21 @@ export async function packRemoveAsset(packDir: string, filename: string): Promis
 }
 
 export async function packCompile(
+  ctx: HandlerContext,
   packDir: string,
   manifest: unknown,
   assetFilenames: string[],
   outputPath: string
 ): Promise<void> {
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safeOut = assertInsideAnyRoot(allRoots(ctx), outputPath)
   // Validate every asset filename before opening the output stream — prevents
   // a malicious entry from leaking files outside packDir into the archive.
-  const resolved = assetFilenames.map((f) => ({ name: f, abs: assertInside(packDir, f) }))
+  const resolved = assetFilenames.map((f) => ({ name: f, abs: assertInside(safePack, f) }))
   const archiver = (await import('archiver')).default
   const { createWriteStream } = await import('fs')
   return new Promise<void>((resolve, reject) => {
-    const output = createWriteStream(outputPath)
+    const output = createWriteStream(safeOut)
     const archive = archiver('zip', { zlib: { level: 9 } })
     output.on('close', () => resolve())
     archive.on('error', (err: Error) => reject(err))
@@ -682,9 +832,10 @@ export async function packCompile(
 const palettesSubdir = (packDir: string) => join(packDir, '_palettes')
 const calibrationsSubdir = (packDir: string) => join(packDir, '_calibrations')
 
-export async function paletteScan(packDir: string) {
+export async function paletteScan(ctx: HandlerContext, packDir: string) {
   try {
-    const dir = palettesSubdir(packDir)
+    const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+    const dir = palettesSubdir(safePack)
     const entries = await fs.readdir(dir, { withFileTypes: true })
     const palettes: { filename: string; id: string; name: string; entryCount: number }[] = []
     for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
@@ -709,28 +860,35 @@ export async function paletteScan(packDir: string) {
   }
 }
 
-export async function paletteLoad(filePath: string) {
-  return JSON.parse(await fs.readFile(filePath, 'utf-8'))
+export async function paletteLoad(ctx: HandlerContext, filePath: string) {
+  return JSON.parse(await fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath), 'utf-8'))
 }
 
-export async function paletteSave(filePath: string, data: unknown): Promise<void> {
-  await fs.mkdir(dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+export async function paletteSave(
+  ctx: HandlerContext,
+  filePath: string,
+  data: unknown
+): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  await fs.mkdir(dirname(safe), { recursive: true })
+  await fs.writeFile(safe, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function paletteDelete(filePath: string): Promise<void> {
+export async function paletteDelete(ctx: HandlerContext, filePath: string): Promise<void> {
   try {
-    await fs.unlink(filePath)
+    await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
   } catch {
     /* already gone */
   }
 }
 
 export async function paletteCalibrationLoad(
+  ctx: HandlerContext,
   packDir: string,
   paletteId: string
 ): Promise<Record<string, unknown>> {
-  const path = assertInside(calibrationsSubdir(packDir), `${paletteId}.json`)
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const path = assertInside(calibrationsSubdir(safePack), `${paletteId}.json`)
   try {
     return JSON.parse(await fs.readFile(path, 'utf-8'))
   } catch {
@@ -739,18 +897,21 @@ export async function paletteCalibrationLoad(
 }
 
 export async function paletteCalibrationSave(
+  ctx: HandlerContext,
   packDir: string,
   paletteId: string,
   data: unknown
 ): Promise<void> {
-  const dir = calibrationsSubdir(packDir)
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const dir = calibrationsSubdir(safePack)
   const path = assertInside(dir, `${paletteId}.json`)
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function frameScan(packDir: string): Promise<string[]> {
-  const dir = join(packDir, '_frames')
+export async function frameScan(ctx: HandlerContext, packDir: string): Promise<string[]> {
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const dir = join(safePack, '_frames')
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true })
     return entries
@@ -764,7 +925,7 @@ export async function frameScan(packDir: string): Promise<string[]> {
 
 // ── Tile frequency scanner ──────────────────────────────────────────────────
 
-export async function tileScanAnalyze(dirPaths: string[]) {
+export async function tileScanAnalyze(ctx: HandlerContext, dirPaths: string[]) {
   const bgFreq = new Map<number, number>()
   const lfgFreq = new Map<number, number>()
   const rfgFreq = new Map<number, number>()
@@ -773,15 +934,17 @@ export async function tileScanAnalyze(dirPaths: string[]) {
 
   for (const dirPath of dirPaths) {
     let entries
+    let safeDir: string
     try {
-      entries = await fs.readdir(dirPath, { withFileTypes: true })
+      safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+      entries = await fs.readdir(safeDir, { withFileTypes: true })
     } catch {
       continue
     }
     const mapFiles = entries.filter((e) => e.isFile() && /\.map$/i.test(e.name))
     for (const entry of mapFiles) {
       try {
-        const buf = await fs.readFile(join(dirPath, entry.name))
+        const buf = await fs.readFile(join(safeDir, entry.name))
         const totalTiles = Math.floor(buf.length / 6)
         fileCount++
         tileCount += totalTiles
@@ -891,20 +1054,26 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('settings:load', () => loadSettings(ctx))
   ipcMain.handle('settings:save', (_, settings) => saveSettings(ctx, settings))
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
-  ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(p))
+  ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
 
-  // Dialogs
+  // Dialogs — every successful dialog return is added to ctx.blessedRoots so
+  // the renderer can immediately read/write the picked path via Category-A
+  // handlers without a separate "set active" round-trip.
   ipcMain.handle('dialog:openFile', async (_, filters?: Electron.FileFilter[]) => {
     const r = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: filters ?? [{ name: 'All Files', extensions: ['*'] }]
     })
-    return r.filePaths[0] ?? null
+    const picked = r.filePaths[0] ?? null
+    blessRoot(ctx, picked)
+    return picked
   })
   ipcMain.handle('dialog:openDirectory', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
-    return r.filePaths[0] ?? null
+    const picked = r.filePaths[0] ?? null
+    blessRoot(ctx, picked)
+    return picked
   })
   ipcMain.handle(
     'dialog:saveFile',
@@ -913,83 +1082,87 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
         filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
         defaultPath: defaultPath ?? undefined
       })
-      return r.filePath ?? null
+      const picked = r.filePath ?? null
+      blessRoot(ctx, picked)
+      return picked
     }
   )
 
   // Filesystem
-  ipcMain.handle('fs:readFile', (_, p) => readFile(p))
-  ipcMain.handle('fs:listDir', (_, p) => listDir(p))
-  ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(s, d))
-  ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(p, c))
-  ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(p, d))
-  ipcMain.handle('fs:exists', (_, p) => exists(p))
-  ipcMain.handle('fs:ensureDir', (_, p) => ensureDir(p))
-  ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(p))
-  ipcMain.handle('fs:listArchive', (_, p) => listArchive(p))
+  ipcMain.handle('fs:readFile', (_, p) => readFile(ctx, p))
+  ipcMain.handle('fs:listDir', (_, p) => listDir(ctx, p))
+  ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(ctx, s, d))
+  ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))
+  ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(ctx, p, d))
+  ipcMain.handle('fs:exists', (_, p) => exists(ctx, p))
+  ipcMain.handle('fs:ensureDir', (_, p) => ensureDir(ctx, p))
+  ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(ctx, p))
+  ipcMain.handle('fs:listArchive', (_, p) => listArchive(ctx, p))
 
   // Catalog
-  ipcMain.handle('catalog:load', (_, p) => catalogLoad(p))
-  ipcMain.handle('catalog:save', (_, p, d) => catalogSave(p, d))
-  ipcMain.handle('catalog:scan', (_, p) => catalogScan(p))
+  ipcMain.handle('catalog:load', (_, p) => catalogLoad(ctx, p))
+  ipcMain.handle('catalog:save', (_, p, d) => catalogSave(ctx, p, d))
+  ipcMain.handle('catalog:scan', (_, p) => catalogScan(ctx, p))
 
   // Music
-  ipcMain.handle('music:readFileMeta', (_, p) => musicReadFileMeta(p))
-  ipcMain.handle('music:scan', (_, p) => musicScan(p))
-  ipcMain.handle('music:metadata:load', (_, p) => musicMetadataLoad(p))
-  ipcMain.handle('music:metadata:save', (_, p, d) => musicMetadataSave(p, d))
-  ipcMain.handle('music:packs:load', (_, p) => musicPacksLoad(p))
-  ipcMain.handle('music:packs:save', (_, p, packs) => musicPacksSave(p, packs))
+  ipcMain.handle('music:readFileMeta', (_, p) => musicReadFileMeta(ctx, p))
+  ipcMain.handle('music:scan', (_, p) => musicScan(ctx, p))
+  ipcMain.handle('music:metadata:load', (_, p) => musicMetadataLoad(ctx, p))
+  ipcMain.handle('music:metadata:save', (_, p, d) => musicMetadataSave(ctx, p, d))
+  ipcMain.handle('music:packs:load', (_, p) => musicPacksLoad(ctx, p))
+  ipcMain.handle('music:packs:save', (_, p, packs) => musicPacksSave(ctx, p, packs))
   ipcMain.handle('music:deploy-pack', (_, src, pack, dst, ffmpeg, kbps, sr) =>
-    musicDeployPack(src, pack, dst, ffmpeg, kbps, sr)
+    musicDeployPack(ctx, src, pack, dst, ffmpeg, kbps, sr)
   )
-  ipcMain.handle('music:client:scan', (_, p) => musicClientScan(p))
+  ipcMain.handle('music:client:scan', (_, p) => musicClientScan(ctx, p))
 
   // SFX
-  ipcMain.handle('sfx:list', (_, p) => sfxList(p))
-  ipcMain.handle('sfx:readEntry', (_, p, n) => sfxReadEntry(p, n))
-  ipcMain.handle('sfx:index:load', (_, p) => sfxIndexLoad(p))
-  ipcMain.handle('sfx:index:save', (_, p, d) => sfxIndexSave(p, d))
+  ipcMain.handle('sfx:list', (_, p) => sfxList(ctx, p))
+  ipcMain.handle('sfx:readEntry', (_, p, n) => sfxReadEntry(ctx, p, n))
+  ipcMain.handle('sfx:index:load', (_, p) => sfxIndexLoad(ctx, p))
+  ipcMain.handle('sfx:index:save', (_, p, d) => sfxIndexSave(ctx, p, d))
 
   // BIK conversion
   ipcMain.handle('bik:convert', (_, bytes, ffmpegPath, cacheDir) =>
-    bikConvert(bytes, ffmpegPath, cacheDir)
+    bikConvert(ctx, bytes, ffmpegPath, cacheDir)
   )
 
   // World index
-  ipcMain.handle('index:read', (_, p) => indexRead(p))
-  ipcMain.handle('index:build', (_, p) => indexBuild(p))
-  ipcMain.handle('index:status', (_, p) => indexStatus(p))
-  ipcMain.handle('index:delete', (_, p) => indexDelete(p))
-  ipcMain.handle('library:resolve', (_, p) => libraryResolve(p))
+  ipcMain.handle('index:read', (_, p) => indexRead(ctx, p))
+  ipcMain.handle('index:build', (_, p) => indexBuild(ctx, p))
+  ipcMain.handle('index:status', (_, p) => indexStatus(ctx, p))
+  ipcMain.handle('index:delete', (_, p) => indexDelete(ctx, p))
+  ipcMain.handle('library:resolve', (_, p) => libraryResolve(ctx, p))
 
   // Prefabs
-  ipcMain.handle('prefab:list', (_, p) => prefabList(p))
-  ipcMain.handle('prefab:load', (_, p, f) => prefabLoad(p, f))
-  ipcMain.handle('prefab:save', (_, p, f, d) => prefabSave(p, f, d))
-  ipcMain.handle('prefab:delete', (_, p, f) => prefabDelete(p, f))
-  ipcMain.handle('prefab:rename', (_, p, o, n) => prefabRename(p, o, n))
+  ipcMain.handle('prefab:list', (_, p) => prefabList(ctx, p))
+  ipcMain.handle('prefab:load', (_, p, f) => prefabLoad(ctx, p, f))
+  ipcMain.handle('prefab:save', (_, p, f, d) => prefabSave(ctx, p, f, d))
+  ipcMain.handle('prefab:delete', (_, p, f) => prefabDelete(ctx, p, f))
+  ipcMain.handle('prefab:rename', (_, p, o, n) => prefabRename(ctx, p, o, n))
 
   // Asset packs
-  ipcMain.handle('pack:scan', (_, p) => packScan(p))
-  ipcMain.handle('pack:load', (_, p) => packLoad(p))
-  ipcMain.handle('pack:save', (_, p, d) => packSave(p, d))
-  ipcMain.handle('pack:delete', (_, p) => packDelete(p))
-  ipcMain.handle('pack:addAsset', (_, d, s, t) => packAddAsset(d, s, t))
-  ipcMain.handle('pack:removeAsset', (_, d, f) => packRemoveAsset(d, f))
-  ipcMain.handle('pack:compile', (_, d, m, f, o) => packCompile(d, m, f, o))
+  ipcMain.handle('pack:scan', (_, p) => packScan(ctx, p))
+  ipcMain.handle('pack:load', (_, p) => packLoad(ctx, p))
+  ipcMain.handle('pack:save', (_, p, d) => packSave(ctx, p, d))
+  ipcMain.handle('pack:delete', (_, p) => packDelete(ctx, p))
+  ipcMain.handle('pack:addAsset', (_, d, s, t) => packAddAsset(ctx, d, s, t))
+  ipcMain.handle('pack:removeAsset', (_, d, f) => packRemoveAsset(ctx, d, f))
+  ipcMain.handle('pack:compile', (_, d, m, f, o) => packCompile(ctx, d, m, f, o))
 
   // Palettes
-  ipcMain.handle('palette:scan', (_, p) => paletteScan(p))
-  ipcMain.handle('palette:load', (_, p) => paletteLoad(p))
-  ipcMain.handle('palette:save', (_, p, d) => paletteSave(p, d))
-  ipcMain.handle('palette:delete', (_, p) => paletteDelete(p))
-  ipcMain.handle('palette:calibrationLoad', (_, d, id) => paletteCalibrationLoad(d, id))
-  ipcMain.handle('palette:calibrationSave', (_, d, id, data) => paletteCalibrationSave(d, id, data))
-  ipcMain.handle('frame:scan', (_, p) => frameScan(p))
+  ipcMain.handle('palette:scan', (_, p) => paletteScan(ctx, p))
+  ipcMain.handle('palette:load', (_, p) => paletteLoad(ctx, p))
+  ipcMain.handle('palette:save', (_, p, d) => paletteSave(ctx, p, d))
+  ipcMain.handle('palette:delete', (_, p) => paletteDelete(ctx, p))
+  ipcMain.handle('palette:calibrationLoad', (_, d, id) => paletteCalibrationLoad(ctx, d, id))
+  ipcMain.handle('palette:calibrationSave', (_, d, id, data) =>
+    paletteCalibrationSave(ctx, d, id, data)
+  )
+  ipcMain.handle('frame:scan', (_, p) => frameScan(ctx, p))
 
   // Tile scanner
-  ipcMain.handle('tileScan:analyze', (_, paths) => tileScanAnalyze(paths))
+  ipcMain.handle('tileScan:analyze', (_, paths) => tileScanAnalyze(ctx, paths))
 
   // Themes
   ipcMain.handle('theme:list', () => themeList(ctx))

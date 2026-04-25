@@ -190,10 +190,15 @@ type Handlers = Record<string, (...args: any[]) => any>
  */
 export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): TaliesinAPI {
   const dialog = ctx.dialog ?? {}
+  // Pre-bless '/' so assertInsideAnyRoot accepts every absolute path the
+  // in-memory test filesystem uses. Tests that exercise authorisation can
+  // override these sets per-case via the returned bridge context.
   const handlerCtx = {
     settingsPath: ctx.settingsPath,
     settingsManager: ctx.settingsManager as never,
-    appGetVersion: ctx.appGetVersion ?? (() => '0.0.0-test')
+    appGetVersion: ctx.appGetVersion ?? (() => '0.0.0-test'),
+    settingsRoots: new Set<string>(),
+    blessedRoots: new Set<string>(['/'])
   }
 
   return {
@@ -205,89 +210,111 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // App
     getAppVersion: () => handlers.getAppVersion(handlerCtx),
     getUserDataPath: async () => handlers.getUserDataPath(handlerCtx),
-    launchCompanion: (p) => handlers.launchCompanion(p),
+    launchCompanion: (p) => handlers.launchCompanion(handlerCtx, p),
 
     // Settings
     loadSettings: async () => (await handlers.loadSettings(handlerCtx)) as Record<string, unknown>,
     saveSettings: (s) => handlers.saveSettings(handlerCtx, s),
 
-    // Dialogs (test-controlled)
-    openFile: async () => (await dialog.openFile?.()) ?? null,
-    openDirectory: async () => (await dialog.openDirectory?.()) ?? null,
-    saveFile: async () => (await dialog.saveFile?.()) ?? null,
+    // Dialogs (test-controlled) — also bless results into ctx so subsequent
+    // handler calls can read paths the user "picked" in the test.
+    openFile: async () => {
+      const p = (await dialog.openFile?.()) ?? null
+      if (p) handlerCtx.blessedRoots.add(p)
+      return p
+    },
+    openDirectory: async () => {
+      const p = (await dialog.openDirectory?.()) ?? null
+      if (p) handlerCtx.blessedRoots.add(p)
+      return p
+    },
+    saveFile: async () => {
+      const p = (await dialog.saveFile?.()) ?? null
+      if (p) handlerCtx.blessedRoots.add(p)
+      return p
+    },
 
     // Filesystem
-    readFile: handlers.readFile,
-    listDir: handlers.listDir,
-    copyFile: handlers.copyFile,
-    writeFile: handlers.writeFile,
-    writeBytes: handlers.writeBytes,
-    exists: handlers.exists,
-    ensureDir: handlers.ensureDir,
-    deleteFile: handlers.deleteFile,
-    listArchive: handlers.listArchive,
+    readFile: (p) => handlers.readFile(handlerCtx, p),
+    listDir: (p) => handlers.listDir(handlerCtx, p),
+    copyFile: (s, d) => handlers.copyFile(handlerCtx, s, d),
+    writeFile: (p, c) => handlers.writeFile(handlerCtx, p, c),
+    writeBytes: (p, d) => handlers.writeBytes(handlerCtx, p, d),
+    exists: (p) => handlers.exists(handlerCtx, p),
+    ensureDir: (p) => handlers.ensureDir(handlerCtx, p),
+    deleteFile: (p) => handlers.deleteFile(handlerCtx, p),
+    listArchive: (p) => handlers.listArchive(handlerCtx, p),
 
     // Catalog
-    catalogLoad: handlers.catalogLoad,
-    catalogSave: handlers.catalogSave,
-    catalogScan: handlers.catalogScan,
+    catalogLoad: (p) => handlers.catalogLoad(handlerCtx, p),
+    catalogSave: (p, d) => handlers.catalogSave(handlerCtx, p, d),
+    catalogScan: (p) => handlers.catalogScan(handlerCtx, p),
 
     // Music
-    musicReadFileMeta: handlers.musicReadFileMeta,
-    musicScan: handlers.musicScan,
+    musicReadFileMeta: (p) => handlers.musicReadFileMeta(handlerCtx, p),
+    musicScan: (p) => handlers.musicScan(handlerCtx, p),
     musicMetadataLoad: async (d) =>
-      (await handlers.musicMetadataLoad(d)) as Record<string, MusicMeta>,
-    musicMetadataSave: handlers.musicMetadataSave,
-    musicPacksLoad: async (d) => (await handlers.musicPacksLoad(d)) as MusicPack[],
-    musicPacksSave: handlers.musicPacksSave,
-    musicDeployPack: handlers.musicDeployPack,
-    musicClientScan: handlers.musicClientScan,
+      (await handlers.musicMetadataLoad(handlerCtx, d)) as Record<string, MusicMeta>,
+    musicMetadataSave: (p, d) => handlers.musicMetadataSave(handlerCtx, p, d),
+    musicPacksLoad: async (d) => (await handlers.musicPacksLoad(handlerCtx, d)) as MusicPack[],
+    musicPacksSave: (p, packs) => handlers.musicPacksSave(handlerCtx, p, packs),
+    musicDeployPack: (src, pack, dst, ffmpeg, kbps, sr) =>
+      handlers.musicDeployPack(handlerCtx, src, pack, dst, ffmpeg, kbps, sr),
+    musicClientScan: (p) => handlers.musicClientScan(handlerCtx, p),
 
     // SFX
-    sfxList: handlers.sfxList,
-    sfxReadEntry: handlers.sfxReadEntry,
+    sfxList: (p) => handlers.sfxList(handlerCtx, p),
+    sfxReadEntry: (p, n) => handlers.sfxReadEntry(handlerCtx, p, n),
     sfxIndexLoad: async (l) =>
-      (await handlers.sfxIndexLoad(l)) as Record<string, { name?: string; comment?: string }>,
-    sfxIndexSave: handlers.sfxIndexSave,
+      (await handlers.sfxIndexLoad(handlerCtx, l)) as Record<
+        string,
+        { name?: string; comment?: string }
+      >,
+    sfxIndexSave: (p, d) => handlers.sfxIndexSave(handlerCtx, p, d),
 
     // BIK
-    bikConvert: (bytes, ffmpegPath, cacheDir) => handlers.bikConvert(bytes, ffmpegPath, cacheDir),
+    bikConvert: (bytes, ffmpegPath, cacheDir) =>
+      handlers.bikConvert(handlerCtx, bytes, ffmpegPath, cacheDir),
 
     // World index
-    indexRead: async (l) => (await handlers.indexRead(l)) as WorldIndex | null,
-    indexBuild: async (l) => (await handlers.indexBuild(l)) as WorldIndex,
-    indexStatus: handlers.indexStatus,
-    indexDelete: handlers.indexDelete,
-    libraryResolve: handlers.libraryResolve,
+    indexRead: async (l) => (await handlers.indexRead(handlerCtx, l)) as WorldIndex | null,
+    indexBuild: async (l) => (await handlers.indexBuild(handlerCtx, l)) as WorldIndex,
+    indexStatus: (l) => handlers.indexStatus(handlerCtx, l),
+    indexDelete: (l) => handlers.indexDelete(handlerCtx, l),
+    libraryResolve: (p) => handlers.libraryResolve(handlerCtx, p),
 
     // Prefabs
-    prefabList: handlers.prefabList,
-    prefabLoad: handlers.prefabLoad,
-    prefabSave: handlers.prefabSave,
-    prefabDelete: handlers.prefabDelete,
-    prefabRename: handlers.prefabRename,
+    prefabList: (p) => handlers.prefabList(handlerCtx, p),
+    prefabLoad: (p, f) => handlers.prefabLoad(handlerCtx, p, f),
+    prefabSave: (p, f, d) => handlers.prefabSave(handlerCtx, p, f, d),
+    prefabDelete: (p, f) => handlers.prefabDelete(handlerCtx, p, f),
+    prefabRename: (p, o, n) => handlers.prefabRename(handlerCtx, p, o, n),
 
     // Asset packs
-    packScan: handlers.packScan,
-    packLoad: handlers.packLoad,
-    packSave: handlers.packSave,
-    packDelete: handlers.packDelete,
-    packAddAsset: handlers.packAddAsset,
-    packRemoveAsset: handlers.packRemoveAsset,
-    packCompile: handlers.packCompile,
+    packScan: (p) => handlers.packScan(handlerCtx, p),
+    packLoad: (p) => handlers.packLoad(handlerCtx, p),
+    packSave: (p, d) => handlers.packSave(handlerCtx, p, d),
+    packDelete: (p) => handlers.packDelete(handlerCtx, p),
+    packAddAsset: (d, s, t) => handlers.packAddAsset(handlerCtx, d, s, t),
+    packRemoveAsset: (d, f) => handlers.packRemoveAsset(handlerCtx, d, f),
+    packCompile: (d, m, f, o) => handlers.packCompile(handlerCtx, d, m, f, o),
 
     // Palettes
-    paletteScan: handlers.paletteScan,
-    paletteLoad: handlers.paletteLoad,
-    paletteSave: handlers.paletteSave,
-    paletteDelete: handlers.paletteDelete,
+    paletteScan: (p) => handlers.paletteScan(handlerCtx, p),
+    paletteLoad: (p) => handlers.paletteLoad(handlerCtx, p),
+    paletteSave: (p, d) => handlers.paletteSave(handlerCtx, p, d),
+    paletteDelete: (p) => handlers.paletteDelete(handlerCtx, p),
     paletteCalibrationLoad: async (d, id) =>
-      (await handlers.paletteCalibrationLoad(d, id)) as Record<string, Record<string, unknown>>,
-    paletteCalibrationSave: handlers.paletteCalibrationSave,
-    frameScan: handlers.frameScan,
+      (await handlers.paletteCalibrationLoad(handlerCtx, d, id)) as Record<
+        string,
+        Record<string, unknown>
+      >,
+    paletteCalibrationSave: (d, id, data) =>
+      handlers.paletteCalibrationSave(handlerCtx, d, id, data),
+    frameScan: (p) => handlers.frameScan(handlerCtx, p),
 
     // Tile scanner
-    tileScanAnalyze: handlers.tileScanAnalyze,
+    tileScanAnalyze: (paths) => handlers.tileScanAnalyze(handlerCtx, paths),
 
     // Themes
     themeList: () => handlers.themeList(handlerCtx),
