@@ -12,20 +12,26 @@ Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne ma
 
 ## Features
 
-| Feature                   | Status         |
-| ------------------------- | -------------- |
-| Map Catalog               | ✅ Complete    |
-| Map XML Editor            | ✅ Complete    |
-| World Map Editor          | ✅ Complete    |
-| Music Manager             | ✅ Complete    |
-| Sound Effects Browser     | ✅ Complete    |
-| Settings                  | ✅ Complete    |
-| Archive Browser           | ⬜ Not Started |
-| Sprite Viewer             | ⬜ Not Started |
-| Sound Effects Manager     | ⬜ Not Started |
-| Asset Import Manager      | ⬜ Not Started |
-| Map Editor / Creator      | ⬜ Not Started |
-| Procedural Map Generation | ⬜ Not Started |
+| Feature               | Status         |
+| --------------------- | -------------- |
+| Dashboard             | 🚧 In Progress |
+| Map Catalog           | ✅ Complete    |
+| Map XML Editor        | ✅ Complete    |
+| Map Maker             | 🚧 In Progress |
+| World Map Editor      | ✅ Complete    |
+| Music Manager         | ✅ Complete    |
+| Sound Effects Browser | ✅ Complete    |
+| Archive Browser       | 🚧 In Progress |
+| Asset Pack Manager    | 🚧 In Progress |
+| Prefab Catalog        | 🚧 In Progress |
+| Palette & Duotone     | 🚧 In Progress |
+| Settings              | ✅ Complete    |
+| Sprite Viewer         | ⬜ Not Started |
+| Sound Effects Manager | ⬜ Not Started |
+
+### Dashboard
+
+Landing page that surfaces active library and client paths, world library index statistics (maps, NPCs, creatures, etc.), recent page history, and quick-navigation links to frequently-used pages. Hosts the index build/rebuild controls and status display.
 
 ### Map Catalog
 
@@ -34,6 +40,10 @@ Scan a directory of DA client `.map` files and build a browsable catalog. Each m
 ### Map XML Editor
 
 Load, edit, and save Hybrasyl Map XML files alongside the rendered client map. Covers core fields (Id, Name, Description, dimensions, Music, flags) and sub-editors for Warps, NPCs, Reactors, Signs, and SpawnGroups. Objects are placeable and draggable on the map canvas. Syncs with the Hybrasyl world library folder configured in Settings. Includes an unsaved changes guard.
+
+### Map Maker
+
+Tile-painting editor for DA `.map` binary files with full new-map creation and round-trip back to the Map Catalog. Multi-tab editing with unsaved-changes guard, 100-level undo/redo, copy/cut/paste clipboard, and rectangle selection (move and duplicate). Drawing tools include brush, eraser, line, filled and outlined shapes, flood fill, and random fill. Layer controls for background, left/right foreground, and walkability visualization. Zoom 25%–200%, grid toggle, animation preview, collision popup, drag-handle resize with directional add/remove, export to PNG, split large maps, and parameter-driven procedural generation. Save selections as prefabs and stamp existing prefabs back into any map.
 
 ### World Map Editor
 
@@ -53,23 +63,31 @@ Manage a local audio library of DA music tracks. The **Library** tab scans a con
 
 Browse and play DA client sound effects sourced directly from `legend.dat`. Entries are listed by numeric ID with in-row play/stop controls. A detail panel allows annotating each sound with a friendly name and comment, saved to `world/sfx-index.json` in the world library repository. Filter by ID, filename, or annotated name.
 
+### Archive Browser
+
+Inspect entries in DA client `.dat` archive files (read-only). Lists all entries grouped by extension with name and size, supports filter-by-name, and previews several formats: tileset images (.tsi), PCX images with palette selection, terrain animation tables (.hea), font metadata (.fnt), JPF inspection, and BIK video playback (transcoded to MP4 on demand). A quick-open dropdown enumerates all `.dat` files under the configured client folder, including subdirectories. Supports extracting individual entries or the full archive to disk. Sprite formats (.spf/.epf/.mpf/.efa) are not yet previewed.
+
+### Asset Pack Manager
+
+Create and edit modern Chaos.Client `.datf` asset packs — ZIP archives of PNG assets plus a JSON manifest. Provides content-type templates (ability icons, nation badges) for new packs, edits pack metadata and the asset list, and supports deletion. Requires a pack working directory configured in Settings. Compilation to client-ready format and embedded sprite support are not yet implemented.
+
+### Prefab Catalog
+
+Browse and manage reusable map tile patterns saved from the Map Maker. Each prefab is a width × height block of tiles stored as JSON in the active world library. Supports filter-by-name, isometric preview rendered with real client tile bitmaps, rename, and delete. Prefabs are stamped back into a map via the Prefab sidebar in the Map Maker.
+
+### Palette & Duotone
+
+Define named color palettes and generate element-colored variants of grayscale icon assets via a duotone algorithm. The **Palettes** tab lists all palettes and per-entry color editors (shadow + highlight pickers, dark/light factor sliders). The **Colorize** tab renders a grid of variants for a chosen icon × palette entry, with an auto-detection heuristic surfacing the highest-quality variant. Calibration choices are persisted alongside the palette. Full scope is in [`docs/taliesin_duotone_scope.md`](docs/taliesin_duotone_scope.md).
+
 ### Settings
 
-Configure the DA client install path (used to locate archives), the Hybrasyl world library path (shared with Creidhne), and the application theme. Settings are persisted across sessions.
+Configure the DA client install path (used to locate archives), the Hybrasyl world library path (shared with Creidhne), the music library and working directories, ffmpeg path, asset pack directory, an optional Creidhne companion launcher path, and the application theme. Settings are persisted across sessions.
 
 ### Planned Features
-
-**Archive Browser** — inspect and extract entries from DA client `.dat` archive files. Lists all entries with name and size, previews by type (images rendered to canvas, raw hex for unknown formats), and supports extracting individual entries or the full archive to disk.
 
 **Sprite Viewer** — browse and preview DA client sprites loaded from archives or standalone files. Supports `.spf`, `.epf`, `.mpf`, and `.efa` formats via dalib-ts, with frame-by-frame navigation, animated preview, and palette selection.
 
 **Sound Effects Manager** — a companion to the Sound Effects Browser focused on managing SFX assets directly. Planned scope to be defined.
-
-**Asset Import Manager** — inject new tiles and sprites into existing `.dat` archives. Depends on research into how the DA client merges split archive files at runtime; this is a research-heavy feature requiring its own investigation before implementation.
-
-**Map Editor / Creator** — a paint-based editor for DA `.map` binary files covering foreground, background, and walkability layers. Supports new map creation and round-trips with the Map Catalog and Map XML Editor.
-
-**Procedural Map Generation** — parameter-driven generation of `.map` binaries and Hybrasyl XML stubs, with configurable terrain style, density, and optional seed-based reproducibility. Generated maps feed directly into the Map Catalog.
 
 ## Installation
 
@@ -87,22 +105,26 @@ Node.js 18+ required; development is done on Node 24.
 
 ## Project structure
 
-| Path                           | Purpose                                        |
-| ------------------------------ | ---------------------------------------------- |
-| `src/main/`                    | Electron main process — IPC handlers, file I/O |
-| `src/renderer/src/pages/`      | One page component per feature                 |
-| `src/renderer/src/components/` | Shared and feature-specific components         |
-| `src/renderer/src/utils/`      | XML parse/serialize, rendering utilities       |
+| Path                           | Purpose                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| `src/main/`                    | Electron main process — IPC handlers, file I/O          |
+| `src/preload/`                 | Preload bridge exposing `window.api`                    |
+| `src/renderer/src/pages/`      | One page component per feature                          |
+| `src/renderer/src/components/` | Shared and feature-specific components                  |
+| `src/renderer/src/utils/`      | XML parse/serialize, rendering utilities                |
+| `src/renderer/src/recoil/`     | Recoil atoms for cross-page state                       |
+| `docs/`                        | Design docs, planning documents, and pattern references |
 
 ## Testing
 
-Tests use [Vitest](https://vitest.dev/). No tests exist yet — contributions welcome.
+Tests use [Vitest](https://vitest.dev/). The suite runs 408 tests across 25 files covering main-process IPC handlers, renderer hooks and utilities, and integration tests for the major editor pages.
 
 ```bash
 npm run test
+npm run test:coverage
 ```
 
-Test files should live alongside source under `src/renderer/src/` using the `*.test.ts` / `*.test.tsx` convention.
+Test files live alongside source under `src/` using the `*.test.ts` / `*.test.tsx` convention.
 
 ## Contributing
 
