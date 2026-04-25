@@ -798,6 +798,72 @@ describe('music:scan', () => {
   })
 })
 
+describe('bik:convert (handlers.ts bikConvert)', () => {
+  const bytes = new Uint8Array([0x42, 0x49, 0x4B, 0x69, 0xDE, 0xAD, 0xBE, 0xEF])
+
+  it('runs ffmpeg with libx264 + aac when no cached mp4 exists', async () => {
+    await invoke('bik:convert', bytes, '/usr/bin/ffmpeg', '/cache/bik')
+
+    expect(childProcess.execFile).toHaveBeenCalledTimes(1)
+    const [cmd, args] = childProcess.execFile.mock.calls[0]
+    expect(cmd).toBe('/usr/bin/ffmpeg')
+    expect(args).toContain('libx264')
+    expect(args).toContain('aac')
+    expect(args).toContain('+faststart')
+    // Last arg is the output mp4 path inside the cache dir.
+    const outArg = (args as string[])[args.length - 1].replace(/\\/g, '/')
+    expect(outArg).toMatch(/^\/cache\/bik\/[a-f0-9]{32}\.mp4$/)
+  })
+
+  it('skips ffmpeg when the cached mp4 already exists', async () => {
+    // Pre-seed the cache with the deterministic hashed path. Run a first
+    // conversion to learn the path, then reset the spy and re-invoke.
+    await invoke('bik:convert', bytes, null, '/cache/bik')
+    const [, firstArgs] = childProcess.execFile.mock.calls[0]
+    const cachedMp4 = (firstArgs as string[])[firstArgs.length - 1]
+    files.set(cachedMp4.replace(/\\/g, '/'), Buffer.from('FAKE_MP4'))
+    childProcess.execFile.mockClear()
+
+    const out = await invoke('bik:convert', bytes, null, '/cache/bik')
+    expect(out).toBe(cachedMp4)
+    expect(childProcess.execFile).not.toHaveBeenCalled()
+  })
+
+  it('returns the same cached path for identical input bytes', async () => {
+    const out1 = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
+    const out2 = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
+    expect(out1).toBe(out2)
+  })
+
+  it('uses a different cache path for different input bytes', async () => {
+    const other = new Uint8Array([0x42, 0x49, 0x4B, 0x69, 0x01, 0x02, 0x03, 0x04])
+    const a = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
+    const b = await invoke<string>('bik:convert', other, null, '/cache/bik')
+    expect(a).not.toBe(b)
+  })
+
+  it('falls back to "ffmpeg" on PATH when ffmpegPath is null', async () => {
+    await invoke('bik:convert', bytes, null, '/cache/bik')
+    expect(childProcess.execFile.mock.calls[0][0]).toBe('ffmpeg')
+  })
+
+  it('removes the temp .bik even if ffmpeg fails (mp4 stays absent)', async () => {
+    childProcess.execFile.mockImplementationOnce(
+      (_cmd: string, _args: string[], cb?: (e: Error | null) => void) => {
+        cb?.(new Error('ffmpeg failed'))
+        return {} as never
+      }
+    )
+    await expect(invoke('bik:convert', bytes, null, '/cache/bik')).rejects.toThrow()
+    // No leftover .bik or .mp4 in the cache.
+    const cacheKeys = [...files.keys()].filter(k => k.startsWith('/cache/bik/'))
+    const biks = cacheKeys.filter(k => k.endsWith('.bik'))
+    const mp4s = cacheKeys.filter(k => k.endsWith('.mp4'))
+    expect(biks).toEqual([])
+    expect(mp4s).toEqual([])
+  })
+})
+
 describe('music metadata + packs', () => {
   it('music:metadata:load returns {} when the file does not exist', async () => {
     expect(await invoke('music:metadata:load', '/lib')).toEqual({})

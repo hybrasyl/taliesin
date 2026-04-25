@@ -247,6 +247,9 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     sfxIndexLoad:  async (l) => (await handlers.sfxIndexLoad(l)) as Record<string, { name?: string; comment?: string }>,
     sfxIndexSave:  handlers.sfxIndexSave,
 
+    // BIK
+    bikConvert: (bytes, ffmpegPath, cacheDir) => handlers.bikConvert(bytes, ffmpegPath, cacheDir),
+
     // World index
     indexRead:       async (l) => (await handlers.indexRead(l)) as WorldIndex | null,
     indexBuild:      async (l) => (await handlers.indexBuild(l)) as WorldIndex,

@@ -185,6 +185,7 @@ declare global {
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
     sfxIndexLoad: (activeLibrary: string) => Promise<Record<string, { name?: string; comment?: string }>>
     sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) => Promise<void>
+    bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string) => Promise<string>
     tileScanAnalyze: (dirPaths: string[]) => Promise<{ background: [number, number][]; leftForeground: [number, number][]; rightForeground: [number, number][]; fileCount: number; tileCount: number }>
     themeList: () => Promise<{ filename: string; name: string }[]>
     themeLoad: (filename: string) => Promise<unknown>

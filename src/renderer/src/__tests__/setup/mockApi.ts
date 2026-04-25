@@ -31,6 +31,8 @@ export function createMockApi(): MockApi {
     'musicPacksLoad', 'musicPacksSave', 'musicDeployPack', 'musicClientScan',
     // SFX
     'sfxList', 'sfxReadEntry', 'sfxIndexLoad', 'sfxIndexSave',
+    // BIK
+    'bikConvert',
     // World index
     'indexRead', 'indexBuild', 'indexStatus', 'indexDelete', 'libraryResolve',
     // Prefabs
