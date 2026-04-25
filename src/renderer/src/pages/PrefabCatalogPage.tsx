@@ -18,11 +18,14 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import { useRecoilValue } from 'recoil'
-import { activeLibraryState } from '../recoil/atoms'
+import { activeLibraryState, clientPathState } from '../recoil/atoms'
 import type { PrefabSummary, Prefab } from '../utils/prefabTypes'
+import { loadMapAssets, type MapAssets } from '../utils/mapRenderer'
+import { renderPrefabPreviewIso, renderPrefabPreviewFlat } from '../utils/prefabPreview'
 
 const PrefabCatalogPage: React.FC = () => {
   const activeLibrary = useRecoilValue(activeLibraryState)
+  const clientPath = useRecoilValue(clientPathState)
 
   const [prefabs, setPrefabs] = useState<PrefabSummary[]>([])
   const [filter, setFilter] = useState('')
@@ -31,6 +34,8 @@ const PrefabCatalogPage: React.FC = () => {
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameName, setRenameName] = useState('')
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const assetsRef = useRef<MapAssets | null>(null)
+  const [assetsReady, setAssetsReady] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!activeLibrary) {
@@ -57,57 +62,45 @@ const PrefabCatalogPage: React.FC = () => {
       .catch(() => setLoadedPrefab(null))
   }, [activeLibrary, selected])
 
-  // Render preview
+  // Load isometric tile assets when client path is set
+  useEffect(() => {
+    let cancelled = false
+    if (!clientPath) {
+      assetsRef.current = null
+      setAssetsReady(false)
+      return
+    }
+    loadMapAssets(clientPath)
+      .then((a) => {
+        if (cancelled) return
+        assetsRef.current = a
+        setAssetsReady(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        assetsRef.current = null
+        setAssetsReady(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [clientPath])
+
+  // Render preview — isometric when assets are loaded, flat heuristic otherwise
   useEffect(() => {
     const canvas = previewCanvasRef.current
     if (!canvas || !loadedPrefab) return
-    const { width: W, height: H, tiles } = loadedPrefab
-    const ppt = Math.min(Math.floor(400 / Math.max(W, H)), 20)
-    canvas.width = W * ppt
-    canvas.height = H * ppt
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const t = tiles[y * W + x]
-        if (!t) continue
-        if (t.background > 0) {
-          const h = (t.background * 137) % 360
-          ctx.fillStyle = `hsl(${h}, 40%, 30%)`
-          ctx.fillRect(x * ppt, y * ppt, ppt, ppt)
-        }
-        if (t.leftForeground > 0) {
-          const h = (t.leftForeground * 97) % 360
-          ctx.fillStyle = `hsla(${h}, 50%, 45%, 0.7)`
-          ctx.fillRect(x * ppt, y * ppt, ppt / 2, ppt)
-        }
-        if (t.rightForeground > 0) {
-          const h = (t.rightForeground * 97) % 360
-          ctx.fillStyle = `hsla(${h}, 50%, 45%, 0.7)`
-          ctx.fillRect(x * ppt + ppt / 2, y * ppt, ppt / 2, ppt)
-        }
-      }
+    const signal = { cancelled: false }
+    const assets = assetsRef.current
+    if (assets) {
+      renderPrefabPreviewIso(canvas, loadedPrefab, assets, { signal })
+    } else {
+      renderPrefabPreviewFlat(canvas, loadedPrefab)
     }
-
-    if (ppt >= 4) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.1)'
-      ctx.lineWidth = 0.5
-      for (let x = 0; x <= W; x++) {
-        ctx.beginPath()
-        ctx.moveTo(x * ppt, 0)
-        ctx.lineTo(x * ppt, H * ppt)
-        ctx.stroke()
-      }
-      for (let y = 0; y <= H; y++) {
-        ctx.beginPath()
-        ctx.moveTo(0, y * ppt)
-        ctx.lineTo(W * ppt, y * ppt)
-        ctx.stroke()
-      }
+    return () => {
+      signal.cancelled = true
     }
-  }, [loadedPrefab])
+  }, [loadedPrefab, assetsReady])
 
   const handleDelete = useCallback(async () => {
     if (!activeLibrary || !selected) return

@@ -13,7 +13,11 @@ import {
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { useRecoilValue } from 'recoil'
+import { clientPathState } from '../../recoil/atoms'
 import type { PrefabSummary, Prefab } from '../../utils/prefabTypes'
+import { loadMapAssets, type MapAssets } from '../../utils/mapRenderer'
+import { renderPrefabPreviewIso, renderPrefabPreviewFlat } from '../../utils/prefabPreview'
 
 interface Props {
   libraryPath: string | null
@@ -22,11 +26,14 @@ interface Props {
 }
 
 const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }) => {
+  const clientPath = useRecoilValue(clientPathState)
   const [prefabs, setPrefabs] = useState<PrefabSummary[]>([])
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [loadedPrefab, setLoadedPrefab] = useState<Prefab | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const assetsRef = useRef<MapAssets | null>(null)
+  const [assetsReady, setAssetsReady] = useState(false)
 
   // Load prefab list
   const refresh = useCallback(async () => {
@@ -54,58 +61,45 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
       .catch(() => setLoadedPrefab(null))
   }, [libraryPath, selected])
 
-  // Render preview
+  // Load isometric tile assets when client path is set
+  useEffect(() => {
+    let cancelled = false
+    if (!clientPath) {
+      assetsRef.current = null
+      setAssetsReady(false)
+      return
+    }
+    loadMapAssets(clientPath)
+      .then((a) => {
+        if (cancelled) return
+        assetsRef.current = a
+        setAssetsReady(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        assetsRef.current = null
+        setAssetsReady(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [clientPath])
+
+  // Render preview — isometric when assets are loaded, flat heuristic otherwise
   useEffect(() => {
     const canvas = previewCanvasRef.current
     if (!canvas || !loadedPrefab) return
-    const { width: W, height: H, tiles } = loadedPrefab
-    const ppt = Math.min(Math.floor(240 / Math.max(W, H)), 16)
-    canvas.width = W * ppt
-    canvas.height = H * ppt
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const t = tiles[y * W + x]
-        if (!t) continue
-        if (t.background > 0) {
-          const h = (t.background * 137) % 360
-          ctx.fillStyle = `hsl(${h}, 40%, 30%)`
-          ctx.fillRect(x * ppt, y * ppt, ppt, ppt)
-        }
-        if (t.leftForeground > 0) {
-          const h = (t.leftForeground * 97) % 360
-          ctx.fillStyle = `hsla(${h}, 50%, 45%, 0.7)`
-          ctx.fillRect(x * ppt, y * ppt, ppt / 2, ppt)
-        }
-        if (t.rightForeground > 0) {
-          const h = (t.rightForeground * 97) % 360
-          ctx.fillStyle = `hsla(${h}, 50%, 45%, 0.7)`
-          ctx.fillRect(x * ppt + ppt / 2, y * ppt, ppt / 2, ppt)
-        }
-      }
+    const signal = { cancelled: false }
+    const assets = assetsRef.current
+    if (assets) {
+      renderPrefabPreviewIso(canvas, loadedPrefab, assets, { maxDim: 240, signal })
+    } else {
+      renderPrefabPreviewFlat(canvas, loadedPrefab, { maxDim: 240 })
     }
-
-    // Grid
-    if (ppt >= 4) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.1)'
-      ctx.lineWidth = 0.5
-      for (let x = 0; x <= W; x++) {
-        ctx.beginPath()
-        ctx.moveTo(x * ppt, 0)
-        ctx.lineTo(x * ppt, H * ppt)
-        ctx.stroke()
-      }
-      for (let y = 0; y <= H; y++) {
-        ctx.beginPath()
-        ctx.moveTo(0, y * ppt)
-        ctx.lineTo(W * ppt, y * ppt)
-        ctx.stroke()
-      }
+    return () => {
+      signal.cancelled = true
     }
-  }, [loadedPrefab])
+  }, [loadedPrefab, assetsReady])
 
   const handleDelete = useCallback(async () => {
     if (!libraryPath || !selected) return
