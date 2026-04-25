@@ -114,6 +114,10 @@ const api = {
   sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) =>
     ipcRenderer.invoke('sfx:index:save', activeLibrary, data),
 
+  // BIK → MP4 conversion (cached by content hash under cacheDir)
+  bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string): Promise<string> =>
+    ipcRenderer.invoke('bik:convert', bytes, ffmpegPath, cacheDir),
+
   // World index (shared with Creidhne via <library>/world/.creidhne/index.json)
   indexRead: (libraryRoot: string): Promise<unknown | null> =>
     ipcRenderer.invoke('index:read', libraryRoot),

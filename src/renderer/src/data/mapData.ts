@@ -71,7 +71,7 @@ export const ALL_SPAWN_FLAGS: MapSpawnFlag[] = ['Active', 'MovementDisabled', 'A
 export interface MapData {
   id: number
   name: string
-  music: number
+  music?: number
   x: number
   y: number
   isEnabled: boolean
@@ -89,7 +89,6 @@ export interface MapData {
 export const DEFAULT_MAP: MapData = {
   id: 0,
   name: '',
-  music: 0,
   x: 40,
   y: 40,
   isEnabled: true,

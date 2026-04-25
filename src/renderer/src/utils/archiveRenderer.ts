@@ -204,7 +204,10 @@ export function renderPaletteGrid(palette: Palette, cellSize = 12): RgbaFrame {
 /**
  * Classify an entry by its preview type.
  */
-export type PreviewType = 'sprite' | 'palette' | 'text' | 'audio' | 'image' | 'hex'
+export type PreviewType =
+  | 'sprite' | 'palette' | 'text' | 'audio'
+  | 'tileset' | 'pcx' | 'darkness' | 'font' | 'bik' | 'jpf'
+  | 'hex'
 
 export function classifyEntry(entry: DataArchiveEntry): PreviewType {
   const extension = ext(entry)
@@ -220,6 +223,7 @@ export function classifyEntry(entry: DataArchiveEntry): PreviewType {
     case '.txt':
     case '.tbl':
     case '.log':
+    case '.nfo':
       return 'text'
     case '.mp3':
     case '.wav':
@@ -227,10 +231,118 @@ export function classifyEntry(entry: DataArchiveEntry): PreviewType {
     case '.mus':
       return 'audio'
     case '.bmp':
-      return 'image'
+      return 'tileset'
+    case '.pcx':
+      return 'pcx'
+    case '.hea':
+      return 'darkness'
+    case '.fnt':
+      return 'font'
+    case '.bik':
+      return 'bik'
+    case '.jpf':
+      return 'jpf'
     default:
       return 'hex'
   }
+}
+
+// ── PCX decoder ──────────────────────────────────────────────────────────────
+
+export interface PcxImage {
+  width: number
+  height: number
+  bpp: number
+  /** RGBA pixel bytes (width * height * 4). */
+  rgba: Uint8ClampedArray
+}
+
+/**
+ * Decode an 8bpp single-plane PCX image to RGBA. The DA archives' PCX entries
+ * are all 8bpp paletted with a 256-color palette appended at the file's tail
+ * (last 769 bytes: 0x0C marker + 768 RGB bytes).
+ *
+ * Returns null for unsupported PCX variants (e.g. 24bpp 3-plane).
+ */
+export function decodePcx(buffer: Uint8Array): PcxImage | null {
+  if (buffer.length < 128 || buffer[0] !== 0x0A) return null
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+  const bpp = buffer[3]
+  const xMin = view.getUint16(4, true), yMin = view.getUint16(6, true)
+  const xMax = view.getUint16(8, true), yMax = view.getUint16(10, true)
+  const nPlanes = buffer[65]
+  const bytesPerLine = view.getUint16(66, true)
+  const width = xMax - xMin + 1
+  const height = yMax - yMin + 1
+  if (width <= 0 || height <= 0 || width > 8192 || height > 8192) return null
+  if (bpp !== 8 || nPlanes !== 1) return null
+
+  // Decode RLE into a single contiguous indexed buffer (height * bytesPerLine).
+  const totalScanlineBytes = bytesPerLine * height
+  const indexed = new Uint8Array(totalScanlineBytes)
+  let src = 128, dst = 0
+  while (dst < totalScanlineBytes && src < buffer.length) {
+    const byte = buffer[src++]
+    if ((byte & 0xC0) === 0xC0) {
+      const runLen = byte & 0x3F
+      if (src >= buffer.length) break
+      const value = buffer[src++]
+      for (let i = 0; i < runLen && dst < totalScanlineBytes; i++) indexed[dst++] = value
+    } else {
+      indexed[dst++] = byte
+    }
+  }
+
+  // Locate trailing 256-color palette (0x0C marker followed by 768 bytes).
+  const palOffset = buffer.length - 769
+  if (palOffset < 128 || buffer[palOffset] !== 0x0C) return null
+  const palette = buffer.subarray(palOffset + 1, palOffset + 1 + 768)
+
+  const rgba = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = indexed[y * bytesPerLine + x]
+      const pi = idx * 3
+      const off = (y * width + x) * 4
+      rgba[off]     = palette[pi]
+      rgba[off + 1] = palette[pi + 1]
+      rgba[off + 2] = palette[pi + 2]
+      rgba[off + 3] = 255
+    }
+  }
+  return { width, height, bpp, rgba }
+}
+
+// ── BIK header metadata ──────────────────────────────────────────────────────
+
+export interface BikInfo {
+  /** Version letter from the magic (e.g. 'b', 'f', 'i'). */
+  version: string
+  width: number
+  height: number
+  frameCount: number
+  /** Frames per second (computed as frameRateDividend / frameRateDivisor). */
+  fps: number
+  audioTrackCount: number
+}
+
+/**
+ * Parse the BIK file header for display metadata.
+ * BIK header layout: "BIK<v>" magic + 9 LE uint32 fields + audio track count.
+ */
+export function parseBikHeader(buffer: Uint8Array): BikInfo | null {
+  if (buffer.length < 44) return null
+  if (buffer[0] !== 0x42 || buffer[1] !== 0x49 || buffer[2] !== 0x4B) return null  // "BIK"
+  const version = String.fromCharCode(buffer[3])
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+  const frameCount = view.getUint32(8, true)
+  const width = view.getUint32(20, true)
+  const height = view.getUint32(24, true)
+  const frameRateDividend = view.getUint32(28, true)
+  const frameRateDivisor = view.getUint32(32, true)
+  const audioTrackCount = view.getUint32(40, true)
+  const fps = frameRateDivisor > 0 ? frameRateDividend / frameRateDivisor : 0
+  return { version, width, height, frameCount, fps, audioTrackCount }
 }
 
 /**

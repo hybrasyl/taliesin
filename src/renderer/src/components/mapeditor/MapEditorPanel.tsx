@@ -9,12 +9,15 @@ import {
   Tabs, TextField, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import ClearIcon from '@mui/icons-material/Clear'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import StopIcon from '@mui/icons-material/Stop'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
@@ -262,6 +265,126 @@ function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: Rea
   )
 }
 
+// ── Music ID field with play/stop preview ────────────────────────────────────
+
+export function MusicIdField({
+  value, onChange, clientPath,
+}: {
+  value: number | undefined
+  onChange: (v: number | undefined) => void
+  clientPath: string | null
+}) {
+  const [text, setText] = useState(value != null ? String(value) : '')
+  const [availableIds, setAvailableIds] = useState<Set<number>>(new Set())
+  const [playing, setPlaying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    setText(value != null ? String(value) : '')
+  }, [value])
+
+  // Probe which {id}.mus files exist in the client's music directory.
+  useEffect(() => {
+    let cancelled = false
+    if (!clientPath) { setAvailableIds(new Set()); return }
+    window.api.musicClientScan(clientPath).then(entries => {
+      if (cancelled) return
+      const ids = new Set<number>()
+      for (const e of entries) {
+        const m = e.filename.match(/^(\d+)\.mus$/i)
+        if (m) ids.add(parseInt(m[1], 10))
+      }
+      setAvailableIds(ids)
+    }).catch(() => { if (!cancelled) setAvailableIds(new Set()) })
+    return () => { cancelled = true }
+  }, [clientPath])
+
+  // Stop + revoke on unmount or when the selected music ID changes.
+  const stop = useCallback(() => {
+    audioRef.current?.pause()
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+    setPlaying(false)
+  }, [])
+  useEffect(() => stop, [stop])
+  useEffect(() => { stop() }, [value, stop])
+
+  const handleTextChange = (raw: string) => {
+    setText(raw)
+    if (raw === '') { onChange(undefined); return }
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n)) return
+    const clamped = Math.max(1, Math.min(256, n))
+    onChange(clamped)
+  }
+
+  const handleClear = () => { setText(''); onChange(undefined) }
+
+  const fileExists = value != null && availableIds.has(value)
+  const playDisabled = !fileExists || !clientPath
+
+  const handleTogglePlay = useCallback(async () => {
+    if (playing) { stop(); return }
+    if (value == null || !clientPath) return
+    setError(null)
+    try {
+      const sep = clientPath.includes('\\') ? '\\' : '/'
+      const path = `${clientPath}${sep}music${sep}${value}.mus`
+      const buf = await window.api.readFile(path)
+      const blob = new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
+      const url = URL.createObjectURL(blob)
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = url
+      if (!audioRef.current) audioRef.current = new Audio()
+      audioRef.current.src = url
+      audioRef.current.onended = () => setPlaying(false)
+      audioRef.current.onerror = () => { setPlaying(false); setError('Playback failed') }
+      await audioRef.current.play()
+      setPlaying(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to play music')
+      setPlaying(false)
+    }
+  }, [playing, value, clientPath, stop])
+
+  const playTooltip = !clientPath
+    ? 'Set a client path in Settings to preview music'
+    : value == null ? 'Set a Music Id to preview'
+    : !fileExists  ? `${value}.mus not found in client/music`
+    : playing ? 'Stop preview' : 'Preview music'
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <TextField
+        label="Music Id" size="small" type="number"
+        sx={{ width: 100 }}
+        value={text}
+        placeholder="None"
+        inputProps={{ min: 1, max: 256 }}
+        onChange={e => handleTextChange(e.target.value)}
+        error={!!error}
+        helperText={error ?? undefined}
+      />
+      <Tooltip title="Clear (no music)">
+        <span>
+          <IconButton size="small" onClick={handleClear} disabled={value == null}>
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={playTooltip}>
+        <span>
+          <IconButton size="small" onClick={handleTogglePlay} disabled={playDisabled}
+            color={playing ? 'secondary' : 'default'}>
+            {playing ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+          </IconButton>
+        </span>
+      </Tooltip>
+    </Box>
+  )
+}
+
 // ── Tab 1: Properties + Flags + SpawnGroup ───────────────────────────────────
 
 function MapFieldsTab({
@@ -371,11 +494,14 @@ function MapFieldsTab({
               </Button>
             </span>
           </Tooltip>
-          <TextField label="Music Id" size="small" type="number" sx={{ width: 100 }}
-            value={data.music} onChange={e => set('music', parseInt(e.target.value, 10) || 0)} />
+          <MusicIdField
+            value={data.music}
+            onChange={v => set('music', v)}
+            clientPath={clientPath}
+          />
           <FormControlLabel
             control={<Switch size="small" checked={data.isEnabled}    onChange={e => set('isEnabled',    e.target.checked)} />}
-            label="Enabled" />
+            label="Map Enabled" />
           <FormControlLabel
             control={<Switch size="small" checked={data.allowCasting} onChange={e => set('allowCasting', e.target.checked)} />}
             label="Casting" />

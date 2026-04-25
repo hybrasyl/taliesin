@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Box, Typography, TextField, Button, CircularProgress,
-  Divider, Chip, Tooltip,
+  Divider, Tooltip, FormControl, InputLabel, Select, MenuItem,
+  type SelectChangeEvent,
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
@@ -10,12 +11,6 @@ import { useRecoilValue } from 'recoil'
 import { clientPathState } from '../recoil/atoms'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
-
-// Known client archives for quick-open buttons
-const KNOWN_ARCHIVES = [
-  'legend.dat', 'seo.dat', 'ia.dat', 'hades.dat',
-  'setoa.dat', 'national.dat', 'roh.dat', 'misc.dat',
-] as const
 
 const ArchivePage: React.FC = () => {
   const clientPath = useRecoilValue(clientPathState)
@@ -29,6 +24,10 @@ const ArchivePage: React.FC = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const [extracting, setExtracting] = useState(false)
+
+  // Discovered .dat files inside `clientPath` (top level + one subfolder deep).
+  // Stored as relative paths so `npc/npc.dat` and `legend.dat` are distinguishable.
+  const [datFiles, setDatFiles] = useState<string[]>([])
 
   const entries = useMemo(() => archive?.entries ?? [], [archive])
 
@@ -50,12 +49,6 @@ const ArchivePage: React.FC = () => {
       const arc = DataArchive.fromBuffer(new Uint8Array(buf))
       setArchive(arc)
       setArchivePath(filePath)
-
-      // Auto-expand the first group
-      if (arc.entries.length > 0) {
-        const firstExt = getExt(arc.entries[0])
-        setExpandedGroups(new Set([firstExt]))
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to open archive')
       setArchive(null)
@@ -72,11 +65,47 @@ const ArchivePage: React.FC = () => {
     if (path) loadArchive(path)
   }, [loadArchive])
 
-  const handleQuickOpen = useCallback((name: string) => {
-    if (!clientPath) return
+  const handleQuickOpen = useCallback((relPath: string) => {
+    if (!clientPath || !relPath) return
     const sep = clientPath.includes('\\') ? '\\' : '/'
-    loadArchive(`${clientPath}${sep}${name}`)
+    const normalized = relPath.replace(/\//g, sep)
+    loadArchive(`${clientPath}${sep}${normalized}`)
   }, [clientPath, loadArchive])
+
+  // Scan the client folder for .dat files (top level + one level of subfolders).
+  // npc.dat lives under client/npc/, so we recurse one level deep.
+  useEffect(() => {
+    let cancelled = false
+    if (!clientPath) { setDatFiles([]); return }
+    ;(async () => {
+      try {
+        const top = await window.api.listDir(clientPath)
+        const found: string[] = []
+        const subdirs: string[] = []
+        for (const entry of top) {
+          if (entry.isDirectory) subdirs.push(entry.name)
+          else if (entry.name.toLowerCase().endsWith('.dat')) found.push(entry.name)
+        }
+        const sep = clientPath.includes('\\') ? '\\' : '/'
+        for (const sub of subdirs) {
+          try {
+            const inner = await window.api.listDir(`${clientPath}${sep}${sub}`)
+            for (const e of inner) {
+              if (!e.isDirectory && e.name.toLowerCase().endsWith('.dat')) {
+                found.push(`${sub}/${e.name}`)
+              }
+            }
+          } catch {
+            // ignore unreadable subfolders
+          }
+        }
+        if (!cancelled) setDatFiles(found.sort((a, b) => a.localeCompare(b)))
+      } catch {
+        if (!cancelled) setDatFiles([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [clientPath])
 
   const handleToggleGroup = useCallback((ext: string) => {
     setExpandedGroups(prev => {
@@ -120,22 +149,23 @@ const ArchivePage: React.FC = () => {
           Open Archive
         </Button>
 
-        {/* Quick-open buttons */}
-        {clientPath && (
+        {/* Client-folder dat picker */}
+        {clientPath && datFiles.length > 0 && (
           <>
             <Divider orientation="vertical" flexItem />
-            {KNOWN_ARCHIVES.map(name => (
-              <Tooltip key={name} title={`Open ${name}`}>
-                <Chip
-                  label={name.replace('.dat', '')}
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleQuickOpen(name)}
-                  disabled={loading}
-                  sx={{ cursor: 'pointer' }}
-                />
-              </Tooltip>
-            ))}
+            <FormControl size="small" sx={{ minWidth: 200 }} disabled={loading}>
+              <InputLabel id="client-dat-select-label">Client archives</InputLabel>
+              <Select
+                labelId="client-dat-select-label"
+                label="Client archives"
+                value=""
+                onChange={(e: SelectChangeEvent<string>) => handleQuickOpen(e.target.value)}
+              >
+                {datFiles.map(rel => (
+                  <MenuItem key={rel} value={rel}>{rel}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </>
         )}
 
@@ -196,8 +226,8 @@ const ArchivePage: React.FC = () => {
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography color="text.secondary">
               {clientPath
-                ? 'Open a .dat archive or use the quick-open buttons above.'
-                : 'Open a .dat archive to browse its contents. Set a client path in Settings for quick-open buttons.'}
+                ? 'Open a .dat archive or pick one from the client archives dropdown.'
+                : 'Open a .dat archive to browse its contents. Set a client path in Settings to pick from your client folder.'}
             </Typography>
           </Box>
         )}
@@ -231,14 +261,6 @@ const ArchivePage: React.FC = () => {
       </Box>
     </Box>
   )
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function getExt(entry: DataArchiveEntry): string {
-  const name = entry.entryName.toLowerCase()
-  const dot = name.lastIndexOf('.')
-  return dot >= 0 ? name.slice(dot) : '(none)'
 }
 
 export default ArchivePage

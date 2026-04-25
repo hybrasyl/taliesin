@@ -10,6 +10,7 @@ import { join, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
+import { createHash } from 'crypto'
 import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import { assertInside } from './pathSafety'
@@ -364,6 +365,51 @@ export async function sfxIndexSave(activeLibrary: string, data: unknown): Promis
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
+// ── BIK video conversion ─────────────────────────────────────────────────────
+
+/**
+ * Convert a BIK video buffer to MP4 via ffmpeg, with content-addressed caching.
+ * The cache lives under `cacheDir` and is keyed by SHA-256 of the input bytes,
+ * so repeated calls for the same entry skip the conversion entirely.
+ *
+ * Returns the absolute path to the cached MP4.
+ */
+export async function bikConvert(
+  bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string,
+): Promise<string> {
+  const ffmpegBin = ffmpegPath || 'ffmpeg'
+  const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 32)
+  await fs.mkdir(cacheDir, { recursive: true })
+  // assertInside guards against a malicious cacheDir + hash combination escaping
+  // the cache root; hash is 32 hex chars from createHash so this should always
+  // resolve cleanly, but the check keeps the safety invariant locally enforced.
+  const mp4Path = assertInside(cacheDir, `${hash}.mp4`)
+  try {
+    await fs.access(mp4Path)
+    return mp4Path  // cache hit
+  } catch { /* fall through to conversion */ }
+
+  const bikPath = assertInside(cacheDir, `${hash}.bik`)
+  await fs.writeFile(bikPath, Buffer.from(bytes))
+  try {
+    await execFileAsync(ffmpegBin, [
+      '-y',
+      '-i', bikPath,
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '23',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      mp4Path,
+    ])
+  } finally {
+    // Always remove the source temp file; mp4 stays cached on success and
+    // is left absent on failure so the next attempt can retry cleanly.
+    fs.unlink(bikPath).catch(() => undefined)
+  }
+  return mp4Path
+}
+
 // ── World index ──────────────────────────────────────────────────────────────
 
 export async function indexRead(libraryRoot: string) {
@@ -716,6 +762,9 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('sfx:readEntry',  (_, p, n) => sfxReadEntry(p, n))
   ipcMain.handle('sfx:index:load', (_, p) => sfxIndexLoad(p))
   ipcMain.handle('sfx:index:save', (_, p, d) => sfxIndexSave(p, d))
+
+  // BIK conversion
+  ipcMain.handle('bik:convert',    (_, bytes, ffmpegPath, cacheDir) => bikConvert(bytes, ffmpegPath, cacheDir))
 
   // World index
   ipcMain.handle('index:read',      (_, p) => indexRead(p))

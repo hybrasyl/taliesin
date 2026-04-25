@@ -9,11 +9,22 @@ vi.mock('@eriscorp/dalib-ts', () => {
   class FakePalette {
     static fromBuffer() { return new FakePalette() }
   }
+  class FakeColorTable {
+    entries: { colorIndex: number; colors: { r: number; g: number; b: number }[] }[] = []
+    static fromBuffer() { return new FakeColorTable() }
+  }
   return {
     Palette: FakePalette,
-    // re-exports used by ArchivePreview type-only — runtime doesn't need them but
-    // some are referenced via `type` imports which Vitest erases. Provide stubs anyway.
     DataArchive: class {},
+    // Symbols imported by ArchivePreview for the new preview types. The
+    // existing tests don't render tileset/pcx/darkness/font/bik so empty
+    // class stubs are sufficient — they just need to satisfy the import.
+    TilesetView: class { static fromEntry() { return { count: 0, get: () => null } } },
+    HeaFile: class { static fromBuffer() { return { layerCount: 0 } } },
+    FntFile: class { static fromBuffer() { return { glyphCount: 0, bytesPerRow: 0, getGlyphData: () => new Uint8Array() } } },
+    ColorTable: FakeColorTable,
+    renderTile: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+    renderDarknessOverlay: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
   }
 })
 
@@ -29,11 +40,15 @@ const renderer = vi.hoisted(() => ({
   loadPaletteByName: vi.fn(),
   getPaletteNames: vi.fn(() => [] as string[]),
   formatBytes: vi.fn((n: number) => `${n} bytes`),
+  decodePcx: vi.fn() as unknown as ReturnType<typeof vi.fn>,
+  parseBikHeader: vi.fn() as unknown as ReturnType<typeof vi.fn>,
 }))
 vi.mock('../../../utils/archiveRenderer', () => renderer)
 
+import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import ArchivePreview from '../ArchivePreview'
 import { installMockApi, type MockApi } from '../../../__tests__/setup/mockApi'
+import { ffmpegPathState } from '../../../recoil/atoms'
 
 interface FakeEntry {
   entryName: string
@@ -219,5 +234,96 @@ describe('Export as PNG', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(api.saveFile).not.toHaveBeenCalled()
     expect(api.writeBytes).not.toHaveBeenCalled()
+  })
+})
+
+// ── BIK preview ───────────────────────────────────────────────────────────────
+
+function renderWithRecoil(ui: React.ReactElement, ffmpegPath: string | null = '/usr/bin/ffmpeg') {
+  return render(
+    <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(ffmpegPathState, ffmpegPath)}>
+      {ui}
+    </RecoilRoot>,
+  )
+}
+
+describe('BikPreview', () => {
+  it('shows resolution + duration parsed from header', () => {
+    renderer.classifyEntry.mockReturnValue('bik')
+    renderer.parseBikHeader.mockReturnValue({
+      version: 'i', width: 640, height: 480,
+      frameCount: 180, fps: 30, audioTrackCount: 1,
+    })
+    renderWithRecoil(
+      <ArchivePreview
+        entry={makeEntry({ entryName: 'intro.bik' }) as never}
+        archive={makeArchive() as never}
+      />,
+    )
+    expect(screen.getByText(/640 × 480/)).toBeInTheDocument()
+    expect(screen.getByText(/Bink Video \(BIKi\)/)).toBeInTheDocument()
+    expect(screen.getByText(/0:06/)).toBeInTheDocument()  // 180 frames @ 30fps
+  })
+
+  it('Convert & Play calls bikConvert with the entry bytes + ffmpegPath + cacheDir', async () => {
+    const user = userEvent.setup()
+    renderer.classifyEntry.mockReturnValue('bik')
+    renderer.parseBikHeader.mockReturnValue({
+      version: 'i', width: 640, height: 480,
+      frameCount: 30, fps: 30, audioTrackCount: 1,
+    })
+    api.getUserDataPath.mockResolvedValue('/userData')
+    api.bikConvert.mockResolvedValue('/userData/bik-cache/abc.mp4')
+    api.readFile.mockResolvedValue(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]) as never)
+
+    const entryBytes = new Uint8Array([0x42, 0x49, 0x4B, 0x69])
+    renderWithRecoil(
+      <ArchivePreview
+        entry={makeEntry({ entryName: 'intro.bik', toUint8Array: () => entryBytes }) as never}
+        archive={makeArchive() as never}
+      />,
+      '/usr/bin/ffmpeg',
+    )
+
+    await user.click(screen.getByRole('button', { name: /convert & play/i }))
+
+    await waitFor(() => expect(api.bikConvert).toHaveBeenCalledTimes(1))
+    expect(api.bikConvert).toHaveBeenCalledWith(
+      entryBytes,
+      '/usr/bin/ffmpeg',
+      expect.stringMatching(/[\\/]userData[\\/]bik-cache$/),
+    )
+    expect(api.readFile).toHaveBeenCalledWith('/userData/bik-cache/abc.mp4')
+  })
+
+  it('surfaces a Retry button when conversion fails', async () => {
+    const user = userEvent.setup()
+    renderer.classifyEntry.mockReturnValue('bik')
+    renderer.parseBikHeader.mockReturnValue({
+      version: 'i', width: 320, height: 240,
+      frameCount: 1, fps: 30, audioTrackCount: 0,
+    })
+    api.getUserDataPath.mockResolvedValue('/userData')
+    api.bikConvert.mockRejectedValue(new Error('ffmpeg not found'))
+
+    renderWithRecoil(
+      <ArchivePreview
+        entry={makeEntry({ entryName: 'broken.bik' }) as never}
+        archive={makeArchive() as never}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /convert & play/i }))
+    expect(await screen.findByText(/ffmpeg not found/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  })
+
+  it('shows an error message when the BIK header cannot be parsed', () => {
+    renderer.classifyEntry.mockReturnValue('bik')
+    renderer.parseBikHeader.mockReturnValue(null)
+    renderWithRecoil(
+      <ArchivePreview entry={makeEntry({ entryName: 'broken.bik' }) as never} archive={makeArchive() as never} />,
+    )
+    expect(screen.getByText(/Not a recognizable BIK file/)).toBeInTheDocument()
   })
 })

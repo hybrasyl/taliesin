@@ -52,6 +52,7 @@ describe('Preload ↔ Main IPC contract', () => {
       [
         "app:getVersion",
         "app:launchCompanion",
+        "bik:convert",
         "catalog:load",
         "catalog:save",
         "catalog:scan",
