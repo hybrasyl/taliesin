@@ -183,6 +183,18 @@ export async function exists(ctx: HandlerContext, filePath: string): Promise<boo
   }
 }
 
+export async function stat(
+  ctx: HandlerContext,
+  filePath: string
+): Promise<{ mtimeMs: number; sizeBytes: number } | null> {
+  try {
+    const s = await fs.stat(assertInsideAnyRoot(allRoots(ctx), filePath))
+    return { mtimeMs: s.mtimeMs, sizeBytes: s.size }
+  } catch {
+    return null
+  }
+}
+
 export async function ensureDir(ctx: HandlerContext, dirPath: string): Promise<void> {
   await fs.mkdir(assertInsideAnyRoot(allRoots(ctx), dirPath), { recursive: true })
 }
@@ -1128,6 +1140,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))
   ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(ctx, p, d))
   ipcMain.handle('fs:exists', (_, p) => exists(ctx, p))
+  ipcMain.handle('fs:stat', (_, p) => stat(ctx, p))
   ipcMain.handle('fs:ensureDir', (_, p) => ensureDir(ctx, p))
   ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(ctx, p))
   ipcMain.handle('fs:listArchive', (_, p) => listArchive(ctx, p))

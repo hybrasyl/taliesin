@@ -77,6 +77,8 @@ const api = {
   writeBytes: (filePath: string, data: Uint8Array): Promise<void> =>
     ipcRenderer.invoke('fs:writeBytes', filePath, data),
   exists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('fs:exists', filePath),
+  stat: (filePath: string): Promise<{ mtimeMs: number; sizeBytes: number } | null> =>
+    ipcRenderer.invoke('fs:stat', filePath),
   ensureDir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:ensureDir', dirPath),
   deleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFile', filePath),
   listArchive: (filePath: string): Promise<string[]> =>

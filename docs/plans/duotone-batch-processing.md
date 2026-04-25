@@ -47,7 +47,7 @@ Specifically missing:
 - ✅ Multi-palette support
 - ✅ Custom variants per palette (see VariantOverrideEditor.tsx)
 - ✅ Black/white clamping
-- ➖ Export to client-ready format — explicitly skipped per inline comment in paletteTypes.ts:8 ("working JSON is client-ready"). Resolved-by-decision, not a gap.
+- ➖ Export to client-ready format — not needed. Palette JSON is Taliesin-only today; the MonoGame client consumes pre-baked PNGs, not palettes. The JSON is kept simple enough that if a future client need arises (e.g. runtime shader tinting), it should be ingestible as-is. A slimmed `palette:export` IPC remains documented in [paletteTypes.ts](../../src/renderer/src/utils/paletteTypes.ts) as the fallback if schemas ever diverge.
 
 ## Resolved Decisions
 

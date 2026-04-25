@@ -153,6 +153,7 @@ declare global {
     writeFile: (filePath: string, content: string) => Promise<void>
     writeBytes: (filePath: string, data: Uint8Array) => Promise<void>
     exists: (filePath: string) => Promise<boolean>
+    stat: (filePath: string) => Promise<{ mtimeMs: number; sizeBytes: number } | null>
     ensureDir: (dirPath: string) => Promise<void>
     deleteFile: (filePath: string) => Promise<void>
     listArchive: (filePath: string) => Promise<string[]>
