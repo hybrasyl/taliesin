@@ -8,18 +8,17 @@ import {
   Grid,
   Chip,
   Divider,
-  Alert,
-  IconButton,
   Tooltip,
   CircularProgress,
-  Button
+  Button,
+  Stack
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import BuildIcon from '@mui/icons-material/Build'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import SettingsIcon from '@mui/icons-material/Settings'
 import HistoryIcon from '@mui/icons-material/History'
 import GamepadIcon from '@mui/icons-material/Gamepad'
+import Inventory2Icon from '@mui/icons-material/Inventory2'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import {
   clientPathState,
@@ -117,6 +116,84 @@ function StatCard({ label, count, page, tooltip, onNavigate }: StatCardProps) {
   )
 }
 
+interface StatusCardProps {
+  icon: React.ReactNode
+  label: string
+  /** Primary value when configured (e.g. folder name). Null = empty state. */
+  primary: string | null
+  /** Secondary detail (e.g. full path). Only rendered alongside `primary`. */
+  secondary?: string | null
+  /** Empty-state hint shown beneath "Not configured" when `primary` is null. */
+  emptyHint?: string
+  /** Whole-card click target. Used both when configured (e.g. open editor) and
+   * when empty (e.g. open settings). When omitted the card is non-interactive. */
+  onClick?: () => void
+  /** Optional content rendered at the bottom of the card body (e.g. action
+   * button or status chip). Used by the Index State card; suppresses the
+   * whole-card CardActionArea so the inner control can receive clicks. */
+  footer?: React.ReactNode
+}
+
+function StatusCard({ icon, label, primary, secondary, emptyHint, onClick, footer }: StatusCardProps) {
+  const body = (
+    <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+        <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
+        <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+          {label}
+        </Typography>
+      </Stack>
+      {primary ? (
+        <>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'medium', lineHeight: 1.25 }}>
+            {primary}
+          </Typography>
+          {secondary && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                wordBreak: 'break-all',
+                display: 'block',
+                mt: 0.25
+              }}
+            >
+              {secondary}
+            </Typography>
+          )}
+        </>
+      ) : (
+        <>
+          <Typography
+            variant="subtitle1"
+            sx={{ fontStyle: 'italic', color: 'text.secondary', lineHeight: 1.25 }}
+          >
+            Not configured
+          </Typography>
+          {emptyHint && (
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.25 }}>
+              {emptyHint}
+            </Typography>
+          )}
+        </>
+      )}
+      {footer && <Box sx={{ mt: 1.25 }}>{footer}</Box>}
+    </CardContent>
+  )
+
+  return (
+    <Card variant="outlined" sx={{ height: '100%' }}>
+      {onClick && !footer ? (
+        <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
+          {body}
+        </CardActionArea>
+      ) : (
+        body
+      )}
+    </Card>
+  )
+}
+
 const DashboardPage: React.FC = () => {
   const clientPath = useRecoilValue(clientPathState)
   const activeLibrary = useRecoilValue(activeLibraryState)
@@ -160,125 +237,104 @@ const DashboardPage: React.FC = () => {
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
-      {/* Active Library */}
-      {activeLibrary ? (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 3 }}>
-          <FolderOpenIcon color="action" sx={{ mt: 0.25 }} />
-          <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
-              Active Library
-            </Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mt: 0.25 }}>
-              {folderName}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', wordBreak: 'break-all' }}>
-              {activeLibrary}
-            </Typography>
-          </Box>
-        </Box>
-      ) : (
-        <Card variant="outlined" sx={{ mb: 3 }}>
-          <CardActionArea onClick={() => navigateTo('settings')} sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <FolderOpenIcon color="action" fontSize="large" />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                  No library selected
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Click to open Settings and add a library
-                </Typography>
-              </Box>
-              <SettingsIcon color="action" />
-            </Box>
-          </CardActionArea>
-        </Card>
-      )}
+      {/* Status cards: Active Library, Current Client, Asset Packs, Index State */}
+      <Grid container spacing={1.5} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            icon={<FolderOpenIcon fontSize="small" />}
+            label="Active Library"
+            primary={folderName}
+            secondary={activeLibrary}
+            emptyHint="Click to open Settings"
+            onClick={() => navigateTo('settings')}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            icon={<GamepadIcon fontSize="small" />}
+            label="Current Client"
+            primary={clientPath ? clientPath.replace(/\\/g, '/').split('/').pop() ?? null : null}
+            secondary={clientPath}
+            emptyHint="Click to open Settings"
+            onClick={() => navigateTo('settings')}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            icon={<Inventory2Icon fontSize="small" />}
+            label="Asset Packs"
+            primary={packDir ? packDir.replace(/\\/g, '/').split('/').pop() ?? null : null}
+            secondary={packDir}
+            emptyHint="Click to open Settings"
+            onClick={() => navigateTo(packDir ? 'assetpacks' : 'settings')}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatusCard
+            icon={<BuildIcon fontSize="small" />}
+            label="Index State"
+            primary={
+              hasIndex
+                ? `Built ${builtAt!.toLocaleDateString()}`
+                : activeLibrary
+                  ? 'Not built'
+                  : null
+            }
+            secondary={
+              hasIndex
+                ? builtAt!.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : activeLibrary
+                  ? 'Build the index to populate library stats below.'
+                  : null
+            }
+            emptyHint="Set an active library in Settings first."
+            onClick={!activeLibrary ? () => navigateTo('settings') : undefined}
+            footer={
+              activeLibrary ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={
+                    building ? (
+                      <CircularProgress size={14} color="inherit" />
+                    ) : hasIndex ? (
+                      <RefreshIcon fontSize="small" />
+                    ) : (
+                      <BuildIcon fontSize="small" />
+                    )
+                  }
+                  onClick={build}
+                  disabled={building || indexLoading}
+                >
+                  {building ? 'Building…' : hasIndex ? 'Rebuild' : 'Build Index'}
+                </Button>
+              ) : undefined
+            }
+          />
+        </Grid>
+      </Grid>
 
-      {/* Configured paths */}
-      {(clientPath || packDir) && (
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-          {clientPath && (
-            <Chip
-              icon={<GamepadIcon />}
-              label={`Client: ${clientPath.replace(/\\/g, '/').split('/').pop()}`}
-              size="small"
-              variant="outlined"
-            />
-          )}
-          {packDir && (
-            <Chip
-              icon={<FolderOpenIcon />}
-              label={`Packs: ${packDir.replace(/\\/g, '/').split('/').pop()}`}
-              size="small"
-              variant="outlined"
-              onClick={() => navigateTo('assetpacks')}
-              clickable
-            />
-          )}
-        </Box>
-      )}
-
-      {/* No index alert */}
-      {activeLibrary && !hasIndex && !indexLoading && (
-        <Alert
-          severity="info"
-          icon={<BuildIcon />}
-          sx={{ mb: 3 }}
-          action={
-            <Button size="small" onClick={build} disabled={building}>
-              {building ? <CircularProgress size={16} /> : 'Build Index'}
-            </Button>
-          }
-        >
-          No index found — build one to see library stats here.
-        </Alert>
-      )}
+      <Divider sx={{ mb: 3 }} />
 
       {/* Index stats */}
       {hasIndex && (
-        <>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-              Index
-            </Typography>
-            <Chip
-              label={`Built ${builtAt!.toLocaleDateString()} ${builtAt!.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-              size="small"
-              color="success"
-              variant="outlined"
-            />
-            <Tooltip title={building ? 'Building...' : 'Rebuild index'}>
-              <span>
-                <IconButton size="small" onClick={build} disabled={building}>
-                  {building ? (
-                    <CircularProgress size={14} color="success" />
-                  ) : (
-                    <RefreshIcon fontSize="small" />
-                  )}
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
-
-          <Grid container spacing={1.5} sx={{ mb: 3 }}>
-            {INDEX_TYPES.map(({ key, label, page, tooltip }) => {
-              const arr = (index as any)?.[key]
-              if (!arr) return null
-              return (
-                <Grid size={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={key}>
-                  <StatCard
-                    label={label}
-                    count={arr.length}
-                    page={page}
-                    tooltip={tooltip}
-                    onNavigate={navigateTo}
-                  />
-                </Grid>
-              )
-            })}
-          </Grid>
-        </>
+        <Grid container spacing={1.5} sx={{ mb: 3 }}>
+          {INDEX_TYPES.map(({ key, label, page, tooltip }) => {
+            const arr = (index as any)?.[key]
+            if (!arr) return null
+            return (
+              <Grid size={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={key}>
+                <StatCard
+                  label={label}
+                  count={arr.length}
+                  page={page}
+                  tooltip={tooltip}
+                  onNavigate={navigateTo}
+                />
+              </Grid>
+            )
+          })}
+        </Grid>
       )}
 
       {/* Recently visited */}
