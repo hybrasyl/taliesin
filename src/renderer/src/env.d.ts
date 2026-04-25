@@ -194,3 +194,5 @@ declare global {
     api: TaliesinAPI
   }
 }
+
+export {}

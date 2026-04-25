@@ -54,8 +54,10 @@ export async function deletePalette(packDir: string, paletteId: string): Promise
 }
 
 export async function loadCalibrations(packDir: string, paletteId: string): Promise<CalibrationFile> {
+  // The on-disk shape may be the new SourceCalibration form or the pre-Phase-4
+  // map-of-entries form; ColorizeView normalizes both at read time.
   const raw = await window.api.paletteCalibrationLoad(packDir, paletteId)
-  return (raw ?? {}) as CalibrationFile
+  return (raw ?? {}) as unknown as CalibrationFile
 }
 
 export async function saveCalibrations(packDir: string, paletteId: string, data: CalibrationFile): Promise<void> {
