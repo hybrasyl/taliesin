@@ -14,39 +14,85 @@ export type MockApi = {
 export function createMockApi(): MockApi {
   const channels: (keyof TaliesinAPI)[] = [
     // Window controls
-    'minimizeWindow', 'maximizeWindow', 'closeWindow',
+    'minimizeWindow',
+    'maximizeWindow',
+    'closeWindow',
     // App
-    'getAppVersion', 'getUserDataPath', 'launchCompanion',
+    'getAppVersion',
+    'getUserDataPath',
+    'launchCompanion',
     // Settings
-    'loadSettings', 'saveSettings',
+    'loadSettings',
+    'saveSettings',
     // Dialogs
-    'openFile', 'openDirectory', 'saveFile',
+    'openFile',
+    'openDirectory',
+    'saveFile',
     // File system
-    'readFile', 'listDir', 'copyFile', 'writeFile', 'writeBytes', 'exists',
-    'ensureDir', 'deleteFile', 'listArchive',
+    'readFile',
+    'listDir',
+    'copyFile',
+    'writeFile',
+    'writeBytes',
+    'exists',
+    'ensureDir',
+    'deleteFile',
+    'listArchive',
     // Catalog
-    'catalogLoad', 'catalogSave', 'catalogScan',
+    'catalogLoad',
+    'catalogSave',
+    'catalogScan',
     // Music
-    'musicReadFileMeta', 'musicScan', 'musicMetadataLoad', 'musicMetadataSave',
-    'musicPacksLoad', 'musicPacksSave', 'musicDeployPack', 'musicClientScan',
+    'musicReadFileMeta',
+    'musicScan',
+    'musicMetadataLoad',
+    'musicMetadataSave',
+    'musicPacksLoad',
+    'musicPacksSave',
+    'musicDeployPack',
+    'musicClientScan',
     // SFX
-    'sfxList', 'sfxReadEntry', 'sfxIndexLoad', 'sfxIndexSave',
+    'sfxList',
+    'sfxReadEntry',
+    'sfxIndexLoad',
+    'sfxIndexSave',
     // BIK
     'bikConvert',
     // World index
-    'indexRead', 'indexBuild', 'indexStatus', 'indexDelete', 'libraryResolve',
+    'indexRead',
+    'indexBuild',
+    'indexStatus',
+    'indexDelete',
+    'libraryResolve',
     // Prefabs
-    'prefabList', 'prefabLoad', 'prefabSave', 'prefabDelete', 'prefabRename',
+    'prefabList',
+    'prefabLoad',
+    'prefabSave',
+    'prefabDelete',
+    'prefabRename',
     // Tile scanner
     'tileScanAnalyze',
     // Themes
-    'themeList', 'themeLoad', 'themeSave', 'themeDelete',
+    'themeList',
+    'themeLoad',
+    'themeSave',
+    'themeDelete',
     // Asset packs
-    'packScan', 'packLoad', 'packSave', 'packDelete', 'packAddAsset',
-    'packRemoveAsset', 'packCompile',
+    'packScan',
+    'packLoad',
+    'packSave',
+    'packDelete',
+    'packAddAsset',
+    'packRemoveAsset',
+    'packCompile',
     // Palettes
-    'paletteScan', 'paletteLoad', 'paletteSave', 'paletteDelete',
-    'paletteCalibrationLoad', 'paletteCalibrationSave', 'frameScan',
+    'paletteScan',
+    'paletteLoad',
+    'paletteSave',
+    'paletteDelete',
+    'paletteCalibrationLoad',
+    'paletteCalibrationSave',
+    'frameScan'
   ]
 
   const api = {} as MockApi

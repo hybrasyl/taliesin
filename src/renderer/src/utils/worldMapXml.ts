@@ -40,19 +40,19 @@ export function parseWorldMapXml(xml: string): WorldMapData {
   for (const pointEl of root.querySelectorAll('Points > Point')) {
     const targetEl = pointEl.querySelector(':scope > Target')
     points.push({
-      x:         parseInt(attr(pointEl, 'X', '0'), 10),
-      y:         parseInt(attr(pointEl, 'Y', '0'), 10),
-      name:      childText(pointEl, 'Name'),
+      x: parseInt(attr(pointEl, 'X', '0'), 10),
+      y: parseInt(attr(pointEl, 'Y', '0'), 10),
+      name: childText(pointEl, 'Name'),
       targetMap: targetEl?.textContent?.trim() ?? '',
-      targetX:   targetEl ? parseInt(attr(targetEl, 'X', '0'), 10) : 0,
-      targetY:   targetEl ? parseInt(attr(targetEl, 'Y', '0'), 10) : 0,
+      targetX: targetEl ? parseInt(attr(targetEl, 'X', '0'), 10) : 0,
+      targetY: targetEl ? parseInt(attr(targetEl, 'Y', '0'), 10) : 0
     })
   }
 
   return {
-    name:      childText(root, 'Name'),
+    name: childText(root, 'Name'),
     clientMap: attr(root, 'ClientMap'),
-    points,
+    points
   }
 }
 
@@ -61,7 +61,9 @@ export function parseWorldMapXml(xml: string): WorldMapData {
 export function serializeWorldMapXml(data: WorldMapData): string {
   const lines: string[] = []
   lines.push('<?xml version="1.0" encoding="utf-8"?>')
-  lines.push(`<WorldMap ClientMap="${esc(data.clientMap)}" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">`)
+  lines.push(
+    `<WorldMap ClientMap="${esc(data.clientMap)}" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">`
+  )
   lines.push(`  <Name>${esc(data.name)}</Name>`)
 
   if (data.points.length > 0) {

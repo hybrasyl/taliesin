@@ -13,7 +13,7 @@ import {
   deletePalette,
   loadCalibrations,
   saveCalibrations,
-  scanFrames,
+  scanFrames
 } from '../paletteIO'
 import type { Palette, CalibrationFile } from '../paletteTypes'
 
@@ -107,7 +107,7 @@ beforeEach(() => {
     paletteDelete: vi.fn(),
     paletteCalibrationLoad: vi.fn(),
     paletteCalibrationSave: vi.fn(),
-    frameScan: vi.fn(),
+    frameScan: vi.fn()
   }
   ;(globalThis as unknown as { window: { api: ApiStub } }).window = { api }
 })
@@ -123,7 +123,13 @@ describe('scanPalettes', () => {
 
 describe('loadPalette', () => {
   it('builds the palette path and forwards to window.api.paletteLoad', async () => {
-    const fake: Palette = { id: 'fire', name: 'Fire', version: 1, lastModified: '2024-01-01T00:00:00Z', entries: [] }
+    const fake: Palette = {
+      id: 'fire',
+      name: 'Fire',
+      version: 1,
+      lastModified: '2024-01-01T00:00:00Z',
+      entries: []
+    }
     api.paletteLoad.mockResolvedValue(fake)
     const result = await loadPalette('/p', 'fire')
     expect(api.paletteLoad).toHaveBeenCalledWith('/p/_palettes/fire.json')
@@ -133,7 +139,13 @@ describe('loadPalette', () => {
 
 describe('savePalette', () => {
   it('uses the palette id as the filename', async () => {
-    const palette: Palette = { id: 'water', name: 'Water', version: 1, lastModified: '2024-01-01T00:00:00Z', entries: [] }
+    const palette: Palette = {
+      id: 'water',
+      name: 'Water',
+      version: 1,
+      lastModified: '2024-01-01T00:00:00Z',
+      entries: []
+    }
     await savePalette('/p', palette)
     expect(api.paletteSave).toHaveBeenCalledWith('/p/_palettes/water.json', palette)
   })

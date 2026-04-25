@@ -5,7 +5,7 @@ import { MapFile } from '@eriscorp/dalib-ts'
 import MapEditorCanvas, {
   type EditorTool,
   type Selection,
-  type Clipboard,
+  type Clipboard
 } from '../MapEditorCanvas'
 import { installMockApi } from '../../../__tests__/setup/mockApi'
 
@@ -14,13 +14,15 @@ import { installMockApi } from '../../../__tests__/setup/mockApi'
 // and stub the asset/bitmap entrypoints. The component takes the !clientPath path
 // in our tests anyway, so most of these stubs only matter for type compatibility.
 vi.mock('../../../utils/mapRenderer', async () => {
-  const actual = await vi.importActual<typeof import('../../../utils/mapRenderer')>('../../../utils/mapRenderer')
+  const actual = await vi.importActual<typeof import('../../../utils/mapRenderer')>(
+    '../../../utils/mapRenderer'
+  )
   return {
     ...actual,
     loadMapAssets: vi.fn(async () => null),
     getGroundBitmap: vi.fn(async () => null),
     getStcBitmap: vi.fn(async () => null),
-    getAnimatedTileId: (_table: unknown, id: number) => id,
+    getAnimatedTileId: (_table: unknown, id: number) => id
   }
 })
 
@@ -57,7 +59,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof MapEditorCanva
     showAnimation: false,
     onContextAction: vi.fn(),
     renderVersion: 0,
-    ...overrides,
+    ...overrides
   }
   return base
 }
@@ -157,7 +159,8 @@ describe('MapEditorCanvas — context menu', () => {
   it('shows Paste only when there is a clipboard payload', async () => {
     const clipboard: Clipboard = {
       tiles: [{ background: 1, leftForeground: 0, rightForeground: 0 }],
-      w: 1, h: 1,
+      w: 1,
+      h: 1
     }
     const props = makeProps({ clipboard })
     const { container } = render(<MapEditorCanvas {...props} />)
@@ -174,7 +177,9 @@ describe('MapEditorCanvas — paste mode', () => {
   it('clicking in paste mode dispatches onRequestPaste with tile coords and shift flag', async () => {
     const onRequestPaste = vi.fn()
     const clipboard: Clipboard = {
-      tiles: [{ background: 1, leftForeground: 0, rightForeground: 0 }], w: 1, h: 1,
+      tiles: [{ background: 1, leftForeground: 0, rightForeground: 0 }],
+      w: 1,
+      h: 1
     }
     const props = makeProps({ pasteMode: true, clipboard, onRequestPaste })
     const { container } = render(<MapEditorCanvas {...props} />)

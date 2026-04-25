@@ -72,5 +72,5 @@ app.on('window-all-closed', () => {
 
 registerHandlers(
   { ipcMain, BrowserWindow, dialog },
-  { settingsPath, settingsManager, appGetVersion: () => app.getVersion() },
+  { settingsPath, settingsManager, appGetVersion: () => app.getVersion() }
 )

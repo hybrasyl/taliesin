@@ -1,7 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  Box, Typography, Card, CardContent, CardActionArea, Grid, Chip, Divider,
-  Alert, IconButton, Tooltip, CircularProgress, Button,
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  CardActionArea,
+  Grid,
+  Chip,
+  Divider,
+  Alert,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+  Button
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import BuildIcon from '@mui/icons-material/Build'
@@ -11,7 +22,11 @@ import HistoryIcon from '@mui/icons-material/History'
 import GamepadIcon from '@mui/icons-material/Gamepad'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import {
-  clientPathState, activeLibraryState, currentPageState, packDirState, type Page,
+  clientPathState,
+  activeLibraryState,
+  currentPageState,
+  packDirState,
+  type Page
 } from '../recoil/atoms'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 
@@ -33,7 +48,7 @@ const INDEX_TYPES: { key: string; label: string; page?: Page; tooltip?: string }
   { key: 'elementtables', label: 'Element Tables', tooltip: 'Managed by Creidhne' },
   { key: 'localizations', label: 'Localizations', tooltip: 'Managed by Creidhne' },
   { key: 'serverconfigs', label: 'Server Configs', tooltip: 'Managed by Creidhne' },
-  { key: 'scripts', label: 'Scripts', tooltip: 'Managed by Creidhne' },
+  { key: 'scripts', label: 'Scripts', tooltip: 'Managed by Creidhne' }
 ]
 
 const PAGE_LABELS: Partial<Record<Page, string>> = {
@@ -47,12 +62,12 @@ const PAGE_LABELS: Partial<Record<Page, string>> = {
   assetpacks: 'Asset Packs',
   music: 'Music Manager',
   sfx: 'Sound Effects',
-  settings: 'Settings',
+  settings: 'Settings'
 }
 
 function getFolderName(fullPath: string): string {
   const parts = fullPath.replace(/\\/g, '/').split('/').filter(Boolean)
-  const worldIdx = parts.findIndex(p => p.toLowerCase() === 'world')
+  const worldIdx = parts.findIndex((p) => p.toLowerCase() === 'world')
   if (worldIdx > 0) return parts[worldIdx - 1]
   return parts.pop() ?? fullPath
 }
@@ -68,7 +83,11 @@ interface StatCardProps {
 function StatCard({ label, count, page, tooltip, onNavigate }: StatCardProps) {
   const content = (
     <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-      <Typography variant="h5" color={page ? 'primary.light' : 'text.primary'} sx={{ fontWeight: 'bold' }}>
+      <Typography
+        variant="h5"
+        color={page ? 'primary.light' : 'text.primary'}
+        sx={{ fontWeight: 'bold' }}
+      >
         {count.toLocaleString()}
       </Typography>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -90,8 +109,12 @@ function StatCard({ label, count, page, tooltip, onNavigate }: StatCardProps) {
   )
 
   return tooltip ? (
-    <Tooltip title={tooltip} placement="top">{card}</Tooltip>
-  ) : card
+    <Tooltip title={tooltip} placement="top">
+      {card}
+    </Tooltip>
+  ) : (
+    card
+  )
 }
 
 const DashboardPage: React.FC = () => {
@@ -108,18 +131,23 @@ const DashboardPage: React.FC = () => {
     try {
       const stored = localStorage.getItem('taliesin-recent-pages')
       if (stored) setRecentPages(JSON.parse(stored))
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [])
 
-  const navigateTo = useCallback((page: Page) => {
-    setCurrentPage(page)
-    setRecentPages(prev => {
-      const filtered = prev.filter(p => p !== page)
-      const next = [page, ...filtered].slice(0, 8)
-      localStorage.setItem('taliesin-recent-pages', JSON.stringify(next))
-      return next
-    })
-  }, [setCurrentPage])
+  const navigateTo = useCallback(
+    (page: Page) => {
+      setCurrentPage(page)
+      setRecentPages((prev) => {
+        const filtered = prev.filter((p) => p !== page)
+        const next = [page, ...filtered].slice(0, 8)
+        localStorage.setItem('taliesin-recent-pages', JSON.stringify(next))
+        return next
+      })
+    },
+    [setCurrentPage]
+  )
 
   const folderName = activeLibrary ? getFolderName(activeLibrary) : null
   const hasIndex = !!index?.builtAt
@@ -264,7 +292,7 @@ const DashboardPage: React.FC = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {recentPages.map(page => (
+            {recentPages.map((page) => (
               <Chip
                 key={page}
                 label={PAGE_LABELS[page] ?? page}

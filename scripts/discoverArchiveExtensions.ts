@@ -83,7 +83,10 @@ async function main() {
     for (const entry of arc.entries) {
       const ext = getExt(entry.entryName)
       let perArchive = inventory.get(ext)
-      if (!perArchive) { perArchive = new Map(); inventory.set(ext, perArchive) }
+      if (!perArchive) {
+        perArchive = new Map()
+        inventory.set(ext, perArchive)
+      }
       perArchive.set(archiveName, (perArchive.get(archiveName) ?? 0) + 1)
       totalEntries++
     }
@@ -106,7 +109,9 @@ async function main() {
 
   for (const [ext, perArchive] of sorted) {
     const total = Array.from(perArchive.values()).reduce((s, n) => s + n, 0)
-    console.log(`## ${ext}  (${total} entries across ${perArchive.size} archive${perArchive.size === 1 ? '' : 's'})`)
+    console.log(
+      `## ${ext}  (${total} entries across ${perArchive.size} archive${perArchive.size === 1 ? '' : 's'})`
+    )
     const archs = Array.from(perArchive.entries()).sort((a, b) => b[1] - a[1])
     for (const [arc, count] of archs) {
       console.log(`  - ${arc}: ${count}`)
@@ -115,7 +120,7 @@ async function main() {
   }
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error(e)
   process.exit(1)
 })

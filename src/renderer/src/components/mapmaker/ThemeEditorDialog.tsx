@@ -1,16 +1,31 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  Box, Typography, TextField, LinearProgress, Chip, Tooltip,
-  Select, MenuItem, InputLabel, FormControl, IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  TextField,
+  LinearProgress,
+  Chip,
+  Tooltip,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  IconButton
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { useRecoilValue } from 'recoil'
 import { mapDirectoriesState, clientPathState } from '../../recoil/atoms'
 import {
-  loadMapAssets, getGroundBitmap, getStcBitmap,
-  type MapAssets,
+  loadMapAssets,
+  getGroundBitmap,
+  getStcBitmap,
+  type MapAssets
 } from '../../utils/mapRenderer'
 import type { TileTheme, TileFrequencyResult } from '../../utils/tileThemeTypes'
 
@@ -24,14 +39,14 @@ const BG_ROLES: { key: BgRole; label: string }[] = [
   { key: 'primaryGround', label: 'Primary Ground' },
   { key: 'secondaryGround', label: 'Secondary Ground' },
   { key: 'accentGround', label: 'Accent Ground' },
-  { key: 'pathTile', label: 'Path / Corridor' },
+  { key: 'pathTile', label: 'Path / Corridor' }
 ]
 
 const FG_ROLES: { key: FgRole; label: string }[] = [
   { key: 'wallTile', label: 'Wall (Left FG)' },
   { key: 'wallTileRight', label: 'Wall (Right FG)' },
   { key: 'decorationTile', label: 'Decoration' },
-  { key: 'edgeTile', label: 'Edge / Border' },
+  { key: 'edgeTile', label: 'Edge / Border' }
 ]
 
 interface Props {
@@ -60,9 +75,8 @@ const TileThumb: React.FC<{
     if (!ctx) return
 
     const render = async () => {
-      const bm = layer === 'bg'
-        ? await getGroundBitmap(tileId, assets)
-        : await getStcBitmap(tileId, assets)
+      const bm =
+        layer === 'bg' ? await getGroundBitmap(tileId, assets) : await getStcBitmap(tileId, assets)
       if (!bm) {
         ctx.clearRect(0, 0, size, size)
         ctx.fillStyle = '#333'
@@ -87,12 +101,20 @@ const TileThumb: React.FC<{
       <Box
         onClick={onClick}
         sx={{
-          width: size, height: size, border: '1px dashed',
-          borderColor: 'divider', borderRadius: 1, cursor: onClick ? 'pointer' : 'default',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: size,
+          height: size,
+          border: '1px dashed',
+          borderColor: 'divider',
+          borderRadius: 1,
+          cursor: onClick ? 'pointer' : 'default',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
-        <Typography variant="caption" color="text.secondary">None</Typography>
+        <Typography variant="caption" color="text.secondary">
+          None
+        </Typography>
       </Box>
     )
   }
@@ -101,18 +123,27 @@ const TileThumb: React.FC<{
     <Box
       onClick={onClick}
       sx={{
-        position: 'relative', cursor: onClick ? 'pointer' : 'default',
-        border: 2, borderColor: selected ? 'primary.main' : 'transparent',
-        borderRadius: 1, '&:hover': onClick ? { borderColor: 'primary.light' } : {},
+        position: 'relative',
+        cursor: onClick ? 'pointer' : 'default',
+        border: 2,
+        borderColor: selected ? 'primary.main' : 'transparent',
+        borderRadius: 1,
+        '&:hover': onClick ? { borderColor: 'primary.light' } : {}
       }}
     >
       <canvas ref={canvasRef} width={size} height={size} style={{ display: 'block' }} />
       <Typography
         variant="caption"
         sx={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          textAlign: 'center', bgcolor: 'rgba(0,0,0,0.6)', color: '#fff',
-          fontSize: '9px', lineHeight: 1.4,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          bgcolor: 'rgba(0,0,0,0.6)',
+          color: '#fff',
+          fontSize: '9px',
+          lineHeight: 1.4
         }}
       >
         {tileId}
@@ -136,8 +167,14 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
   // Theme state
   const [name, setName] = useState('')
   const [roles, setRoles] = useState<Record<Role, number>>({
-    primaryGround: 0, secondaryGround: 0, accentGround: 0, pathTile: 0,
-    wallTile: 0, wallTileRight: 0, decorationTile: 0, edgeTile: 0,
+    primaryGround: 0,
+    secondaryGround: 0,
+    accentGround: 0,
+    pathTile: 0,
+    wallTile: 0,
+    wallTileRight: 0,
+    decorationTile: 0,
+    edgeTile: 0
   })
 
   // Which role is currently being assigned (tile picker is open for it)
@@ -162,13 +199,19 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         wallTile: editTheme.wallTile,
         wallTileRight: editTheme.wallTileRight,
         decorationTile: editTheme.decorationTile,
-        edgeTile: editTheme.edgeTile,
+        edgeTile: editTheme.edgeTile
       })
     } else {
       setName('')
       setRoles({
-        primaryGround: 0, secondaryGround: 0, accentGround: 0, pathTile: 0,
-        wallTile: 0, wallTileRight: 0, decorationTile: 0, edgeTile: 0,
+        primaryGround: 0,
+        secondaryGround: 0,
+        accentGround: 0,
+        pathTile: 0,
+        wallTile: 0,
+        wallTileRight: 0,
+        decorationTile: 0,
+        edgeTile: 0
       })
     }
     setScanResult(null)
@@ -178,7 +221,7 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
   const handleBrowseDir = useCallback(async () => {
     const dir = await window.api.openDirectory()
     if (dir && !scanDirs.includes(dir)) {
-      setScanDirs(prev => [...prev, dir])
+      setScanDirs((prev) => [...prev, dir])
     }
   }, [scanDirs])
 
@@ -190,7 +233,7 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
       setScanResult(result)
 
       // Auto-assign top tiles to roles if nothing is assigned yet
-      const allEmpty = Object.values(roles).every(v => v === 0)
+      const allEmpty = Object.values(roles).every((v) => v === 0)
       if (allEmpty) {
         const bg = result.background
         const lfg = result.leftForeground
@@ -203,7 +246,7 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
           wallTile: lfg[0]?.[0] ?? 0,
           wallTileRight: rfg[0]?.[0] ?? 0,
           decorationTile: lfg[1]?.[0] ?? 0,
-          edgeTile: lfg[2]?.[0] ?? 0,
+          edgeTile: lfg[2]?.[0] ?? 0
         })
       }
     } finally {
@@ -218,9 +261,13 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
       name: name.trim(),
       createdAt: editTheme?.createdAt ?? now,
       updatedAt: now,
-      ...roles,
+      ...roles
     }
-    const filename = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json'
+    const filename =
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-') + '.json'
     window.api.themeSave(filename, theme).then(() => onSave(theme))
   }, [name, roles, editTheme, onSave])
 
@@ -253,11 +300,13 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
               value=""
               onChange={(e) => {
                 const val = e.target.value as string
-                if (val && !scanDirs.includes(val)) setScanDirs(prev => [...prev, val])
+                if (val && !scanDirs.includes(val)) setScanDirs((prev) => [...prev, val])
               }}
             >
-              {mapDirs.map(d => (
-                <MenuItem key={d.path} value={d.path}>{d.name || d.path}</MenuItem>
+              {mapDirs.map((d) => (
+                <MenuItem key={d.path} value={d.path}>
+                  {d.name || d.path}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -269,7 +318,8 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
           </Tooltip>
 
           <Button
-            variant="contained" size="small"
+            variant="contained"
+            size="small"
             onClick={handleScan}
             disabled={scanning || scanDirs.length === 0}
           >
@@ -279,12 +329,12 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
 
         {/* Selected directories */}
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-          {scanDirs.map(d => (
+          {scanDirs.map((d) => (
             <Chip
               key={d}
               label={d.split(/[\\/]/).pop()}
               size="small"
-              onDelete={() => setScanDirs(prev => prev.filter(p => p !== d))}
+              onDelete={() => setScanDirs((prev) => prev.filter((p) => p !== d))}
               title={d}
             />
           ))}
@@ -294,9 +344,10 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
 
         {scanResult && (
           <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-            Scanned {scanResult.fileCount.toLocaleString()} files, {scanResult.tileCount.toLocaleString()} tiles —
-            {' '}{scanResult.background.length} unique BG, {scanResult.leftForeground.length} unique LFG,
-            {' '}{scanResult.rightForeground.length} unique RFG
+            Scanned {scanResult.fileCount.toLocaleString()} files,{' '}
+            {scanResult.tileCount.toLocaleString()} tiles — {scanResult.background.length} unique
+            BG, {scanResult.leftForeground.length} unique LFG, {scanResult.rightForeground.length}{' '}
+            unique RFG
           </Typography>
         )}
 
@@ -308,7 +359,7 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         <TextField
           label="Theme Name"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           size="small"
           fullWidth
           sx={{ mb: 2 }}
@@ -362,10 +413,11 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         {pickingRole && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="primary" sx={{ mb: 0.5, display: 'block' }}>
-              Select tile for: <strong>{
-                [...BG_ROLES, ...FG_ROLES].find(r => r.key === pickingRole)?.label
-              }</strong>
-              {' '}(click a tile below, or type an ID)
+              Select tile for:{' '}
+              <strong>
+                {[...BG_ROLES, ...FG_ROLES].find((r) => r.key === pickingRole)?.label}
+              </strong>{' '}
+              (click a tile below, or type an ID)
             </Typography>
 
             {/* Manual ID entry */}
@@ -374,10 +426,10 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
               type="number"
               size="small"
               value={roles[pickingRole] || ''}
-              onChange={e => {
+              onChange={(e) => {
                 const v = parseInt(e.target.value, 10)
                 if (!isNaN(v) && v >= 0) {
-                  setRoles(prev => ({ ...prev, [pickingRole]: v }))
+                  setRoles((prev) => ({ ...prev, [pickingRole]: v }))
                 }
               }}
               sx={{ mb: 1, width: 120 }}
@@ -385,28 +437,38 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
 
             {/* Frequency-sorted tile grid */}
             {scanResult && (
-              <Box sx={{
-                display: 'flex', flexWrap: 'wrap', gap: 0.5,
-                maxHeight: 200, overflowY: 'auto',
-                border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5,
-              }}>
-                {getPickerTiles().slice(0, 60).map(([tileId, count]) => (
-                  <Tooltip key={tileId} title={`ID ${tileId} — ${count.toLocaleString()} uses`}>
-                    <Box>
-                      <TileThumb
-                        tileId={tileId}
-                        layer={isBgRole(pickingRole) ? 'bg' : 'fg'}
-                        assets={assets}
-                        size={40}
-                        selected={roles[pickingRole] === tileId}
-                        onClick={() => {
-                          setRoles(prev => ({ ...prev, [pickingRole]: tileId }))
-                          setPickingRole(null)
-                        }}
-                      />
-                    </Box>
-                  </Tooltip>
-                ))}
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  p: 0.5
+                }}
+              >
+                {getPickerTiles()
+                  .slice(0, 60)
+                  .map(([tileId, count]) => (
+                    <Tooltip key={tileId} title={`ID ${tileId} — ${count.toLocaleString()} uses`}>
+                      <Box>
+                        <TileThumb
+                          tileId={tileId}
+                          layer={isBgRole(pickingRole) ? 'bg' : 'fg'}
+                          assets={assets}
+                          size={40}
+                          selected={roles[pickingRole] === tileId}
+                          onClick={() => {
+                            setRoles((prev) => ({ ...prev, [pickingRole]: tileId }))
+                            setPickingRole(null)
+                          }}
+                        />
+                      </Box>
+                    </Tooltip>
+                  ))}
                 {getPickerTiles().length === 0 && (
                   <Typography variant="caption" color="text.secondary" sx={{ p: 1 }}>
                     No tiles found. Try scanning more directories.

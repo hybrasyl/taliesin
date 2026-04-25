@@ -16,7 +16,7 @@ distilled "what we learned, what to copy."
 
 **Problem.** Any handler that takes a renderer-supplied filename
 component and joins it to a known parent dir (themes/`<name>`,
-prefabs/`<name>`, packs/`<id>`/_palettes/`<id>`.json, etc.) is one
+prefabs/`<name>`, packs/`<id>`/\_palettes/`<id>`.json, etc.) is one
 `../../etc/passwd` away from reading or overwriting arbitrary files. A
 trusted renderer doesn't excuse this — defence in depth, plus the
 threat model changes the moment a future feature accepts external input.
@@ -78,13 +78,17 @@ it('prefab:save rejects a traversal in filename', async () => {
 ```ts
 // WRONG — try/catch swallows the traversal error
 export async function packRemoveAsset(packDir, filename) {
-  try { await fs.unlink(assertInside(packDir, filename)) } catch {}
+  try {
+    await fs.unlink(assertInside(packDir, filename))
+  } catch {}
 }
 
 // RIGHT
 export async function packRemoveAsset(packDir, filename) {
   const target = assertInside(packDir, filename)
-  try { await fs.unlink(target) } catch {}
+  try {
+    await fs.unlink(target)
+  } catch {}
 }
 ```
 
@@ -105,12 +109,18 @@ destination if validation passes for every entry.
 const resolved = pack.tracks.map((track) => ({
   src: assertInside(srcLibDir, track.sourceFile),
   dst: assertInside(destDir, `${track.musicId}.mus`),
-  original: track.sourceFile,
+  original: track.sourceFile
 }))
 const missing: string[] = []
-await Promise.all(resolved.map(async (r) => {
-  try { await fs.stat(r.src) } catch { missing.push(r.original) }
-}))
+await Promise.all(
+  resolved.map(async (r) => {
+    try {
+      await fs.stat(r.src)
+    } catch {
+      missing.push(r.original)
+    }
+  })
+)
 if (missing.length > 0) {
   throw new Error(`Cannot deploy: missing source(s): ${missing.join(', ')}`)
 }
@@ -140,8 +150,11 @@ still surface — only the missing-root case degrades silently.
 
 ```ts
 export async function musicScan(dirPath: string) {
-  try { return await scanMusicDir(dirPath) }
-  catch { return [] }
+  try {
+    return await scanMusicDir(dirPath)
+  } catch {
+    return []
+  }
 }
 ```
 
@@ -240,9 +253,7 @@ if (
   root.querySelector('parsererror') ||
   doc.getElementsByTagName('parsererror').length > 0
 ) {
-  const errEl = root.tagName === 'parsererror'
-    ? root
-    : doc.getElementsByTagName('parsererror')[0]
+  const errEl = root.tagName === 'parsererror' ? root : doc.getElementsByTagName('parsererror')[0]
   throw new Error(`XML parse error: ${errEl.textContent ?? ''}`)
 }
 ```

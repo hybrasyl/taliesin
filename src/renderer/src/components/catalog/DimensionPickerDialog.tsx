@@ -1,7 +1,17 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Box, Typography, MenuItem, Select, IconButton, Tooltip, CircularProgress
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  MenuItem,
+  Select,
+  IconButton,
+  Tooltip,
+  CircularProgress
 } from '@mui/material'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
@@ -63,17 +73,17 @@ function pairLabel(p: DimPair): string {
 
 // ── Schematic fallback ────────────────────────────────────────────────────────
 
-const COLOR_VOID   = '#1a1a2e'
-const COLOR_FLOOR  = '#2d5a3d'
+const COLOR_VOID = '#1a1a2e'
+const COLOR_FLOOR = '#2d5a3d'
 const COLOR_OBJECT = '#8b4513'
 
 function renderSchematic(canvas: HTMLCanvasElement, map: MapFile): void {
   const { width, height, tiles } = map
-  const maxW = canvas.parentElement?.clientWidth  ?? 520
+  const maxW = canvas.parentElement?.clientWidth ?? 520
   const maxH = canvas.parentElement?.clientHeight ?? 420
 
   const scale = Math.max(1, Math.min(Math.floor(maxW / width), Math.floor(maxH / height)))
-  canvas.width  = width  * scale
+  canvas.width = width * scale
   canvas.height = height * scale
 
   const ctx = canvas.getContext('2d')!
@@ -92,7 +102,12 @@ function renderSchematic(canvas: HTMLCanvasElement, map: MapFile): void {
 // ── Dialog ────────────────────────────────────────────────────────────────────
 
 const DimensionPickerDialog: React.FC<Props> = ({
-  open, filename, fileBuffer, clientPath, onConfirm, onCancel
+  open,
+  filename,
+  fileBuffer,
+  clientPath,
+  onConfirm,
+  onCancel
 }) => {
   const pairs = useMemo(() => factorDimensions(fileBuffer.length), [fileBuffer])
   const [index, setIndex] = useState(0)
@@ -102,7 +117,7 @@ const DimensionPickerDialog: React.FC<Props> = ({
   const [renderStatus, setRenderStatus] = useState<string | null>(null)
 
   const reasonablePairs = useMemo(() => pairs.filter((p) => p.reasonable), [pairs])
-  const displayPairs = showAll ? pairs : (reasonablePairs.length > 0 ? reasonablePairs : pairs)
+  const displayPairs = showAll ? pairs : reasonablePairs.length > 0 ? reasonablePairs : pairs
 
   // Reset index when dialog opens
   useEffect(() => {
@@ -111,66 +126,77 @@ const DimensionPickerDialog: React.FC<Props> = ({
 
   const selected = displayPairs[index]
 
-  const renderCanvas = useCallback((signal: { cancelled: boolean }) => {
-    const canvas = canvasRef.current
-    if (!canvas || !selected) return
+  const renderCanvas = useCallback(
+    (signal: { cancelled: boolean }) => {
+      const canvas = canvasRef.current
+      if (!canvas || !selected) return
 
-    if (clientPath) {
-      setRendering(true)
-      setRenderStatus('Loading assets…')
+      if (clientPath) {
+        setRendering(true)
+        setRenderStatus('Loading assets…')
+        ;(async () => {
+          try {
+            const map = MapFile.fromBuffer(fileBuffer, selected.width, selected.height)
+            const assets = await loadMapAssets(clientPath, (msg) => {
+              if (!signal.cancelled) setRenderStatus(msg)
+            })
+            if (signal.cancelled) return
 
-      ;(async () => {
-        try {
-          const map = MapFile.fromBuffer(fileBuffer, selected.width, selected.height)
-          const assets = await loadMapAssets(clientPath, (msg) => {
-            if (!signal.cancelled) setRenderStatus(msg)
-          })
-          if (signal.cancelled) return
+            // Compute scale to fit the canvas container
+            const container = canvas.parentElement
+            const maxW = (container?.clientWidth ?? 520) - 2
+            const maxH = (container?.clientHeight ?? 420) - 2
+            const nativeW = (selected.width + selected.height) * 28 + 56
+            const nativeH = (selected.width + selected.height) * 14 + 480
+            const scale = Math.min(maxW / nativeW, maxH / nativeH, 1)
 
-          // Compute scale to fit the canvas container
-          const container = canvas.parentElement
-          const maxW = (container?.clientWidth  ?? 520) - 2
-          const maxH = (container?.clientHeight ?? 420) - 2
-          const nativeW = (selected.width + selected.height) * 28 + 56
-          const nativeH = (selected.width + selected.height) * 14 + 480
-          const scale = Math.min(maxW / nativeW, maxH / nativeH, 1)
-
-          setRenderStatus('Rendering…')
-          await renderMap(canvas, map, assets, { scale }, (msg) => {
-            if (!signal.cancelled) setRenderStatus(msg)
-          })
-          if (!signal.cancelled) { setRendering(false); setRenderStatus(null) }
-        } catch (e) {
-          if (!signal.cancelled) {
-            setRendering(false)
-            setRenderStatus(null)
-            const ctx = canvas.getContext('2d')
-            if (ctx) {
-              canvas.width = 200; canvas.height = 40
-              ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 200, 40)
-              ctx.fillStyle = '#f44'; ctx.font = '11px monospace'
-              ctx.fillText(e instanceof Error ? e.message : 'Render error', 8, 24)
+            setRenderStatus('Rendering…')
+            await renderMap(canvas, map, assets, { scale }, (msg) => {
+              if (!signal.cancelled) setRenderStatus(msg)
+            })
+            if (!signal.cancelled) {
+              setRendering(false)
+              setRenderStatus(null)
+            }
+          } catch (e) {
+            if (!signal.cancelled) {
+              setRendering(false)
+              setRenderStatus(null)
+              const ctx = canvas.getContext('2d')
+              if (ctx) {
+                canvas.width = 200
+                canvas.height = 40
+                ctx.fillStyle = '#333'
+                ctx.fillRect(0, 0, 200, 40)
+                ctx.fillStyle = '#f44'
+                ctx.font = '11px monospace'
+                ctx.fillText(e instanceof Error ? e.message : 'Render error', 8, 24)
+              }
             }
           }
-        }
-      })()
-    } else {
-      setRendering(false)
-      setRenderStatus(null)
-      try {
-        const map = MapFile.fromBuffer(fileBuffer, selected.width, selected.height)
-        renderSchematic(canvas, map)
-      } catch {
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          canvas.width = 200; canvas.height = 40
-          ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 200, 40)
-          ctx.fillStyle = '#f44'; ctx.font = '11px monospace'
-          ctx.fillText('Parse error', 8, 24)
+        })()
+      } else {
+        setRendering(false)
+        setRenderStatus(null)
+        try {
+          const map = MapFile.fromBuffer(fileBuffer, selected.width, selected.height)
+          renderSchematic(canvas, map)
+        } catch {
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            canvas.width = 200
+            canvas.height = 40
+            ctx.fillStyle = '#333'
+            ctx.fillRect(0, 0, 200, 40)
+            ctx.fillStyle = '#f44'
+            ctx.font = '11px monospace'
+            ctx.fillText('Parse error', 8, 24)
+          }
         }
       }
-    }
-  }, [fileBuffer, selected, clientPath])
+    },
+    [fileBuffer, selected, clientPath]
+  )
 
   useEffect(() => {
     const signal = { cancelled: false }
@@ -195,7 +221,8 @@ const DimensionPickerDialog: React.FC<Props> = ({
         <DialogTitle>Determine Dimensions</DialogTitle>
         <DialogContent>
           <Typography color="error">
-            File size ({fileBuffer.length} bytes) is not divisible by 6 — this may not be a valid map file.
+            File size ({fileBuffer.length} bytes) is not divisible by 6 — this may not be a valid
+            map file.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -210,19 +237,39 @@ const DimensionPickerDialog: React.FC<Props> = ({
       <DialogTitle>
         Determine Map Dimensions
         <Typography variant="body2" color="text.secondary" component="div">
-          {filename} — {totalTiles.toLocaleString()} tiles — {pairsInView} valid size{pairsInView !== 1 ? 's' : ''}
+          {filename} — {totalTiles.toLocaleString()} tiles — {pairsInView} valid size
+          {pairsInView !== 1 ? 's' : ''}
           {!showAll && hasUnreasonable && (
-            <> · <Box component="span" sx={{ color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => { setShowAll(true); setIndex(0) }}>show all</Box></>
+            <>
+              {' '}
+              ·{' '}
+              <Box
+                component="span"
+                sx={{ color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => {
+                  setShowAll(true)
+                  setIndex(0)
+                }}
+              >
+                show all
+              </Box>
+            </>
           )}
         </Typography>
       </DialogTitle>
 
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
+      <DialogContent
+        sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}
+      >
         {/* Dimension selector */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Previous">
             <span>
-              <IconButton size="small" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0 || rendering}>
+              <IconButton
+                size="small"
+                onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                disabled={index === 0 || rendering}
+              >
                 <NavigateBeforeIcon />
               </IconButton>
             </span>
@@ -244,7 +291,11 @@ const DimensionPickerDialog: React.FC<Props> = ({
 
           <Tooltip title="Next">
             <span>
-              <IconButton size="small" onClick={() => setIndex((i) => Math.min(pairsInView - 1, i + 1))} disabled={index === pairsInView - 1 || rendering}>
+              <IconButton
+                size="small"
+                onClick={() => setIndex((i) => Math.min(pairsInView - 1, i + 1))}
+                disabled={index === pairsInView - 1 || rendering}
+              >
                 <NavigateNextIcon />
               </IconButton>
             </span>
@@ -260,38 +311,54 @@ const DimensionPickerDialog: React.FC<Props> = ({
           {rendering && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
               <CircularProgress size={14} />
-              <Typography variant="caption" color="text.secondary">{renderStatus}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {renderStatus}
+              </Typography>
             </Box>
           )}
         </Box>
 
         {/* Canvas preview */}
-        <Box sx={{
-          flex: 1,
-          minHeight: 380,
-          bgcolor: 'background.default',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          overflow: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <canvas ref={canvasRef} style={{ imageRendering: 'pixelated', display: 'block', maxWidth: '100%', maxHeight: '100%' }} />
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 380,
+            bgcolor: 'background.default',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            overflow: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            style={{
+              imageRendering: 'pixelated',
+              display: 'block',
+              maxWidth: '100%',
+              maxHeight: '100%'
+            }}
+          />
         </Box>
 
         {/* Legend — schematic only */}
         {!clientPath && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             {[
-              { color: COLOR_VOID,   label: 'Void / impassable' },
-              { color: COLOR_FLOOR,  label: 'Open floor' },
-              { color: COLOR_OBJECT, label: 'Object / wall' },
+              { color: COLOR_VOID, label: 'Void / impassable' },
+              { color: COLOR_FLOOR, label: 'Open floor' },
+              { color: COLOR_OBJECT, label: 'Object / wall' }
             ].map(({ color, label }) => (
               <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 12, height: 12, bgcolor: color, borderRadius: 0.5, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">{label}</Typography>
+                <Box
+                  sx={{ width: 12, height: 12, bgcolor: color, borderRadius: 0.5, flexShrink: 0 }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {label}
+                </Typography>
               </Box>
             ))}
           </Box>

@@ -35,7 +35,7 @@ export function floodFill(
   startX: number,
   startY: number,
   layer: TileLayerKey,
-  newId: number,
+  newId: number
 ): TileChange[] {
   const { width: W, height: H } = mapFile
   const targetId = mapFile.getTile(startX, startY)[layer]
@@ -55,7 +55,12 @@ export function floodFill(
 
     changes.push({ x: tx, y: ty, layer, oldValue: targetId, newValue: newId })
 
-    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+    for (const [dx, dy] of [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0]
+    ] as const) {
       const nx = tx + dx
       const ny = ty + dy
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
@@ -89,8 +94,14 @@ export function bresenhamLine(x0: number, y0: number, x1: number, y1: number): T
     coords.push({ tx: cx, ty: cy })
     if (cx === x1 && cy === y1) break
     const e2 = 2 * err
-    if (e2 >= dy) { err += dy; cx += sx }
-    if (e2 <= dx) { err += dx; cy += sy }
+    if (e2 >= dy) {
+      err += dy
+      cx += sx
+    }
+    if (e2 <= dx) {
+      err += dx
+      cy += sy
+    }
   }
 
   return coords
@@ -108,11 +119,20 @@ export function rectOutline(x0: number, y0: number, x1: number, y1: number): Til
   const seen = new Set<string>()
   const add = (tx: number, ty: number) => {
     const k = `${tx},${ty}`
-    if (!seen.has(k)) { seen.add(k); coords.push({ tx, ty }) }
+    if (!seen.has(k)) {
+      seen.add(k)
+      coords.push({ tx, ty })
+    }
   }
 
-  for (let x = minX; x <= maxX; x++) { add(x, minY); add(x, maxY) }
-  for (let y = minY + 1; y < maxY; y++) { add(minX, y); add(maxX, y) }
+  for (let x = minX; x <= maxX; x++) {
+    add(x, minY)
+    add(x, maxY)
+  }
+  for (let y = minY + 1; y < maxY; y++) {
+    add(minX, y)
+    add(maxX, y)
+  }
   return coords
 }
 
@@ -143,7 +163,10 @@ export function circleOutline(x0: number, y0: number, x1: number, y1: number): T
   const seen = new Set<string>()
   const add = (tx: number, ty: number) => {
     const k = `${tx},${ty}`
-    if (!seen.has(k)) { seen.add(k); coords.push({ tx, ty }) }
+    if (!seen.has(k)) {
+      seen.add(k)
+      coords.push({ tx, ty })
+    }
   }
 
   // Sample the ellipse with enough resolution
@@ -175,7 +198,8 @@ export function circleFilled(x0: number, y0: number, x1: number, y1: number): Ti
       // Check if point is inside the ellipse
       const dx = (x - cx) / (rx || 0.5)
       const dy = (y - cy) / (ry || 0.5)
-      if (dx * dx + dy * dy <= 1.05) { // slight tolerance for edge pixels
+      if (dx * dx + dy * dy <= 1.05) {
+        // slight tolerance for edge pixels
         coords.push({ tx: x, ty: y })
       }
     }
@@ -185,14 +209,21 @@ export function circleFilled(x0: number, y0: number, x1: number, y1: number): Ti
 
 /** Dispatch shape generation by mode. */
 export function getShapeCoords(
-  x0: number, y0: number, x1: number, y1: number,
-  mode: ShapeMode,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  mode: ShapeMode
 ): TileCoord[] {
   switch (mode) {
-    case 'rect-outline':   return rectOutline(x0, y0, x1, y1)
-    case 'rect-filled':    return rectFilled(x0, y0, x1, y1)
-    case 'circle-outline': return circleOutline(x0, y0, x1, y1)
-    case 'circle-filled':  return circleFilled(x0, y0, x1, y1)
+    case 'rect-outline':
+      return rectOutline(x0, y0, x1, y1)
+    case 'rect-filled':
+      return rectFilled(x0, y0, x1, y1)
+    case 'circle-outline':
+      return circleOutline(x0, y0, x1, y1)
+    case 'circle-filled':
+      return circleFilled(x0, y0, x1, y1)
   }
 }
 
@@ -219,6 +250,6 @@ export function revertChanges(mapFile: MapFile, changes: TileChange[]): void {
 export function clampTile(tx: number, ty: number, W: number, H: number): TileCoord {
   return {
     tx: Math.max(0, Math.min(W - 1, tx)),
-    ty: Math.max(0, Math.min(H - 1, ty)),
+    ty: Math.max(0, Math.min(H - 1, ty))
   }
 }

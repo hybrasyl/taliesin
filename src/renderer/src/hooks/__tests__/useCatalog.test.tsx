@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import {
-  useCatalog,
-  parseMapFilename,
-  xmlPrefix,
-  worldName,
-  buildMapXmlStub,
-} from '../useCatalog'
+import { useCatalog, parseMapFilename, xmlPrefix, worldName, buildMapXmlStub } from '../useCatalog'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
 
 let api: MockApi
@@ -97,20 +91,22 @@ describe('useCatalog', () => {
       { filename: 'lod00010.map', sizeBytes: 100 },
       { filename: 'lod00010-summer.map', sizeBytes: 100 },
       { filename: 'lod00005.map', sizeBytes: 100 },
-      { filename: 'readme.txt', sizeBytes: 1 }, // ignored
+      { filename: 'readme.txt', sizeBytes: 1 } // ignored
     ])
     api.catalogLoad.mockResolvedValue({
-      'lod00010.map': { name: 'Town', notes: 'big' },
+      'lod00010.map': { name: 'Town', notes: 'big' }
     })
     const { result } = renderHook(() => useCatalog('/maps'))
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
 
-    await act(async () => { await result.current.scan() })
+    await act(async () => {
+      await result.current.scan()
+    })
 
     expect(result.current.entries.map((e) => e.filename)).toEqual([
       'lod00005.map',
       'lod00010.map',
-      'lod00010-summer.map',
+      'lod00010-summer.map'
     ])
     expect(result.current.entries[1].name).toBe('Town')
     expect(result.current.entries[1].notes).toBe('big')
@@ -119,11 +115,13 @@ describe('useCatalog', () => {
   it('select(filename) populates the draft from the matching entry', async () => {
     api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
     api.catalogLoad.mockResolvedValue({
-      'lod00001.map': { name: 'Inn', notes: 'cozy', width: 20, height: 30 },
+      'lod00001.map': { name: 'Inn', notes: 'cozy', width: 20, height: 30 }
     })
     const { result } = renderHook(() => useCatalog('/maps'))
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => { await result.current.scan() })
+    await act(async () => {
+      await result.current.scan()
+    })
 
     act(() => result.current.select('lod00001.map'))
     expect(result.current.selectedFilename).toBe('lod00001.map')
@@ -152,14 +150,18 @@ describe('useCatalog', () => {
     api.catalogLoad.mockResolvedValue({})
     const { result } = renderHook(() => useCatalog('/maps'))
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => { await result.current.scan() })
+    await act(async () => {
+      await result.current.scan()
+    })
 
     act(() => result.current.select('lod00001.map'))
     act(() => result.current.updateDraft({ name: 'Saved Name' }))
-    await act(async () => { await result.current.save() })
+    await act(async () => {
+      await result.current.save()
+    })
 
     expect(api.catalogSave).toHaveBeenCalledWith('/maps', {
-      'lod00001.map': expect.objectContaining({ name: 'Saved Name' }),
+      'lod00001.map': expect.objectContaining({ name: 'Saved Name' })
     })
     expect(result.current.dirty).toBe(false)
   })
@@ -169,14 +171,18 @@ describe('useCatalog', () => {
     api.catalogLoad.mockResolvedValue({})
     const { result } = renderHook(() => useCatalog('/maps'))
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => { await result.current.scan() })
+    await act(async () => {
+      await result.current.scan()
+    })
 
     act(() => result.current.select('lod00001.map'))
     act(() => result.current.updateDraft({ name: 'A' }))
-    await act(async () => { await result.current.save({ width: 80, height: 60 }) })
+    await act(async () => {
+      await result.current.save({ width: 80, height: 60 })
+    })
 
     expect(api.catalogSave).toHaveBeenCalledWith('/maps', {
-      'lod00001.map': expect.objectContaining({ name: 'A', width: 80, height: 60 }),
+      'lod00001.map': expect.objectContaining({ name: 'A', width: 80, height: 60 })
     })
   })
 
@@ -185,11 +191,15 @@ describe('useCatalog', () => {
     api.catalogLoad.mockResolvedValue({ 'lod00001.map': { notes: 'first' } })
     const { result } = renderHook(() => useCatalog('/maps'))
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => { await result.current.scan() })
+    await act(async () => {
+      await result.current.scan()
+    })
 
-    await act(async () => { await result.current.appendNote('lod00001.map', 'second') })
+    await act(async () => {
+      await result.current.appendNote('lod00001.map', 'second')
+    })
     expect(api.catalogSave).toHaveBeenCalledWith('/maps', {
-      'lod00001.map': expect.objectContaining({ notes: 'first\nsecond' }),
+      'lod00001.map': expect.objectContaining({ notes: 'first\nsecond' })
     })
   })
 })

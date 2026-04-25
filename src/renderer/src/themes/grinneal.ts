@@ -40,7 +40,11 @@ const grinnealTheme = responsiveFontSizes(
       h4: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
       h5: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
       h6: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
-      button: { fontFamily: '"Cinzel", serif', letterSpacing: '0.12em', textTransform: 'uppercase' },
+      button: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase'
+      },
       caption: { fontFamily: '"Cinzel", serif', letterSpacing: '0.18em', fontSize: '0.7rem' }
     },
 

@@ -1,7 +1,12 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box
 } from '@mui/material'
 
 interface Props {
@@ -49,7 +54,9 @@ const NewMapDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleCreate} disabled={!valid}>Create</Button>
+        <Button variant="contained" onClick={handleCreate} disabled={!valid}>
+          Create
+        </Button>
       </DialogActions>
     </Dialog>
   )

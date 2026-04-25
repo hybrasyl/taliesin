@@ -32,7 +32,7 @@ const shortcuts = [
   { key: '', action: '' },
   { key: 'Shift+wheel', action: 'Zoom' },
   { key: 'Ctrl+wheel', action: 'Horizontal scroll' },
-  { key: 'Right-click', action: 'Context menu' },
+  { key: 'Right-click', action: 'Context menu' }
 ]
 
 const ShortcutHelpPanel: React.FC = () => {
@@ -58,13 +58,18 @@ const ShortcutHelpPanel: React.FC = () => {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Box sx={{ p: 1.5, minWidth: 220 }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>Keyboard Shortcuts</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+            Keyboard Shortcuts
+          </Typography>
           {shortcuts.map((s, i) =>
             s.key === '' ? (
               <Box key={i} sx={{ height: 6 }} />
             ) : (
               <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.15 }}>
-                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'info.light', minWidth: 100 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ fontFamily: 'monospace', color: 'info.light', minWidth: 100 }}
+                >
                   {s.key}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">

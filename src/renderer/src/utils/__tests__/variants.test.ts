@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { PixelBuffer } from '../duotone'
 import {
-  DEFAULT_VARIANTS, autoDetectBest, luminanceHistogram, scoreVariant, variantToParams,
+  DEFAULT_VARIANTS,
+  autoDetectBest,
+  luminanceHistogram,
+  scoreVariant,
+  variantToParams
 } from '../variants'
 import { PaletteEntry } from '../paletteTypes'
 
@@ -9,7 +13,7 @@ const ENTRY: PaletteEntry = {
   id: 'fire',
   name: 'Fire',
   shadowColor: '#7A1A00',
-  highlightColor: '#FF8A3D',
+  highlightColor: '#FF8A3D'
 }
 
 function gradient(width: number, height: number): PixelBuffer {
@@ -35,7 +39,7 @@ function transparent(width: number, height: number): PixelBuffer {
 describe('DEFAULT_VARIANTS', () => {
   it('contains 8 entries with unique ids', () => {
     expect(DEFAULT_VARIANTS).toHaveLength(8)
-    const ids = new Set(DEFAULT_VARIANTS.map(v => v.id))
+    const ids = new Set(DEFAULT_VARIANTS.map((v) => v.id))
     expect(ids.size).toBe(8)
   })
   it('each variant has factors in [0,1]', () => {
@@ -73,8 +77,10 @@ describe('scoreVariant', () => {
     expect(score.rangePreservation).toBeCloseTo(1, 6)
   })
   it('totally non-overlapping histograms give rangePreservation near 0', () => {
-    const a = new Array(256).fill(0); a[0] = 1
-    const b = new Array(256).fill(0); b[255] = 1
+    const a = new Array(256).fill(0)
+    a[0] = 1
+    const b = new Array(256).fill(0)
+    b[255] = 1
     const score = scoreVariant(a, b, 0.25, 0.75)
     expect(score.rangePreservation).toBeCloseTo(0, 6)
   })
@@ -88,12 +94,11 @@ describe('scoreVariant', () => {
     const score = scoreVariant(
       new Array(256).fill(1 / 256),
       new Array(256).fill(1 / 256),
-      0.25, 0.75,
+      0.25,
+      0.75
     )
     const expected =
-      0.5 * score.rangePreservation +
-      0.3 * score.contrast +
-      0.2 * score.midtonePresence
+      0.5 * score.rangePreservation + 0.3 * score.contrast + 0.2 * score.midtonePresence
     expect(score.total).toBeCloseTo(expected, 6)
   })
 })
@@ -102,7 +107,7 @@ describe('autoDetectBest', () => {
   it('returns one of the supplied variants', () => {
     const src = gradient(64, 1)
     const result = autoDetectBest(src, ENTRY)
-    const ids = DEFAULT_VARIANTS.map(v => v.id)
+    const ids = DEFAULT_VARIANTS.map((v) => v.id)
     expect(ids).toContain(result.bestVariantId)
   })
   it('produces a score for every variant', () => {
@@ -116,7 +121,7 @@ describe('autoDetectBest', () => {
   it('picks the highest-total variant', () => {
     const src = gradient(64, 1)
     const result = autoDetectBest(src, ENTRY)
-    const best = result.scores.find(s => s.variantId === result.bestVariantId)
+    const best = result.scores.find((s) => s.variantId === result.bestVariantId)
     expect(best).toBeDefined()
     for (const s of result.scores) {
       expect(s.score.total).toBeLessThanOrEqual(best!.score.total + 1e-9)
@@ -127,6 +132,11 @@ describe('autoDetectBest', () => {
 describe('variantToParams', () => {
   it('drops the metadata fields', () => {
     const p = variantToParams(DEFAULT_VARIANTS[0])
-    expect(Object.keys(p).sort()).toEqual(['darkFactor', 'lightFactor', 'midpointHigh', 'midpointLow'])
+    expect(Object.keys(p).sort()).toEqual([
+      'darkFactor',
+      'lightFactor',
+      'midpointHigh',
+      'midpointLow'
+    ])
   })
 })

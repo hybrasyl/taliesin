@@ -66,7 +66,7 @@ export async function pixelBufferToPngBytes(buf: PixelBuffer): Promise<Uint8Arra
   const imageData = ctx.createImageData(buf.width, buf.height)
   imageData.data.set(buf.data)
   ctx.putImageData(imageData, 0, 0)
-  const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'))
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'))
   if (!blob) throw new Error('toBlob returned null')
   return new Uint8Array(await blob.arrayBuffer())
 }

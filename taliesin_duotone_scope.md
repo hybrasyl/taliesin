@@ -43,23 +43,23 @@ The system consists of four concerns that should be separated in the implementat
 
 ```typescript
 interface Palette {
-  id: string;                    // e.g. "elements"
-  name: string;                  // e.g. "Elements"
-  description?: string;
-  entries: PaletteEntry[];
-  version: number;               // for schema evolution
-  lastModified: string;          // ISO timestamp
+  id: string // e.g. "elements"
+  name: string // e.g. "Elements"
+  description?: string
+  entries: PaletteEntry[]
+  version: number // for schema evolution
+  lastModified: string // ISO timestamp
 }
 
 interface PaletteEntry {
-  id: string;                    // e.g. "fire"
-  name: string;                  // e.g. "Fire"
-  shadowColor: string;           // hex "#FF4D2D"
-  highlightColor: string;        // hex "#FF8A3D"
-  defaultDarkFactor?: number;    // 0.0-1.0, default 0.3
-  defaultLightFactor?: number;   // 0.0-1.0, default 0.3
-  category?: string;             // optional grouping
-  notes?: string;
+  id: string // e.g. "fire"
+  name: string // e.g. "Fire"
+  shadowColor: string // hex "#FF4D2D"
+  highlightColor: string // hex "#FF8A3D"
+  defaultDarkFactor?: number // 0.0-1.0, default 0.3
+  defaultLightFactor?: number // 0.0-1.0, default 0.3
+  category?: string // optional grouping
+  notes?: string
 }
 ```
 
@@ -67,19 +67,19 @@ interface PaletteEntry {
 
 ```typescript
 interface AssetCalibration {
-  assetId: string;               // icon identifier
-  paletteId: string;             // which palette
+  assetId: string // icon identifier
+  paletteId: string // which palette
   entryCalibrations: {
     [entryId: string]: {
-      darkFactor: number;
-      lightFactor: number;
-      midpointLow: number;       // default 0.25
-      midpointHigh: number;      // default 0.75
-      selectedVariantId?: string; // which variant was chosen
-      autoDetected?: boolean;
-      lastCalibrated: string;
+      darkFactor: number
+      lightFactor: number
+      midpointLow: number // default 0.25
+      midpointHigh: number // default 0.75
+      selectedVariantId?: string // which variant was chosen
+      autoDetected?: boolean
+      lastCalibrated: string
     }
-  };
+  }
 }
 ```
 
@@ -87,15 +87,16 @@ interface AssetCalibration {
 
 ```typescript
 interface IconAsset {
-  id: string;
-  filename: string;
-  path: string;
-  processingMode: "static" | "palette";  // palette or hand-painted
-  paletteId?: string;                     // if palette mode, which one
-  grayscaleMasterPath?: string;           // derived grayscale file
-  outputPaths?: {                         // per-entry output files
-    [entryId: string]: string;
-  };
+  id: string
+  filename: string
+  path: string
+  processingMode: 'static' | 'palette' // palette or hand-painted
+  paletteId?: string // if palette mode, which one
+  grayscaleMasterPath?: string // derived grayscale file
+  outputPaths?: {
+    // per-entry output files
+    [entryId: string]: string
+  }
 }
 ```
 
@@ -132,6 +133,7 @@ luminance 1.0              -> lighter_highlight (highlight + (255 - highlight) �
 Linear interpolation within each segment. Alpha channel preserved unchanged.
 
 Luminance computed using ITU-R BT.601 weights:
+
 ```
 lum = (0.299 × R + 0.587 × G + 0.114 × B) / 255
 ```
@@ -151,17 +153,17 @@ For a given palette entry and icon, Taliesin generates a fixed set of variants u
 
 **Recommended default variant set (9 variants):**
 
-| ID            | darkFactor | lightFactor | Notes                    |
-|---------------|------------|-------------|--------------------------|
-| simple        | 0.0        | 0.0         | Two-stop, original       |
-| subtle        | 0.2        | 0.2         | Minimal extension        |
-| balanced      | 0.3        | 0.3         | Default recommendation   |
-| strong        | 0.5        | 0.5         | Maximum symmetric        |
-| deep-shadow   | 0.5        | 0.2         | Dramatic, moody          |
-| bright        | 0.2        | 0.5         | Airy, luminous           |
-| contrast      | 0.5        | 0.5         | Same as strong, explicit |
-| compressed    | 0.3        | 0.3         | with mid 0.35/0.65       |
-| expanded      | 0.3        | 0.3         | with mid 0.15/0.85       |
+| ID          | darkFactor | lightFactor | Notes                    |
+| ----------- | ---------- | ----------- | ------------------------ |
+| simple      | 0.0        | 0.0         | Two-stop, original       |
+| subtle      | 0.2        | 0.2         | Minimal extension        |
+| balanced    | 0.3        | 0.3         | Default recommendation   |
+| strong      | 0.5        | 0.5         | Maximum symmetric        |
+| deep-shadow | 0.5        | 0.2         | Dramatic, moody          |
+| bright      | 0.2        | 0.5         | Airy, luminous           |
+| contrast    | 0.5        | 0.5         | Same as strong, explicit |
+| compressed  | 0.3        | 0.3         | with mid 0.35/0.65       |
+| expanded    | 0.3        | 0.3         | with mid 0.15/0.85       |
 
 Exact variant list is configurable per palette if needed.
 
@@ -246,12 +248,14 @@ Both paths share the same algorithm; implementation is duplicated in JS (for Can
 ### 7.2 Grayscale Master Generation
 
 When an asset is first processed, its grayscale master is generated and cached:
+
 - Input: source color icon
 - Output: grayscale PNG with alpha preserved
 - Location: `{asset_pack}/masters/{asset_id}.png`
 - Regenerate only if source is newer than master (mtime check) or if explicitly requested
 
 Subsequent duotone operations work from the master, not the source. This matters because:
+
 - Grayscale conversion is deterministic per source file
 - Duotone operations don't need to re-do the luminance calculation
 - If the source icon is updated, only the master needs regeneration; all calibrations remain valid
@@ -269,12 +273,14 @@ Configurable via template string in palette settings or per-batch.
 ### 8.1 Game Client (MonoGame)
 
 The MonoGame client consumes:
+
 - Palette JSON files (for reference, logging, tool support)
 - Colored output PNGs (for direct rendering)
 
 Client does not need to re-execute the duotone algorithm. Output files are pre-baked.
 
 If future runtime tinting is desired, client would instead consume:
+
 - Palette JSON files
 - Grayscale master PNGs
 - Shader-based tinting code (see separate scope doc if this path is pursued)
@@ -288,6 +294,7 @@ If future runtime tinting is desired, client would instead consume:
 ### 8.3 Version Control
 
 All system-generated files should be friendly to version control:
+
 - JSON files use consistent key ordering and formatting
 - Generated PNG files are deterministic (same input always produces same output)
 - Calibration files don't contain timestamps that change on every read
@@ -295,6 +302,7 @@ All system-generated files should be friendly to version control:
 ## 9. Implementation Phases
 
 ### Phase 1: Palette Definition and Simple Processing
+
 - Palette JSON schema and file format
 - Single-palette manager UI (view/edit palette)
 - Duotone algorithm in Canvas
@@ -302,6 +310,7 @@ All system-generated files should be friendly to version control:
 - Output to file
 
 ### Phase 2: Variant Selection and Calibration
+
 - Variant generation for a given icon + palette entry
 - Variant grid UI with visual selection
 - Auto-detection algorithm
@@ -309,12 +318,14 @@ All system-generated files should be friendly to version control:
 - Calibration persistence and retrieval
 
 ### Phase 3: Batch Processing
+
 - Folder-based batch operations
 - Grayscale master generation and caching
 - Progress reporting
 - Output management
 
 ### Phase 4: Polish and Advanced Features
+
 - Color picker improvements
 - Canonical test icon for palette evaluation
 - Multi-palette support (elements, status effects, factions, etc.)
@@ -323,6 +334,7 @@ All system-generated files should be friendly to version control:
 - Performance optimization if needed
 
 ### Phase 5: Nice-to-Haves (Optional)
+
 - Eyedropper color picker
 - Palette import/export (share palettes between projects)
 - Batch preview with element comparison grid

@@ -1,7 +1,16 @@
 import React, { useState, useCallback } from 'react'
 import {
-  Box, Typography, Button, Table, TableHead, TableRow,
-  TableCell, TableBody, Chip, IconButton, Tooltip
+  Box,
+  Typography,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
@@ -28,7 +37,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile, isPlaying, onPlay }) => {
+const ClientMusicView: React.FC<Props> = ({
+  clientPath,
+  mapDetails,
+  playingFile,
+  isPlaying,
+  onPlay
+}) => {
   const [entries, setEntries] = useState<ClientEntry[]>([])
   const [scanned, setScanned] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -54,7 +69,9 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile,
       const parsed: ClientEntry[] = raw
         .map((e) => {
           const m = e.filename.match(/^(\d+)\.mus$/i)
-          return m ? { filename: e.filename, sizeBytes: e.sizeBytes, musicId: parseInt(m[1], 10) } : null
+          return m
+            ? { filename: e.filename, sizeBytes: e.sizeBytes, musicId: parseInt(m[1], 10) }
+            : null
         })
         .filter((e): e is ClientEntry => e !== null)
         .sort((a, b) => a.musicId - b.musicId)
@@ -96,7 +113,16 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile,
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          p: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           {entries.length} tracks in <code>{clientPath}/music</code>
         </Typography>
@@ -125,7 +151,11 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile,
                 <TableRow key={e.filename} hover>
                   <TableCell sx={{ px: 0.5 }}>
                     <IconButton size="small" onClick={() => onPlay(filePath, `${e.musicId}.mus`)}>
-                      {isThisPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                      {isThisPlaying ? (
+                        <StopIcon fontSize="small" />
+                      ) : (
+                        <PlayArrowIcon fontSize="small" />
+                      )}
                     </IconButton>
                   </TableCell>
                   <TableCell>{e.musicId}</TableCell>
@@ -133,11 +163,15 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, mapDetails, playingFile,
                     <Typography variant="body2">{e.filename}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" color="text.secondary">{formatBytes(e.sizeBytes)}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatBytes(e.sizeBytes)}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     {maps.length === 0 ? (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        —
+                      </Typography>
                     ) : (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {maps.slice(0, 4).map((name) => (

@@ -1,7 +1,17 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Stack,
-  FormControl, InputLabel, Select, MenuItem, Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography
 } from '@mui/material'
 import { PRESET_LIST, PresetId } from '../../utils/presets'
 
@@ -22,15 +32,22 @@ const CreatePaletteDialog: React.FC<Props> = ({ open, existingIds, onClose, onCr
   const idValid = /^[a-z][a-z0-9_]*$/.test(idNorm) && !idTaken
   const canCreate = idValid && name.trim().length > 0
 
-  const reset = () => { setId(''); setName(''); setPreset('blank') }
-  const handleClose = () => { reset(); onClose() }
+  const reset = () => {
+    setId('')
+    setName('')
+    setPreset('blank')
+  }
+  const handleClose = () => {
+    reset()
+    onClose()
+  }
   const handleCreate = () => {
     if (!canCreate) return
     onCreate(idNorm, name.trim(), preset)
     reset()
   }
 
-  const presetMeta = PRESET_LIST.find(p => p.id === preset)
+  const presetMeta = PRESET_LIST.find((p) => p.id === preset)
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
@@ -42,10 +59,12 @@ const CreatePaletteDialog: React.FC<Props> = ({ open, existingIds, onClose, onCr
             <Select
               label="Start from"
               value={preset}
-              onChange={e => setPreset(e.target.value as PresetId)}
+              onChange={(e) => setPreset(e.target.value as PresetId)}
             >
-              {PRESET_LIST.map(p => (
-                <MenuItem key={p.id} value={p.id}>{p.label}</MenuItem>
+              {PRESET_LIST.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -60,21 +79,23 @@ const CreatePaletteDialog: React.FC<Props> = ({ open, existingIds, onClose, onCr
             helperText={idTaken ? 'ID already exists' : 'lowercase, no spaces (e.g. "elements")'}
             error={id.length > 0 && !idValid}
             value={id}
-            onChange={e => setId(e.target.value)}
+            onChange={(e) => setId(e.target.value)}
             size="small"
           />
           <TextField
             label="Name"
             helperText='Display name (e.g. "Elements")'
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={(e) => setName(e.target.value)}
             size="small"
           />
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleCreate} disabled={!canCreate}>Create</Button>
+        <Button variant="contained" onClick={handleCreate} disabled={!canCreate}>
+          Create
+        </Button>
       </DialogActions>
     </Dialog>
   )

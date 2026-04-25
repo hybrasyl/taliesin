@@ -15,15 +15,15 @@ import { join } from 'path'
 
 const MAP_DIRS = [
   'E:\\Hybrasyl Dev\\Maps\\map-collection-prime2\\map-collection-prime',
-  'F:\\Documents\\Hybrasyl\\world\\mapfiles',
+  'F:\\Documents\\Hybrasyl\\world\\mapfiles'
 ]
 
 const OUTPUT_PATH = join(__dirname, '..', 'src', 'renderer', 'src', 'data', 'tileAtlas.json')
 
 // Clustering thresholds
-const RANGE_GAP_THRESHOLD = 3       // max gap between consecutive IDs in a range cluster
-const MIN_FAMILY_SIZE = 3           // families smaller than this become "unclustered"
-const MAX_BG_ADJACENCY_NEIGHBORS = 50  // cap neighbors per tile in output to control file size
+const RANGE_GAP_THRESHOLD = 3 // max gap between consecutive IDs in a range cluster
+const MIN_FAMILY_SIZE = 3 // families smaller than this become "unclustered"
+const MAX_BG_ADJACENCY_NEIGHBORS = 50 // cap neighbors per tile in output to control file size
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,9 @@ function resolveDimensions(fileSize: number): { w: number; h: number } | null {
   const totalTiles = fileSize / 6
   if (!Number.isInteger(totalTiles) || totalTiles <= 0) return null
 
-  let bestW = 0, bestH = 0, bestDiff = Infinity
+  let bestW = 0,
+    bestH = 0,
+    bestDiff = Infinity
 
   for (let w = 8; w <= Math.min(512, Math.sqrt(totalTiles)); w++) {
     if (totalTiles % w !== 0) continue
@@ -81,11 +83,11 @@ function resolveDimensions(fileSize: number): { w: number; h: number } | null {
 async function scanMaps() {
   // Accumulators
   const bgFreq = new Map<number, number>()
-  const bgAdj = new Map<number, Map<number, number>>()  // bgId -> neighborBgId -> count
+  const bgAdj = new Map<number, Map<number, number>>() // bgId -> neighborBgId -> count
 
   // Wall pairs: encode as "lfg:rfg" string key
   const wallPairFreq = new Map<string, number>()
-  const wallPairGrounds = new Map<string, Map<number, number>>()  // pairKey -> bgId -> count
+  const wallPairGrounds = new Map<string, Map<number, number>>() // pairKey -> bgId -> count
 
   let fileCount = 0
   let tileCount = 0
@@ -94,7 +96,10 @@ async function scanMaps() {
   function addBgAdj(a: number, b: number) {
     if (a === 0 || b === 0) return
     let neighbors = bgAdj.get(a)
-    if (!neighbors) { neighbors = new Map(); bgAdj.set(a, neighbors) }
+    if (!neighbors) {
+      neighbors = new Map()
+      bgAdj.set(a, neighbors)
+    }
     neighbors.set(b, (neighbors.get(b) ?? 0) + 1)
   }
 
@@ -107,17 +112,23 @@ async function scanMaps() {
       continue
     }
 
-    const mapFiles = entries.filter(e => e.isFile() && /\.map$/i.test(e.name))
+    const mapFiles = entries.filter((e) => e.isFile() && /\.map$/i.test(e.name))
     console.log(`  ${dirPath}: ${mapFiles.length} .map files`)
 
     for (const entry of mapFiles) {
       let buf: Buffer
       try {
         buf = await fs.readFile(join(dirPath, entry.name))
-      } catch { skippedFiles++; continue }
+      } catch {
+        skippedFiles++
+        continue
+      }
 
       const dims = resolveDimensions(buf.length)
-      if (!dims) { skippedFiles++; continue }
+      if (!dims) {
+        skippedFiles++
+        continue
+      }
 
       const { w, h } = dims
       const totalTiles = w * h
@@ -169,7 +180,10 @@ async function scanMaps() {
             // Track which bg tile this wall pair sits on
             if (bgId !== 0) {
               let grounds = wallPairGrounds.get(pairKey)
-              if (!grounds) { grounds = new Map(); wallPairGrounds.set(pairKey, grounds) }
+              if (!grounds) {
+                grounds = new Map()
+                wallPairGrounds.set(pairKey, grounds)
+              }
               grounds.set(bgId, (grounds.get(bgId) ?? 0) + 1)
             }
           }
@@ -189,7 +203,7 @@ async function scanMaps() {
 
 function clusterBackground(
   bgFreq: Map<number, number>,
-  bgAdj: Map<number, Map<number, number>>,
+  bgAdj: Map<number, Map<number, number>>
 ): BgFamily[] {
   console.log('\n  Clustering background tiles...')
 
@@ -226,23 +240,29 @@ function clusterBackground(
 
     families.push({
       id: '',
-      tiles: range,  // keep in ID order
+      tiles: range, // keep in ID order
       totalFrequency: range.reduce((sum, t) => sum + (bgFreq.get(t) ?? 0), 0),
-      topTiles: sorted.slice(0, 5),
+      topTiles: sorted.slice(0, 5)
     })
   }
 
   // Sort families by total frequency descending and assign IDs
   families.sort((a, b) => b.totalFrequency - a.totalFrequency)
-  families.forEach((f, i) => { f.id = `bg-family-${i}` })
+  families.forEach((f, i) => {
+    f.id = `bg-family-${i}`
+  })
 
   const clusteredCount = families.reduce((sum, f) => sum + f.tiles.length, 0)
   const unclusteredCount = allTiles.length - clusteredCount
-  console.log(`    Found ${families.length} background families (${clusteredCount} tiles clustered, ${unclusteredCount} singletons/pairs dropped)`)
+  console.log(
+    `    Found ${families.length} background families (${clusteredCount} tiles clustered, ${unclusteredCount} singletons/pairs dropped)`
+  )
   for (const f of families.slice(0, 20)) {
     const minId = Math.min(...f.tiles)
     const maxId = Math.max(...f.tiles)
-    console.log(`      ${f.id}: ${f.tiles.length} tiles [${minId}-${maxId}], freq ${f.totalFrequency.toLocaleString()}, top: [${f.topTiles.join(', ')}]`)
+    console.log(
+      `      ${f.id}: ${f.tiles.length} tiles [${minId}-${maxId}], freq ${f.totalFrequency.toLocaleString()}, top: [${f.topTiles.join(', ')}]`
+    )
   }
 
   return families
@@ -250,7 +270,7 @@ function clusterBackground(
 
 function clusterWallPairs(
   wallPairFreq: Map<string, number>,
-  wallPairGrounds: Map<string, Map<number, number>>,
+  wallPairGrounds: Map<string, Map<number, number>>
 ): WallFamily[] {
   console.log('\n  Clustering wall pairs...')
 
@@ -294,12 +314,12 @@ function clusterWallPairs(
       const valB = b.get(idx)
       if (valB !== undefined) dot += valA * valB
     }
-    return dot  // vectors are already normalized
+    return dot // vectors are already normalized
   }
 
   // Greedy clustering: assign each pair to an existing family or create new one
   const families: WallFamily[] = []
-  const familyVecs: Map<number, number>[] = []  // representative vector per family
+  const familyVecs: Map<number, number>[] = [] // representative vector per family
   const SIM_THRESHOLD = 0.7
 
   for (const pair of pairs) {
@@ -311,7 +331,10 @@ function clusterWallPairs(
     let bestSim = 0
     for (let i = 0; i < families.length; i++) {
       const sim = cosineSim(vec, familyVecs[i])
-      if (sim > bestSim) { bestSim = sim; bestFam = i }
+      if (sim > bestSim) {
+        bestSim = sim
+        bestFam = i
+      }
     }
 
     if (bestFam >= 0 && bestSim >= SIM_THRESHOLD) {
@@ -323,7 +346,7 @@ function clusterWallPairs(
         id: `wall-family-${families.length}`,
         pairs: [[pair.lfg, pair.rfg]],
         totalFrequency: pair.freq,
-        commonGrounds: [],
+        commonGrounds: []
       })
       familyVecs.push(vec)
     }
@@ -349,14 +372,20 @@ function clusterWallPairs(
 
   // Sort by frequency, re-index
   families.sort((a, b) => b.totalFrequency - a.totalFrequency)
-  families.forEach((f, i) => { f.id = `wall-family-${i}` })
+  families.forEach((f, i) => {
+    f.id = `wall-family-${i}`
+  })
 
   // Filter out tiny families
-  const filtered = families.filter(f => f.pairs.length >= MIN_FAMILY_SIZE)
+  const filtered = families.filter((f) => f.pairs.length >= MIN_FAMILY_SIZE)
 
-  console.log(`    Found ${filtered.length} wall families (${families.length - filtered.length} singletons dropped)`)
+  console.log(
+    `    Found ${filtered.length} wall families (${families.length - filtered.length} singletons dropped)`
+  )
   for (const f of filtered.slice(0, 10)) {
-    console.log(`      ${f.id}: ${f.pairs.length} pairs, freq ${f.totalFrequency.toLocaleString()}, grounds: [${f.commonGrounds.slice(0, 5).join(', ')}]`)
+    console.log(
+      `      ${f.id}: ${f.pairs.length} pairs, freq ${f.totalFrequency.toLocaleString()}, grounds: [${f.commonGrounds.slice(0, 5).join(', ')}]`
+    )
   }
 
   return filtered
@@ -371,7 +400,7 @@ function buildOutput(
   wallFamilies: WallFamily[],
   fileCount: number,
   tileCount: number,
-  skippedFiles: number,
+  skippedFiles: number
 ): TileAtlas {
   // Build sparse adjacency output: for each tile, keep top N neighbors by count
   const bgAdjacency: Record<string, Record<string, number>> = {}
@@ -402,7 +431,7 @@ function buildOutput(
     bgFamilies,
     wallFamilies,
     bgAdjacency,
-    bgFrequency,
+    bgFrequency
   }
 }
 
@@ -412,7 +441,8 @@ async function main() {
   console.log('=== Tile Atlas Builder ===\n')
   console.log('Scanning map directories...')
 
-  const { bgFreq, bgAdj, wallPairFreq, wallPairGrounds, fileCount, tileCount, skippedFiles } = await scanMaps()
+  const { bgFreq, bgAdj, wallPairFreq, wallPairGrounds, fileCount, tileCount, skippedFiles } =
+    await scanMaps()
 
   console.log(`\nScan complete:`)
   console.log(`  ${fileCount} files processed, ${skippedFiles} skipped`)
@@ -424,7 +454,15 @@ async function main() {
   const wallFamilies = clusterWallPairs(wallPairFreq, wallPairGrounds)
 
   console.log('\nBuilding output...')
-  const atlas = buildOutput(bgFreq, bgAdj, bgFamilies, wallFamilies, fileCount, tileCount, skippedFiles)
+  const atlas = buildOutput(
+    bgFreq,
+    bgAdj,
+    bgFamilies,
+    wallFamilies,
+    fileCount,
+    tileCount,
+    skippedFiles
+  )
 
   // Ensure output directory exists
   const outDir = join(OUTPUT_PATH, '..')
@@ -436,12 +474,14 @@ async function main() {
   const sizeMB = (Buffer.byteLength(json) / 1024 / 1024).toFixed(2)
   console.log(`\nOutput: ${OUTPUT_PATH}`)
   console.log(`  File size: ${sizeMB} MB`)
-  console.log(`  ${atlas.bgFamilies.length} bg families, ${atlas.wallFamilies.length} wall families`)
+  console.log(
+    `  ${atlas.bgFamilies.length} bg families, ${atlas.wallFamilies.length} wall families`
+  )
   console.log(`  ${Object.keys(atlas.bgAdjacency).length} tiles with adjacency data`)
   console.log('\nDone!')
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Fatal error:', err)
   process.exit(1)
 })

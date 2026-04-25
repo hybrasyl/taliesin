@@ -1,7 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'
-import {
-  Box, Tabs, Tab, Typography, Button, Alert, LinearProgress
-} from '@mui/material'
+import { Box, Tabs, Tab, Typography, Button, Alert, LinearProgress } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import { useRecoilState, useRecoilValue } from 'recoil'
 import {
@@ -11,9 +9,13 @@ import {
   clientPathState,
   ffmpegPathState,
   musEncodeKbpsState,
-  musEncodeSampleRateState,
+  musEncodeSampleRateState
 } from '../recoil/atoms'
-import { useMusicLibrary, countEntriesWithLongTags, needsEnrichment } from '../hooks/useMusicLibrary'
+import {
+  useMusicLibrary,
+  countEntriesWithLongTags,
+  needsEnrichment
+} from '../hooks/useMusicLibrary'
 import { useMusicPacks } from '../hooks/useMusicPacks'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import MusicList from '../components/music/MusicList'
@@ -26,11 +28,11 @@ const MusicPage: React.FC = () => {
   const [tab, setTab] = useState(0)
 
   const [musicLibraryPath, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
-  const musicWorkingDirs  = useRecoilValue(musicWorkingDirsState)
+  const musicWorkingDirs = useRecoilValue(musicWorkingDirsState)
   const activeMusicWorkingDir = useRecoilValue(activeMusicWorkingDirState)
-  const clientPath        = useRecoilValue(clientPathState)
-  const ffmpegPath        = useRecoilValue(ffmpegPathState)
-  const musEncodeKbps     = useRecoilValue(musEncodeKbpsState)
+  const clientPath = useRecoilValue(clientPathState)
+  const ffmpegPath = useRecoilValue(ffmpegPathState)
+  const musEncodeKbps = useRecoilValue(musEncodeKbpsState)
   const musEncodeSampleRate = useRecoilValue(musEncodeSampleRateState)
   // World index for map cross-reference (reads activeLibraryState internally)
   const { index: worldIndex } = useWorldIndex()
@@ -42,7 +44,7 @@ const MusicPage: React.FC = () => {
       name: md.name,
       // music field is on MapData in map XML, not in mapDetails directly —
       // will be null until we add music to the index; show empty for now
-      music: undefined as number | undefined,
+      music: undefined as number | undefined
     }))
   }, [worldIndex])
 
@@ -57,31 +59,40 @@ const MusicPage: React.FC = () => {
   const [playingName, setPlayingName] = useState('')
   const [isPlaying, setIsPlaying] = useState(false)
 
-  const handlePlay = useCallback((filename: string, displayName: string) => {
-    if (!musicLibraryPath) return
-    const path = `${musicLibraryPath}/${filename}`.replace(/\\/g, '/')
-    if (playingFile === path) {
-      setIsPlaying((p) => !p)
-    } else {
-      setPlayingFile(path)
-      setPlayingName(displayName)
-      setIsPlaying(true)
-    }
-  }, [musicLibraryPath, playingFile])
+  const handlePlay = useCallback(
+    (filename: string, displayName: string) => {
+      if (!musicLibraryPath) return
+      const path = `${musicLibraryPath}/${filename}`.replace(/\\/g, '/')
+      if (playingFile === path) {
+        setIsPlaying((p) => !p)
+      } else {
+        setPlayingFile(path)
+        setPlayingName(displayName)
+        setIsPlaying(true)
+      }
+    },
+    [musicLibraryPath, playingFile]
+  )
 
-  const handlePlayAbsolute = useCallback((filePath: string, displayName: string) => {
-    if (playingFile === filePath) {
-      setIsPlaying((p) => !p)
-    } else {
-      setPlayingFile(filePath)
-      setPlayingName(displayName)
-      setIsPlaying(true)
-    }
-  }, [playingFile])
+  const handlePlayAbsolute = useCallback(
+    (filePath: string, displayName: string) => {
+      if (playingFile === filePath) {
+        setIsPlaying((p) => !p)
+      } else {
+        setPlayingFile(filePath)
+        setPlayingName(displayName)
+        setIsPlaying(true)
+      }
+    },
+    [playingFile]
+  )
 
-  const handleSelectTrack = useCallback((filename: string) => {
-    lib.select(filename)
-  }, [lib])
+  const handleSelectTrack = useCallback(
+    (filename: string) => {
+      lib.select(filename)
+    },
+    [lib]
+  )
 
   const handleImport = useCallback(async () => {
     if (!musicLibraryPath) return
@@ -102,11 +113,15 @@ const MusicPage: React.FC = () => {
     return []
   }, [lib.selectedEntry, worldIndex])
 
-  const handleAddToSelectedPack = useCallback((filename: string) => {
-    if (!packsHook.selectedPackId) return
-    const nextId = (packsHook.selectedPack?.tracks.reduce((m, t) => Math.max(m, t.musicId), 0) ?? 0) + 1
-    packsHook.addTrack(packsHook.selectedPackId, filename, nextId)
-  }, [packsHook])
+  const handleAddToSelectedPack = useCallback(
+    (filename: string) => {
+      if (!packsHook.selectedPackId) return
+      const nextId =
+        (packsHook.selectedPack?.tracks.reduce((m, t) => Math.max(m, t.musicId), 0) ?? 0) + 1
+      packsHook.addTrack(packsHook.selectedPackId, filename, nextId)
+    },
+    [packsHook]
+  )
 
   // No library configured
   if (!musicLibraryPath) {
@@ -116,8 +131,8 @@ const MusicPage: React.FC = () => {
           Music Manager
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure a music library directory to get started. This is where your source
-          audio files (.mp3, .ogg, .mus) are stored.
+          Configure a music library directory to get started. This is where your source audio files
+          (.mp3, .ogg, .mus) are stored.
         </Typography>
         <Button
           variant="contained"
@@ -154,7 +169,17 @@ const MusicPage: React.FC = () => {
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Enrich tags bar */}
             {lib.enrichProgress ? (
-              <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
                 <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
                   Reading tags: {lib.enrichProgress.done} / {lib.enrichProgress.total}
                 </Typography>
@@ -164,98 +189,134 @@ const MusicPage: React.FC = () => {
                   sx={{ flex: 1 }}
                 />
               </Box>
-            ) : lib.entries.length > 0 ? (() => {
-              const unenriched = lib.entries.filter((e) => needsEnrichment(lib.metadata[e.filename])).length
-              const longTagCount = countEntriesWithLongTags(lib.metadata)
-              return (
-                <Box sx={{ px: 2, py: 0.75, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {unenriched > 0
-                      ? `${unenriched} of ${lib.entries.length} tracks need enrichment`
-                      : `${lib.entries.length} tracks`}
-                    {longTagCount > 0 ? ` · ${longTagCount} with overlong tags` : ''}
-                  </Typography>
-                  <Box sx={{ flex: 1 }} />
-                  {unenriched > 0 && (
-                    <Button size="small" variant="text" onClick={() => lib.enrichAll()}>
-                      Read tags from files
-                    </Button>
-                  )}
-                  <Button size="small" variant="text" onClick={() => lib.enrichAll({ force: true })}>
-                    Refresh all from files
-                  </Button>
-                  <Button size="small" variant="text" onClick={lib.migrateLongTags}>
-                    Clean up long tags
-                  </Button>
-                </Box>
-              )
-            })() : null}
-            <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            {/* Left: track list */}
-            <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <MusicList
-                entries={lib.entries}
-                metadata={lib.metadata}
-                selectedFilename={lib.selectedFilename}
-                scanning={lib.scanning}
-                onSelect={handleSelectTrack}
-                onScan={lib.scan}
-                onImport={handleImport}
-              />
-            </Box>
-
-            {/* Right: metadata editor */}
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {lib.entries.length === 0 && !lib.scanning ? (
-                <Box sx={{ p: 3 }}>
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    No audio files found in <strong>{musicLibraryPath}</strong>
-                  </Alert>
-                  <Button variant="outlined" onClick={lib.scan}>Scan Directory</Button>
-                </Box>
-              ) : (
-                <>
-                  <MusicMetaEditor
-                    entry={lib.selectedEntry}
-                    meta={lib.selectedMeta}
-                    draft={lib.draft}
-                    dirty={lib.dirty}
-                    usedByMaps={usedByMaps}
-                    onUpdate={lib.updateDraft}
-                    onSave={lib.save}
-                    onPlay={() => {
-                      if (lib.selectedEntry) {
-                        const name = lib.draft.name || lib.selectedEntry.filename
-                        handlePlay(lib.selectedEntry.filename, name)
-                      }
+            ) : lib.entries.length > 0 ? (
+              (() => {
+                const unenriched = lib.entries.filter((e) =>
+                  needsEnrichment(lib.metadata[e.filename])
+                ).length
+                const longTagCount = countEntriesWithLongTags(lib.metadata)
+                return (
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      flexWrap: 'wrap'
                     }}
-                    onRemove={() => {
-                      if (lib.selectedFilename) lib.remove(lib.selectedFilename)
-                    }}
-                    isPlaying={
-                      isPlaying &&
-                      playingFile === `${musicLibraryPath}/${lib.selectedFilename}`.replace(/\\/g, '/')
-                    }
-                  />
-                  {/* Add to pack shortcut */}
-                  {lib.selectedEntry && packsHook.selectedPack && (
-                    <Box sx={{ px: 2, pb: 1 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleAddToSelectedPack(lib.selectedEntry!.filename)}
-                        disabled={packsHook.selectedPack?.tracks.some((t) => t.sourceFile === lib.selectedEntry?.filename)}
-                      >
-                        {packsHook.selectedPack?.tracks.some((t) => t.sourceFile === lib.selectedEntry?.filename)
-                          ? `Already in "${packsHook.selectedPack.name}"`
-                          : `Add to "${packsHook.selectedPack.name}"`}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      {unenriched > 0
+                        ? `${unenriched} of ${lib.entries.length} tracks need enrichment`
+                        : `${lib.entries.length} tracks`}
+                      {longTagCount > 0 ? ` · ${longTagCount} with overlong tags` : ''}
+                    </Typography>
+                    <Box sx={{ flex: 1 }} />
+                    {unenriched > 0 && (
+                      <Button size="small" variant="text" onClick={() => lib.enrichAll()}>
+                        Read tags from files
                       </Button>
-                    </Box>
-                  )}
-                </>
-              )}
+                    )}
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => lib.enrichAll({ force: true })}
+                    >
+                      Refresh all from files
+                    </Button>
+                    <Button size="small" variant="text" onClick={lib.migrateLongTags}>
+                      Clean up long tags
+                    </Button>
+                  </Box>
+                )
+              })()
+            ) : null}
+            <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+              {/* Left: track list */}
+              <Box
+                sx={{
+                  width: 300,
+                  flexShrink: 0,
+                  borderRight: '1px solid',
+                  borderColor: 'divider',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <MusicList
+                  entries={lib.entries}
+                  metadata={lib.metadata}
+                  selectedFilename={lib.selectedFilename}
+                  scanning={lib.scanning}
+                  onSelect={handleSelectTrack}
+                  onScan={lib.scan}
+                  onImport={handleImport}
+                />
+              </Box>
+
+              {/* Right: metadata editor */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {lib.entries.length === 0 && !lib.scanning ? (
+                  <Box sx={{ p: 3 }}>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      No audio files found in <strong>{musicLibraryPath}</strong>
+                    </Alert>
+                    <Button variant="outlined" onClick={lib.scan}>
+                      Scan Directory
+                    </Button>
+                  </Box>
+                ) : (
+                  <>
+                    <MusicMetaEditor
+                      entry={lib.selectedEntry}
+                      meta={lib.selectedMeta}
+                      draft={lib.draft}
+                      dirty={lib.dirty}
+                      usedByMaps={usedByMaps}
+                      onUpdate={lib.updateDraft}
+                      onSave={lib.save}
+                      onPlay={() => {
+                        if (lib.selectedEntry) {
+                          const name = lib.draft.name || lib.selectedEntry.filename
+                          handlePlay(lib.selectedEntry.filename, name)
+                        }
+                      }}
+                      onRemove={() => {
+                        if (lib.selectedFilename) lib.remove(lib.selectedFilename)
+                      }}
+                      isPlaying={
+                        isPlaying &&
+                        playingFile ===
+                          `${musicLibraryPath}/${lib.selectedFilename}`.replace(/\\/g, '/')
+                      }
+                    />
+                    {/* Add to pack shortcut */}
+                    {lib.selectedEntry && packsHook.selectedPack && (
+                      <Box sx={{ px: 2, pb: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleAddToSelectedPack(lib.selectedEntry!.filename)}
+                          disabled={packsHook.selectedPack?.tracks.some(
+                            (t) => t.sourceFile === lib.selectedEntry?.filename
+                          )}
+                        >
+                          {packsHook.selectedPack?.tracks.some(
+                            (t) => t.sourceFile === lib.selectedEntry?.filename
+                          )
+                            ? `Already in "${packsHook.selectedPack.name}"`
+                            : `Add to "${packsHook.selectedPack.name}"`}
+                        </Button>
+                      </Box>
+                    )}
+                  </>
+                )}
+              </Box>
             </Box>
-          </Box>
           </Box>
         )}
 
@@ -278,7 +339,16 @@ const MusicPage: React.FC = () => {
               onRemoveTrack={packsHook.removeTrack}
               onReorderTracks={packsHook.reorderTracks}
               onUpdateTrackId={packsHook.updateTrackId}
-              onDeploy={(packId, destDir) => packsHook.deployPack(packId, musicLibraryPath!, destDir, ffmpegPath, musEncodeKbps, musEncodeSampleRate)}
+              onDeploy={(packId, destDir) =>
+                packsHook.deployPack(
+                  packId,
+                  musicLibraryPath!,
+                  destDir,
+                  ffmpegPath,
+                  musEncodeKbps,
+                  musEncodeSampleRate
+                )
+              }
             />
           </Box>
         )}

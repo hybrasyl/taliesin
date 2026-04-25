@@ -1,7 +1,16 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import {
-  Box, Button, CircularProgress, Typography, Select, MenuItem, IconButton, Tooltip,
-  FormControl, InputLabel, type SelectChangeEvent,
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+  Select,
+  MenuItem,
+  IconButton,
+  Tooltip,
+  FormControl,
+  InputLabel,
+  type SelectChangeEvent
 } from '@mui/material'
 import MovieIcon from '@mui/icons-material/Movie'
 import { useRecoilValue } from 'recoil'
@@ -14,16 +23,27 @@ import StopIcon from '@mui/icons-material/Stop'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import {
-  Palette, TilesetView, HeaFile, FntFile, ColorTable,
-  renderTile, renderDarknessOverlay,
-  type DataArchive, type DataArchiveEntry,
+  Palette,
+  TilesetView,
+  HeaFile,
+  FntFile,
+  ColorTable,
+  renderTile,
+  renderDarknessOverlay,
+  type DataArchive,
+  type DataArchiveEntry
 } from '@eriscorp/dalib-ts'
 import { toImageData } from '@eriscorp/dalib-ts/helpers/imageData'
 import {
-  renderEntry, renderPaletteGrid, classifyEntry,
-  loadPaletteByName, getPaletteNames, formatBytes,
-  decodePcx, parseBikHeader,
-  type RenderedEntry,
+  renderEntry,
+  renderPaletteGrid,
+  classifyEntry,
+  loadPaletteByName,
+  getPaletteNames,
+  formatBytes,
+  decodePcx,
+  parseBikHeader,
+  type RenderedEntry
 } from '../../utils/archiveRenderer'
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -97,10 +117,12 @@ const SpritePreview: React.FC<{
 
     const interval = rendered.frameIntervalMs ?? 100
     timerRef.current = setInterval(() => {
-      setFrameIndex(prev => (prev + 1) % rendered.frames.length)
+      setFrameIndex((prev) => (prev + 1) % rendered.frames.length)
     }, interval)
 
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
   }, [playing, rendered])
 
   const handlePaletteChange = useCallback((e: SelectChangeEvent) => {
@@ -120,36 +142,42 @@ const SpritePreview: React.FC<{
         <FormControl size="small" fullWidth>
           <InputLabel>Palette</InputLabel>
           <Select value={selectedPalette} label="Palette" onChange={handlePaletteChange}>
-            {paletteNames.map(name => (
-              <MenuItem key={name} value={name}>{name}</MenuItem>
+            {paletteNames.map((name) => (
+              <MenuItem key={name} value={name}>
+                {name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
       )}
 
       {error && (
-        <Typography variant="caption" color="error">{error}</Typography>
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
       )}
 
       {/* Canvas */}
-      <Box sx={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'auto',
-        bgcolor: 'background.default',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        minHeight: 100,
-      }}>
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'auto',
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          minHeight: 100
+        }}
+      >
         <canvas
           ref={canvasRef}
           style={{
             imageRendering: 'pixelated',
             maxWidth: '100%',
-            maxHeight: '100%',
+            maxHeight: '100%'
           }}
         />
       </Box>
@@ -159,7 +187,8 @@ const SpritePreview: React.FC<{
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
           {currentFrame.width} × {currentFrame.height} px
           {rendered?.blendingType != null && ` · blend: ${rendered.blendingType}`}
-          {rendered?.animation && ` · walk: ${rendered.animation.walkFrameCount} · atk: ${rendered.animation.attackFrameCount}`}
+          {rendered?.animation &&
+            ` · walk: ${rendered.animation.walkFrameCount} · atk: ${rendered.animation.attackFrameCount}`}
         </Typography>
       )}
 
@@ -170,7 +199,10 @@ const SpritePreview: React.FC<{
             <IconButton
               size="small"
               disabled={frameIndex === 0 && !playing}
-              onClick={() => { setPlaying(false); setFrameIndex(prev => Math.max(0, prev - 1)) }}
+              onClick={() => {
+                setPlaying(false)
+                setFrameIndex((prev) => Math.max(0, prev - 1))
+              }}
             >
               <NavigateBeforeIcon fontSize="small" />
             </IconButton>
@@ -184,14 +216,17 @@ const SpritePreview: React.FC<{
             <IconButton
               size="small"
               disabled={frameIndex >= totalFrames - 1 && !playing}
-              onClick={() => { setPlaying(false); setFrameIndex(prev => Math.min(totalFrames - 1, prev + 1)) }}
+              onClick={() => {
+                setPlaying(false)
+                setFrameIndex((prev) => Math.min(totalFrames - 1, prev + 1))
+              }}
             >
               <NavigateNextIcon fontSize="small" />
             </IconButton>
           </Tooltip>
 
           <Tooltip title={playing ? 'Pause' : 'Play animation'}>
-            <IconButton size="small" onClick={() => setPlaying(prev => !prev)}>
+            <IconButton size="small" onClick={() => setPlaying((prev) => !prev)}>
               {playing ? <PauseIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
@@ -203,7 +238,10 @@ const SpritePreview: React.FC<{
 
 // ── Palette preview ──────────────────────────────────────────────────────────
 
-const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -222,7 +260,7 @@ const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
       // Checkerboard background for transparency
       for (let y = 0; y < grid.height; y += 14) {
         for (let x = 0; x < grid.width; x += 14) {
-          ctx.fillStyle = ((x / 14 + y / 14) % 2) ? '#2a2a2a' : '#3a3a3a'
+          ctx.fillStyle = (x / 14 + y / 14) % 2 ? '#2a2a2a' : '#3a3a3a'
           ctx.fillRect(x, y, 14, 14)
         }
       }
@@ -235,21 +273,28 @@ const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
       {error ? (
-        <Typography variant="caption" color="error">{error}</Typography>
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
       ) : (
         <canvas
           ref={canvasRef}
           style={{ imageRendering: 'pixelated', border: '1px solid', borderRadius: 4 }}
         />
       )}
-      <Typography variant="caption" color="text.secondary">256 colors (16×16)</Typography>
+      <Typography variant="caption" color="text.secondary">
+        256 colors (16×16)
+      </Typography>
     </Box>
   )
 }
 
 // ── Text preview ─────────────────────────────────────────────────────────────
 
-const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const { text, colorTable } = useMemo(() => {
     const buf = archive.getEntryBuffer(entry)
     const text = new TextDecoder('utf-8', { fatal: false }).decode(buf)
@@ -261,7 +306,9 @@ const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
       try {
         const parsed = ColorTable.fromBuffer(buf)
         if (parsed.entries.length > 0) colorTable = parsed
-      } catch { /* not a color table */ }
+      } catch {
+        /* not a color table */
+      }
     }
     return { text, colorTable }
   }, [entry, archive])
@@ -269,13 +316,21 @@ const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
       {colorTable && <ColorTableSwatches table={colorTable} />}
-      <Box sx={{
-        flex: 1, overflow: 'auto', p: 1,
-        bgcolor: 'background.default',
-        border: '1px solid', borderColor: 'divider', borderRadius: 1,
-        fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          p: 1,
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          fontFamily: 'monospace',
+          fontSize: '0.78rem',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all'
+        }}
+      >
         {text}
       </Box>
     </Box>
@@ -284,24 +339,42 @@ const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
 
 const ColorTableSwatches: React.FC<{ table: ColorTable }> = ({ table }) => {
   return (
-    <Box sx={{ flexShrink: 0, p: 1, bgcolor: 'background.paper',
-      border: '1px solid', borderColor: 'divider', borderRadius: 1, maxHeight: '40%', overflow: 'auto' }}>
+    <Box
+      sx={{
+        flexShrink: 0,
+        p: 1,
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        maxHeight: '40%',
+        overflow: 'auto'
+      }}
+    >
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
         ColorTable · {table.entries.length} {table.entries.length === 1 ? 'entry' : 'entries'}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
         {table.entries.map((entry, i) => (
           <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ fontFamily: 'monospace', minWidth: 32, color: 'text.secondary' }}>
+            <Typography
+              variant="caption"
+              sx={{ fontFamily: 'monospace', minWidth: 32, color: 'text.secondary' }}
+            >
               #{entry.colorIndex}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.25 }}>
               {entry.colors.map((c, j) => (
-                <Box key={j} sx={{
-                  width: 16, height: 16,
-                  bgcolor: `rgb(${c.r}, ${c.g}, ${c.b})`,
-                  border: '1px solid', borderColor: 'divider',
-                }} />
+                <Box
+                  key={j}
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    bgcolor: `rgb(${c.r}, ${c.g}, ${c.b})`,
+                    border: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                />
               ))}
             </Box>
           </Box>
@@ -313,7 +386,10 @@ const ColorTableSwatches: React.FC<{ table: ColorTable }> = ({ table }) => {
 
 // ── Audio preview ────────────────────────────────────────────────────────────
 
-const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const blobUrlRef = useRef<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -346,7 +422,8 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
     try {
       const buf = archive.getEntryBuffer(entry)
       const extension = entry.entryName.toLowerCase().slice(entry.entryName.lastIndexOf('.'))
-      const mime = extension === '.wav' ? 'audio/wav' : extension === '.ogg' ? 'audio/ogg' : 'audio/mpeg'
+      const mime =
+        extension === '.wav' ? 'audio/wav' : extension === '.ogg' ? 'audio/ogg' : 'audio/mpeg'
       const blob = new Blob([new Uint8Array(buf)], { type: mime })
       const url = URL.createObjectURL(blob)
 
@@ -356,7 +433,10 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
       if (!audioRef.current) audioRef.current = new Audio()
       audioRef.current.src = url
       audioRef.current.onended = () => setPlaying(false)
-      audioRef.current.onerror = () => { setPlaying(false); setError('Playback failed') }
+      audioRef.current.onerror = () => {
+        setPlaying(false)
+        setError('Playback failed')
+      }
       await audioRef.current.play()
       setPlaying(true)
     } catch (e) {
@@ -366,18 +446,29 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 4 }}>
-      <Typography variant="body2" color="text.secondary">{entry.entryName}</Typography>
+      <Typography variant="body2" color="text.secondary">
+        {entry.entryName}
+      </Typography>
       <IconButton
         size="large"
         onClick={handleToggle}
-        sx={{ border: '2px solid', borderColor: 'divider', p: 3, color: playing ? 'secondary.light' : 'text.primary' }}
+        sx={{
+          border: '2px solid',
+          borderColor: 'divider',
+          p: 3,
+          color: playing ? 'secondary.light' : 'text.primary'
+        }}
       >
         {playing ? <StopIcon sx={{ fontSize: 48 }} /> : <PlayArrowIcon sx={{ fontSize: 48 }} />}
       </IconButton>
       <Typography variant="caption" color="text.secondary">
         {playing ? 'Playing…' : 'Click to play'}
       </Typography>
-      {error && <Typography variant="caption" color="error">{error}</Typography>}
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -388,7 +479,10 @@ const TILES_PER_PAGE = 256
 const TILE_PIXEL_WIDTH = 56
 const TILE_PIXEL_HEIGHT = 27
 
-const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paletteNames, setPaletteNames] = useState<string[]>([])
   const [selectedPalette, setSelectedPalette] = useState<string>('')
@@ -399,7 +493,7 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
   useEffect(() => {
     const names = getPaletteNames(archive)
     setPaletteNames(names)
-    if (names.length > 0) setSelectedPalette(prev => prev || names[0])
+    if (names.length > 0) setSelectedPalette((prev) => prev || names[0])
     setPage(0)
   }, [archive])
 
@@ -410,7 +504,10 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
     if (!canvas) return
     try {
       const palette = loadPaletteByName(archive, selectedPalette)
-      if (!palette) { setError('Palette not found'); return }
+      if (!palette) {
+        setError('Palette not found')
+        return
+      }
       const view = TilesetView.fromEntry(entry)
       setTileCount(view.count)
       const startTile = page * TILES_PER_PAGE
@@ -441,35 +538,61 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
       {paletteNames.length > 0 && (
         <FormControl size="small" fullWidth>
           <InputLabel>Palette</InputLabel>
-          <Select value={selectedPalette} label="Palette"
-            onChange={(e: SelectChangeEvent) => setSelectedPalette(e.target.value)}>
-            {paletteNames.map(name => (
-              <MenuItem key={name} value={name}>{name}</MenuItem>
+          <Select
+            value={selectedPalette}
+            label="Palette"
+            onChange={(e: SelectChangeEvent) => setSelectedPalette(e.target.value)}
+          >
+            {paletteNames.map((name) => (
+              <MenuItem key={name} value={name}>
+                {name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
       )}
 
-      {error && <Typography variant="caption" color="error">{error}</Typography>}
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
 
-      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'background.default',
-        border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          p: 1
+        }}
+      >
         <canvas ref={canvasRef} style={{ imageRendering: 'pixelated', display: 'block' }} />
       </Box>
 
       {tileCount > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
           <Tooltip title="Previous page">
-            <IconButton size="small" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>
+            <IconButton
+              size="small"
+              disabled={page === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
               <NavigateBeforeIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Typography variant="caption" sx={{ minWidth: 160, textAlign: 'center' }}>
-            Tiles {page * TILES_PER_PAGE + 1}–{Math.min(tileCount, (page + 1) * TILES_PER_PAGE)} of {tileCount}
+            Tiles {page * TILES_PER_PAGE + 1}–{Math.min(tileCount, (page + 1) * TILES_PER_PAGE)} of{' '}
+            {tileCount}
           </Typography>
           <Tooltip title="Next page">
-            <IconButton size="small" disabled={page >= totalPages - 1}
-              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}>
+            <IconButton
+              size="small"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            >
               <NavigateNextIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -481,7 +604,10 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
 
 // ── PCX preview (custom 8bpp paletted decoder) ───────────────────────────────
 
-const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [info, setInfo] = useState<{ w: number; h: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -494,7 +620,10 @@ const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     try {
       const buf = archive.getEntryBuffer(entry)
       const decoded = decodePcx(buf)
-      if (!decoded) { setError('Unsupported PCX variant (only 8bpp paletted is supported)'); return }
+      if (!decoded) {
+        setError('Unsupported PCX variant (only 8bpp paletted is supported)')
+        return
+      }
       canvas.width = decoded.width
       canvas.height = decoded.height
       const ctx = canvas.getContext('2d')
@@ -510,21 +639,44 @@ const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
-      {error && <Typography variant="caption" color="error">{error}</Typography>}
-      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-        <canvas ref={canvasRef} style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: '100%' }} />
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: '100%' }}
+        />
       </Box>
-      {info && <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-        {info.w} × {info.h} px · 8bpp
-      </Typography>}
+      {info && (
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {info.w} × {info.h} px · 8bpp
+        </Typography>
+      )}
     </Box>
   )
 }
 
 // ── Darkness overlay preview (.hea) ──────────────────────────────────────────
 
-const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [info, setInfo] = useState<{ w: number; h: number; layers: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -556,14 +708,36 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
-      {error && <Typography variant="caption" color="error">{error}</Typography>}
-      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-        <canvas ref={canvasRef} style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: '100%' }} />
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          p: 1
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: '100%' }}
+        />
       </Box>
-      {info && <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-        {info.w} × {info.h} px · {info.layers} layer{info.layers === 1 ? '' : 's'} · darker = less light
-      </Typography>}
+      {info && (
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {info.w} × {info.h} px · {info.layers} layer{info.layers === 1 ? '' : 's'} · darker = less
+          light
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -572,10 +746,13 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
 
 const FONT_SIZES = [
   { label: 'English (8 × 12)', w: 8, h: 12 },
-  { label: 'Korean (16 × 12)', w: 16, h: 12 },
+  { label: 'Korean (16 × 12)', w: 16, h: 12 }
 ]
 
-const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [sizeIdx, setSizeIdx] = useState(0)
   const [info, setInfo] = useState<{ glyphs: number; w: number; h: number } | null>(null)
@@ -601,7 +778,8 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = img.data
       for (let g = 0; g < fnt.glyphCount; g++) {
-        const col = g % cols, row = Math.floor(g / cols)
+        const col = g % cols,
+          row = Math.floor(g / cols)
         const glyph = fnt.getGlyphData(g)
         for (let y = 0; y < gh; y++) {
           for (let x = 0; x < gw; x++) {
@@ -612,7 +790,7 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
             if (!bit) continue
             const px = (row * gh + y) * canvas.width + (col * gw + x)
             const off = px * 4
-            data[off]     = 255
+            data[off] = 255
             data[off + 1] = 255
             data[off + 2] = 255
             data[off + 3] = 255
@@ -630,28 +808,54 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
       <FormControl size="small" fullWidth>
         <InputLabel>Glyph size</InputLabel>
-        <Select value={String(sizeIdx)} label="Glyph size"
-          onChange={(e: SelectChangeEvent) => setSizeIdx(parseInt(e.target.value, 10))}>
+        <Select
+          value={String(sizeIdx)}
+          label="Glyph size"
+          onChange={(e: SelectChangeEvent) => setSizeIdx(parseInt(e.target.value, 10))}
+        >
           {FONT_SIZES.map((s, i) => (
-            <MenuItem key={i} value={String(i)}>{s.label}</MenuItem>
+            <MenuItem key={i} value={String(i)}>
+              {s.label}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
-      {error && <Typography variant="caption" color="error">{error}</Typography>}
-      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          p: 1
+        }}
+      >
         <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
       </Box>
-      {info && <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-        {info.glyphs} glyphs · {info.w} × {info.h} px each
-      </Typography>}
+      {info && (
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {info.glyphs} glyphs · {info.w} × {info.h} px each
+        </Typography>
+      )}
     </Box>
   )
 }
 
 // ── JPF preview (4-byte "JPF\0" prefix + standard JPEG) ──────────────────────
 
-const JpfPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const JpfPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const [src, setSrc] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -660,7 +864,13 @@ const JpfPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     let url: string | null = null
     try {
       const buf = archive.getEntryBuffer(entry)
-      if (buf.length < 6 || buf[0] !== 0x4A || buf[1] !== 0x50 || buf[2] !== 0x46 || buf[3] !== 0x00) {
+      if (
+        buf.length < 6 ||
+        buf[0] !== 0x4a ||
+        buf[1] !== 0x50 ||
+        buf[2] !== 0x46 ||
+        buf[3] !== 0x00
+      ) {
         setError('Missing JPF\\0 prefix')
         setSrc(null)
         return
@@ -673,15 +883,34 @@ const JpfPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to decode JPF')
     }
-    return () => { if (url) URL.revokeObjectURL(url) }
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
   }, [entry, archive])
 
-  if (error) return <Typography variant="caption" color="error">{error}</Typography>
+  if (error)
+    return (
+      <Typography variant="caption" color="error">
+        {error}
+      </Typography>
+    )
   if (!src) return null
 
   return (
-    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto',
-      bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+    <Box
+      sx={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'auto',
+        bgcolor: 'background.default',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        p: 1
+      }}
+    >
       <img src={src} style={{ maxWidth: '100%', maxHeight: '100%' }} />
     </Box>
   )
@@ -689,7 +918,10 @@ const JpfPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
 
 // ── BIK preview (header metadata + on-demand ffmpeg conversion) ──────────────
 
-const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const ffmpegPath = useRecoilValue(ffmpegPathState)
   const videoRef = useRef<HTMLVideoElement>(null)
   const blobUrlRef = useRef<string | null>(null)
@@ -697,21 +929,30 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const info = useMemo(() => {
-    try { return parseBikHeader(archive.getEntryBuffer(entry)) }
-    catch { return null }
+    try {
+      return parseBikHeader(archive.getEntryBuffer(entry))
+    } catch {
+      return null
+    }
   }, [entry, archive])
 
   // Reset playback when the selected entry changes.
   useEffect(() => {
-    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
     setStatus('idle')
     setErrorMsg(null)
   }, [entry])
 
   // Revoke the blob URL on unmount.
-  useEffect(() => () => {
-    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    },
+    []
+  )
 
   const handleConvert = useCallback(async () => {
     setStatus('converting')
@@ -739,28 +980,42 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   }, [entry, ffmpegPath])
 
   if (!info) {
-    return <Typography variant="caption" color="error">Not a recognizable BIK file.</Typography>
+    return (
+      <Typography variant="caption" color="error">
+        Not a recognizable BIK file.
+      </Typography>
+    )
   }
 
   const durationSec = info.fps > 0 ? info.frameCount / info.fps : 0
   const minutes = Math.floor(durationSec / 60)
   const seconds = Math.floor(durationSec - minutes * 60)
   const rows: [string, string][] = [
-    ['Format',    `Bink Video (BIK${info.version})`],
+    ['Format', `Bink Video (BIK${info.version})`],
     ['Resolution', `${info.width} × ${info.height}`],
-    ['Frames',    String(info.frameCount)],
+    ['Frames', String(info.frameCount)],
     ['Frame rate', `${info.fps.toFixed(2)} fps`],
-    ['Duration',  `${minutes}:${String(seconds).padStart(2, '0')}`],
-    ['Audio tracks', String(info.audioTrackCount)],
+    ['Duration', `${minutes}:${String(seconds).padStart(2, '0')}`],
+    ['Audio tracks', String(info.audioTrackCount)]
   ]
 
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5,
-        fontFamily: 'monospace', fontSize: '0.85rem' }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr',
+          columnGap: 2,
+          rowGap: 0.5,
+          fontFamily: 'monospace',
+          fontSize: '0.85rem'
+        }}
+      >
         {rows.map(([k, v]) => (
           <React.Fragment key={k}>
-            <Typography variant="caption" color="text.secondary">{k}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {k}
+            </Typography>
             <Typography variant="caption">{v}</Typography>
           </React.Fragment>
         ))}
@@ -772,7 +1027,8 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
             Convert &amp; Play
           </Button>
           <Typography variant="caption" color="text.secondary">
-            Browsers can't play Bink directly. The first play converts to MP4 via ffmpeg and caches the result.
+            Browsers can't play Bink directly. The first play converts to MP4 via ffmpeg and caches
+            the result.
           </Typography>
         </Box>
       )}
@@ -780,23 +1036,39 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
       {status === 'converting' && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />
-          <Typography variant="caption" color="text.secondary">Converting via ffmpeg…</Typography>
+          <Typography variant="caption" color="text.secondary">
+            Converting via ffmpeg…
+          </Typography>
         </Box>
       )}
 
       {status === 'error' && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="caption" color="error">{errorMsg}</Typography>
+          <Typography variant="caption" color="error">
+            {errorMsg}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
             Check that ffmpeg is installed and the path is set in Settings.
           </Typography>
-          <Button size="small" variant="outlined" onClick={handleConvert}>Retry</Button>
+          <Button size="small" variant="outlined" onClick={handleConvert}>
+            Retry
+          </Button>
         </Box>
       )}
 
-      <Box sx={{ flex: 1, display: status === 'ready' ? 'flex' : 'none',
-        alignItems: 'center', justifyContent: 'center', minHeight: 0,
-        bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      <Box
+        sx={{
+          flex: 1,
+          display: status === 'ready' ? 'flex' : 'none',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 0,
+          bgcolor: 'background.default',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1
+        }}
+      >
         <video ref={videoRef} controls style={{ maxWidth: '100%', maxHeight: '100%' }} />
       </Box>
     </Box>
@@ -805,7 +1077,10 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
 
 // ── Hex preview ──────────────────────────────────────────────────────────────
 
-const HexPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({ entry, archive }) => {
+const HexPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
+  entry,
+  archive
+}) => {
   const hex = useMemo(() => {
     const buf = archive.getEntryBuffer(entry)
     const slice = buf.subarray(0, Math.min(512, buf.length))
@@ -818,26 +1093,36 @@ const HexPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
         if (i + j < slice.length) {
           hexPart.push(slice[i + j].toString(16).padStart(2, '0'))
           const ch = slice[i + j]
-          ascii += (ch >= 0x20 && ch <= 0x7e) ? String.fromCharCode(ch) : '.'
+          ascii += ch >= 0x20 && ch <= 0x7e ? String.fromCharCode(ch) : '.'
         } else {
           hexPart.push('  ')
           ascii += ' '
         }
       }
-      lines.push(`${addr}  ${hexPart.slice(0, 8).join(' ')}  ${hexPart.slice(8).join(' ')}  |${ascii}|`)
+      lines.push(
+        `${addr}  ${hexPart.slice(0, 8).join(' ')}  ${hexPart.slice(8).join(' ')}  |${ascii}|`
+      )
     }
     if (buf.length > 512) lines.push(`\n... ${buf.length - 512} more bytes`)
     return lines.join('\n')
   }, [entry, archive])
 
   return (
-    <Box sx={{
-      flex: 1, overflow: 'auto', p: 1,
-      bgcolor: 'background.default',
-      border: '1px solid', borderColor: 'divider', borderRadius: 1,
-      fontFamily: 'monospace', fontSize: '0.72rem', whiteSpace: 'pre',
-      lineHeight: 1.6,
-    }}>
+    <Box
+      sx={{
+        flex: 1,
+        overflow: 'auto',
+        p: 1,
+        bgcolor: 'background.default',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        fontFamily: 'monospace',
+        fontSize: '0.72rem',
+        whiteSpace: 'pre',
+        lineHeight: 1.6
+      }}
+    >
       {hex}
     </Box>
   )
@@ -851,7 +1136,7 @@ async function extractRaw(entry: DataArchiveEntry) {
   const defaultName = entry.entryName
   const savePath = await window.api.saveFile(
     [{ name: 'All Files', extensions: ['*'] }],
-    defaultName,
+    defaultName
   )
   if (!savePath) return
   const buf = entry.toUint8Array()
@@ -873,12 +1158,12 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
     const ctx = canvas.getContext('2d')!
     ctx.putImageData(toImageData(frame), 0, 0)
     const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed')), 'image/png')
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed'))), 'image/png')
     )
     const baseName = entry.entryName.replace(/\.[^.]+$/, '')
     const savePath = await window.api.saveFile(
       [{ name: 'PNG Image', extensions: ['png'] }],
-      `${baseName}.png`,
+      `${baseName}.png`
     )
     if (!savePath) return
     await window.api.writeBytes(savePath, new Uint8Array(await blob.arrayBuffer()))
@@ -895,7 +1180,7 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
       const ctx = canvas.getContext('2d')!
       ctx.putImageData(toImageData(frame), 0, 0)
       const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed')), 'image/png')
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed'))), 'image/png')
       )
       const filename = `${baseName}_${String(i + 1).padStart(3, '0')}.png`
       await window.api.writeBytes(`${dir}/${filename}`, new Uint8Array(await blob.arrayBuffer()))
@@ -907,15 +1192,22 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
 
 const ArchivePreview: React.FC<Props> = ({ entry, archive }) => {
   const type = classifyEntry(entry)
-  const isRenderable = type === 'sprite' || type === 'palette' || type === 'tileset' ||
-                       type === 'pcx' || type === 'darkness' || type === 'font'
+  const isRenderable =
+    type === 'sprite' ||
+    type === 'palette' ||
+    type === 'tileset' ||
+    type === 'pcx' ||
+    type === 'darkness' ||
+    type === 'font'
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 1.5, gap: 1 }}>
       {/* Entry header + extract buttons */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{entry.entryName}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+            {entry.entryName}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
             {formatBytes(entry.fileSize)} · {type}
           </Typography>
@@ -927,7 +1219,11 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive }) => {
         </Tooltip>
         {isRenderable && (
           <Tooltip title={`Export as PNG`}>
-            <IconButton size="small" onClick={() => exportAsPng(entry, archive)} sx={{ color: 'text.primary' }}>
+            <IconButton
+              size="small"
+              onClick={() => exportAsPng(entry, archive)}
+              sx={{ color: 'text.primary' }}
+            >
               <ImageIcon fontSize="small" />
             </IconButton>
           </Tooltip>

@@ -1,7 +1,13 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box, Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box,
+  Typography
 } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
@@ -13,13 +19,22 @@ interface Props {
   onResize: (width: number, height: number) => void
 }
 
-const ResizeMapDialog: React.FC<Props> = ({ open, currentWidth, currentHeight, onClose, onResize }) => {
+const ResizeMapDialog: React.FC<Props> = ({
+  open,
+  currentWidth,
+  currentHeight,
+  onClose,
+  onResize
+}) => {
   const [width, setWidth] = useState(currentWidth)
   const [height, setHeight] = useState(currentHeight)
 
   // Reset when dialog opens
   React.useEffect(() => {
-    if (open) { setWidth(currentWidth); setHeight(currentHeight) }
+    if (open) {
+      setWidth(currentWidth)
+      setHeight(currentHeight)
+    }
   }, [open, currentWidth, currentHeight])
 
   const valid = width >= 1 && width <= 512 && height >= 1 && height <= 512
@@ -40,7 +55,8 @@ const ResizeMapDialog: React.FC<Props> = ({ open, currentWidth, currentHeight, o
           Current: {currentWidth} × {currentHeight}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          Tiles are anchored to the top-left corner. Growing adds empty tiles to the bottom and right edges. Shrinking removes tiles from the bottom and right.
+          Tiles are anchored to the top-left corner. Growing adds empty tiles to the bottom and
+          right edges. Shrinking removes tiles from the bottom and right.
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <TextField

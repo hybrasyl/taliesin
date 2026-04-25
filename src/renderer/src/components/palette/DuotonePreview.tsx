@@ -31,7 +31,13 @@ const DuotonePreview: React.FC<Props> = ({ source, entry, params, frame, size = 
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: size, height: size, imageRendering: 'pixelated', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4 }}
+      style={{
+        width: size,
+        height: size,
+        imageRendering: 'pixelated',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 4
+      }}
     />
   )
 }

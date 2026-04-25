@@ -49,7 +49,7 @@ interface ScaleState {
 }
 
 function computeScale(cw: number, ch: number): ScaleState {
-  const imageRatio     = FIELD_WIDTH / FIELD_HEIGHT            // 4/3
+  const imageRatio = FIELD_WIDTH / FIELD_HEIGHT // 4/3
   const containerRatio = cw / ch
 
   if (imageRatio >= containerRatio) {
@@ -75,7 +75,7 @@ function screenToField(sx: number, sy: number, s: ScaleState): { x: number; y: n
 function fieldToScreen(fx: number, fy: number, s: ScaleState): { x: number; y: number } {
   return {
     x: fx * s.scaleFactor + s.offsetX,
-    y: fy * s.scaleFactor + s.offsetY,
+    y: fy * s.scaleFactor + s.offsetY
   }
 }
 
@@ -93,36 +93,36 @@ function findHit(imgX: number, imgY: number, points: WorldMapPoint[]): number {
 
 // ── Point drawing ─────────────────────────────────────────────────────────────
 
-const BOX_SIZE    = 12   // 12×12 image-space pixels (same as xml-map-maker mapbox.png)
+const BOX_SIZE = 12 // 12×12 image-space pixels (same as xml-map-maker mapbox.png)
 
 function drawPoint(
   ctx: CanvasRenderingContext2D,
   p: WorldMapPoint,
   selected: boolean,
-  s: ScaleState,
+  s: ScaleState
 ) {
   const { x: sx, y: sy } = fieldToScreen(p.x, p.y, s)
   const bw = BOX_SIZE * s.scaleFactor
   const bh = BOX_SIZE * s.scaleFactor
 
   // Box
-  ctx.fillStyle   = selected ? 'rgba(255,200,50,0.9)' : 'rgba(0,100,200,0.85)'
+  ctx.fillStyle = selected ? 'rgba(255,200,50,0.9)' : 'rgba(0,100,200,0.85)'
   ctx.strokeStyle = selected ? '#ffc832' : '#2196f3'
-  ctx.lineWidth   = selected ? 2 : 1
+  ctx.lineWidth = selected ? 2 : 1
   ctx.fillRect(sx - bw / 2, sy - bh / 2, bw, bh)
   ctx.strokeRect(sx - bw / 2, sy - bh / 2, bw, bh)
 
   // Label
   if (p.name) {
     const fontSize = Math.max(9, Math.round(11 * s.scaleFactor))
-    ctx.font         = `${fontSize}px sans-serif`
-    ctx.fillStyle    = 'white'
-    ctx.textAlign    = 'left'
+    ctx.font = `${fontSize}px sans-serif`
+    ctx.fillStyle = 'white'
+    ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.shadowColor  = 'rgba(0,0,0,0.8)'
-    ctx.shadowBlur   = 3
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'
+    ctx.shadowBlur = 3
     ctx.fillText(p.name, sx + bw / 2 + 3, sy)
-    ctx.shadowBlur   = 0
+    ctx.shadowBlur = 0
   }
 }
 
@@ -136,29 +136,29 @@ export default function WorldMapCanvas({
   placeMode,
   onPointClick,
   onPlacePoint,
-  sx,
+  sx
 }: WorldMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const baseRef      = useRef<HTMLCanvasElement>(null)
-  const overlayRef   = useRef<HTMLCanvasElement>(null)
-  const scaleRef     = useRef<ScaleState | null>(null)
-  const bitmapRef    = useRef<ImageBitmap | null>(null)
+  const baseRef = useRef<HTMLCanvasElement>(null)
+  const overlayRef = useRef<HTMLCanvasElement>(null)
+  const scaleRef = useRef<ScaleState | null>(null)
+  const bitmapRef = useRef<ImageBitmap | null>(null)
 
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [renderTick, setRenderTick] = useState(0)
-  const [hoverPos,  setHoverPos]  = useState<{ x: number; y: number } | null>(null)
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
 
   // ── Resize observer — keeps canvases in sync with container ─────────────────
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    const ro = new ResizeObserver(entries => {
+    const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0]!.contentRect
       if (width < 1 || height < 1) return
       scaleRef.current = computeScale(width, height)
-      setRenderTick(n => n + 1)
+      setRenderTick((n) => n + 1)
     })
     ro.observe(container)
     return () => ro.disconnect()
@@ -171,14 +171,13 @@ export default function WorldMapCanvas({
     let cancelled = false
     setLoading(true)
     setError(null)
-
     ;(async () => {
       try {
         const bitmap = clientPath ? await renderField(fieldName, clientPath) : null
         if (cancelled) return
         bitmapRef.current = bitmap ?? null
         setLoading(false)
-        setRenderTick(n => n + 1)
+        setRenderTick((n) => n + 1)
       } catch (e) {
         if (cancelled) return
         const msg = e instanceof Error ? e.message : String(e)
@@ -186,21 +185,23 @@ export default function WorldMapCanvas({
         setError(msg)
         setLoading(false)
         bitmapRef.current = null
-        setRenderTick(n => n + 1)
+        setRenderTick((n) => n + 1)
       }
     })()
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [fieldName, clientPath])
 
   // ── Redraw base canvas whenever bitmap or scale changes ─────────────────────
 
   useEffect(() => {
     const base = baseRef.current
-    const s    = scaleRef.current
+    const s = scaleRef.current
     if (!base || !s) return
 
-    base.width  = s.cw
+    base.width = s.cw
     base.height = s.ch
     const ctx = base.getContext('2d')!
     ctx.fillStyle = '#1a1a1a'
@@ -209,18 +210,22 @@ export default function WorldMapCanvas({
     if (bitmapRef.current) {
       ctx.drawImage(
         bitmapRef.current,
-        0, 0, FIELD_WIDTH, FIELD_HEIGHT,
-        s.offsetX, s.offsetY,
+        0,
+        0,
+        FIELD_WIDTH,
+        FIELD_HEIGHT,
+        s.offsetX,
+        s.offsetY,
         FIELD_WIDTH * s.scaleFactor,
-        FIELD_HEIGHT * s.scaleFactor,
+        FIELD_HEIGHT * s.scaleFactor
       )
     } else if (!loading) {
       // No bitmap — draw field name as placeholder
-      ctx.fillStyle    = '#333'
+      ctx.fillStyle = '#333'
       ctx.fillRect(s.offsetX, s.offsetY, FIELD_WIDTH * s.scaleFactor, FIELD_HEIGHT * s.scaleFactor)
-      ctx.fillStyle    = 'rgba(255,255,255,0.3)'
-      ctx.font         = '14px sans-serif'
-      ctx.textAlign    = 'center'
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'
+      ctx.font = '14px sans-serif'
+      ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(fieldName || '(no field selected)', s.cw / 2, s.ch / 2)
     }
@@ -230,10 +235,10 @@ export default function WorldMapCanvas({
 
   useEffect(() => {
     const overlay = overlayRef.current
-    const s       = scaleRef.current
+    const s = scaleRef.current
     if (!overlay || !s) return
 
-    overlay.width  = s.cw
+    overlay.width = s.cw
     overlay.height = s.ch
     const ctx = overlay.getContext('2d')!
     ctx.clearRect(0, 0, s.cw, s.ch)
@@ -248,17 +253,17 @@ export default function WorldMapCanvas({
       const { x: sx, y: sy } = fieldToScreen(hoverPos.x, hoverPos.y, s)
       const bw = BOX_SIZE * s.scaleFactor
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'
-      ctx.lineWidth   = 1
+      ctx.lineWidth = 1
       ctx.setLineDash([3, 3])
       ctx.strokeRect(sx - bw / 2, sy - bw / 2, bw, bw)
       ctx.setLineDash([])
 
       // Coordinate label
-      ctx.fillStyle    = 'rgba(0,0,0,0.7)'
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'
       ctx.fillRect(sx + bw / 2 + 3, sy - 9, 64, 16)
-      ctx.fillStyle    = 'white'
-      ctx.font         = '10px monospace'
-      ctx.textAlign    = 'left'
+      ctx.fillStyle = 'white'
+      ctx.font = '10px monospace'
+      ctx.textAlign = 'left'
       ctx.textBaseline = 'middle'
       ctx.fillText(`${hoverPos.x},${hoverPos.y}`, sx + bw / 2 + 6, sy)
     }
@@ -267,50 +272,96 @@ export default function WorldMapCanvas({
   // ── Event handlers ──────────────────────────────────────────────────────────
 
   const eventToField = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const s    = scaleRef.current
+    const s = scaleRef.current
     const canvas = overlayRef.current
     if (!s || !canvas) return null
     const rect = canvas.getBoundingClientRect()
     return screenToField(e.clientX - rect.left, e.clientY - rect.top, s)
   }, [])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    setHoverPos(eventToField(e))
-  }, [eventToField])
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      setHoverPos(eventToField(e))
+    },
+    [eventToField]
+  )
 
   const handleMouseLeave = useCallback(() => setHoverPos(null), [])
 
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = eventToField(e)
-    if (!pos) return
-    const hit = findHit(pos.x, pos.y, points)
-    if (hit >= 0) { onPointClick(hit); return }
-    if (placeMode) onPlacePoint(pos.x, pos.y)
-  }, [eventToField, points, placeMode, onPointClick, onPlacePoint])
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const pos = eventToField(e)
+      if (!pos) return
+      const hit = findHit(pos.x, pos.y, points)
+      if (hit >= 0) {
+        onPointClick(hit)
+        return
+      }
+      if (placeMode) onPlacePoint(pos.x, pos.y)
+    },
+    [eventToField, points, placeMode, onPointClick, onPlacePoint]
+  )
 
   const cursor = placeMode ? 'crosshair' : 'pointer'
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <Box ref={containerRef} sx={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', bgcolor: '#111', ...sx }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        bgcolor: '#111',
+        ...sx
+      }}
+    >
       {loading && (
-        <Box sx={{ position: 'absolute', top: 6, left: 6, zIndex: 10, display: 'flex', alignItems: 'center', gap: 0.75, pointerEvents: 'none' }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            pointerEvents: 'none'
+          }}
+        >
           <CircularProgress size={12} />
-          <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}
+          >
             Loading {fieldName}…
           </Typography>
         </Box>
       )}
       {error && (
         <Box sx={{ position: 'absolute', top: 6, left: 6, zIndex: 10, pointerEvents: 'none' }}>
-          <Typography variant="caption" color="error" sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="error"
+            sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}
+          >
             {error}
           </Typography>
         </Box>
       )}
       <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
-        <canvas ref={baseRef}    style={{ position: 'absolute', top: 0, left: 0, display: 'block', imageRendering: 'pixelated' }} />
+        <canvas
+          ref={baseRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            display: 'block',
+            imageRendering: 'pixelated'
+          }}
+        />
         <canvas
           ref={overlayRef}
           style={{ position: 'absolute', top: 0, left: 0, display: 'block', cursor }}

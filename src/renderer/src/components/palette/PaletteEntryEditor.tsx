@@ -25,7 +25,11 @@ function normalizeHex(v: string): string {
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0').toUpperCase()
+  const c = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, '0')
+      .toUpperCase()
   return `#${c(r)}${c(g)}${c(b)}`
 }
 
@@ -41,7 +45,7 @@ function lighterHighlightHex(highlightHex: string, lightFactor: number): string 
   return rgbToHex(
     r + (255 - r) * lightFactor,
     g + (255 - g) * lightFactor,
-    b + (255 - b) * lightFactor,
+    b + (255 - b) * lightFactor
   )
 }
 
@@ -59,10 +63,11 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
 
   const hexValid = (hex: string) => HEX_RE.test(hex)
 
-  const handleSwap = () => update({
-    shadowColor: entry.highlightColor,
-    highlightColor: entry.shadowColor,
-  })
+  const handleSwap = () =>
+    update({
+      shadowColor: entry.highlightColor,
+      highlightColor: entry.shadowColor
+    })
 
   const darkerShadow = darkerShadowHex(entry.shadowColor, darkFactor)
   const lighterHighlight = lighterHighlightHex(entry.highlightColor, lightFactor)
@@ -70,14 +75,16 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
   const clampWhite = entry.defaultClampWhite ?? false
 
   return (
-    <Box sx={{
-      display: 'flex',
-      gap: 2,
-      alignItems: 'center',
-      p: 1.5,
-      borderBottom: '1px solid',
-      borderColor: 'divider',
-    }}>
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 2,
+        alignItems: 'center',
+        p: 1.5,
+        borderBottom: '1px solid',
+        borderColor: 'divider'
+      }}
+    >
       <DuotonePreview
         source={preview}
         entry={entry}
@@ -87,7 +94,7 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           midpointLow: 0.25,
           midpointHigh: 0.75,
           clampBlack,
-          clampWhite,
+          clampWhite
         }}
         size={72}
       />
@@ -98,21 +105,21 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
             label="ID"
             size="small"
             value={entry.id}
-            onChange={e => update({ id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+            onChange={(e) => update({ id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
             sx={{ width: 120 }}
           />
           <TextField
             label="Name"
             size="small"
             value={entry.name}
-            onChange={e => update({ name: e.target.value })}
+            onChange={(e) => update({ name: e.target.value })}
             sx={{ flex: 1 }}
           />
           <TextField
             label="Category"
             size="small"
             value={entry.category ?? ''}
-            onChange={e => update({ category: e.target.value || undefined })}
+            onChange={(e) => update({ category: e.target.value || undefined })}
             sx={{ width: 140 }}
           />
         </Stack>
@@ -122,33 +129,35 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
             <ColorSwatchPicker
               value={entry.shadowColor}
               fallback="#000000"
-              onChange={v => update({ shadowColor: v })}
+              onChange={(v) => update({ shadowColor: v })}
             />
             <TextField
               label="Shadow"
               size="small"
               value={entry.shadowColor}
-              onChange={e => handleHex('shadowColor')(e.target.value)}
+              onChange={(e) => handleHex('shadowColor')(e.target.value)}
               error={!hexValid(entry.shadowColor)}
               sx={{ width: 110 }}
             />
           </Stack>
 
           <Tooltip title="Swap shadow and highlight">
-            <IconButton size="small" onClick={handleSwap}><SwapHorizIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={handleSwap}>
+              <SwapHorizIcon fontSize="small" />
+            </IconButton>
           </Tooltip>
 
           <Stack direction="row" spacing={0.5} alignItems="center">
             <ColorSwatchPicker
               value={entry.highlightColor}
               fallback="#FFFFFF"
-              onChange={v => update({ highlightColor: v })}
+              onChange={(v) => update({ highlightColor: v })}
             />
             <TextField
               label="Highlight"
               size="small"
               value={entry.highlightColor}
-              onChange={e => handleHex('highlightColor')(e.target.value)}
+              onChange={(e) => handleHex('highlightColor')(e.target.value)}
               error={!hexValid(entry.highlightColor)}
               sx={{ width: 110 }}
             />
@@ -157,23 +166,43 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           <Box sx={{ flex: 1, display: 'flex', gap: 2, minWidth: 260 }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
               <Tooltip title={`Darker shadow: ${darkerShadow}`}>
-                <Box sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: darkerShadow, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                <Box
+                  sx={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 0.5,
+                    bgcolor: darkerShadow,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    flexShrink: 0
+                  }}
+                />
               </Tooltip>
               {clampBlack && (
                 <Tooltip title="Pure black at luminance 0">
-                  <Box sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: '#000000', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 0.5,
+                      bgcolor: '#000000',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      flexShrink: 0
+                    }}
+                  />
                 </Tooltip>
               )}
               <Tooltip title="Clamp pure black at luminance 0">
                 <Checkbox
                   size="small"
                   checked={clampBlack}
-                  onChange={e => update({ defaultClampBlack: e.target.checked || undefined })}
+                  onChange={(e) => update({ defaultClampBlack: e.target.checked || undefined })}
                   sx={{ p: 0.25 }}
                 />
               </Tooltip>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">Dark factor: {darkFactor.toFixed(2)}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Dark factor: {darkFactor.toFixed(2)}
+                </Typography>
                 <Slider
                   size="small"
                   min={0}
@@ -186,23 +215,43 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
               <Tooltip title={`Lighter highlight: ${lighterHighlight}`}>
-                <Box sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: lighterHighlight, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                <Box
+                  sx={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 0.5,
+                    bgcolor: lighterHighlight,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    flexShrink: 0
+                  }}
+                />
               </Tooltip>
               {clampWhite && (
                 <Tooltip title="Pure white at luminance 1">
-                  <Box sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: '#FFFFFF', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 0.5,
+                      bgcolor: '#FFFFFF',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      flexShrink: 0
+                    }}
+                  />
                 </Tooltip>
               )}
               <Tooltip title="Clamp pure white at luminance 1">
                 <Checkbox
                   size="small"
                   checked={clampWhite}
-                  onChange={e => update({ defaultClampWhite: e.target.checked || undefined })}
+                  onChange={(e) => update({ defaultClampWhite: e.target.checked || undefined })}
                   sx={{ p: 0.25 }}
                 />
               </Tooltip>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">Light factor: {lightFactor.toFixed(2)}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Light factor: {lightFactor.toFixed(2)}
+                </Typography>
                 <Slider
                   size="small"
                   min={0}
@@ -218,7 +267,9 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
       </Stack>
 
       <Tooltip title="Delete entry">
-        <IconButton size="small" onClick={onDelete}><DeleteIcon fontSize="small" /></IconButton>
+        <IconButton size="small" onClick={onDelete}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </Tooltip>
     </Box>
   )

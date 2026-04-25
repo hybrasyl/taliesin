@@ -33,7 +33,7 @@ export default function ScriptAutocomplete({
   onChange,
   helperText,
   fullWidth = true,
-  size = 'small',
+  size = 'small'
 }: ScriptAutocompleteProps) {
   const { index } = useWorldIndex()
   const options = (index?.scripts ?? []).map(stripPath)
@@ -47,7 +47,7 @@ export default function ScriptAutocomplete({
       onInputChange={(_, val) => onChange(val)}
       size={size}
       fullWidth={fullWidth}
-      renderInput={params => (
+      renderInput={(params) => (
         <TextField
           {...params}
           label={label}

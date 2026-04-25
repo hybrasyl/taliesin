@@ -29,7 +29,7 @@ export interface WorldMapData {
 export const DEFAULT_WORLD_MAP: WorldMapData = {
   name: '',
   clientMap: '',
-  points: [],
+  points: []
 }
 
 export const DEFAULT_POINT: WorldMapPoint = {
@@ -38,7 +38,7 @@ export const DEFAULT_POINT: WorldMapPoint = {
   name: '',
   targetMap: '',
   targetX: 0,
-  targetY: 0,
+  targetY: 0
 }
 
 // ── Filename computation ──────────────────────────────────────────────────────

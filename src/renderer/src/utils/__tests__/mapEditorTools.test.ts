@@ -11,10 +11,15 @@ import {
   applyChanges,
   revertChanges,
   clampTile,
-  type TileLayerKey,
+  type TileLayerKey
 } from '../mapEditorTools'
 
-function makeMap(width: number, height: number, fillId = 0, layer: TileLayerKey = 'background'): MapFile {
+function makeMap(
+  width: number,
+  height: number,
+  fillId = 0,
+  layer: TileLayerKey = 'background'
+): MapFile {
   const m = new MapFile(width, height)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -56,7 +61,15 @@ describe('floodFill', () => {
     //   1 1 0     ← row of 1s separates the start from the top row's right
     //   0 0 0
     const m = makeMap(3, 3, 0)
-    paint(m, 'background', [[0, 1], [1, 1]], 1)
+    paint(
+      m,
+      'background',
+      [
+        [0, 1],
+        [1, 1]
+      ],
+      1
+    )
     // Start at (0,0); should flood the top row + the (2,1) gap + entire bottom row.
     const changes = floodFill(m, 0, 0, 'background', 9)
     const filled = new Set(changes.map((c) => `${c.x},${c.y}`))
@@ -95,20 +108,29 @@ describe('bresenhamLine', () => {
 
   it('produces a horizontal line from low to high X', () => {
     expect(bresenhamLine(0, 0, 3, 0)).toEqual([
-      { tx: 0, ty: 0 }, { tx: 1, ty: 0 }, { tx: 2, ty: 0 }, { tx: 3, ty: 0 },
+      { tx: 0, ty: 0 },
+      { tx: 1, ty: 0 },
+      { tx: 2, ty: 0 },
+      { tx: 3, ty: 0 }
     ])
   })
 
   it('produces a vertical line from high to low Y', () => {
     expect(bresenhamLine(0, 3, 0, 0)).toEqual([
-      { tx: 0, ty: 3 }, { tx: 0, ty: 2 }, { tx: 0, ty: 1 }, { tx: 0, ty: 0 },
+      { tx: 0, ty: 3 },
+      { tx: 0, ty: 2 },
+      { tx: 0, ty: 1 },
+      { tx: 0, ty: 0 }
     ])
   })
 
   it('produces a diagonal line of length n', () => {
     const coords = bresenhamLine(0, 0, 3, 3)
     expect(coords).toEqual([
-      { tx: 0, ty: 0 }, { tx: 1, ty: 1 }, { tx: 2, ty: 2 }, { tx: 3, ty: 3 },
+      { tx: 0, ty: 0 },
+      { tx: 1, ty: 1 },
+      { tx: 2, ty: 2 },
+      { tx: 3, ty: 3 }
     ])
   })
 
@@ -209,7 +231,7 @@ describe('apply/revert changes', () => {
     const m = makeMap(2, 2, 0)
     applyChanges(m, [
       { x: 0, y: 0, layer: 'background', oldValue: 0, newValue: 7 },
-      { x: 1, y: 1, layer: 'rightForeground', oldValue: 0, newValue: 9 },
+      { x: 1, y: 1, layer: 'rightForeground', oldValue: 0, newValue: 9 }
     ])
     expect(m.getTile(0, 0).background).toBe(7)
     expect(m.getTile(1, 1).rightForeground).toBe(9)

@@ -2,7 +2,19 @@ import { atom, selector } from 'recoil'
 
 export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
 
-export type Page = 'dashboard' | 'catalog' | 'mapeditor' | 'worldmap' | 'archive' | 'mapmaker' | 'prefabs' | 'assetpacks' | 'palettes' | 'music' | 'sfx' | 'settings'
+export type Page =
+  | 'dashboard'
+  | 'catalog'
+  | 'mapeditor'
+  | 'worldmap'
+  | 'archive'
+  | 'mapmaker'
+  | 'prefabs'
+  | 'assetpacks'
+  | 'palettes'
+  | 'music'
+  | 'sfx'
+  | 'settings'
 
 export interface DirtyEditor {
   label: string
@@ -53,16 +65,16 @@ export const mapFilesDirectoryState = selector<string | null>({
   get: ({ get }) => {
     const lib = get(activeLibraryState)
     if (!lib) return null
-    const norm    = lib.replace(/\\/g, '/').replace(/\/+$/, '')
+    const norm = lib.replace(/\\/g, '/').replace(/\/+$/, '')
     const lastSep = norm.lastIndexOf('/')
     if (lastSep <= 0) return null
     return norm.slice(0, lastSep) + '/mapfiles'
-  },
+  }
 })
 
 export interface MapDirectory {
   path: string
-  name: string  // user-provided nickname (defaults to folder name)
+  name: string // user-provided nickname (defaults to folder name)
 }
 
 // Directories containing loose binary .map files (for Map Catalog)

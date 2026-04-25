@@ -22,14 +22,18 @@ const UnsavedChangesDialog: React.FC<Props> = ({ open, label, onSave, onDiscard,
       <DialogTitle>Unsaved Changes</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          {label ? `"${label}" has unsaved changes.` : 'You have unsaved changes.'}{' '}
-          Save before continuing?
+          {label ? `"${label}" has unsaved changes.` : 'You have unsaved changes.'} Save before
+          continuing?
         </DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
-        <Button onClick={onDiscard} color="error">Discard</Button>
-        <Button onClick={onSave} variant="contained">Save</Button>
+        <Button onClick={onDiscard} color="error">
+          Discard
+        </Button>
+        <Button onClick={onSave} variant="contained">
+          Save
+        </Button>
       </DialogActions>
     </Dialog>
   )

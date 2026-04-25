@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Typography, Box, ToggleButtonGroup,
-  ToggleButton, CircularProgress, Alert
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Typography,
+  Box,
+  ToggleButtonGroup,
+  ToggleButton,
+  CircularProgress,
+  Alert
 } from '@mui/material'
 import { CatalogEntry, xmlPrefix, worldName, buildMapXmlStub } from '../../hooks/useCatalog'
 
@@ -33,7 +42,7 @@ const MapExportDialog: React.FC<Props> = ({
   dirPath,
   activeLibrary,
   onClose,
-  onExported,
+  onExported
 }) => {
   const autoPrefix = xmlPrefix(entry.mapNumber)
   const [prefix, setPrefix] = useState<Prefix>(autoPrefix)
@@ -50,23 +59,24 @@ const MapExportDialog: React.FC<Props> = ({
   // Destination paths — activeLibrary = world/xml/, so:
   //   mapfiles → ../mapfiles/  (world/mapfiles/)
   //   xml      → maps/         (world/xml/maps/)
-  const mapfilePath = activeLibrary && validNumber
-    ? `${parentDir(normalizeSlash(activeLibrary))}/mapfiles/lod${mapNumber}.map`
-    : null
+  const mapfilePath =
+    activeLibrary && validNumber
+      ? `${parentDir(normalizeSlash(activeLibrary))}/mapfiles/lod${mapNumber}.map`
+      : null
   const xmlFilename = validNumber ? `${prefix}${mapNumber}.xml` : null
-  const xmlPath = activeLibrary && xmlFilename
-    ? `${normalizeSlash(activeLibrary)}/maps/${xmlFilename}`
-    : null
+  const xmlPath =
+    activeLibrary && xmlFilename ? `${normalizeSlash(activeLibrary)}/maps/${xmlFilename}` : null
 
   // Check for duplicates whenever number or library changes
   const checkDupes = useCallback(async () => {
-    if (!mapfilePath || !xmlPath) { setMapDupe(false); setXmlDupe(false); return }
+    if (!mapfilePath || !xmlPath) {
+      setMapDupe(false)
+      setXmlDupe(false)
+      return
+    }
     setChecking(true)
     try {
-      const [m, x] = await Promise.all([
-        window.api.exists(mapfilePath),
-        window.api.exists(xmlPath),
-      ])
+      const [m, x] = await Promise.all([window.api.exists(mapfilePath), window.api.exists(xmlPath)])
       setMapDupe(m)
       setXmlDupe(x)
     } finally {
@@ -120,8 +130,9 @@ const MapExportDialog: React.FC<Props> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Export Map to Library</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
-
+      <DialogContent
+        sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}
+      >
         {!activeLibrary && (
           <Alert severity="warning">No active library selected. Set one in Settings.</Alert>
         )}
@@ -135,7 +146,9 @@ const MapExportDialog: React.FC<Props> = ({
             value={prefix}
             exclusive
             size="small"
-            onChange={(_, v) => { if (v) setPrefix(v as Prefix) }}
+            onChange={(_, v) => {
+              if (v) setPrefix(v as Prefix)
+            }}
           >
             <ToggleButton value="lod">lod (DA classic, 0–29999)</ToggleButton>
             <ToggleButton value="hyb">hyb (Hybrasyl, 30000–39999)</ToggleButton>
@@ -147,31 +160,34 @@ const MapExportDialog: React.FC<Props> = ({
           label="Map number"
           size="small"
           value={mapNumberStr}
-          onChange={(e) => { setMapNumberStr(e.target.value); setError(null) }}
+          onChange={(e) => {
+            setMapNumberStr(e.target.value)
+            setError(null)
+          }}
           inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
           sx={{ width: 160 }}
           error={!validNumber && mapNumberStr !== ''}
-          helperText={!validNumber && mapNumberStr !== '' ? 'Must be a positive integer' : undefined}
+          helperText={
+            !validNumber && mapNumberStr !== '' ? 'Must be a positive integer' : undefined
+          }
         />
 
         {/* Destination preview */}
         {validNumber && activeLibrary && (
-          <Box sx={{ bgcolor: 'background.default', borderRadius: 1, p: 1.5, border: '1px solid', borderColor: 'divider' }}>
+          <Box
+            sx={{
+              bgcolor: 'background.default',
+              borderRadius: 1,
+              p: 1.5,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
               Destination
             </Typography>
-            <DestRow
-              label="Map file"
-              path={mapfilePath!}
-              isDupe={mapDupe}
-              checking={checking}
-            />
-            <DestRow
-              label="XML stub"
-              path={xmlPath!}
-              isDupe={xmlDupe}
-              checking={checking}
-            />
+            <DestRow label="Map file" path={mapfilePath!} isDupe={mapDupe} checking={checking} />
+            <DestRow label="XML stub" path={xmlPath!} isDupe={xmlDupe} checking={checking} />
           </Box>
         )}
 
@@ -180,8 +196,8 @@ const MapExportDialog: React.FC<Props> = ({
             {mapDupe && xmlDupe
               ? 'Both the map file and XML already exist and will be overwritten.'
               : mapDupe
-              ? 'A map file with this number already exists and will be overwritten.'
-              : 'An XML file with this number already exists and will be overwritten.'}
+                ? 'A map file with this number already exists and will be overwritten.'
+                : 'An XML file with this number already exists and will be overwritten.'}
           </Alert>
         )}
 
@@ -189,7 +205,9 @@ const MapExportDialog: React.FC<Props> = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={exporting}>Cancel</Button>
+        <Button onClick={onClose} disabled={exporting}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleExport}
@@ -205,7 +223,10 @@ const MapExportDialog: React.FC<Props> = ({
 
 // Small helper row for destination paths
 function DestRow({
-  label, path, isDupe, checking
+  label,
+  path,
+  isDupe,
+  checking
 }: {
   label: string
   path: string
@@ -220,11 +241,13 @@ function DestRow({
       <Typography variant="caption" sx={{ wordBreak: 'break-all', flex: 1 }}>
         {path}
       </Typography>
-      {checking
-        ? <CircularProgress size={10} />
-        : isDupe
-        ? <Typography variant="caption" color="warning.main">exists</Typography>
-        : null}
+      {checking ? (
+        <CircularProgress size={10} />
+      ) : isDupe ? (
+        <Typography variant="caption" color="warning.main">
+          exists
+        </Typography>
+      ) : null}
     </Box>
   )
 }

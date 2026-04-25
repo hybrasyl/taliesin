@@ -4,7 +4,7 @@ import { join } from 'path'
 
 // Source files (read at test time, not imported — these reference electron at module load).
 // Handler registrations moved from main/index.ts → main/handlers.ts in Phase 5.
-const PRELOAD  = readFileSync(join(__dirname, '..', 'index.ts'), 'utf-8')
+const PRELOAD = readFileSync(join(__dirname, '..', 'index.ts'), 'utf-8')
 const HANDLERS = readFileSync(join(__dirname, '..', '..', 'main', 'handlers.ts'), 'utf-8')
 
 const CHANNEL_RE = /['"]([\w:.\-]+)['"]/g
@@ -21,28 +21,28 @@ function extractChannels(source: string, callPattern: RegExp): Set<string> {
 }
 
 const preloadInvoke = extractChannels(PRELOAD, /ipcRenderer\.invoke\(\s*['"][^'"]+['"]/g)
-const preloadSend   = extractChannels(PRELOAD, /ipcRenderer\.send\(\s*['"][^'"]+['"]/g)
-const mainHandle    = extractChannels(HANDLERS,    /ipcMain\.handle\(\s*['"][^'"]+['"]/g)
-const mainOn        = extractChannels(HANDLERS,    /ipcMain\.on\(\s*['"][^'"]+['"]/g)
+const preloadSend = extractChannels(PRELOAD, /ipcRenderer\.send\(\s*['"][^'"]+['"]/g)
+const mainHandle = extractChannels(HANDLERS, /ipcMain\.handle\(\s*['"][^'"]+['"]/g)
+const mainOn = extractChannels(HANDLERS, /ipcMain\.on\(\s*['"][^'"]+['"]/g)
 
 describe('Preload ↔ Main IPC contract', () => {
   it('every channel preload sends has a matching ipcMain.on handler', () => {
-    const missing = [...preloadSend].filter(c => !mainOn.has(c))
+    const missing = [...preloadSend].filter((c) => !mainOn.has(c))
     expect(missing).toEqual([])
   })
 
   it('every channel preload invokes has a matching ipcMain.handle handler', () => {
-    const missing = [...preloadInvoke].filter(c => !mainHandle.has(c))
+    const missing = [...preloadInvoke].filter((c) => !mainHandle.has(c))
     expect(missing).toEqual([])
   })
 
   it('every ipcMain.on handler is reachable from preload', () => {
-    const orphaned = [...mainOn].filter(c => !preloadSend.has(c))
+    const orphaned = [...mainOn].filter((c) => !preloadSend.has(c))
     expect(orphaned).toEqual([])
   })
 
   it('every ipcMain.handle handler is reachable from preload', () => {
-    const orphaned = [...mainHandle].filter(c => !preloadInvoke.has(c))
+    const orphaned = [...mainHandle].filter((c) => !preloadInvoke.has(c))
     expect(orphaned).toEqual([])
   })
 

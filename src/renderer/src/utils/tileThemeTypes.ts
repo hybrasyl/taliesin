@@ -4,14 +4,14 @@ export interface BgFamily {
   id: string
   tiles: number[]
   totalFrequency: number
-  topTiles: number[]       // top 5 most frequent tiles for preview
+  topTiles: number[] // top 5 most frequent tiles for preview
 }
 
 export interface WallFamily {
   id: string
-  pairs: [number, number][]   // [lfg, rfg] tuples
+  pairs: [number, number][] // [lfg, rfg] tuples
   totalFrequency: number
-  commonGrounds: number[]     // bg tile IDs these walls commonly appear on
+  commonGrounds: number[] // bg tile IDs these walls commonly appear on
 }
 
 export interface TileAtlas {
@@ -21,8 +21,8 @@ export interface TileAtlas {
   skippedFiles: number
   bgFamilies: BgFamily[]
   wallFamilies: WallFamily[]
-  bgAdjacency: Record<string, Record<string, number>>  // bgId -> neighborBgId -> count
-  bgFrequency: Record<string, number>                   // bgId -> count
+  bgAdjacency: Record<string, Record<string, number>> // bgId -> neighborBgId -> count
+  bgFrequency: Record<string, number> // bgId -> count
 }
 
 // ── Tile Themes (user-named role-to-tile-id assignments) ─────────────────────

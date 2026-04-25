@@ -1,9 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRecoilValue } from 'recoil'
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, Divider, IconButton, InputAdornment, List, ListItem,
-  ListItemButton, ListItemText, Snackbar, TextField, Tooltip, Typography,
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Snackbar,
+  TextField,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
@@ -39,7 +56,11 @@ function mapBinToId(filename: string): number {
 
 // Each binary is classified before display
 type BinStatus = 'available' | 'archived'
-interface BinEntry { name: string; id: number; status: BinStatus }
+interface BinEntry {
+  name: string
+  id: number
+  status: BinStatus
+}
 
 interface NewMapDialogProps {
   open: boolean
@@ -51,23 +72,40 @@ interface NewMapDialogProps {
 }
 
 function NewMapDialog({
-  open, activeMapDirectory, worldIndex, clientPath, onConfirm, onCancel,
+  open,
+  activeMapDirectory,
+  worldIndex,
+  clientPath,
+  onConfirm,
+  onCancel
 }: NewMapDialogProps) {
-  const [loading,       setLoading]       = useState(false)
-  const [entries,       setEntries]       = useState<BinEntry[]>([])
-  const [search,        setSearch]        = useState('')
-  const [selectedBin,   setSelectedBin]   = useState<string | null>(null)
-  const [dimBuffer,     setDimBuffer]     = useState<Uint8Array | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [entries, setEntries] = useState<BinEntry[]>([])
+  const [search, setSearch] = useState('')
+  const [selectedBin, setSelectedBin] = useState<string | null>(null)
+  const [dimBuffer, setDimBuffer] = useState<Uint8Array | null>(null)
   const [dimPickerOpen, setDimPickerOpen] = useState(false)
-  const [loadingBin,    setLoadingBin]    = useState(false)
+  const [loadingBin, setLoadingBin] = useState(false)
 
   // Build id sets from index — available without any filesystem scan
-  const activeIds  = useMemo(() => new Set((worldIndex?.mapDetails       ?? []).map(m => m.id)), [worldIndex])
-  const ignoredIds = useMemo(() => new Set((worldIndex?.ignoredMapDetails ?? []).map(m => m.id)), [worldIndex])
+  const activeIds = useMemo(
+    () => new Set((worldIndex?.mapDetails ?? []).map((m) => m.id)),
+    [worldIndex]
+  )
+  const ignoredIds = useMemo(
+    () => new Set((worldIndex?.ignoredMapDetails ?? []).map((m) => m.id)),
+    [worldIndex]
+  )
 
   // Scan the binary directory only once per dialog open
   useEffect(() => {
-    if (!open) { setEntries([]); setSearch(''); setSelectedBin(null); setDimBuffer(null); return }
+    if (!open) {
+      setEntries([])
+      setSearch('')
+      setSelectedBin(null)
+      setDimBuffer(null)
+      return
+    }
     if (!activeMapDirectory) return
 
     setLoading(true)
@@ -79,7 +117,7 @@ function NewMapDialog({
           if (e.isDirectory || !/\.map$/i.test(e.name)) continue
           const id = mapBinToId(e.name)
           if (!id) continue
-          if (activeIds.has(id)) continue          // already has an active XML — omit
+          if (activeIds.has(id)) continue // already has an active XML — omit
           const status: BinStatus = ignoredIds.has(id) ? 'archived' : 'available'
           result.push({ name: e.name, id, status })
         }
@@ -118,7 +156,9 @@ function NewMapDialog({
   const noIndex = !worldIndex
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? entries.filter(e => e.name.toLowerCase().includes(q) || String(e.id).includes(q)) : entries
+    return q
+      ? entries.filter((e) => e.name.toLowerCase().includes(q) || String(e.id).includes(q))
+      : entries
   }, [entries, search])
 
   return (
@@ -138,13 +178,24 @@ function NewMapDialog({
             <>
               {noIndex && (
                 <Alert severity="warning" sx={{ mb: 1 }}>
-                  Index not built — all map files shown. Build the index in Settings to filter out already-assigned maps.
+                  Index not built — all map files shown. Build the index in Settings to filter out
+                  already-assigned maps.
                 </Alert>
               )}
               <TextField
-                size="small" fullWidth placeholder="Filter by name or ID…" autoFocus
-                value={search} onChange={e => setSearch(e.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+                size="small"
+                fullWidth
+                placeholder="Filter by name or ID…"
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  )
+                }}
                 sx={{ mt: 1, mb: 1 }}
               />
               {filtered.length === 0 ? (
@@ -154,27 +205,50 @@ function NewMapDialog({
                     : 'No matches.'}
                 </Typography>
               ) : (
-                <List dense disablePadding sx={{ maxHeight: 380, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                  {filtered.map(entry => (
-                    <ListItem key={entry.name} disablePadding
+                <List
+                  dense
+                  disablePadding
+                  sx={{
+                    maxHeight: 380,
+                    overflow: 'auto',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1
+                  }}
+                >
+                  {filtered.map((entry) => (
+                    <ListItem
+                      key={entry.name}
+                      disablePadding
                       secondaryAction={
-                        entry.status === 'archived'
-                          ? (
-                            <Tooltip title="This map ID has an XML in .ignore (archived)">
-                              <Chip icon={<ArchiveIcon />} label="Archived" size="small"
-                                color="warning" variant="outlined" sx={{ mr: 1 }} />
-                            </Tooltip>
-                          ) : undefined
-                      }>
-                      <ListItemButton onClick={() => handleSelectBin(entry)} disabled={loadingBin}
-                        sx={{ pr: entry.status === 'archived' ? 12 : undefined }}>
+                        entry.status === 'archived' ? (
+                          <Tooltip title="This map ID has an XML in .ignore (archived)">
+                            <Chip
+                              icon={<ArchiveIcon />}
+                              label="Archived"
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              sx={{ mr: 1 }}
+                            />
+                          </Tooltip>
+                        ) : undefined
+                      }
+                    >
+                      <ListItemButton
+                        onClick={() => handleSelectBin(entry)}
+                        disabled={loadingBin}
+                        sx={{ pr: entry.status === 'archived' ? 12 : undefined }}
+                      >
                         <ListItemText
                           primary={entry.name}
                           secondary={`Map ID: ${entry.id}`}
                           primaryTypographyProps={{ fontFamily: 'monospace', variant: 'body2' }}
                           secondaryTypographyProps={{ variant: 'caption' }}
                         />
-                        {loadingBin && selectedBin === entry.name && <CircularProgress size={16} sx={{ ml: 1 }} />}
+                        {loadingBin && selectedBin === entry.name && (
+                          <CircularProgress size={16} sx={{ ml: 1 }} />
+                        )}
                       </ListItemButton>
                     </ListItem>
                   ))}
@@ -195,7 +269,11 @@ function NewMapDialog({
           fileBuffer={dimBuffer}
           clientPath={clientPath}
           onConfirm={handleDimConfirm}
-          onCancel={() => { setDimPickerOpen(false); setSelectedBin(null); setDimBuffer(null) }}
+          onCancel={() => {
+            setDimPickerOpen(false)
+            setSelectedBin(null)
+            setDimBuffer(null)
+          }}
         />
       )}
     </>
@@ -211,7 +289,7 @@ function FileListPanel({
   onSelect,
   onNew,
   showArchived,
-  onToggleArchived,
+  onToggleArchived
 }: {
   files: FileEntry[]
   archivedFiles: FileEntry[]
@@ -226,10 +304,11 @@ function FileListPanel({
   const filtered = (list: FileEntry[]) => {
     const q = search.trim().toLowerCase()
     if (!q) return list
-    return list.filter(f =>
-      f.name.toLowerCase().includes(q) ||
-      (f.mapName?.toLowerCase().includes(q) ?? false) ||
-      (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
+    return list.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        (f.mapName?.toLowerCase().includes(q) ?? false) ||
+        (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
     )
   }
 
@@ -237,25 +316,50 @@ function FileListPanel({
   const filteredArchived = filtered(archivedFiles)
 
   return (
-    <Box sx={{ width: 240, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box
+      sx={{
+        width: 240,
+        flexShrink: 0,
+        borderRight: 1,
+        borderColor: 'divider',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+    >
       <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="subtitle2">Maps</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <Tooltip title={showArchived ? 'Hide Archived' : 'Show Archived'}>
-            <IconButton size="small" onClick={onToggleArchived} color={showArchived ? 'primary' : 'default'}>
+            <IconButton
+              size="small"
+              onClick={onToggleArchived}
+              color={showArchived ? 'primary' : 'default'}
+            >
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="New Map">
-            <Button size="small" startIcon={<AddIcon />} onClick={onNew}>New</Button>
+            <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
+              New
+            </Button>
           </Tooltip>
         </Box>
       </Box>
       <Box sx={{ px: 1, pb: 1 }}>
         <TextField
-          size="small" fullWidth placeholder="Filter..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+          size="small"
+          fullWidth
+          placeholder="Filter..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            )
+          }}
         />
       </Box>
       <Divider />
@@ -265,19 +369,48 @@ function FileListPanel({
             No map XMLs found. Check that a library is set in Settings.
           </Typography>
         ) : filteredActive.length === 0 && (!showArchived || filteredArchived.length === 0) ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No matches.</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            No matches.
+          </Typography>
         ) : (
           <>
             <List dense disablePadding>
-              {filteredActive.map(f => (
+              {filteredActive.map((f) => (
                 <ListItem key={f.path} disablePadding>
-                  <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+                  <ListItemButton
+                    selected={selectedFile?.path === f.path}
+                    onClick={() => onSelect(f)}
+                  >
                     <ListItemText
                       primary={f.name.replace(/\.xml$/i, '')}
                       secondary={
                         <>
-                          {f.mapName && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.mapName}</Box>}
-                          {f.mapId !== undefined && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{`lod${f.mapId}`}</Box>}
+                          {f.mapName && (
+                            <Box
+                              component="span"
+                              sx={{
+                                display: 'block',
+                                fontStyle: 'italic',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {f.mapName}
+                            </Box>
+                          )}
+                          {f.mapId !== undefined && (
+                            <Box
+                              component="span"
+                              sx={{
+                                display: 'block',
+                                fontStyle: 'italic',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >{`lod${f.mapId}`}</Box>
+                          )}
                         </>
                       }
                       primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
@@ -290,22 +423,59 @@ function FileListPanel({
             {showArchived && filteredArchived.length > 0 && (
               <>
                 <Divider sx={{ my: 0.5 }} />
-                <Typography variant="caption" color="text.secondary" sx={{ px: 1.5, py: 0.5, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ px: 1.5, py: 0.5, display: 'block' }}
+                >
                   Archived
                 </Typography>
                 <List dense disablePadding>
-                  {filteredArchived.map(f => (
+                  {filteredArchived.map((f) => (
                     <ListItem key={f.path} disablePadding>
-                      <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+                      <ListItemButton
+                        selected={selectedFile?.path === f.path}
+                        onClick={() => onSelect(f)}
+                      >
                         <ListItemText
                           primary={f.name.replace(/\.xml$/i, '')}
                           secondary={
                             <>
-                              {f.mapName && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.disabled' }}>{f.mapName}</Box>}
-                              {f.mapId !== undefined && <Box component="span" sx={{ display: 'block', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.disabled' }}>{`lod${f.mapId}`}</Box>}
+                              {f.mapName && (
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'block',
+                                    fontStyle: 'italic',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    color: 'text.disabled'
+                                  }}
+                                >
+                                  {f.mapName}
+                                </Box>
+                              )}
+                              {f.mapId !== undefined && (
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'block',
+                                    fontStyle: 'italic',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    color: 'text.disabled'
+                                  }}
+                                >{`lod${f.mapId}`}</Box>
+                              )}
                             </>
                           }
-                          primaryTypographyProps={{ noWrap: true, variant: 'body2', color: 'text.secondary' }}
+                          primaryTypographyProps={{
+                            noWrap: true,
+                            variant: 'body2',
+                            color: 'text.secondary'
+                          }}
                           secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
                         />
                       </ListItemButton>
@@ -324,9 +494,9 @@ function FileListPanel({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MapEditorPage() {
-  const activeLibrary      = useRecoilValue(activeLibraryState)
+  const activeLibrary = useRecoilValue(activeLibraryState)
   const activeMapDirectory = useRecoilValue(mapFilesDirectoryState)
-  const clientPath         = useRecoilValue(clientPathState)
+  const clientPath = useRecoilValue(clientPathState)
 
   const [files, setFiles] = useState<FileEntry[]>([])
   const [archivedFiles, setArchivedFiles] = useState<FileEntry[]>([])
@@ -336,34 +506,65 @@ export default function MapEditorPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [newDialogOpen, setNewDialogOpen] = useState(false)
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null)
+  const [snackbar, setSnackbar] = useState<{
+    message: string
+    severity: 'success' | 'error' | 'info'
+  } | null>(null)
 
-  const { markDirty, markClean, saveRef, guard, dialogOpen,
-    handleDialogSave, handleDialogDiscard, handleDialogCancel } = useUnsavedGuard('Map')
+  const {
+    markDirty,
+    markClean,
+    saveRef,
+    guard,
+    dialogOpen,
+    handleDialogSave,
+    handleDialogDiscard,
+    handleDialogCancel
+  } = useUnsavedGuard('Map')
 
   const { index: worldIndex } = useWorldIndex()
-  const mapNames       = worldIndex?.maps       ?? []
-  const npcNames       = worldIndex?.npcs        ?? []
-  const worldMapNames  = worldIndex?.worldmaps   ?? []
+  const mapNames = worldIndex?.maps ?? []
+  const npcNames = worldIndex?.npcs ?? []
+  const worldMapNames = worldIndex?.worldmaps ?? []
   const spawnGroupNames = worldIndex?.spawngroups ?? []
 
-  const mapsDir   = activeLibrary ? `${activeLibrary}/${MAPS_SUBDIR}` : null
+  const mapsDir = activeLibrary ? `${activeLibrary}/${MAPS_SUBDIR}` : null
   const ignoreDir = activeLibrary ? `${activeLibrary}/${IGNORE_SUBDIR}` : null
 
   // filename → map <Name> lookup built from the index (zero extra file reads)
-  const activeNameMap   = useMemo(() => new Map((worldIndex?.mapDetails       ?? []).map(d => [d.filename, d.name])), [worldIndex])
-  const ignoredNameMap  = useMemo(() => new Map((worldIndex?.ignoredMapDetails ?? []).map(d => [d.filename, d.name])), [worldIndex])
-  const activeIdMap     = useMemo(() => new Map((worldIndex?.mapDetails       ?? []).map(d => [d.filename, d.id])),   [worldIndex])
-  const ignoredIdMap    = useMemo(() => new Map((worldIndex?.ignoredMapDetails ?? []).map(d => [d.filename, d.id])),  [worldIndex])
+  const activeNameMap = useMemo(
+    () => new Map((worldIndex?.mapDetails ?? []).map((d) => [d.filename, d.name])),
+    [worldIndex]
+  )
+  const ignoredNameMap = useMemo(
+    () => new Map((worldIndex?.ignoredMapDetails ?? []).map((d) => [d.filename, d.name])),
+    [worldIndex]
+  )
+  const activeIdMap = useMemo(
+    () => new Map((worldIndex?.mapDetails ?? []).map((d) => [d.filename, d.id])),
+    [worldIndex]
+  )
+  const ignoredIdMap = useMemo(
+    () => new Map((worldIndex?.ignoredMapDetails ?? []).map((d) => [d.filename, d.id])),
+    [worldIndex]
+  )
 
   const loadActiveFiles = async () => {
-    if (!mapsDir) { setFiles([]); return }
+    if (!mapsDir) {
+      setFiles([])
+      return
+    }
     try {
       const entries = await window.api.listDir(mapsDir)
       setFiles(
         entries
-          .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map(e => ({ name: e.name, path: `${mapsDir}/${e.name}`, mapName: activeNameMap.get(e.name), mapId: activeIdMap.get(e.name) }))
+          .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
+          .map((e) => ({
+            name: e.name,
+            path: `${mapsDir}/${e.name}`,
+            mapName: activeNameMap.get(e.name),
+            mapId: activeIdMap.get(e.name)
+          }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
       )
     } catch {
@@ -372,13 +573,22 @@ export default function MapEditorPage() {
   }
 
   const loadArchivedFiles = async () => {
-    if (!ignoreDir) { setArchivedFiles([]); return }
+    if (!ignoreDir) {
+      setArchivedFiles([])
+      return
+    }
     try {
       const entries = await window.api.listDir(ignoreDir)
       setArchivedFiles(
         entries
-          .filter(e => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map(e => ({ name: e.name, path: `${ignoreDir}/${e.name}`, mapName: ignoredNameMap.get(e.name), mapId: ignoredIdMap.get(e.name), archived: true }))
+          .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
+          .map((e) => ({
+            name: e.name,
+            path: `${ignoreDir}/${e.name}`,
+            mapName: ignoredNameMap.get(e.name),
+            mapId: ignoredIdMap.get(e.name),
+            archived: true
+          }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
       )
     } catch {
@@ -400,8 +610,20 @@ export default function MapEditorPage() {
 
   // Re-populate mapName/mapId when the index is (re)built without re-scanning the filesystem
   useEffect(() => {
-    setFiles(prev => prev.map(f => ({ ...f, mapName: activeNameMap.get(f.name), mapId: activeIdMap.get(f.name) })))
-    setArchivedFiles(prev => prev.map(f => ({ ...f, mapName: ignoredNameMap.get(f.name), mapId: ignoredIdMap.get(f.name) })))
+    setFiles((prev) =>
+      prev.map((f) => ({
+        ...f,
+        mapName: activeNameMap.get(f.name),
+        mapId: activeIdMap.get(f.name)
+      }))
+    )
+    setArchivedFiles((prev) =>
+      prev.map((f) => ({
+        ...f,
+        mapName: ignoredNameMap.get(f.name),
+        mapId: ignoredIdMap.get(f.name)
+      }))
+    )
   }, [activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap])
 
   const handleToggleArchived = async () => {
@@ -442,9 +664,7 @@ export default function MapEditorPage() {
     if (!activeLibrary) return
     try {
       const isRename = !!(selectedFile && fileName !== selectedFile.name)
-      const newPath = isRename || !selectedFile
-        ? `${mapsDir}/${fileName}`
-        : selectedFile.path
+      const newPath = isRename || !selectedFile ? `${mapsDir}/${fileName}` : selectedFile.path
 
       const xml = serializeMapXml(data)
       await window.api.writeFile(newPath, xml)
@@ -453,7 +673,10 @@ export default function MapEditorPage() {
       if (isRename && selectedFile) {
         const archivePath = `${ignoreDir}/${selectedFile.name}`
         await window.api.copyFile(selectedFile.path, archivePath)
-        setSnackbar({ message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`, severity: 'info' })
+        setSnackbar({
+          message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
+          severity: 'info'
+        })
         setSelectedFile({ name: fileName, path: newPath })
       } else if (!selectedFile) {
         setSelectedFile({ name: fileName, path: newPath })
@@ -463,7 +686,10 @@ export default function MapEditorPage() {
       await loadActiveFiles()
     } catch (err) {
       console.error('Failed to save map:', err)
-      setSnackbar({ message: `Save failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+      setSnackbar({
+        message: `Save failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
     }
   }
 
@@ -473,7 +699,10 @@ export default function MapEditorPage() {
       const destPath = `${ignoreDir}/${selectedFile.name}`
       const exists = await window.api.exists(destPath)
       if (exists) {
-        setSnackbar({ message: 'An archived map with this name already exists.', severity: 'error' })
+        setSnackbar({
+          message: 'An archived map with this name already exists.',
+          severity: 'error'
+        })
         return
       }
       await window.api.copyFile(selectedFile.path, destPath)
@@ -483,7 +712,10 @@ export default function MapEditorPage() {
       await loadActiveFiles()
       await loadArchivedFiles()
     } catch (err) {
-      setSnackbar({ message: `Archive failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+      setSnackbar({
+        message: `Archive failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
     }
   }
 
@@ -503,11 +735,19 @@ export default function MapEditorPage() {
       await loadActiveFiles()
       await loadArchivedFiles()
     } catch (err) {
-      setSnackbar({ message: `Unarchive failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' })
+      setSnackbar({
+        message: `Unarchive failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
     }
   }
 
-  const handleDirtyChange = useCallback((dirty: boolean) => { dirty ? markDirty() : markClean() }, [markDirty, markClean])
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      dirty ? markDirty() : markClean()
+    },
+    [markDirty, markClean]
+  )
   const isArchived = selectedFile?.archived === true
 
   return (
@@ -524,9 +764,13 @@ export default function MapEditorPage() {
 
       <Box sx={{ flex: 1, p: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {loadError ? (
-          <Alert severity="error"><strong>Failed to load map:</strong> {loadError}</Alert>
+          <Alert severity="error">
+            <strong>Failed to load map:</strong> {loadError}
+          </Alert>
         ) : loadingMap ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}
+          >
             <CircularProgress size={64} thickness={4} color="info" disableShrink />
           </Box>
         ) : editingMap ? (
@@ -546,7 +790,9 @@ export default function MapEditorPage() {
             saveRef={saveRef}
           />
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}
+          >
             <Typography variant="body1" color="text.secondary">
               Select a map or create a new one.
             </Typography>
@@ -569,13 +815,20 @@ export default function MapEditorPage() {
         onClose={() => setSnackbar(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar?.severity ?? 'info'} onClose={() => setSnackbar(null)} sx={{ width: '100%' }}>
+        <Alert
+          severity={snackbar?.severity ?? 'info'}
+          onClose={() => setSnackbar(null)}
+          sx={{ width: '100%' }}
+        >
           {snackbar?.message}
         </Alert>
       </Snackbar>
       <UnsavedChangesDialog
-        open={dialogOpen} label="Map"
-        onSave={handleDialogSave} onDiscard={handleDialogDiscard} onCancel={handleDialogCancel}
+        open={dialogOpen}
+        label="Map"
+        onSave={handleDialogSave}
+        onDiscard={handleDialogDiscard}
+        onCancel={handleDialogCancel}
       />
     </Box>
   )

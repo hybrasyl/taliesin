@@ -9,12 +9,15 @@ import { DataArchive } from '@eriscorp/dalib-ts'
 async function main() {
   const clientPath = process.argv[2]
   const outDir = process.argv[3] ?? '/tmp/bik-probe'
-  if (!clientPath) { console.error('Usage: npx tsx scripts/extractBiks.ts <clientPath> [outDir]'); process.exit(1) }
+  if (!clientPath) {
+    console.error('Usage: npx tsx scripts/extractBiks.ts <clientPath> [outDir]')
+    process.exit(1)
+  }
 
   await fs.mkdir(outDir, { recursive: true })
   const buf = await fs.readFile(join(clientPath, 'Legend.dat'))
   const arc = DataArchive.fromBuffer(new Uint8Array(buf))
-  const biks = arc.entries.filter(e => e.entryName.toLowerCase().endsWith('.bik'))
+  const biks = arc.entries.filter((e) => e.entryName.toLowerCase().endsWith('.bik'))
 
   for (const e of biks) {
     const data = e.toUint8Array()
@@ -25,4 +28,7 @@ async function main() {
   if (biks.length === 0) console.log('No .bik entries found')
 }
 
-main().catch(err => { console.error(err); process.exit(1) })
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

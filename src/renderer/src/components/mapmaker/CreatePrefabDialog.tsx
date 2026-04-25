@@ -1,7 +1,14 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Typography, FormControlLabel, Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Typography,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material'
 
 interface Props {
@@ -12,7 +19,13 @@ interface Props {
   onCreate: (name: string, includeGround: boolean) => void
 }
 
-const CreatePrefabDialog: React.FC<Props> = ({ open, selectionWidth, selectionHeight, onClose, onCreate }) => {
+const CreatePrefabDialog: React.FC<Props> = ({
+  open,
+  selectionWidth,
+  selectionHeight,
+  onClose,
+  onCreate
+}) => {
   const [name, setName] = useState('')
   const [includeGround, setIncludeGround] = useState(true)
 
@@ -41,7 +54,9 @@ const CreatePrefabDialog: React.FC<Props> = ({ open, selectionWidth, selectionHe
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleCreate()
+          }}
           sx={{ mb: 1 }}
         />
         <FormControlLabel
@@ -49,8 +64,8 @@ const CreatePrefabDialog: React.FC<Props> = ({ open, selectionWidth, selectionHe
           label="Include ground tiles"
         />
         <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-          Empty cells (tile ID 0) won't overwrite existing tiles when stamping.
-          Tiles will be trimmed to the occupied bounding box.
+          Empty cells (tile ID 0) won't overwrite existing tiles when stamping. Tiles will be
+          trimmed to the occupied bounding box.
         </Typography>
       </DialogContent>
       <DialogActions>

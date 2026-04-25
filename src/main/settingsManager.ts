@@ -29,7 +29,7 @@ const DEFAULTS: TaliesinSettings = {
   activeMapDirectory: null,
   musicWorkingDirs: [],
   musEncodeKbps: 64,
-  musEncodeSampleRate: 22050,
+  musEncodeSampleRate: 22050
 }
 
 function validate(data: unknown): boolean {
@@ -52,13 +52,18 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
       : [],
     activeMapDirectory: data.activeMapDirectory ?? null,
     theme: typeof data.theme === 'string' ? data.theme : undefined,
-    lastOpenedArchive: typeof data.lastOpenedArchive === 'string' ? data.lastOpenedArchive : undefined,
+    lastOpenedArchive:
+      typeof data.lastOpenedArchive === 'string' ? data.lastOpenedArchive : undefined,
     musicLibraryPath: typeof data.musicLibraryPath === 'string' ? data.musicLibraryPath : undefined,
-    musicWorkingDirs: Array.isArray(data.musicWorkingDirs) ? (data.musicWorkingDirs as string[]).filter((d) => typeof d === 'string') : [],
-    activeMusicWorkingDir: typeof data.activeMusicWorkingDir === 'string' ? data.activeMusicWorkingDir : undefined,
+    musicWorkingDirs: Array.isArray(data.musicWorkingDirs)
+      ? (data.musicWorkingDirs as string[]).filter((d) => typeof d === 'string')
+      : [],
+    activeMusicWorkingDir:
+      typeof data.activeMusicWorkingDir === 'string' ? data.activeMusicWorkingDir : undefined,
     ffmpegPath: typeof data.ffmpegPath === 'string' ? data.ffmpegPath : undefined,
     musEncodeKbps: typeof data.musEncodeKbps === 'number' ? data.musEncodeKbps : 64,
-    musEncodeSampleRate: typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050,
+    musEncodeSampleRate:
+      typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050
   }
 }
 
@@ -75,8 +80,8 @@ async function tryReadJson(filePath: string): Promise<Partial<TaliesinSettings> 
 
 export function createSettingsManager(userDataPath: string) {
   const primary = join(userDataPath, 'settings.json')
-  const backup  = join(userDataPath, 'settings.bak.json')
-  const tmp     = join(userDataPath, 'settings.tmp.json')
+  const backup = join(userDataPath, 'settings.bak.json')
+  const tmp = join(userDataPath, 'settings.tmp.json')
 
   async function load(): Promise<TaliesinSettings> {
     let data = await tryReadJson(primary)
@@ -101,7 +106,11 @@ export function createSettingsManager(userDataPath: string) {
       const content = JSON.stringify(settings, null, 2)
       await fs.mkdir(userDataPath, { recursive: true })
       await fs.writeFile(tmp, content, 'utf-8')
-      try { await fs.copyFile(primary, backup) } catch { /* primary may not exist yet */ }
+      try {
+        await fs.copyFile(primary, backup)
+      } catch {
+        /* primary may not exist yet */
+      }
       await fs.rename(tmp, primary)
     })
     return saveQueue

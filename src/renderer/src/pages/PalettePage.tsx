@@ -1,7 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import {
-  Box, Typography, Button, IconButton, Tooltip, Tabs, Tab,
-} from '@mui/material'
+import { Box, Typography, Button, IconButton, Tooltip, Tabs, Tab } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SettingsIcon from '@mui/icons-material/Settings'
 import { useRecoilState, useSetRecoilState } from 'recoil'
@@ -32,9 +30,14 @@ const PalettePage: React.FC = () => {
           Palettes & Duotone
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Palettes are stored inside the asset-pack working directory. Set one in Settings to continue.
+          Palettes are stored inside the asset-pack working directory. Set one in Settings to
+          continue.
         </Typography>
-        <Button variant="outlined" startIcon={<SettingsIcon />} onClick={() => setCurrentPage('settings')}>
+        <Button
+          variant="outlined"
+          startIcon={<SettingsIcon />}
+          onClick={() => setCurrentPage('settings')}
+        >
           Open Settings
         </Button>
       </Box>
@@ -43,13 +46,21 @@ const PalettePage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{
-        px: 2, py: 1,
-        display: 'flex', alignItems: 'center', gap: 2,
-        borderBottom: '1px solid', borderColor: 'divider',
-      }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Tooltip title="Change working directory">
-          <IconButton size="small" onClick={handleSetDir}><FolderOpenIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={handleSetDir}>
+            <FolderOpenIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
         <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
           {packDir}
@@ -61,7 +72,11 @@ const PalettePage: React.FC = () => {
         )}
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2 }}
+      >
         <Tab value="palettes" label="Palettes" />
         <Tab value="colorize" label="Colorize" />
       </Tabs>

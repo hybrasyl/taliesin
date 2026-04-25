@@ -36,11 +36,13 @@ export interface PcxImage {
  * variants (e.g. 24bpp 3-plane, missing trailing palette).
  */
 export function decodePcx(buffer: Uint8Array): PcxImage | null {
-  if (buffer.length < 128 || buffer[0] !== 0x0A) return null
+  if (buffer.length < 128 || buffer[0] !== 0x0a) return null
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
   const bpp = buffer[3]
-  const xMin = view.getUint16(4, true), yMin = view.getUint16(6, true)
-  const xMax = view.getUint16(8, true), yMax = view.getUint16(10, true)
+  const xMin = view.getUint16(4, true),
+    yMin = view.getUint16(6, true)
+  const xMax = view.getUint16(8, true),
+    yMax = view.getUint16(10, true)
   const nPlanes = buffer[65]
   const bytesPerLine = view.getUint16(66, true)
   const width = xMax - xMin + 1
@@ -51,11 +53,12 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
   // Decode RLE into a single contiguous indexed buffer (height * bytesPerLine).
   const totalScanlineBytes = bytesPerLine * height
   const indexed = new Uint8Array(totalScanlineBytes)
-  let src = 128, dst = 0
+  let src = 128,
+    dst = 0
   while (dst < totalScanlineBytes && src < buffer.length) {
     const byte = buffer[src++]
-    if ((byte & 0xC0) === 0xC0) {
-      const runLen = byte & 0x3F
+    if ((byte & 0xc0) === 0xc0) {
+      const runLen = byte & 0x3f
       if (src >= buffer.length) break
       const value = buffer[src++]
       for (let i = 0; i < runLen && dst < totalScanlineBytes; i++) indexed[dst++] = value
@@ -66,7 +69,7 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
 
   // Locate trailing 256-color palette (0x0C marker followed by 768 bytes).
   const palOffset = buffer.length - 769
-  if (palOffset < 128 || buffer[palOffset] !== 0x0C) return null
+  if (palOffset < 128 || buffer[palOffset] !== 0x0c) return null
   const palette = buffer.subarray(palOffset + 1, palOffset + 1 + 768)
 
   const rgba = new Uint8ClampedArray(width * height * 4)
@@ -75,7 +78,7 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
       const idx = indexed[y * bytesPerLine + x]
       const pi = idx * 3
       const off = (y * width + x) * 4
-      rgba[off]     = palette[pi]
+      rgba[off] = palette[pi]
       rgba[off + 1] = palette[pi + 1]
       rgba[off + 2] = palette[pi + 2]
       rgba[off + 3] = 255
@@ -95,20 +98,20 @@ Bink Video full decode is patent-encumbered and unsuitable for a JS-side port, b
 
 **Header layout** (44 bytes):
 
-| Offset | Size | Field |
-|---|---|---|
-| 0 | 3 | Magic `"BIK"` |
-| 3 | 1 | Version letter (`b`, `f`, `i`, …) |
-| 4 | 4 | File size minus 8 (LE uint32) |
-| 8 | 4 | Frame count (LE uint32) |
-| 12 | 4 | Max frame size (LE uint32) |
-| 16 | 4 | Frame count again (LE uint32) |
-| 20 | 4 | Width (LE uint32) |
-| 24 | 4 | Height (LE uint32) |
-| 28 | 4 | Frame-rate dividend (LE uint32) |
-| 32 | 4 | Frame-rate divisor (LE uint32) |
-| 36 | 4 | Video flags (LE uint32) |
-| 40 | 4 | Audio track count (LE uint32) |
+| Offset | Size | Field                             |
+| ------ | ---- | --------------------------------- |
+| 0      | 3    | Magic `"BIK"`                     |
+| 3      | 1    | Version letter (`b`, `f`, `i`, …) |
+| 4      | 4    | File size minus 8 (LE uint32)     |
+| 8      | 4    | Frame count (LE uint32)           |
+| 12     | 4    | Max frame size (LE uint32)        |
+| 16     | 4    | Frame count again (LE uint32)     |
+| 20     | 4    | Width (LE uint32)                 |
+| 24     | 4    | Height (LE uint32)                |
+| 28     | 4    | Frame-rate dividend (LE uint32)   |
+| 32     | 4    | Frame-rate divisor (LE uint32)    |
+| 36     | 4    | Video flags (LE uint32)           |
+| 40     | 4    | Audio track count (LE uint32)     |
 
 **Distribution**: 4 entries in `Legend.dat` (`CI.bik`, `CIb.bik`, `CIf.bik`, `CIs.bik`). All are BIKi (Bink 1), 640×480, ~6s. ffmpeg decodes them cleanly with `-c:v libx264 -c:a aac -movflags +faststart`. Taliesin's `bik:convert` IPC handler caches the resulting MP4 by SHA-256 of the input bytes so each video is converted at most once per install.
 
@@ -132,7 +135,7 @@ export interface BikInfo {
  */
 export function parseBikHeader(buffer: Uint8Array): BikInfo | null {
   if (buffer.length < 44) return null
-  if (buffer[0] !== 0x42 || buffer[1] !== 0x49 || buffer[2] !== 0x4B) return null  // "BIK"
+  if (buffer[0] !== 0x42 || buffer[1] !== 0x49 || buffer[2] !== 0x4b) return null // "BIK"
   const version = String.fromCharCode(buffer[3])
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
   const frameCount = view.getUint32(8, true)
@@ -159,7 +162,8 @@ A `.jpf` file is literally `"JPF\0"` (4 bytes: `0x4A 0x50 0x46 0x00`) followed b
 ```ts
 export function unwrapJpf(buffer: Uint8Array): Uint8Array | null {
   if (buffer.length < 6) return null
-  if (buffer[0] !== 0x4A || buffer[1] !== 0x50 || buffer[2] !== 0x46 || buffer[3] !== 0x00) return null
+  if (buffer[0] !== 0x4a || buffer[1] !== 0x50 || buffer[2] !== 0x46 || buffer[3] !== 0x00)
+    return null
   return buffer.subarray(4)
 }
 ```
@@ -180,13 +184,13 @@ The dalib-ts docstring on `FntFile.getGlyphData` says:
 **Repro**: pick any `.fnt` from `Legend.dat`, render with `glyphWidth = 8`. With the documented bit order:
 
 ```ts
-const bit = (glyph[byteIdx] >> (x & 7)) & 1   // wrong — produces mirrored glyphs
+const bit = (glyph[byteIdx] >> (x & 7)) & 1 // wrong — produces mirrored glyphs
 ```
 
 With the actual bit order:
 
 ```ts
-const bit = (glyph[byteIdx] >> (7 - (x & 7))) & 1   // correct — MSB-first
+const bit = (glyph[byteIdx] >> (7 - (x & 7))) & 1 // correct — MSB-first
 ```
 
 **Fix**: either correct the docstring, or invert the bit-extraction code inside `getGlyphData` / any consumer helpers. Taliesin worked around it client-side by inverting the bit index and leaving a pointer comment to this finding.
@@ -196,11 +200,12 @@ const bit = (glyph[byteIdx] >> (7 - (x & 7))) & 1   // correct — MSB-first
 When running against the standard Dark Ages client install, two `.dat` files fail to open:
 
 ```
-! Failed to open album.dat: Duplicate entry name: 
+! Failed to open album.dat: Duplicate entry name:
 ! Failed to open WorldMap.dat: Duplicate entry name:  44 27 44 22
 ```
 
 The official client opens both archives without complaint, so dalib-ts is either:
+
 - **too strict** on entry-name uniqueness (real archives are allowed to have empty / non-unique entry names), or
 - **mis-parsing** the entry table and reading garbage as an entry name.
 
@@ -225,28 +230,28 @@ Distinct extensions: 20
 
 Extensions descending by count, with archive distribution:
 
-| Ext | Total | dalib-ts coverage | Source archives |
-|---|---:|---|---|
-| `.epf` | 28,797 | ✅ `EpfView` / `renderEpf` | khan*.dat (×10), setoa, roh, Legend, national, misc |
-| `.hpf` | 23,506 | ✅ `HpfFile` / `renderHpf` | ia.dat |
-| `.mpf` | 961 | ✅ `MpfView` / `renderMpf` | hades, misc |
-| `.pal` | 847 | ✅ `Palette` | ia, khanpal, hades, seo, Legend, setoa, roh |
-| `.spf` | 540 | ✅ `SpfView` / `renderSpf*` | setoa, cious, national, npcbase, roh, khan*ad |
-| `.tbl` | 332 | ✅ Typed parsers (PaletteTable / ColorTable / TileAnimationTable / EffectTable) | roh, Legend, ia, khanpal, seo, national, cious, npcbase |
-| `.mp3` | 165 | ✅ Standard | Legend.dat |
-| `.txt` | 158 | ✅ Standard / `ControlFile` for UI .txt | setoa, cious, Legend, national |
-| `.efa` | 134 | ✅ `EfaView` / `renderEfa` | roh, seo |
-| `.pcx` | 54 | ❌ **proposed** — see § 1.1 | seo, setoa, cious |
-| `.hea` | 34 | ✅ `HeaFile` / `renderDarknessOverlay` | seo.dat |
-| `.bmp` | 8 | ✅ `TilesetView` / `renderTile` (DA "BMPs" are headerless tilesets, not real BMPs) | cious, seo |
-| `.fnt` | 6 | ✅ `FntFile` (caveat: see § 2.1) | Legend.dat |
-| `.bik` | 4 | ❌ header-only — see § 1.2 | Legend.dat |
-| `.dat` | 2 | (nested archives — surprising; not investigated) | ia, setoa |
-| `.lft` | 2 | ❌ unknown format — not investigated | national.dat |
-| `.nfo` | 2 | (plain text) | national.dat |
-| `.log` | 1 | (plain text) | Legend.dat |
-| `.jpf` | 1 | ❌ **proposed** — see § 1.3 | Legend.dat |
-| `.bin` | 1 | (generic binary; hex dump is fine) | national.dat |
+| Ext    |  Total | dalib-ts coverage                                                                  | Source archives                                         |
+| ------ | -----: | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `.epf` | 28,797 | ✅ `EpfView` / `renderEpf`                                                         | khan\*.dat (×10), setoa, roh, Legend, national, misc    |
+| `.hpf` | 23,506 | ✅ `HpfFile` / `renderHpf`                                                         | ia.dat                                                  |
+| `.mpf` |    961 | ✅ `MpfView` / `renderMpf`                                                         | hades, misc                                             |
+| `.pal` |    847 | ✅ `Palette`                                                                       | ia, khanpal, hades, seo, Legend, setoa, roh             |
+| `.spf` |    540 | ✅ `SpfView` / `renderSpf*`                                                        | setoa, cious, national, npcbase, roh, khan\*ad          |
+| `.tbl` |    332 | ✅ Typed parsers (PaletteTable / ColorTable / TileAnimationTable / EffectTable)    | roh, Legend, ia, khanpal, seo, national, cious, npcbase |
+| `.mp3` |    165 | ✅ Standard                                                                        | Legend.dat                                              |
+| `.txt` |    158 | ✅ Standard / `ControlFile` for UI .txt                                            | setoa, cious, Legend, national                          |
+| `.efa` |    134 | ✅ `EfaView` / `renderEfa`                                                         | roh, seo                                                |
+| `.pcx` |     54 | ❌ **proposed** — see § 1.1                                                        | seo, setoa, cious                                       |
+| `.hea` |     34 | ✅ `HeaFile` / `renderDarknessOverlay`                                             | seo.dat                                                 |
+| `.bmp` |      8 | ✅ `TilesetView` / `renderTile` (DA "BMPs" are headerless tilesets, not real BMPs) | cious, seo                                              |
+| `.fnt` |      6 | ✅ `FntFile` (caveat: see § 2.1)                                                   | Legend.dat                                              |
+| `.bik` |      4 | ❌ header-only — see § 1.2                                                         | Legend.dat                                              |
+| `.dat` |      2 | (nested archives — surprising; not investigated)                                   | ia, setoa                                               |
+| `.lft` |      2 | ❌ unknown format — not investigated                                               | national.dat                                            |
+| `.nfo` |      2 | (plain text)                                                                       | national.dat                                            |
+| `.log` |      1 | (plain text)                                                                       | Legend.dat                                              |
+| `.jpf` |      1 | ❌ **proposed** — see § 1.3                                                        | Legend.dat                                              |
+| `.bin` |      1 | (generic binary; hex dump is fine)                                                 | national.dat                                            |
 
 The "❌ proposed" rows are the new readers from § 1. The "❌ unknown" rows (`.lft`, nested `.dat`) are out of scope for this snapshot; flagging them in case anyone has prior knowledge.
 

@@ -18,11 +18,7 @@ beforeEach(() => {
 function renderField(opts: { value?: number; clientPath?: string | null } = {}) {
   const onChange = vi.fn<(v: number | undefined) => void>()
   const utils = render(
-    <MusicIdField
-      value={opts.value}
-      onChange={onChange}
-      clientPath={opts.clientPath ?? null}
-    />,
+    <MusicIdField value={opts.value} onChange={onChange} clientPath={opts.clientPath ?? null} />
   )
   return { onChange, ...utils }
 }
@@ -74,7 +70,7 @@ describe('MusicIdField — input + clear', () => {
     const { onChange, rerender } = renderField({ value: 7 })
     const findClearBtn = () => {
       const buttons = screen.getAllByRole('button')
-      const btn = buttons.find(b => b.querySelector('[data-testid="ClearIcon"]'))
+      const btn = buttons.find((b) => b.querySelector('[data-testid="ClearIcon"]'))
       if (!btn) throw new Error('Clear button not found')
       return btn
     }
@@ -93,7 +89,7 @@ describe('MusicIdField — play button gating', () => {
     // Look up by tooltip text — both <span> wrapper and IconButton render. The
     // IconButton inside is disabled, so checking aria-disabled is sufficient.
     const buttons = screen.getAllByRole('button')
-    const playBtn = buttons.find(b => b.querySelector('[data-testid="PlayArrowIcon"]'))
+    const playBtn = buttons.find((b) => b.querySelector('[data-testid="PlayArrowIcon"]'))
     expect(playBtn).toBeDefined()
     expect(playBtn).toBeDisabled()
   })
@@ -101,7 +97,7 @@ describe('MusicIdField — play button gating', () => {
   it('disables Play when value is undefined', () => {
     renderField({ value: undefined, clientPath: '/dark-ages' })
     const buttons = screen.getAllByRole('button')
-    const playBtn = buttons.find(b => b.querySelector('[data-testid="PlayArrowIcon"]'))
+    const playBtn = buttons.find((b) => b.querySelector('[data-testid="PlayArrowIcon"]'))
     expect(playBtn).toBeDisabled()
   })
 
@@ -111,20 +107,20 @@ describe('MusicIdField — play button gating', () => {
 
     await waitFor(() => expect(api.musicClientScan).toHaveBeenCalledWith('/dark-ages'))
     const buttons = screen.getAllByRole('button')
-    const playBtn = buttons.find(b => b.querySelector('[data-testid="PlayArrowIcon"]'))
+    const playBtn = buttons.find((b) => b.querySelector('[data-testid="PlayArrowIcon"]'))
     expect(playBtn).toBeDisabled()
   })
 
   it('enables Play when {id}.mus exists for the chosen value', async () => {
     api.musicClientScan.mockResolvedValue([
       { filename: '1.mus', sizeBytes: 100 },
-      { filename: '5.mus', sizeBytes: 200 },
+      { filename: '5.mus', sizeBytes: 200 }
     ])
     renderField({ value: 5, clientPath: '/dark-ages' })
 
     await waitFor(() => {
       const buttons = screen.getAllByRole('button')
-      const playBtn = buttons.find(b => b.querySelector('[data-testid="PlayArrowIcon"]'))
+      const playBtn = buttons.find((b) => b.querySelector('[data-testid="PlayArrowIcon"]'))
       expect(playBtn).not.toBeDisabled()
     })
   })

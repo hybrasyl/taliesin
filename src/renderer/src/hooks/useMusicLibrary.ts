@@ -76,7 +76,7 @@ export function cleanupMeta(meta: MusicMeta): { meta: MusicMeta; changed: boolea
   if (!changed) return { meta, changed: false }
   return {
     meta: { ...meta, tags: keptTags, description },
-    changed: true,
+    changed: true
   }
 }
 
@@ -84,9 +84,10 @@ export function cleanupMeta(meta: MusicMeta): { meta: MusicMeta; changed: boolea
  * Walk every entry and apply cleanupMeta. Used by the Clean up long tags button
  * for a fast in-place fix that doesn't require re-reading every MP3 from disk.
  */
-export function migrateLongTagsToDescription(
-  metadata: MusicMetaData
-): { updated: MusicMetaData; movedCount: number } {
+export function migrateLongTagsToDescription(metadata: MusicMetaData): {
+  updated: MusicMetaData
+  movedCount: number
+} {
   const updated: MusicMetaData = {}
   let movedCount = 0
   for (const [filename, meta] of Object.entries(metadata)) {
@@ -119,14 +120,12 @@ function parseFilename(filename: string): number | null {
   return m ? parseInt(m[1], 10) : null
 }
 
-function mergeEntries(
-  scanned: MusicScanEntry[],
-): MusicEntry[] {
+function mergeEntries(scanned: MusicScanEntry[]): MusicEntry[] {
   return scanned
     .map((s) => ({
       filename: s.filename,
       sizeBytes: s.sizeBytes,
-      musicId: parseFilename(s.filename),
+      musicId: parseFilename(s.filename)
     }))
     .sort((a, b) => {
       // Numeric .mus files sort by ID, others sort alpha after
@@ -185,15 +184,15 @@ function mergeEnriched(existing: MusicMeta | undefined, fresh: MusicMeta): Music
 
   return {
     ...e,
-    name:        e.name?.trim()  || fresh.name,
-    notes:       e.notes?.trim() || fresh.notes,
+    name: e.name?.trim() || fresh.name,
+    notes: e.notes?.trim() || fresh.notes,
     description,
-    tags:        keptTags,
-    duration:   fresh.duration   ?? e.duration,
-    bitrate:    fresh.bitrate    ?? e.bitrate,
+    tags: keptTags,
+    duration: fresh.duration ?? e.duration,
+    bitrate: fresh.bitrate ?? e.bitrate,
     sampleRate: fresh.sampleRate ?? e.sampleRate,
-    channels:   fresh.channels   ?? e.channels,
-    prompt,
+    channels: fresh.channels ?? e.channels,
+    prompt
   }
 }
 
@@ -216,11 +215,11 @@ async function readTagsForFile(dirPath: string, filename: string): Promise<Music
     const parts = [fileMeta.artist, fileMeta.album].filter(Boolean)
     result.notes = parts.join(' — ')
   }
-  if (fileMeta.duration   != null) result.duration   = fileMeta.duration
-  if (fileMeta.bitrate    != null) result.bitrate    = fileMeta.bitrate
+  if (fileMeta.duration != null) result.duration = fileMeta.duration
+  if (fileMeta.bitrate != null) result.bitrate = fileMeta.bitrate
   if (fileMeta.sampleRate != null) result.sampleRate = fileMeta.sampleRate
-  if (fileMeta.channels   != null) result.channels   = fileMeta.channels
-  if (fileMeta.prompt)             result.prompt     = fileMeta.prompt
+  if (fileMeta.channels != null) result.channels = fileMeta.channels
+  if (fileMeta.prompt) result.prompt = fileMeta.prompt
   return Object.keys(result).length > 0 ? result : null
 }
 
@@ -253,11 +252,13 @@ export function useMusicLibrary(dirPath: string | null) {
     setScanning(true)
     Promise.all([
       window.api.musicScan(dirPath),
-      window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData),
-    ]).then(([scanned, existingMeta]) => {
-      setMetadata(existingMeta)
-      setEntries(mergeEntries(scanned))
-    }).finally(() => setScanning(false))
+      window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData)
+    ])
+      .then(([scanned, existingMeta]) => {
+        setMetadata(existingMeta)
+        setEntries(mergeEntries(scanned))
+      })
+      .finally(() => setScanning(false))
   }, [dirPath])
 
   const scan = useCallback(async () => {
@@ -266,7 +267,7 @@ export function useMusicLibrary(dirPath: string | null) {
     try {
       const [scanned, existingMeta] = await Promise.all([
         window.api.musicScan(dirPath),
-        window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData),
+        window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData)
       ])
       setMetadata(existingMeta)
       setEntries(mergeEntries(scanned))
@@ -280,14 +281,17 @@ export function useMusicLibrary(dirPath: string | null) {
     async (filename: string | null) => {
       setSelectedFilename(filename)
       setDirty(false)
-      if (!filename) { setDraft({}); return }
+      if (!filename) {
+        setDraft({})
+        return
+      }
 
       const existing = metadataRef.current[filename] ?? {}
       setDraft({
         name: existing.name ?? '',
         notes: existing.notes ?? '',
         description: existing.description ?? '',
-        tags: existing.tags ?? [],
+        tags: existing.tags ?? []
       })
 
       // Auto-read tags if missing name or audio properties
@@ -302,7 +306,7 @@ export function useMusicLibrary(dirPath: string | null) {
             name: merged.name ?? '',
             notes: merged.notes ?? '',
             description: merged.description ?? '',
-            tags: merged.tags ?? [],
+            tags: merged.tags ?? []
           })
           // Persist so we don't re-read next time
           await window.api.musicMetadataSave(dirPath, newMeta)
@@ -316,88 +320,97 @@ export function useMusicLibrary(dirPath: string | null) {
   // Default: only files missing name or audio properties.
   // { force: true }: every file (use when new ID3 frames may have been added, e.g. after
   // running suno_retag.py). Existing user edits to name/notes/description/tags are preserved.
-  const enrichAll = useCallback(async (opts?: { force?: boolean }) => {
-    if (!dirPath) return
-    const toEnrich = opts?.force
-      ? entries
-      : entries.filter((e) => needsEnrichment(metadataRef.current[e.filename]))
-    if (toEnrich.length === 0) return
+  const enrichAll = useCallback(
+    async (opts?: { force?: boolean }) => {
+      if (!dirPath) return
+      const toEnrich = opts?.force
+        ? entries
+        : entries.filter((e) => needsEnrichment(metadataRef.current[e.filename]))
+      if (toEnrich.length === 0) return
 
-    setEnrichProgress({ done: 0, total: toEnrich.length })
-    const updated = { ...metadataRef.current }
-    let anyNew = false
-    // Process in batches of 10 to keep the UI responsive
-    const BATCH = 10
-    for (let i = 0; i < toEnrich.length; i += BATCH) {
-      const batch = toEnrich.slice(i, i + BATCH)
-      await Promise.all(
-        batch.map(async (e) => {
-          const fresh = await readTagsForFile(dirPath, e.filename)
-          if (fresh) {
-            updated[e.filename] = mergeEnriched(updated[e.filename], fresh)
-            anyNew = true
-          }
-        })
-      )
-      setEnrichProgress({ done: Math.min(i + BATCH, toEnrich.length), total: toEnrich.length })
-    }
-    if (anyNew) {
-      await window.api.musicMetadataSave(dirPath, updated)
-      setMetadata(updated)
-      metadataRef.current = updated
-      // Sync the editor's draft if the currently-selected track was updated and
-      // the user has no unsaved changes (don't clobber their edits).
-      const sel = selectedFilenameRef.current
-      if (sel && updated[sel] && !dirtyRef.current) {
-        const m = updated[sel]
-        setDraft({
-          name: m.name ?? '',
-          notes: m.notes ?? '',
-          description: m.description ?? '',
-          tags: m.tags ?? [],
-        })
+      setEnrichProgress({ done: 0, total: toEnrich.length })
+      const updated = { ...metadataRef.current }
+      let anyNew = false
+      // Process in batches of 10 to keep the UI responsive
+      const BATCH = 10
+      for (let i = 0; i < toEnrich.length; i += BATCH) {
+        const batch = toEnrich.slice(i, i + BATCH)
+        await Promise.all(
+          batch.map(async (e) => {
+            const fresh = await readTagsForFile(dirPath, e.filename)
+            if (fresh) {
+              updated[e.filename] = mergeEnriched(updated[e.filename], fresh)
+              anyNew = true
+            }
+          })
+        )
+        setEnrichProgress({ done: Math.min(i + BATCH, toEnrich.length), total: toEnrich.length })
       }
-    }
-    setEnrichProgress(null)
-  }, [dirPath, entries])
+      if (anyNew) {
+        await window.api.musicMetadataSave(dirPath, updated)
+        setMetadata(updated)
+        metadataRef.current = updated
+        // Sync the editor's draft if the currently-selected track was updated and
+        // the user has no unsaved changes (don't clobber their edits).
+        const sel = selectedFilenameRef.current
+        if (sel && updated[sel] && !dirtyRef.current) {
+          const m = updated[sel]
+          setDraft({
+            name: m.name ?? '',
+            notes: m.notes ?? '',
+            description: m.description ?? '',
+            tags: m.tags ?? []
+          })
+        }
+      }
+      setEnrichProgress(null)
+    },
+    [dirPath, entries]
+  )
 
-  const remove = useCallback(async (filename: string) => {
-    if (!dirPath) return
-    // Delete the file from the library directory
-    await window.api.deleteFile(`${dirPath}/${filename}`)
-    // Remove from metadata and persist
-    const { [filename]: _, ...rest } = metadataRef.current
-    await window.api.musicMetadataSave(dirPath, rest)
-    setMetadata(rest)
-    metadataRef.current = rest
-    // Remove from entries list
-    setEntries((prev) => prev.filter((e) => e.filename !== filename))
-    // Deselect if this was the selected track
-    if (selectedFilename === filename) {
-      setSelectedFilename(null)
-      setDraft({})
-      setDirty(false)
-    }
-  }, [dirPath, selectedFilename])
+  const remove = useCallback(
+    async (filename: string) => {
+      if (!dirPath) return
+      // Delete the file from the library directory
+      await window.api.deleteFile(`${dirPath}/${filename}`)
+      // Remove from metadata and persist
+      const { [filename]: _, ...rest } = metadataRef.current
+      await window.api.musicMetadataSave(dirPath, rest)
+      setMetadata(rest)
+      metadataRef.current = rest
+      // Remove from entries list
+      setEntries((prev) => prev.filter((e) => e.filename !== filename))
+      // Deselect if this was the selected track
+      if (selectedFilename === filename) {
+        setSelectedFilename(null)
+        setDraft({})
+        setDirty(false)
+      }
+    },
+    [dirPath, selectedFilename]
+  )
 
   const updateDraft = useCallback((changes: Partial<MusicMeta>) => {
     setDraft((prev) => ({ ...prev, ...changes }))
     setDirty(true)
   }, [])
 
-  const save = useCallback(async (overrides?: Partial<MusicMeta>) => {
-    if (!dirPath || !selectedFilename) return
-    const merged = overrides ? { ...draft, ...overrides } : draft
-    const newMeta: MusicMetaData = {
-      ...metadata,
-      [selectedFilename]: { ...(metadata[selectedFilename] ?? {}), ...merged },
-    }
-    await window.api.musicMetadataSave(dirPath, newMeta)
-    setMetadata(newMeta)
-    metadataRef.current = newMeta
-    if (overrides) setDraft((prev) => ({ ...prev, ...overrides }))
-    setDirty(false)
-  }, [dirPath, selectedFilename, metadata, draft])
+  const save = useCallback(
+    async (overrides?: Partial<MusicMeta>) => {
+      if (!dirPath || !selectedFilename) return
+      const merged = overrides ? { ...draft, ...overrides } : draft
+      const newMeta: MusicMetaData = {
+        ...metadata,
+        [selectedFilename]: { ...(metadata[selectedFilename] ?? {}), ...merged }
+      }
+      await window.api.musicMetadataSave(dirPath, newMeta)
+      setMetadata(newMeta)
+      metadataRef.current = newMeta
+      if (overrides) setDraft((prev) => ({ ...prev, ...overrides }))
+      setDirty(false)
+    },
+    [dirPath, selectedFilename, metadata, draft]
+  )
 
   const migrateLongTags = useCallback(async (): Promise<number> => {
     if (!dirPath) return 0
@@ -413,7 +426,7 @@ export function useMusicLibrary(dirPath: string | null) {
         name: m.name ?? '',
         notes: m.notes ?? '',
         description: m.description ?? '',
-        tags: m.tags ?? [],
+        tags: m.tags ?? []
       })
       setDirty(false)
     }
@@ -421,7 +434,7 @@ export function useMusicLibrary(dirPath: string | null) {
   }, [dirPath, selectedFilename])
 
   const selectedEntry = entries.find((e) => e.filename === selectedFilename) ?? null
-  const selectedMeta  = selectedFilename ? (metadata[selectedFilename] ?? {}) : null
+  const selectedMeta = selectedFilename ? (metadata[selectedFilename] ?? {}) : null
 
   return {
     entries,
@@ -439,6 +452,6 @@ export function useMusicLibrary(dirPath: string | null) {
     updateDraft,
     save,
     enrichAll,
-    migrateLongTags,
+    migrateLongTags
   }
 }

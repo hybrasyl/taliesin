@@ -40,12 +40,41 @@ const danaanTheme = responsiveFontSizes(
         fontWeight: 400,
         color: '#2a1e08'
       },
-      h2: { fontFamily: '"Cinzel", serif', letterSpacing: '0.08em', fontWeight: 400, color: '#2a1e08' },
-      h3: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400, color: '#2a1e08' },
-      h4: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400, color: '#2a1e08' },
-      h5: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400, color: '#2a1e08' },
-      h6: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400, color: '#2a1e08' },
-      button: { fontFamily: '"Cinzel", serif', letterSpacing: '0.12em', textTransform: 'uppercase' },
+      h2: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.08em',
+        fontWeight: 400,
+        color: '#2a1e08'
+      },
+      h3: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.06em',
+        fontWeight: 400,
+        color: '#2a1e08'
+      },
+      h4: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.06em',
+        fontWeight: 400,
+        color: '#2a1e08'
+      },
+      h5: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.06em',
+        fontWeight: 400,
+        color: '#2a1e08'
+      },
+      h6: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.06em',
+        fontWeight: 400,
+        color: '#2a1e08'
+      },
+      button: {
+        fontFamily: '"Cinzel", serif',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase'
+      },
       caption: { fontFamily: '"Cinzel", serif', letterSpacing: '0.18em', fontSize: '0.7rem' }
     },
 

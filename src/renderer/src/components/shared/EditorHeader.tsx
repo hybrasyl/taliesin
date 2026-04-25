@@ -60,19 +60,27 @@ const EditorHeader: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pb: 1, flexShrink: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" noWrap sx={{ flex: 1, mr: 1 }}>{title}</Typography>
+        <Typography variant="h6" noWrap sx={{ flex: 1, mr: 1 }}>
+          {title}
+        </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           {isExisting && !isArchived && onArchive && (
             <Tooltip title={archiveLabel ?? `Archive ${label}`}>
-              <IconButton size="small" onClick={onArchive}><ArchiveIcon fontSize="small" /></IconButton>
+              <IconButton size="small" onClick={onArchive}>
+                <ArchiveIcon fontSize="small" />
+              </IconButton>
             </Tooltip>
           )}
           {isExisting && isArchived && onUnarchive && (
             <Tooltip title={unarchiveLabel ?? `Unarchive ${label}`}>
-              <IconButton size="small" onClick={onUnarchive}><UnarchiveIcon fontSize="small" /></IconButton>
+              <IconButton size="small" onClick={onUnarchive}>
+                <UnarchiveIcon fontSize="small" />
+              </IconButton>
             </Tooltip>
           )}
-          <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>Save</Button>
+          <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>
+            Save
+          </Button>
         </Box>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

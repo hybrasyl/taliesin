@@ -4,11 +4,22 @@
  */
 
 import {
-  EpfView, SpfView, MpfView, EfaView,
-  HpfFile, Palette,
-  renderEpf, renderSpfPalettized, renderSpfColorized,
-  renderMpf, renderEfa, renderHpf,
-  type DataArchive, type DataArchiveEntry, type RgbaFrame, type EfaBlendingType,
+  EpfView,
+  SpfView,
+  MpfView,
+  EfaView,
+  HpfFile,
+  Palette,
+  renderEpf,
+  renderSpfPalettized,
+  renderSpfColorized,
+  renderMpf,
+  renderEfa,
+  renderHpf,
+  type DataArchive,
+  type DataArchiveEntry,
+  type RgbaFrame,
+  type EfaBlendingType
 } from '@eriscorp/dalib-ts'
 
 // dalib-ts exports SpfFormatType as `declare const enum`, which isolatedModules
@@ -73,7 +84,7 @@ export function loadPalettes(archive: DataArchive): Map<number, Palette> {
  * Get palette entry names for UI display.
  */
 export function getPaletteNames(archive: DataArchive): string[] {
-  return archive.getEntriesByExtension('.pal').map(e => e.entryName)
+  return archive.getEntriesByExtension('.pal').map((e) => e.entryName)
 }
 
 /**
@@ -142,8 +153,8 @@ export function renderEntry(
           attackFrameIndex: view.attackFrameIndex,
           attackFrameCount: view.attackFrameCount,
           standingFrameIndex: view.standingFrameIndex,
-          standingFrameCount: view.standingFrameCount,
-        },
+          standingFrameCount: view.standingFrameCount
+        }
       }
     }
 
@@ -156,7 +167,7 @@ export function renderEntry(
       return {
         frames,
         frameIntervalMs: view.frameIntervalMs,
-        blendingType: view.blendingType,
+        blendingType: view.blendingType
       }
     }
 
@@ -190,7 +201,7 @@ export function renderPaletteGrid(palette: Palette, cellSize = 12): RgbaFrame {
       for (let dx = 0; dx < cellSize; dx++) {
         const px = (row * cellSize + dy) * width + (col * cellSize + dx)
         const off = px * 4
-        data[off]     = c.r
+        data[off] = c.r
         data[off + 1] = c.g
         data[off + 2] = c.b
         data[off + 3] = i === 0 ? 0 : 255 // index 0 is transparent by convention
@@ -205,8 +216,16 @@ export function renderPaletteGrid(palette: Palette, cellSize = 12): RgbaFrame {
  * Classify an entry by its preview type.
  */
 export type PreviewType =
-  | 'sprite' | 'palette' | 'text' | 'audio'
-  | 'tileset' | 'pcx' | 'darkness' | 'font' | 'bik' | 'jpf'
+  | 'sprite'
+  | 'palette'
+  | 'text'
+  | 'audio'
+  | 'tileset'
+  | 'pcx'
+  | 'darkness'
+  | 'font'
+  | 'bik'
+  | 'jpf'
   | 'hex'
 
 export function classifyEntry(entry: DataArchiveEntry): PreviewType {
@@ -265,11 +284,13 @@ export interface PcxImage {
  * Returns null for unsupported PCX variants (e.g. 24bpp 3-plane).
  */
 export function decodePcx(buffer: Uint8Array): PcxImage | null {
-  if (buffer.length < 128 || buffer[0] !== 0x0A) return null
+  if (buffer.length < 128 || buffer[0] !== 0x0a) return null
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
   const bpp = buffer[3]
-  const xMin = view.getUint16(4, true), yMin = view.getUint16(6, true)
-  const xMax = view.getUint16(8, true), yMax = view.getUint16(10, true)
+  const xMin = view.getUint16(4, true),
+    yMin = view.getUint16(6, true)
+  const xMax = view.getUint16(8, true),
+    yMax = view.getUint16(10, true)
   const nPlanes = buffer[65]
   const bytesPerLine = view.getUint16(66, true)
   const width = xMax - xMin + 1
@@ -280,11 +301,12 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
   // Decode RLE into a single contiguous indexed buffer (height * bytesPerLine).
   const totalScanlineBytes = bytesPerLine * height
   const indexed = new Uint8Array(totalScanlineBytes)
-  let src = 128, dst = 0
+  let src = 128,
+    dst = 0
   while (dst < totalScanlineBytes && src < buffer.length) {
     const byte = buffer[src++]
-    if ((byte & 0xC0) === 0xC0) {
-      const runLen = byte & 0x3F
+    if ((byte & 0xc0) === 0xc0) {
+      const runLen = byte & 0x3f
       if (src >= buffer.length) break
       const value = buffer[src++]
       for (let i = 0; i < runLen && dst < totalScanlineBytes; i++) indexed[dst++] = value
@@ -295,7 +317,7 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
 
   // Locate trailing 256-color palette (0x0C marker followed by 768 bytes).
   const palOffset = buffer.length - 769
-  if (palOffset < 128 || buffer[palOffset] !== 0x0C) return null
+  if (palOffset < 128 || buffer[palOffset] !== 0x0c) return null
   const palette = buffer.subarray(palOffset + 1, palOffset + 1 + 768)
 
   const rgba = new Uint8ClampedArray(width * height * 4)
@@ -304,7 +326,7 @@ export function decodePcx(buffer: Uint8Array): PcxImage | null {
       const idx = indexed[y * bytesPerLine + x]
       const pi = idx * 3
       const off = (y * width + x) * 4
-      rgba[off]     = palette[pi]
+      rgba[off] = palette[pi]
       rgba[off + 1] = palette[pi + 1]
       rgba[off + 2] = palette[pi + 2]
       rgba[off + 3] = 255
@@ -332,7 +354,7 @@ export interface BikInfo {
  */
 export function parseBikHeader(buffer: Uint8Array): BikInfo | null {
   if (buffer.length < 44) return null
-  if (buffer[0] !== 0x42 || buffer[1] !== 0x49 || buffer[2] !== 0x4B) return null  // "BIK"
+  if (buffer[0] !== 0x42 || buffer[1] !== 0x49 || buffer[2] !== 0x4b) return null // "BIK"
   const version = String.fromCharCode(buffer[3])
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
   const frameCount = view.getUint32(8, true)

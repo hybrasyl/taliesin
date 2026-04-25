@@ -25,8 +25,12 @@ describe('parseWorldMapXml', () => {
     expect(data.name).toBe('Test')
     expect(data.points).toHaveLength(1)
     expect(data.points[0]).toEqual({
-      x: 10, y: 20, name: 'Inn',
-      targetMap: 'somemap', targetX: 5, targetY: 6,
+      x: 10,
+      y: 20,
+      name: 'Inn',
+      targetMap: 'somemap',
+      targetX: 5,
+      targetY: 6
     })
   })
 
@@ -67,7 +71,7 @@ describe('serializeWorldMapXml', () => {
     const xml = serializeWorldMapXml({
       name: 'A & <B>',
       clientMap: 'has "q"',
-      points: [{ x: 1, y: 2, name: '<n>', targetMap: 'a&b', targetX: 0, targetY: 0 }],
+      points: [{ x: 1, y: 2, name: '<n>', targetMap: 'a&b', targetX: 0, targetY: 0 }]
     })
     expect(xml).toContain('<Name>A &amp; &lt;B&gt;</Name>')
     expect(xml).toContain('ClientMap="has &quot;q&quot;"')
@@ -81,8 +85,8 @@ describe('serializeWorldMapXml', () => {
       clientMap: 'rt.txt',
       points: [
         { x: 1, y: 2, name: 'A', targetMap: 'mapA', targetX: 5, targetY: 6 },
-        { x: 7, y: 8, name: 'B', targetMap: 'mapB', targetX: 9, targetY: 10 },
-      ],
+        { x: 7, y: 8, name: 'B', targetMap: 'mapB', targetX: 9, targetY: 10 }
+      ]
     }
     expect(parseWorldMapXml(serializeWorldMapXml(original))).toEqual(original)
   })

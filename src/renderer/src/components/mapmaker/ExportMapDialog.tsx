@@ -1,13 +1,27 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Box, Typography, Slider, FormControlLabel, Checkbox, CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  Slider,
+  FormControlLabel,
+  Checkbox,
+  CircularProgress
 } from '@mui/material'
 import { MapFile } from '@eriscorp/dalib-ts'
 import {
-  loadMapAssets, renderMap, isoCanvasSize, tileToScreen, isTilePassable,
-  ISO_HTILE_W, ISO_VTILE_STEP,
-  type MapAssets,
+  loadMapAssets,
+  renderMap,
+  isoCanvasSize,
+  tileToScreen,
+  isTilePassable,
+  ISO_HTILE_W,
+  ISO_VTILE_STEP,
+  type MapAssets
 } from '../../utils/mapRenderer'
 
 interface Props {
@@ -19,7 +33,14 @@ interface Props {
   onStatus: (msg: string) => void
 }
 
-const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPath, onClose, onStatus }) => {
+const ExportMapDialog: React.FC<Props> = ({
+  open,
+  mapFile,
+  mapFilePath,
+  clientPath,
+  onClose,
+  onStatus
+}) => {
   const [exportScale, setExportScale] = useState(1)
   const [transparent, setTransparent] = useState(false)
   const [exportCollision, setExportCollision] = useState(false)
@@ -27,11 +48,15 @@ const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPa
 
   const handleExport = async () => {
     const defaultName = mapFilePath
-      ? mapFilePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.map$/i, '.png') ?? 'map.png'
+      ? (mapFilePath
+          .replace(/\\/g, '/')
+          .split('/')
+          .pop()
+          ?.replace(/\.map$/i, '.png') ?? 'map.png')
       : 'map.png'
     const savePath = await window.api.saveFile(
       [{ name: 'PNG Image', extensions: ['png'] }],
-      defaultName,
+      defaultName
     )
     if (!savePath) return
 
@@ -68,7 +93,10 @@ const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPa
 
       // Convert to PNG blob
       const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed to create PNG')), 'image/png')
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('Failed to create PNG'))),
+          'image/png'
+        )
       })
       const arrayBuf = await blob.arrayBuffer()
       await window.api.writeBytes(savePath, new Uint8Array(arrayBuf))
@@ -115,7 +143,10 @@ const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPa
         }
 
         const tabBlob = await new Promise<Blob>((resolve, reject) => {
-          tabCanvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed to create tab PNG')), 'image/png')
+          tabCanvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error('Failed to create tab PNG'))),
+            'image/png'
+          )
         })
         const tabBuf = await tabBlob.arrayBuffer()
         const tabPath = savePath.replace(/\.png$/i, '_tab.png')
@@ -153,7 +184,7 @@ const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPa
               { value: 0.25, label: '25%' },
               { value: 1, label: '100%' },
               { value: 2, label: '200%' },
-              { value: 4, label: '400%' },
+              { value: 4, label: '400%' }
             ]}
             sx={{ mt: 1, mb: 2 }}
           />
@@ -181,7 +212,9 @@ const ExportMapDialog: React.FC<Props> = ({ open, mapFile, mapFilePath, clientPa
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={exporting}>Cancel</Button>
+        <Button onClick={onClose} disabled={exporting}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleExport}

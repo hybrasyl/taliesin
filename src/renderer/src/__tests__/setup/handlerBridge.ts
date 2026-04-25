@@ -25,15 +25,15 @@ export interface MemoryFs {
   files: Map<string, Buffer>
   fsModule: {
     promises: {
-      readFile:  ReturnType<typeof vi.fn>
+      readFile: ReturnType<typeof vi.fn>
       writeFile: ReturnType<typeof vi.fn>
-      copyFile:  ReturnType<typeof vi.fn>
-      mkdir:     ReturnType<typeof vi.fn>
-      unlink:    ReturnType<typeof vi.fn>
-      rename:    ReturnType<typeof vi.fn>
-      access:    ReturnType<typeof vi.fn>
-      stat:      ReturnType<typeof vi.fn>
-      readdir:   ReturnType<typeof vi.fn>
+      copyFile: ReturnType<typeof vi.fn>
+      mkdir: ReturnType<typeof vi.fn>
+      unlink: ReturnType<typeof vi.fn>
+      rename: ReturnType<typeof vi.fn>
+      access: ReturnType<typeof vi.fn>
+      stat: ReturnType<typeof vi.fn>
+      readdir: ReturnType<typeof vi.fn>
     }
   }
   reset: () => void
@@ -41,7 +41,7 @@ export interface MemoryFs {
 
 export function createMemoryFs(): MemoryFs {
   const files = new Map<string, Buffer>()
-  const dirs  = new Map<string, Set<string>>()
+  const dirs = new Map<string, Set<string>>()
 
   const dirOf = (p: string) => {
     const norm = p.replace(/\\/g, '/')
@@ -64,7 +64,7 @@ export function createMemoryFs(): MemoryFs {
   const readdir = vi.fn(async (path: string, opts?: { withFileTypes?: boolean }) => {
     const norm = path.replace(/\\/g, '/').replace(/\/+$/, '')
     const childFiles = new Set<string>()
-    const childDirs  = new Set<string>()
+    const childDirs = new Set<string>()
     const prefix = norm === '/' ? '/' : norm + '/'
     for (const filePath of files.keys()) {
       if (!filePath.startsWith(prefix)) continue
@@ -81,7 +81,7 @@ export function createMemoryFs(): MemoryFs {
     if (childFiles.size === 0 && childDirs.size === 0 && !dirs.has(norm)) throw enoent()
     const names = [...childFiles, ...childDirs]
     if (opts?.withFileTypes) {
-      return names.map<Dirent>(name => {
+      return names.map<Dirent>((name) => {
         const isDir = childDirs.has(name)
         return { name, isFile: () => !isDir, isDirectory: () => isDir }
       })
@@ -99,9 +99,10 @@ export function createMemoryFs(): MemoryFs {
       }),
       writeFile: vi.fn(async (path: string, content: string | Buffer | Uint8Array) => {
         const norm = path.replace(/\\/g, '/')
-        const buf = typeof content === 'string'
-          ? Buffer.from(content, 'utf-8')
-          : Buffer.from(content as Uint8Array)
+        const buf =
+          typeof content === 'string'
+            ? Buffer.from(content, 'utf-8')
+            : Buffer.from(content as Uint8Array)
         files.set(norm, buf)
         ensureDir(dirOf(norm))
       }),
@@ -140,8 +141,8 @@ export function createMemoryFs(): MemoryFs {
         if (!buf) throw enoent()
         return { size: buf.length }
       }),
-      readdir,
-    },
+      readdir
+    }
   }
 
   void baseOf // silence unused (handy when extending the fs surface)
@@ -157,7 +158,7 @@ export function createMemoryFs(): MemoryFs {
       files.clear()
       dirs.clear()
       dirs.set('/', new Set())
-    },
+    }
   }
 }
 
@@ -192,104 +193,107 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
   const handlerCtx = {
     settingsPath: ctx.settingsPath,
     settingsManager: ctx.settingsManager as never,
-    appGetVersion: ctx.appGetVersion ?? (() => '0.0.0-test'),
+    appGetVersion: ctx.appGetVersion ?? (() => '0.0.0-test')
   }
 
   return {
     // Window controls — no-ops in the bridge (no real BrowserWindow)
     minimizeWindow: () => undefined,
     maximizeWindow: () => undefined,
-    closeWindow:    () => undefined,
+    closeWindow: () => undefined,
 
     // App
-    getAppVersion:     () => handlers.getAppVersion(handlerCtx),
-    getUserDataPath:   async () => handlers.getUserDataPath(handlerCtx),
-    launchCompanion:   (p) => handlers.launchCompanion(p),
+    getAppVersion: () => handlers.getAppVersion(handlerCtx),
+    getUserDataPath: async () => handlers.getUserDataPath(handlerCtx),
+    launchCompanion: (p) => handlers.launchCompanion(p),
 
     // Settings
     loadSettings: async () => (await handlers.loadSettings(handlerCtx)) as Record<string, unknown>,
     saveSettings: (s) => handlers.saveSettings(handlerCtx, s),
 
     // Dialogs (test-controlled)
-    openFile:      async () => (await dialog.openFile?.())      ?? null,
+    openFile: async () => (await dialog.openFile?.()) ?? null,
     openDirectory: async () => (await dialog.openDirectory?.()) ?? null,
-    saveFile:      async () => (await dialog.saveFile?.())      ?? null,
+    saveFile: async () => (await dialog.saveFile?.()) ?? null,
 
     // Filesystem
-    readFile:     handlers.readFile,
-    listDir:      handlers.listDir,
-    copyFile:     handlers.copyFile,
-    writeFile:    handlers.writeFile,
-    writeBytes:   handlers.writeBytes,
-    exists:       handlers.exists,
-    ensureDir:    handlers.ensureDir,
-    deleteFile:   handlers.deleteFile,
-    listArchive:  handlers.listArchive,
+    readFile: handlers.readFile,
+    listDir: handlers.listDir,
+    copyFile: handlers.copyFile,
+    writeFile: handlers.writeFile,
+    writeBytes: handlers.writeBytes,
+    exists: handlers.exists,
+    ensureDir: handlers.ensureDir,
+    deleteFile: handlers.deleteFile,
+    listArchive: handlers.listArchive,
 
     // Catalog
-    catalogLoad:  handlers.catalogLoad,
-    catalogSave:  handlers.catalogSave,
-    catalogScan:  handlers.catalogScan,
+    catalogLoad: handlers.catalogLoad,
+    catalogSave: handlers.catalogSave,
+    catalogScan: handlers.catalogScan,
 
     // Music
     musicReadFileMeta: handlers.musicReadFileMeta,
-    musicScan:         handlers.musicScan,
-    musicMetadataLoad: async (d) => (await handlers.musicMetadataLoad(d)) as Record<string, MusicMeta>,
+    musicScan: handlers.musicScan,
+    musicMetadataLoad: async (d) =>
+      (await handlers.musicMetadataLoad(d)) as Record<string, MusicMeta>,
     musicMetadataSave: handlers.musicMetadataSave,
-    musicPacksLoad:    async (d) => (await handlers.musicPacksLoad(d)) as MusicPack[],
-    musicPacksSave:    handlers.musicPacksSave,
-    musicDeployPack:   handlers.musicDeployPack,
-    musicClientScan:   handlers.musicClientScan,
+    musicPacksLoad: async (d) => (await handlers.musicPacksLoad(d)) as MusicPack[],
+    musicPacksSave: handlers.musicPacksSave,
+    musicDeployPack: handlers.musicDeployPack,
+    musicClientScan: handlers.musicClientScan,
 
     // SFX
-    sfxList:       handlers.sfxList,
-    sfxReadEntry:  handlers.sfxReadEntry,
-    sfxIndexLoad:  async (l) => (await handlers.sfxIndexLoad(l)) as Record<string, { name?: string; comment?: string }>,
-    sfxIndexSave:  handlers.sfxIndexSave,
+    sfxList: handlers.sfxList,
+    sfxReadEntry: handlers.sfxReadEntry,
+    sfxIndexLoad: async (l) =>
+      (await handlers.sfxIndexLoad(l)) as Record<string, { name?: string; comment?: string }>,
+    sfxIndexSave: handlers.sfxIndexSave,
 
     // BIK
     bikConvert: (bytes, ffmpegPath, cacheDir) => handlers.bikConvert(bytes, ffmpegPath, cacheDir),
 
     // World index
-    indexRead:       async (l) => (await handlers.indexRead(l)) as WorldIndex | null,
-    indexBuild:      async (l) => (await handlers.indexBuild(l)) as WorldIndex,
-    indexStatus:     handlers.indexStatus,
-    indexDelete:     handlers.indexDelete,
-    libraryResolve:  handlers.libraryResolve,
+    indexRead: async (l) => (await handlers.indexRead(l)) as WorldIndex | null,
+    indexBuild: async (l) => (await handlers.indexBuild(l)) as WorldIndex,
+    indexStatus: handlers.indexStatus,
+    indexDelete: handlers.indexDelete,
+    libraryResolve: handlers.libraryResolve,
 
     // Prefabs
-    prefabList:    handlers.prefabList,
-    prefabLoad:    handlers.prefabLoad,
-    prefabSave:    handlers.prefabSave,
-    prefabDelete:  handlers.prefabDelete,
-    prefabRename:  handlers.prefabRename,
+    prefabList: handlers.prefabList,
+    prefabLoad: handlers.prefabLoad,
+    prefabSave: handlers.prefabSave,
+    prefabDelete: handlers.prefabDelete,
+    prefabRename: handlers.prefabRename,
 
     // Asset packs
-    packScan:        handlers.packScan,
-    packLoad:        handlers.packLoad,
-    packSave:        handlers.packSave,
-    packDelete:      handlers.packDelete,
-    packAddAsset:    handlers.packAddAsset,
+    packScan: handlers.packScan,
+    packLoad: handlers.packLoad,
+    packSave: handlers.packSave,
+    packDelete: handlers.packDelete,
+    packAddAsset: handlers.packAddAsset,
     packRemoveAsset: handlers.packRemoveAsset,
-    packCompile:     handlers.packCompile,
+    packCompile: handlers.packCompile,
 
     // Palettes
-    paletteScan:             handlers.paletteScan,
-    paletteLoad:             handlers.paletteLoad,
-    paletteSave:             handlers.paletteSave,
-    paletteDelete:           handlers.paletteDelete,
-    paletteCalibrationLoad:  async (d, id) => (await handlers.paletteCalibrationLoad(d, id)) as Record<string, Record<string, unknown>>,
-    paletteCalibrationSave:  handlers.paletteCalibrationSave,
-    frameScan:               handlers.frameScan,
+    paletteScan: handlers.paletteScan,
+    paletteLoad: handlers.paletteLoad,
+    paletteSave: handlers.paletteSave,
+    paletteDelete: handlers.paletteDelete,
+    paletteCalibrationLoad: async (d, id) =>
+      (await handlers.paletteCalibrationLoad(d, id)) as Record<string, Record<string, unknown>>,
+    paletteCalibrationSave: handlers.paletteCalibrationSave,
+    frameScan: handlers.frameScan,
 
     // Tile scanner
     tileScanAnalyze: handlers.tileScanAnalyze,
 
     // Themes
-    themeList:    () => handlers.themeList(handlerCtx),
-    themeLoad:    (f) => handlers.themeLoad(handlerCtx, f),
-    themeSave:    (f, d) => handlers.themeSave(handlerCtx, f, d),
-    themeDelete:  (f) => handlers.themeDelete(handlerCtx, f),
+    themeList: () => handlers.themeList(handlerCtx),
+    themeLoad: (f) => handlers.themeLoad(handlerCtx, f),
+    themeSave: (f, d) => handlers.themeSave(handlerCtx, f, d),
+    themeDelete: (f) => handlers.themeDelete(handlerCtx, f)
   }
 }
 

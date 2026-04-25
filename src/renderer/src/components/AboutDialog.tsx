@@ -35,21 +35,46 @@ const AboutDialog: React.FC<Props> = ({ open, onClose }) => {
           Version {version}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <Link href="https://www.hybrasyl.com" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ color: 'info.light' }}>
+          <Link
+            href="https://www.hybrasyl.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="body2"
+            sx={{ color: 'info.light' }}
+          >
             hybrasyl.com
           </Link>
-          <Link href="https://github.com/hybrasyl" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ color: 'info.light' }}>
+          <Link
+            href="https://github.com/hybrasyl"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="body2"
+            sx={{ color: 'info.light' }}
+          >
             GitHub
           </Link>
         </Box>
 
         <Divider sx={{ my: 2 }} />
 
-        <Box sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', fontSize: '0.8rem', lineHeight: 1.7 }}>
-          <Typography variant="body2" sx={{ fontFamily: 'inherit', fontWeight: 'bold', letterSpacing: 1 }}>
+        <Box
+          sx={{
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap',
+            fontSize: '0.8rem',
+            lineHeight: 1.7
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{ fontFamily: 'inherit', fontWeight: 'bold', letterSpacing: 1 }}
+          >
             NEW FROM ERISCO™
           </Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'inherit', fontWeight: 'bold', fontSize: '1.1rem', mt: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{ fontFamily: 'inherit', fontWeight: 'bold', fontSize: '1.1rem', mt: 1 }}
+          >
             TALIESIN
           </Typography>
           <Typography variant="body2" sx={{ fontFamily: 'inherit', fontStyle: 'italic', mb: 1 }}>
@@ -59,25 +84,39 @@ const AboutDialog: React.FC<Props> = ({ open, onClose }) => {
             A BESPOKE, NEXT-GENERATION DARK AGES ASSET MANAGEMENT SOLUTION
           </Typography>
 
-          {([
-            ['FEATURES', ['Renders tiles', 'Reads archives', 'Was not supposed to work this well']],
-            ['DELIVERABLES', [
-              'Canvas-based map rendering at enterprise scale',
-              'Cross-functional warp alignment',
-              'Intent-driven NPC placement',
-              'Vertical integration of "just open the .dat"',
-            ]],
-            ['INCLUDES', [
-              'Direct contradiction of the 640x480 mindset',
-              'Elimination of "we cannot read that format"',
-              'Resolution of "the map is just a number"',
-            ]],
-            ['SIDE EFFECTS', [
-              'Increased awareness of tile bleed',
-              'Spontaneous archive browsing',
-              'Uncontrollable urge to place reactors',
-            ]],
-          ] as [string, string[]][]).map(([heading, items]) => (
+          {(
+            [
+              [
+                'FEATURES',
+                ['Renders tiles', 'Reads archives', 'Was not supposed to work this well']
+              ],
+              [
+                'DELIVERABLES',
+                [
+                  'Canvas-based map rendering at enterprise scale',
+                  'Cross-functional warp alignment',
+                  'Intent-driven NPC placement',
+                  'Vertical integration of "just open the .dat"'
+                ]
+              ],
+              [
+                'INCLUDES',
+                [
+                  'Direct contradiction of the 640x480 mindset',
+                  'Elimination of "we cannot read that format"',
+                  'Resolution of "the map is just a number"'
+                ]
+              ],
+              [
+                'SIDE EFFECTS',
+                [
+                  'Increased awareness of tile bleed',
+                  'Spontaneous archive browsing',
+                  'Uncontrollable urge to place reactors'
+                ]
+              ]
+            ] as [string, string[]][]
+          ).map(([heading, items]) => (
             <Box key={heading} sx={{ mb: 1.5 }}>
               <Typography variant="body2" sx={{ fontFamily: 'inherit', fontWeight: 'bold' }}>
                 {heading}:
@@ -104,7 +143,9 @@ const AboutDialog: React.FC<Props> = ({ open, onClose }) => {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="contained" size="small">Close</Button>
+        <Button onClick={onClose} variant="contained" size="small">
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   )

@@ -1,7 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Box, Typography, Button, IconButton, Tooltip, TextField,
-  FormControl, InputLabel, Select, MenuItem, Stack, LinearProgress, Divider,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
+  LinearProgress,
+  Divider
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveIcon from '@mui/icons-material/Save'
@@ -10,17 +21,33 @@ import { activePaletteIdState, activeColorizeSourceState } from '../../recoil/at
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import {
-  Palette, PaletteEntry, DuotoneParams, EntryCalibration, CalibrationFile, SourceCalibration,
+  Palette,
+  PaletteEntry,
+  DuotoneParams,
+  EntryCalibration,
+  CalibrationFile,
+  SourceCalibration
 } from '../../utils/paletteTypes'
 import {
-  PaletteSummary, scanPalettes, loadPalette,
-  loadCalibrations, saveCalibrations,
-  scanFrames, framePath,
-  basenameFromPath, filenameFromPath, dirnameFromPath, outputFilename,
+  PaletteSummary,
+  scanPalettes,
+  loadPalette,
+  loadCalibrations,
+  saveCalibrations,
+  scanFrames,
+  framePath,
+  basenameFromPath,
+  filenameFromPath,
+  dirnameFromPath,
+  outputFilename
 } from '../../utils/paletteIO'
 import { applyDuotone, PixelBuffer } from '../../utils/duotone'
 import { DEFAULT_VARIANTS, variantToParams, autoDetectBest } from '../../utils/variants'
-import { loadPixelBufferFromPath, pixelBufferToPngBytes, compositeOnTop } from '../../utils/imageLoader'
+import {
+  loadPixelBufferFromPath,
+  pixelBufferToPngBytes,
+  compositeOnTop
+} from '../../utils/imageLoader'
 import VariantGrid from './VariantGrid'
 import CustomVariantDialog from './CustomVariantDialog'
 import RawPreview from './RawPreview'
@@ -32,7 +59,7 @@ interface Props {
 }
 
 interface EntrySelection {
-  variantId: string  // 'simple' | ... | 'custom'
+  variantId: string // 'simple' | ... | 'custom'
   customParams?: DuotoneParams
 }
 
@@ -47,7 +74,10 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const [selections, setSelections] = useState<Record<string, EntrySelection>>({})
   const [autoBest, setAutoBest] = useState<Record<string, string>>({})
   const [calibrations, setCalibrations] = useState<CalibrationFile>({})
-  const [customDialog, setCustomDialog] = useState<{ open: boolean; entryId: string | null }>({ open: false, entryId: null })
+  const [customDialog, setCustomDialog] = useState<{ open: boolean; entryId: string | null }>({
+    open: false,
+    entryId: null
+  })
   const [saving, setSaving] = useState(false)
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null)
   const [frameOptions, setFrameOptions] = useState<string[]>([])
@@ -56,11 +86,13 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const [dirty, setDirty] = useState(false)
 
   const {
-    markDirty, markClean, saveRef,
+    markDirty,
+    markClean,
+    saveRef,
     dialogOpen: unsavedDialogOpen,
     handleDialogSave: handleUnsavedSave,
     handleDialogDiscard: handleUnsavedDiscard,
-    handleDialogCancel: handleUnsavedCancel,
+    handleDialogCancel: handleUnsavedCancel
   } = useUnsavedGuard('Colorize')
 
   useEffect(() => {
@@ -75,13 +107,15 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   // palettes in the Palettes tab show up in the dropdown without remounting.
   useEffect(() => {
     if (!active) return
-    scanPalettes(packDir).then(setSummaries).catch(() => setSummaries([]))
+    scanPalettes(packDir)
+      .then(setSummaries)
+      .catch(() => setSummaries([]))
     scanFrames(packDir)
-      .then(list => {
+      .then((list) => {
         setFrameOptions(list)
         if (list.length === 0) onStatus(`No PNGs found in ${packDir}/_frames`)
       })
-      .catch(err => {
+      .catch((err) => {
         setFrameOptions([])
         onStatus(`Frame scan failed: ${err instanceof Error ? err.message : String(err)}`)
       })
@@ -90,48 +124,67 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   // Load frame PixelBuffer when frame name changes
   useEffect(() => {
     let cancelled = false
-    if (!frameName) { setFrameBuf(null); return }
+    if (!frameName) {
+      setFrameBuf(null)
+      return
+    }
     loadPixelBufferFromPath(framePath(packDir, frameName))
-      .then(buf => { if (!cancelled) setFrameBuf(buf) })
-      .catch(err => {
+      .then((buf) => {
+        if (!cancelled) setFrameBuf(buf)
+      })
+      .catch((err) => {
         if (cancelled) return
         setFrameBuf(null)
         onStatus(`Frame load failed: ${err instanceof Error ? err.message : String(err)}`)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [packDir, frameName, onStatus])
 
   // Load palette + calibrations when paletteId changes
   useEffect(() => {
     let cancelled = false
-    if (!paletteId) { setPalette(null); setCalibrations({}); return }
-    Promise.all([
-      loadPalette(packDir, paletteId),
-      loadCalibrations(packDir, paletteId),
-    ]).then(([p, cal]) => {
-      if (cancelled) return
-      setPalette(p)
-      setCalibrations(cal)
-    }).catch(() => {
-      if (cancelled) return
+    if (!paletteId) {
       setPalette(null)
       setCalibrations({})
-    })
-    return () => { cancelled = true }
+      return
+    }
+    Promise.all([loadPalette(packDir, paletteId), loadCalibrations(packDir, paletteId)])
+      .then(([p, cal]) => {
+        if (cancelled) return
+        setPalette(p)
+        setCalibrations(cal)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPalette(null)
+        setCalibrations({})
+      })
+    return () => {
+      cancelled = true
+    }
   }, [packDir, paletteId])
 
   // Decode source PNG → PixelBuffer when path changes
   useEffect(() => {
     let cancelled = false
-    if (!sourcePath) { setSourceBuf(null); return }
+    if (!sourcePath) {
+      setSourceBuf(null)
+      return
+    }
     loadPixelBufferFromPath(sourcePath)
-      .then(buf => { if (!cancelled) setSourceBuf(buf) })
-      .catch(err => {
+      .then((buf) => {
+        if (!cancelled) setSourceBuf(buf)
+      })
+      .catch((err) => {
         if (cancelled) return
         setSourceBuf(null)
         onStatus(`Source decode failed: ${err instanceof Error ? err.message : String(err)}`)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [sourcePath, onStatus])
 
   // When palette + source are both ready: hydrate selections from calibration, run auto-detect
@@ -148,16 +201,25 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
     const sourceCal = isNewShape ? (raw as SourceCalibration) : null
     const entriesMap: Record<string, EntryCalibration> = sourceCal
       ? sourceCal.entries
-      : (raw as Record<string, EntryCalibration> | undefined) ?? {}
+      : ((raw as Record<string, EntryCalibration> | undefined) ?? {})
     setFrameName(sourceCal?.frame ?? null)
 
     const sel: Record<string, EntrySelection> = {}
     for (const entry of palette.entries) {
       const cal = entriesMap[entry.id]
       if (cal?.selectedVariantId) {
-        sel[entry.id] = cal.selectedVariantId === 'custom'
-          ? { variantId: 'custom', customParams: { darkFactor: cal.darkFactor, lightFactor: cal.lightFactor, midpointLow: cal.midpointLow, midpointHigh: cal.midpointHigh } }
-          : { variantId: cal.selectedVariantId }
+        sel[entry.id] =
+          cal.selectedVariantId === 'custom'
+            ? {
+                variantId: 'custom',
+                customParams: {
+                  darkFactor: cal.darkFactor,
+                  lightFactor: cal.lightFactor,
+                  midpointLow: cal.midpointLow,
+                  midpointHigh: cal.midpointHigh
+                }
+              }
+            : { variantId: cal.selectedVariantId }
       }
     }
     setSelections(sel)
@@ -176,22 +238,26 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   }, [setSourcePath])
 
   const handleSelectVariant = useCallback((entryId: string, variantId: string) => {
-    setSelections(prev => ({ ...prev, [entryId]: { variantId } }))
+    setSelections((prev) => ({ ...prev, [entryId]: { variantId } }))
     setDirty(true)
   }, [])
 
-  const handleApplyToAll = useCallback((variantId: string) => {
-    if (!palette) return
-    const next: Record<string, EntrySelection> = {}
-    for (const entry of palette.entries) next[entry.id] = { variantId }
-    setSelections(next)
-    setDirty(true)
-  }, [palette])
+  const handleApplyToAll = useCallback(
+    (variantId: string) => {
+      if (!palette) return
+      const next: Record<string, EntrySelection> = {}
+      for (const entry of palette.entries) next[entry.id] = { variantId }
+      setSelections(next)
+      setDirty(true)
+    },
+    [palette]
+  )
 
   const handleApplyAuto = useCallback(() => {
     if (!palette) return
     const next: Record<string, EntrySelection> = {}
-    for (const entry of palette.entries) next[entry.id] = { variantId: autoBest[entry.id] ?? variants[0].id }
+    for (const entry of palette.entries)
+      next[entry.id] = { variantId: autoBest[entry.id] ?? variants[0].id }
     setSelections(next)
     setDirty(true)
   }, [palette, autoBest, variants])
@@ -200,27 +266,37 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
     setCustomDialog({ open: true, entryId })
   }, [])
 
-  const handleApplyCustom = useCallback((params: DuotoneParams) => {
-    const entryId = customDialog.entryId
-    if (!entryId) return
-    setSelections(prev => ({ ...prev, [entryId]: { variantId: 'custom', customParams: params } }))
-    setDirty(true)
-  }, [customDialog.entryId])
+  const handleApplyCustom = useCallback(
+    (params: DuotoneParams) => {
+      const entryId = customDialog.entryId
+      if (!entryId) return
+      setSelections((prev) => ({
+        ...prev,
+        [entryId]: { variantId: 'custom', customParams: params }
+      }))
+      setDirty(true)
+    },
+    [customDialog.entryId]
+  )
 
   const handleFrameChange = useCallback((next: string | null) => {
     setFrameName(next)
     setDirty(true)
   }, [])
 
-  const paramsForSelection = useCallback((sel: EntrySelection | undefined, entry: PaletteEntry): DuotoneParams => {
-    if (!sel) {
-      const v = variants.find(v => v.id === (autoBest[entry.id] ?? variants[0].id)) ?? variants[0]
+  const paramsForSelection = useCallback(
+    (sel: EntrySelection | undefined, entry: PaletteEntry): DuotoneParams => {
+      if (!sel) {
+        const v =
+          variants.find((v) => v.id === (autoBest[entry.id] ?? variants[0].id)) ?? variants[0]
+        return variantToParams(v)
+      }
+      if (sel.variantId === 'custom' && sel.customParams) return sel.customParams
+      const v = variants.find((v) => v.id === sel.variantId) ?? variants[0]
       return variantToParams(v)
-    }
-    if (sel.variantId === 'custom' && sel.customParams) return sel.customParams
-    const v = variants.find(v => v.id === sel.variantId) ?? variants[0]
-    return variantToParams(v)
-  }, [variants, autoBest])
+    },
+    [variants, autoBest]
+  )
 
   const handleSave = useCallback(async () => {
     if (!palette || !sourceBuf || !sourcePath || !sourceFilename) return
@@ -256,14 +332,14 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           clampWhite: params.clampWhite,
           selectedVariantId: sel.variantId,
           autoDetected: isAuto,
-          lastCalibrated: ts,
+          lastCalibrated: ts
         }
         setSaveProgress({ current: i + 1, total })
       }
 
       const nextSourceCal: SourceCalibration = {
         entries: nextCalForFile,
-        ...(frameName ? { frame: frameName } : {}),
+        ...(frameName ? { frame: frameName } : {})
       }
       const nextCal: CalibrationFile = { ...calibrations, [sourceFilename]: nextSourceCal }
       await saveCalibrations(packDir, palette.id, nextCal)
@@ -276,18 +352,48 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
       setSaving(false)
       setSaveProgress(null)
     }
-  }, [palette, sourceBuf, sourcePath, sourceFilename, selections, autoBest, variants, calibrations, packDir, paramsForSelection, frameBuf, frameName, onStatus])
+  }, [
+    palette,
+    sourceBuf,
+    sourcePath,
+    sourceFilename,
+    selections,
+    autoBest,
+    variants,
+    calibrations,
+    packDir,
+    paramsForSelection,
+    frameBuf,
+    frameName,
+    onStatus
+  ])
 
   saveRef.current = handleSave
 
-  const customEntry = customDialog.entryId && palette ? palette.entries.find(e => e.id === customDialog.entryId) : null
+  const customEntry =
+    customDialog.entryId && palette
+      ? palette.entries.find((e) => e.id === customDialog.entryId)
+      : null
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <Box sx={{ px: 2, py: 1.5, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          display: 'flex',
+          gap: 2,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Tooltip title="Pick source PNG">
-          <IconButton size="small" onClick={handlePickSource}><FolderOpenIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={handlePickSource}>
+            <FolderOpenIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
         <TextField
           label="Source"
@@ -302,10 +408,12 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           <Select
             label="Palette"
             value={paletteId ?? ''}
-            onChange={e => setPaletteId(e.target.value || null)}
+            onChange={(e) => setPaletteId(e.target.value || null)}
           >
-            {summaries.map(s => (
-              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+            {summaries.map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -315,11 +423,15 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           <Select
             label="Frame"
             value={frameName ?? ''}
-            onChange={e => handleFrameChange(e.target.value ? String(e.target.value) : null)}
+            onChange={(e) => handleFrameChange(e.target.value ? String(e.target.value) : null)}
           >
-            <MenuItem value=""><em>None</em></MenuItem>
-            {frameOptions.map(name => (
-              <MenuItem key={name} value={name}>{name}</MenuItem>
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {frameOptions.map((name) => (
+              <MenuItem key={name} value={name}>
+                {name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -329,7 +441,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           <Select
             label="Apply to all"
             value=""
-            onChange={e => {
+            onChange={(e) => {
               const v = String(e.target.value)
               if (v === '__auto__') handleApplyAuto()
               else if (v) handleApplyToAll(v)
@@ -337,8 +449,10 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
             disabled={!palette || !sourceBuf}
           >
             <MenuItem value="__auto__">Use Auto</MenuItem>
-            {variants.map(v => (
-              <MenuItem key={v.id} value={v.id}>{v.label}</MenuItem>
+            {variants.map((v) => (
+              <MenuItem key={v.id} value={v.id}>
+                {v.label}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -361,7 +475,10 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           <Typography variant="caption" color="text.secondary">
             Writing {saveProgress.current} / {saveProgress.total}
           </Typography>
-          <LinearProgress variant="determinate" value={(saveProgress.current / saveProgress.total) * 100} />
+          <LinearProgress
+            variant="determinate"
+            value={(saveProgress.current / saveProgress.total) * 100}
+          />
         </Box>
       )}
 
@@ -377,44 +494,54 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
             <Typography color="text.disabled">Pick a source PNG to colorize.</Typography>
           </Box>
         )}
-        {palette && sourceBuf && palette.entries.map((entry, idx) => {
-          const sel = selections[entry.id]
-          const selectedId = sel?.variantId ?? null
-          const customParams = sel?.variantId === 'custom' ? sel.customParams ?? null : null
-          return (
-            <Box key={entry.id}>
-              {idx > 0 && <Divider sx={{ my: 1 }} />}
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1 }}>
-                <Box sx={{ width: 100, flexShrink: 0 }}>
-                  <Typography variant="body2">{entry.name}</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {selectedId ?? 'unset'}
-                  </Typography>
-                </Box>
-                <Box sx={{ flexShrink: 0, textAlign: 'center' }}>
-                  <RawPreview source={sourceBuf} frame={frameBuf} size={TILE_SIZE} />
-                  <Typography variant="caption" sx={{ display: 'block', mt: 0.25, fontSize: '0.6rem', color: 'text.disabled' }}>
-                    Original
-                  </Typography>
-                </Box>
-                <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                  <VariantGrid
-                    source={sourceBuf}
-                    entry={entry}
-                    variants={variants}
-                    selectedId={selectedId}
-                    customParams={customParams}
-                    autoBestId={autoBest[entry.id] ?? null}
-                    frame={frameBuf}
-                    tileSize={TILE_SIZE}
-                    onSelectVariant={id => handleSelectVariant(entry.id, id)}
-                    onOpenCustom={() => handleOpenCustom(entry.id)}
-                  />
-                </Box>
-              </Stack>
-            </Box>
-          )
-        })}
+        {palette &&
+          sourceBuf &&
+          palette.entries.map((entry, idx) => {
+            const sel = selections[entry.id]
+            const selectedId = sel?.variantId ?? null
+            const customParams = sel?.variantId === 'custom' ? (sel.customParams ?? null) : null
+            return (
+              <Box key={entry.id}>
+                {idx > 0 && <Divider sx={{ my: 1 }} />}
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1 }}>
+                  <Box sx={{ width: 100, flexShrink: 0 }}>
+                    <Typography variant="body2">{entry.name}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {selectedId ?? 'unset'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flexShrink: 0, textAlign: 'center' }}>
+                    <RawPreview source={sourceBuf} frame={frameBuf} size={TILE_SIZE} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        mt: 0.25,
+                        fontSize: '0.6rem',
+                        color: 'text.disabled'
+                      }}
+                    >
+                      Original
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                    <VariantGrid
+                      source={sourceBuf}
+                      entry={entry}
+                      variants={variants}
+                      selectedId={selectedId}
+                      customParams={customParams}
+                      autoBestId={autoBest[entry.id] ?? null}
+                      frame={frameBuf}
+                      tileSize={TILE_SIZE}
+                      onSelectVariant={(id) => handleSelectVariant(entry.id, id)}
+                      onOpenCustom={() => handleOpenCustom(entry.id)}
+                    />
+                  </Box>
+                </Stack>
+              </Box>
+            )
+          })}
       </Box>
 
       {customEntry && (

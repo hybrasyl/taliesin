@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Box, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  loadMapAssets, getGroundBitmap, getStcBitmap,
-  type MapAssets,
+  loadMapAssets,
+  getGroundBitmap,
+  getStcBitmap,
+  type MapAssets
 } from '../../utils/mapRenderer'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -30,7 +32,15 @@ const ROW_HEIGHT_FG = 72
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, selectedTileIds, onSelectTile, onSelectTiles, onLayerChange }) => {
+const TilePicker: React.FC<Props> = ({
+  clientPath,
+  activeLayer,
+  selectedTileId,
+  selectedTileIds,
+  onSelectTile,
+  onSelectTiles,
+  onLayerChange
+}) => {
   const [assets, setAssets] = useState<MapAssets | null>(null)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
@@ -45,7 +55,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
     if (!clientPath) return
     setLoading(true)
     loadMapAssets(clientPath)
-      .then(a => {
+      .then((a) => {
         setAssets(a)
         // Collect foreground tile IDs from ia.dat
         const ids: number[] = []
@@ -76,15 +86,20 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
       if (!cancelled) setBgBitmaps(map)
     }
     loadBitmaps()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [assets, activeLayer])
 
   // Lazy-load foreground bitmaps as needed
-  const loadFgBitmap = useCallback(async (tileId: number) => {
-    if (!assets || fgBitmaps.has(tileId)) return
-    const bm = await getStcBitmap(tileId, assets)
-    if (bm) setFgBitmaps(prev => new Map(prev).set(tileId, bm))
-  }, [assets, fgBitmaps])
+  const loadFgBitmap = useCallback(
+    async (tileId: number) => {
+      if (!assets || fgBitmaps.has(tileId)) return
+      const bm = await getStcBitmap(tileId, assets)
+      if (bm) setFgBitmaps((prev) => new Map(prev).set(tileId, bm))
+    },
+    [assets, fgBitmaps]
+  )
 
   const isBg = activeLayer === 'background'
 
@@ -95,7 +110,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
       : fgEntryIds
     if (!filter.trim()) return ids
     const q = filter.trim()
-    return ids.filter(id => String(id).includes(q))
+    return ids.filter((id) => String(id).includes(q))
   }, [isBg, assets, fgEntryIds, filter])
 
   const rowCount = Math.ceil(tileIds.length / COLS)
@@ -105,7 +120,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
     count: rowCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowH,
-    overscan: 8,
+    overscan: 8
   })
 
   // Scroll to selected tile when it changes (e.g. eyedropper sample)
@@ -118,37 +133,42 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
   }, [selectedTileId, tileIds, virtualizer])
 
   // Multi-select click handler
-  const handleTileClick = useCallback((tileId: number, e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      // Toggle individual tile
-      const next = selectedTileIds.includes(tileId)
-        ? selectedTileIds.filter(id => id !== tileId)
-        : [...selectedTileIds, tileId]
-      onSelectTiles(next.length > 0 ? next : [tileId])
-      lastClickedRef.current = tileId
-    } else if (e.shiftKey && lastClickedRef.current !== null) {
-      // Range select
-      const lastIdx = tileIds.indexOf(lastClickedRef.current)
-      const curIdx = tileIds.indexOf(tileId)
-      if (lastIdx >= 0 && curIdx >= 0) {
-        const start = Math.min(lastIdx, curIdx)
-        const end = Math.max(lastIdx, curIdx)
-        const range = tileIds.slice(start, end + 1)
-        // Merge with existing selection
-        const merged = new Set([...selectedTileIds, ...range])
-        onSelectTiles([...merged])
+  const handleTileClick = useCallback(
+    (tileId: number, e: React.MouseEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Toggle individual tile
+        const next = selectedTileIds.includes(tileId)
+          ? selectedTileIds.filter((id) => id !== tileId)
+          : [...selectedTileIds, tileId]
+        onSelectTiles(next.length > 0 ? next : [tileId])
+        lastClickedRef.current = tileId
+      } else if (e.shiftKey && lastClickedRef.current !== null) {
+        // Range select
+        const lastIdx = tileIds.indexOf(lastClickedRef.current)
+        const curIdx = tileIds.indexOf(tileId)
+        if (lastIdx >= 0 && curIdx >= 0) {
+          const start = Math.min(lastIdx, curIdx)
+          const end = Math.max(lastIdx, curIdx)
+          const range = tileIds.slice(start, end + 1)
+          // Merge with existing selection
+          const merged = new Set([...selectedTileIds, ...range])
+          onSelectTiles([...merged])
+        }
+      } else {
+        // Normal click — single select
+        onSelectTile(tileId)
+        lastClickedRef.current = tileId
       }
-    } else {
-      // Normal click — single select
-      onSelectTile(tileId)
-      lastClickedRef.current = tileId
-    }
-  }, [tileIds, selectedTileIds, onSelectTile, onSelectTiles])
+    },
+    [tileIds, selectedTileIds, onSelectTile, onSelectTiles]
+  )
 
   if (!clientPath) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.disabled">Set a client path in Settings to browse tiles.</Typography>
+        <Typography variant="caption" color="text.disabled">
+          Set a client path in Settings to browse tiles.
+        </Typography>
       </Box>
     )
   }
@@ -156,7 +176,9 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
   if (loading) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.secondary">Loading tile assets...</Typography>
+        <Typography variant="caption" color="text.secondary">
+          Loading tile assets...
+        </Typography>
       </Box>
     )
   }
@@ -173,12 +195,21 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
           fullWidth
           sx={{
             '& .MuiToggleButton-root': { color: 'text.primary' },
-            '& .MuiToggleButton-root.Mui-selected': { color: 'info.light', bgcolor: 'action.selected' },
+            '& .MuiToggleButton-root.Mui-selected': {
+              color: 'info.light',
+              bgcolor: 'action.selected'
+            }
           }}
         >
-          <ToggleButton value="background" sx={{ fontSize: '0.7rem', py: 0.25 }}>BG</ToggleButton>
-          <ToggleButton value="leftForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>L-FG</ToggleButton>
-          <ToggleButton value="rightForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>R-FG</ToggleButton>
+          <ToggleButton value="background" sx={{ fontSize: '0.7rem', py: 0.25 }}>
+            BG
+          </ToggleButton>
+          <ToggleButton value="leftForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>
+            L-FG
+          </ToggleButton>
+          <ToggleButton value="rightForeground" sx={{ fontSize: '0.7rem', py: 0.25 }}>
+            R-FG
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
@@ -188,7 +219,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
           size="small"
           placeholder="Filter by ID..."
           value={filter}
-          onChange={e => setFilter(e.target.value)}
+          onChange={(e) => setFilter(e.target.value)}
           fullWidth
         />
       </Box>
@@ -200,7 +231,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
       {/* Tile grid */}
       <Box ref={parentRef} sx={{ flex: 1, overflow: 'auto', px: 0.5 }}>
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-          {virtualizer.getVirtualItems().map(vr => {
+          {virtualizer.getVirtualItems().map((vr) => {
             const startIdx = vr.index * COLS
             return (
               <Box
@@ -211,7 +242,7 @@ const TilePicker: React.FC<Props> = ({ clientPath, activeLayer, selectedTileId, 
                   height: vr.size,
                   width: '100%',
                   display: 'flex',
-                  gap: `${CELL_PAD}px`,
+                  gap: `${CELL_PAD}px`
                 }}
               >
                 {Array.from({ length: COLS }, (_, col) => {
@@ -283,9 +314,14 @@ const TileCell: React.FC<{
       ctx.lineWidth = 1
       ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
       // Small diamond in center
-      const cx = canvas.width / 2, cy = canvas.height / 2, r = 4
+      const cx = canvas.width / 2,
+        cy = canvas.height / 2,
+        r = 4
       ctx.beginPath()
-      ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy)
+      ctx.moveTo(cx, cy - r)
+      ctx.lineTo(cx + r, cy)
+      ctx.lineTo(cx, cy + r)
+      ctx.lineTo(cx - r, cy)
       ctx.closePath()
       ctx.fillStyle = 'rgba(255,255,255,0.2)'
       ctx.fill()
@@ -317,11 +353,14 @@ const TileCell: React.FC<{
     ctx.drawImage(bitmap, 0, 0, bitmap.width * 2, bitmap.height * 2)
   }, [showPreview, bitmap])
 
-  const handleMouseEnter = useCallback((e: React.MouseEvent) => {
-    if (!bitmap || !isOversized) return
-    setPreviewPos({ x: e.clientX, y: e.clientY })
-    setShowPreview(true)
-  }, [bitmap, isOversized])
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent) => {
+      if (!bitmap || !isOversized) return
+      setPreviewPos({ x: e.clientX, y: e.clientY })
+      setShowPreview(true)
+    },
+    [bitmap, isOversized]
+  )
 
   const handleMouseLeave = useCallback(() => {
     setShowPreview(false)
@@ -347,13 +386,16 @@ const TileCell: React.FC<{
           bgcolor: isSelected ? 'action.selected' : 'transparent',
           '&:hover': { bgcolor: 'action.hover' },
           p: `${CELL_PAD}px`,
-          overflow: 'hidden',
+          overflow: 'hidden'
         }}
       >
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
         </Box>
-        <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', lineHeight: 1.4 }}>
+        <Typography
+          variant="caption"
+          sx={{ fontSize: '0.65rem', color: 'text.secondary', lineHeight: 1.4 }}
+        >
           {tileId}
         </Typography>
       </Box>
@@ -372,11 +414,20 @@ const TileCell: React.FC<{
             borderRadius: 1,
             bgcolor: 'background.paper',
             p: 0.5,
-            boxShadow: 4,
+            boxShadow: 4
           }}
         >
           <canvas ref={previewRef} style={{ imageRendering: 'pixelated', display: 'block' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', display: 'block', textAlign: 'center', mt: 0.25 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.6rem',
+              color: 'text.secondary',
+              display: 'block',
+              textAlign: 'center',
+              mt: 0.25
+            }}
+          >
             {bitmap.width}×{bitmap.height} — tile {tileId}
           </Typography>
         </Box>

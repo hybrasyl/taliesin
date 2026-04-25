@@ -15,33 +15,55 @@ const dalib = vi.hoisted(() => {
   let nextEntries: Entry[] = []
   class FakeDataArchive {
     entries: Entry[]
-    constructor(entries: Entry[]) { this.entries = entries }
-    static fromBuffer() { return new FakeDataArchive(nextEntries) }
-    getEntryBuffer(_e: Entry) { return new Uint8Array() }
-    get(name: string) { return this.entries.find(e => e.entryName === name) ?? null }
+    constructor(entries: Entry[]) {
+      this.entries = entries
+    }
+    static fromBuffer() {
+      return new FakeDataArchive(nextEntries)
+    }
+    getEntryBuffer(_e: Entry) {
+      return new Uint8Array()
+    }
+    get(name: string) {
+      return this.entries.find((e) => e.entryName === name) ?? null
+    }
   }
   return {
     DataArchive: FakeDataArchive,
-    setEntries: (entries: Entry[]) => { nextEntries = entries },
-    Palette: class { static fromBuffer() { return new (class {})() } },
+    setEntries: (entries: Entry[]) => {
+      nextEntries = entries
+    },
+    Palette: class {
+      static fromBuffer() {
+        return new (class {})()
+      }
+    }
   }
 })
 
 vi.mock('fs', async () => (await memfs).fsModule)
 vi.mock('@eriscorp/dalib-ts', () => ({
   DataArchive: dalib.DataArchive,
-  Palette: dalib.Palette,
+  Palette: dalib.Palette
 }))
 vi.mock('@eriscorp/dalib-ts/helpers/imageData', () => ({ toImageData: () => new ImageData(1, 1) }))
 vi.mock('@eriscorp/hybindex-ts', () => {
-  const m = { buildIndex: vi.fn(), loadIndex: vi.fn(), saveIndex: vi.fn(),
-    getIndexStatus: vi.fn(), deleteIndex: vi.fn() }
+  const m = {
+    buildIndex: vi.fn(),
+    loadIndex: vi.fn(),
+    saveIndex: vi.fn(),
+    getIndexStatus: vi.fn(),
+    deleteIndex: vi.fn()
+  }
   return { ...m, default: m }
 })
 vi.mock('child_process', () => {
   const m = {
-    execFile: vi.fn((_c: string, _a: string[], cb?: (e: Error | null) => void) => { cb?.(null); return {} }),
-    spawn: vi.fn(() => ({ unref: vi.fn() })),
+    execFile: vi.fn((_c: string, _a: string[], cb?: (e: Error | null) => void) => {
+      cb?.(null)
+      return {}
+    }),
+    spawn: vi.fn(() => ({ unref: vi.fn() }))
   }
   return { ...m, default: m }
 })
@@ -53,9 +75,14 @@ vi.mock('@tanstack/react-virtual', () => ({
     getTotalSize: () => count * 24,
     getVirtualItems: () =>
       Array.from({ length: count }, (_, index) => ({
-        index, key: index, start: index * 24, size: 24, end: (index + 1) * 24, lane: 0,
-      })),
-  }),
+        index,
+        key: index,
+        start: index * 24,
+        size: 24,
+        end: (index + 1) * 24,
+        lane: 0
+      }))
+  })
 }))
 
 // archiveRenderer mock — keeps ArchivePreview from doing real palette work.
@@ -71,7 +98,7 @@ const renderer = vi.hoisted(() => ({
   }),
   loadPaletteByName: vi.fn(() => null),
   getPaletteNames: vi.fn(() => [] as string[]),
-  formatBytes: vi.fn((n: number) => `${n} bytes`),
+  formatBytes: vi.fn((n: number) => `${n} bytes`)
 }))
 vi.mock('../../utils/archiveRenderer', () => renderer)
 
@@ -101,20 +128,24 @@ beforeEach(async () => {
   renderer.formatBytes.mockImplementation((n: number) => `${n} bytes`)
 })
 
-function renderPage(opts: {
-  openFile?: () => Promise<string | null>
-  openDirectory?: () => Promise<string | null>
-} = {}) {
-  return loadHandlers().then(handlers => {
+function renderPage(
+  opts: {
+    openFile?: () => Promise<string | null>
+    openDirectory?: () => Promise<string | null>
+  } = {}
+) {
+  return loadHandlers().then((handlers) => {
     installBridgedApi(handlers, {
       settingsPath: '/appdata/Taliesin',
       settingsManager: { load: async () => ({}), save: async () => undefined },
-      dialog: { openFile: opts.openFile, openDirectory: opts.openDirectory },
+      dialog: { openFile: opts.openFile, openDirectory: opts.openDirectory }
     })
     return render(
-      <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(clientPathState, CLIENT_PATH)}>
+      <RecoilRoot
+        initializeState={(snap: MutableSnapshot) => snap.set(clientPathState, CLIENT_PATH)}
+      >
         <ArchivePage />
-      </RecoilRoot>,
+      </RecoilRoot>
     )
   })
 }
@@ -127,10 +158,10 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('Open Archive flow: dialog → readFile → DataArchive parse → entry list shows', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE, 0xAD]))
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde, 0xad]))
     dalib.setEntries([
       { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array([1]) },
-      { entryName: 'palette.pal', fileSize: 1024, toUint8Array: () => new Uint8Array([2]) },
+      { entryName: 'palette.pal', fileSize: 1024, toUint8Array: () => new Uint8Array([2]) }
     ])
 
     const user = userEvent.setup()
@@ -146,9 +177,9 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('selecting an entry routes to the right preview type via classifyEntry', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE, 0xAD]))
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde, 0xad]))
     dalib.setEntries([
-      { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array([1]) },
+      { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array([1]) }
     ])
 
     const user = userEvent.setup()
@@ -166,9 +197,9 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('client-archive select launches loadArchive with <clientPath>/<name>', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xCA, 0xFE]))
+    fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xca, 0xfe]))
     dalib.setEntries([
-      { entryName: 'tile.epf', fileSize: 50, toUint8Array: () => new Uint8Array() },
+      { entryName: 'tile.epf', fileSize: 50, toUint8Array: () => new Uint8Array() }
     ])
 
     const user = userEvent.setup()
@@ -186,9 +217,9 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('client-archive select includes one-level-deep subfolder dats (e.g., npc/npc.dat)', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/npc/npc.dat`, Buffer.from([0xBE, 0xEF]))
+    fs.files.set(`${CLIENT_PATH}/npc/npc.dat`, Buffer.from([0xbe, 0xef]))
     dalib.setEntries([
-      { entryName: 'merchant.epf', fileSize: 10, toUint8Array: () => new Uint8Array() },
+      { entryName: 'merchant.epf', fileSize: 10, toUint8Array: () => new Uint8Array() }
     ])
 
     const user = userEvent.setup()
@@ -205,10 +236,10 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('does not auto-expand any group when an archive is loaded', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE]))
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde]))
     dalib.setEntries([
       { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array() },
-      { entryName: 'palette.pal', fileSize: 1024, toUint8Array: () => new Uint8Array() },
+      { entryName: 'palette.pal', fileSize: 1024, toUint8Array: () => new Uint8Array() }
     ])
 
     const user = userEvent.setup()
@@ -224,17 +255,17 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('Extract All round-trips through openDirectory + writeBytes for every entry', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE]))
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde]))
     dalib.setEntries([
       { entryName: 'a.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x41]) },
       { entryName: 'b.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x42]) },
-      { entryName: 'c.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x43]) },
+      { entryName: 'c.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x43]) }
     ])
 
     const user = userEvent.setup()
     await renderPage({
-      openFile:      async () => `${CLIENT_PATH}/legend.dat`,
-      openDirectory: async () => '/extract-out',
+      openFile: async () => `${CLIENT_PATH}/legend.dat`,
+      openDirectory: async () => '/extract-out'
     })
 
     await user.click(await screen.findByRole('button', { name: /open archive/i }))
@@ -249,21 +280,21 @@ describe('ArchivePage — round-trip integration', () => {
 
   it('Extract All aborts when the user cancels the directory dialog', async () => {
     const fs = await memfs
-    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xDE]))
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde]))
     dalib.setEntries([
-      { entryName: 'x.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x58]) },
+      { entryName: 'x.txt', fileSize: 5, toUint8Array: () => new Uint8Array([0x58]) }
     ])
 
     const user = userEvent.setup()
     await renderPage({
-      openFile:      async () => `${CLIENT_PATH}/legend.dat`,
-      openDirectory: async () => null,
+      openFile: async () => `${CLIENT_PATH}/legend.dat`,
+      openDirectory: async () => null
     })
 
     await user.click(await screen.findByRole('button', { name: /open archive/i }))
     const sizeBefore = fs.files.size
     await user.click(await screen.findByRole('button', { name: /extract all/i }))
-    await new Promise(r => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
     // No new files were written
     expect(fs.files.size).toBe(sizeBefore)
   })

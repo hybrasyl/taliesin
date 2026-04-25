@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  Box, Typography, TextField, IconButton, Tooltip, List, ListItemButton,
-  ListItemText, Divider, Button,
+  Box,
+  Typography,
+  TextField,
+  IconButton,
+  Tooltip,
+  List,
+  ListItemButton,
+  ListItemText,
+  Divider,
+  Button
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -22,18 +30,27 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
 
   // Load prefab list
   const refresh = useCallback(async () => {
-    if (!libraryPath) { setPrefabs([]); return }
+    if (!libraryPath) {
+      setPrefabs([])
+      return
+    }
     const list = await window.api.prefabList(libraryPath)
     setPrefabs(list.sort((a, b) => a.name.localeCompare(b.name)))
   }, [libraryPath])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   // Load selected prefab
   useEffect(() => {
-    if (!libraryPath || !selected) { setLoadedPrefab(null); return }
-    window.api.prefabLoad(libraryPath, selected)
-      .then(data => setLoadedPrefab(data as Prefab))
+    if (!libraryPath || !selected) {
+      setLoadedPrefab(null)
+      return
+    }
+    window.api
+      .prefabLoad(libraryPath, selected)
+      .then((data) => setLoadedPrefab(data as Prefab))
       .catch(() => setLoadedPrefab(null))
   }, [libraryPath, selected])
 
@@ -75,8 +92,18 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
     if (ppt >= 4) {
       ctx.strokeStyle = 'rgba(255,255,255,0.1)'
       ctx.lineWidth = 0.5
-      for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x * ppt, 0); ctx.lineTo(x * ppt, H * ppt); ctx.stroke() }
-      for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0, y * ppt); ctx.lineTo(W * ppt, y * ppt); ctx.stroke() }
+      for (let x = 0; x <= W; x++) {
+        ctx.beginPath()
+        ctx.moveTo(x * ppt, 0)
+        ctx.lineTo(x * ppt, H * ppt)
+        ctx.stroke()
+      }
+      for (let y = 0; y <= H; y++) {
+        ctx.beginPath()
+        ctx.moveTo(0, y * ppt)
+        ctx.lineTo(W * ppt, y * ppt)
+        ctx.stroke()
+      }
     }
   }, [loadedPrefab])
 
@@ -94,13 +121,15 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
   }, [loadedPrefab, onStampPrefab])
 
   const filtered = filter.trim()
-    ? prefabs.filter(p => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
+    ? prefabs.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
     : prefabs
 
   if (!libraryPath) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.disabled">Set a library in Settings to use prefabs.</Typography>
+        <Typography variant="caption" color="text.disabled">
+          Set a library in Settings to use prefabs.
+        </Typography>
       </Box>
     )
   }
@@ -109,9 +138,13 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <Box sx={{ px: 1, pt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Typography variant="body2" sx={{ fontWeight: 'bold', flex: 1 }}>Prefabs</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'bold', flex: 1 }}>
+          Prefabs
+        </Typography>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={refresh}><RefreshIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={refresh}>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
       </Box>
 
@@ -121,7 +154,7 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
           size="small"
           placeholder="Filter..."
           value={filter}
-          onChange={e => setFilter(e.target.value)}
+          onChange={(e) => setFilter(e.target.value)}
           fullWidth
         />
       </Box>
@@ -133,7 +166,7 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
       {/* List */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         <List dense disablePadding>
-          {filtered.map(p => (
+          {filtered.map((p) => (
             <ListItemButton
               key={p.filename}
               selected={selected === p.filename}
@@ -154,8 +187,13 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
       {loadedPrefab && (
         <>
           <Divider />
-          <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-            <canvas ref={previewCanvasRef} style={{ imageRendering: 'pixelated', maxWidth: '100%' }} />
+          <Box
+            sx={{ p: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}
+          >
+            <canvas
+              ref={previewCanvasRef}
+              style={{ imageRendering: 'pixelated', maxWidth: '100%' }}
+            />
             <Typography variant="caption" color="text.secondary">
               {loadedPrefab.width}×{loadedPrefab.height} · {loadedPrefab.name}
             </Typography>

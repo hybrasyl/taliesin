@@ -6,7 +6,11 @@ export interface PixelBuffer {
   height: number
 }
 
-export interface Rgb { r: number; g: number; b: number }
+export interface Rgb {
+  r: number
+  g: number
+  b: number
+}
 
 export function parseHex(hex: string): Rgb {
   const s = hex.startsWith('#') ? hex.slice(1) : hex
@@ -36,12 +40,12 @@ export function mapLuminance(lum: number, entry: PaletteEntry, p: DuotoneParams)
   const darkerShadow: Rgb = {
     r: shadow.r * (1 - p.darkFactor),
     g: shadow.g * (1 - p.darkFactor),
-    b: shadow.b * (1 - p.darkFactor),
+    b: shadow.b * (1 - p.darkFactor)
   }
   const lighterHighlight: Rgb = {
     r: highlight.r + (255 - highlight.r) * p.lightFactor,
     g: highlight.g + (255 - highlight.g) * p.lightFactor,
-    b: highlight.b + (255 - highlight.b) * p.lightFactor,
+    b: highlight.b + (255 - highlight.b) * p.lightFactor
   }
 
   if (lum <= p.midpointLow) {

@@ -21,7 +21,9 @@ async function listDats(root: string): Promise<string[]> {
         for (const ie of inner) {
           if (ie.isFile() && ie.name.toLowerCase().endsWith('.dat')) out.push(join(full, ie.name))
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
   return out
@@ -43,8 +45,11 @@ async function main() {
   for (const datPath of dats) {
     const arcName = basename(datPath)
     let arc
-    try { arc = DataArchive.fromBuffer(new Uint8Array(await fs.readFile(datPath))) }
-    catch { continue }
+    try {
+      arc = DataArchive.fromBuffer(new Uint8Array(await fs.readFile(datPath)))
+    } catch {
+      continue
+    }
     for (const entry of arc.entries) {
       if (!entry.entryName.toLowerCase().endsWith(normExt)) continue
       const data = entry.toUint8Array()
@@ -57,4 +62,7 @@ async function main() {
   console.log(`\n${total} ${normExt} entries extracted to ${outDir}`)
 }
 
-main().catch(e => { console.error(e); process.exit(1) })
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

@@ -3,9 +3,14 @@ import { Box, Typography, IconButton } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { MapFile } from '@eriscorp/dalib-ts'
 import {
-  loadMapAssets, isTilePassable, tileToScreen, isoCanvasSize,
-  ISO_HTILE_W, ISO_VTILE_STEP, ISO_FOREGROUND_PAD,
-  type MapAssets,
+  loadMapAssets,
+  isTilePassable,
+  tileToScreen,
+  isoCanvasSize,
+  ISO_HTILE_W,
+  ISO_VTILE_STEP,
+  ISO_FOREGROUND_PAD,
+  type MapAssets
 } from '../../utils/mapRenderer'
 
 interface Props {
@@ -25,8 +30,14 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
   useEffect(() => {
     if (!clientPath) return
     let cancelled = false
-    loadMapAssets(clientPath).then(a => { if (!cancelled) setAssets(a) }).catch(() => {})
-    return () => { cancelled = true }
+    loadMapAssets(clientPath)
+      .then((a) => {
+        if (!cancelled) setAssets(a)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [clientPath])
 
   const { width: W, height: H } = mapFile
@@ -56,7 +67,9 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
       for (let x = 0; x < W; x++) {
         const tile = mapFile.getTile(x, y)
         const hasFg = tile.leftForeground > 0 || tile.rightForeground > 0
-        const passable = sotp ? isTilePassable(tile.leftForeground, tile.rightForeground, sotp) : true
+        const passable = sotp
+          ? isTilePassable(tile.leftForeground, tile.rightForeground, sotp)
+          : true
         const hasBg = tile.background > 0
 
         const { x: cx, y: cy } = tileToScreen(x, y, originX, originY, previewScale)
@@ -88,11 +101,14 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
   }, [mapFile, assets, W, H, previewScale, originX, originY])
 
   // Drag handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setDragging(true)
-    dragStartRef.current = { mx: e.clientX, my: e.clientY, px: pos.x, py: pos.y }
-  }, [pos])
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      setDragging(true)
+      dragStartRef.current = { mx: e.clientX, my: e.clientY, px: pos.x, py: pos.y }
+    },
+    [pos]
+  )
 
   useEffect(() => {
     if (!dragging) return
@@ -103,31 +119,38 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
     const handleUp = () => setDragging(false)
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
-    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp) }
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
   }, [dragging])
 
   return (
-    <Box sx={{
-      position: 'fixed',
-      left: pos.x,
-      top: pos.y,
-      zIndex: 1300,
-      bgcolor: 'background.paper',
-      border: '1px solid',
-      borderColor: 'divider',
-      borderRadius: 1,
-      boxShadow: 8,
-      overflow: 'hidden',
-    }}>
+    <Box
+      sx={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        zIndex: 1300,
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        boxShadow: 8,
+        overflow: 'hidden'
+      }}
+    >
       {/* Title bar */}
       <Box
         onMouseDown={handleMouseDown}
         sx={{
-          px: 1, py: 0.25,
-          display: 'flex', alignItems: 'center',
+          px: 1,
+          py: 0.25,
+          display: 'flex',
+          alignItems: 'center',
           bgcolor: 'secondary.main',
           cursor: dragging ? 'grabbing' : 'grab',
-          userSelect: 'none',
+          userSelect: 'none'
         }}
       >
         <Typography variant="caption" sx={{ flex: 1, fontWeight: 'bold' }}>
@@ -145,15 +168,23 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
       <Box sx={{ px: 1, py: 0.25, display: 'flex', gap: 1.5, bgcolor: 'background.default' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{ width: 8, height: 8, bgcolor: 'rgba(220,50,50,0.8)', borderRadius: '2px' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>Impassable</Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+            Impassable
+          </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, bgcolor: 'rgba(100,150,255,0.4)', borderRadius: '2px' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>Objects</Typography>
+          <Box
+            sx={{ width: 8, height: 8, bgcolor: 'rgba(100,150,255,0.4)', borderRadius: '2px' }}
+          />
+          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+            Objects
+          </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{ width: 8, height: 8, bgcolor: 'rgba(60,60,80,0.5)', borderRadius: '2px' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>Ground</Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+            Ground
+          </Typography>
         </Box>
       </Box>
     </Box>

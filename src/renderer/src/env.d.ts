@@ -143,7 +143,10 @@ declare global {
     launchCompanion: (exePath: string) => Promise<boolean>
     openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
     openDirectory: () => Promise<string | null>
-    saveFile: (filters?: { name: string; extensions: string[] }[], defaultPath?: string) => Promise<string | null>
+    saveFile: (
+      filters?: { name: string; extensions: string[] }[],
+      defaultPath?: string
+    ) => Promise<string | null>
     readFile: (filePath: string) => Promise<Buffer>
     listDir: (dirPath: string) => Promise<DirEntry[]>
     copyFile: (src: string, dst: string) => Promise<void>
@@ -162,14 +165,32 @@ declare global {
     musicMetadataSave: (dirPath: string, data: Record<string, MusicMeta>) => Promise<void>
     musicPacksLoad: (dirPath: string) => Promise<MusicPack[]>
     musicPacksSave: (dirPath: string, packs: MusicPack[]) => Promise<void>
-    musicDeployPack: (srcLibDir: string, pack: MusicPack, destDir: string, ffmpegPath: string | null, kbps: number, sampleRate: number) => Promise<void>
+    musicDeployPack: (
+      srcLibDir: string,
+      pack: MusicPack,
+      destDir: string,
+      ffmpegPath: string | null,
+      kbps: number,
+      sampleRate: number
+    ) => Promise<void>
     musicClientScan: (clientPath: string) => Promise<MusicScanEntry[]>
     indexRead: (libraryRoot: string) => Promise<WorldIndex | null>
     indexBuild: (libraryRoot: string) => Promise<WorldIndex>
     indexStatus: (libraryRoot: string) => Promise<{ exists: boolean; builtAt?: string }>
     indexDelete: (libraryRoot: string) => Promise<void>
     libraryResolve: (selectedPath: string) => Promise<string | null>
-    prefabList: (libraryPath: string) => Promise<{ filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[]>
+    prefabList: (
+      libraryPath: string
+    ) => Promise<
+      {
+        filename: string
+        name: string
+        width: number
+        height: number
+        createdAt: string
+        updatedAt: string
+      }[]
+    >
     prefabLoad: (libraryPath: string, filename: string) => Promise<unknown>
     prefabSave: (libraryPath: string, filename: string, data: unknown) => Promise<void>
     prefabDelete: (libraryPath: string, filename: string) => Promise<void>
@@ -180,22 +201,45 @@ declare global {
     packDelete: (filePath: string) => Promise<void>
     packAddAsset: (packDir: string, sourcePath: string, targetFilename: string) => Promise<void>
     packRemoveAsset: (packDir: string, filename: string) => Promise<void>
-    packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string) => Promise<void>
+    packCompile: (
+      packDir: string,
+      manifest: unknown,
+      assetFilenames: string[],
+      outputPath: string
+    ) => Promise<void>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
-    sfxIndexLoad: (activeLibrary: string) => Promise<Record<string, { name?: string; comment?: string }>>
-    sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) => Promise<void>
+    sfxIndexLoad: (
+      activeLibrary: string
+    ) => Promise<Record<string, { name?: string; comment?: string }>>
+    sfxIndexSave: (
+      activeLibrary: string,
+      data: Record<string, { name?: string; comment?: string }>
+    ) => Promise<void>
     bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string) => Promise<string>
-    tileScanAnalyze: (dirPaths: string[]) => Promise<{ background: [number, number][]; leftForeground: [number, number][]; rightForeground: [number, number][]; fileCount: number; tileCount: number }>
+    tileScanAnalyze: (
+      dirPaths: string[]
+    ) => Promise<{
+      background: [number, number][]
+      leftForeground: [number, number][]
+      rightForeground: [number, number][]
+      fileCount: number
+      tileCount: number
+    }>
     themeList: () => Promise<{ filename: string; name: string }[]>
     themeLoad: (filename: string) => Promise<unknown>
     themeSave: (filename: string, data: unknown) => Promise<void>
     themeDelete: (filename: string) => Promise<void>
-    paletteScan: (packDir: string) => Promise<{ filename: string; id: string; name: string; entryCount: number }[]>
+    paletteScan: (
+      packDir: string
+    ) => Promise<{ filename: string; id: string; name: string; entryCount: number }[]>
     paletteLoad: (filePath: string) => Promise<unknown>
     paletteSave: (filePath: string, data: unknown) => Promise<void>
     paletteDelete: (filePath: string) => Promise<void>
-    paletteCalibrationLoad: (packDir: string, paletteId: string) => Promise<Record<string, Record<string, unknown>>>
+    paletteCalibrationLoad: (
+      packDir: string,
+      paletteId: string
+    ) => Promise<Record<string, Record<string, unknown>>>
     paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown) => Promise<void>
     frameScan: (packDir: string) => Promise<string[]>
   }

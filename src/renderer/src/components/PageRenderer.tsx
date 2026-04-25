@@ -18,19 +18,32 @@ const PageRenderer: React.FC = () => {
   const currentPage = useRecoilValue(currentPageState)
 
   switch (currentPage) {
-    case 'dashboard':  return <DashboardPage />
-    case 'catalog':    return <CatalogPage />
-    case 'mapeditor':  return <MapEditorPage />
-    case 'worldmap':   return <WorldMapPage />
-    case 'archive':    return <ArchivePage />
-    case 'mapmaker':   return <MapMakerPage />
-    case 'prefabs':    return <PrefabCatalogPage />
-    case 'assetpacks': return <AssetPackPage />
-    case 'palettes':   return <PalettePage />
-    case 'music':      return <MusicPage />
-    case 'sfx':        return <SfxPage />
-    case 'settings':   return <SettingsPage />
-    default:           return <DashboardPage />
+    case 'dashboard':
+      return <DashboardPage />
+    case 'catalog':
+      return <CatalogPage />
+    case 'mapeditor':
+      return <MapEditorPage />
+    case 'worldmap':
+      return <WorldMapPage />
+    case 'archive':
+      return <ArchivePage />
+    case 'mapmaker':
+      return <MapMakerPage />
+    case 'prefabs':
+      return <PrefabCatalogPage />
+    case 'assetpacks':
+      return <AssetPackPage />
+    case 'palettes':
+      return <PalettePage />
+    case 'music':
+      return <MusicPage />
+    case 'sfx':
+      return <SfxPage />
+    case 'settings':
+      return <SettingsPage />
+    default:
+      return <DashboardPage />
   }
 }
 

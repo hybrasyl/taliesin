@@ -38,7 +38,10 @@ export function sanitizePrefabName(name: string): string {
 export function trimPrefab(prefab: Prefab): Prefab {
   const { width: W, height: H, tiles } = prefab
 
-  let minX = W, minY = H, maxX = -1, maxY = -1
+  let minX = W,
+    minY = H,
+    maxX = -1,
+    maxY = -1
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -53,7 +56,13 @@ export function trimPrefab(prefab: Prefab): Prefab {
   }
 
   // All empty
-  if (maxX < 0) return { ...prefab, width: 1, height: 1, tiles: [{ background: 0, leftForeground: 0, rightForeground: 0 }] }
+  if (maxX < 0)
+    return {
+      ...prefab,
+      width: 1,
+      height: 1,
+      tiles: [{ background: 0, leftForeground: 0, rightForeground: 0 }]
+    }
 
   const newW = maxX - minX + 1
   const newH = maxY - minY + 1

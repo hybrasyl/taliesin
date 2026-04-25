@@ -70,13 +70,17 @@ const api = {
   // File system — returns raw bytes for dalib-ts to parse in the renderer
   readFile: (filePath: string): Promise<Buffer> => ipcRenderer.invoke('fs:readFile', filePath),
   listDir: (dirPath: string): Promise<DirEntry[]> => ipcRenderer.invoke('fs:listDir', dirPath),
-  copyFile: (src: string, dst: string): Promise<void> => ipcRenderer.invoke('fs:copyFile', src, dst),
-  writeFile: (filePath: string, content: string): Promise<void> => ipcRenderer.invoke('fs:writeFile', filePath, content),
-  writeBytes: (filePath: string, data: Uint8Array): Promise<void> => ipcRenderer.invoke('fs:writeBytes', filePath, data),
+  copyFile: (src: string, dst: string): Promise<void> =>
+    ipcRenderer.invoke('fs:copyFile', src, dst),
+  writeFile: (filePath: string, content: string): Promise<void> =>
+    ipcRenderer.invoke('fs:writeFile', filePath, content),
+  writeBytes: (filePath: string, data: Uint8Array): Promise<void> =>
+    ipcRenderer.invoke('fs:writeBytes', filePath, data),
   exists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('fs:exists', filePath),
   ensureDir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:ensureDir', dirPath),
   deleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFile', filePath),
-  listArchive: (filePath: string): Promise<string[]> => ipcRenderer.invoke('fs:listArchive', filePath),
+  listArchive: (filePath: string): Promise<string[]> =>
+    ipcRenderer.invoke('fs:listArchive', filePath),
 
   // Catalog
   catalogLoad: (dirPath: string): Promise<Record<string, unknown>> =>
@@ -99,7 +103,14 @@ const api = {
     ipcRenderer.invoke('music:packs:load', dirPath),
   musicPacksSave: (dirPath: string, packs: MusicPack[]): Promise<void> =>
     ipcRenderer.invoke('music:packs:save', dirPath, packs),
-  musicDeployPack: (srcLibDir: string, pack: MusicPack, destDir: string, ffmpegPath: string | null, kbps: number, sampleRate: number): Promise<void> =>
+  musicDeployPack: (
+    srcLibDir: string,
+    pack: MusicPack,
+    destDir: string,
+    ffmpegPath: string | null,
+    kbps: number,
+    sampleRate: number
+  ): Promise<void> =>
     ipcRenderer.invoke('music:deploy-pack', srcLibDir, pack, destDir, ffmpegPath, kbps, sampleRate),
   musicClientScan: (clientPath: string): Promise<MusicScanEntry[]> =>
     ipcRenderer.invoke('music:client:scan', clientPath),
@@ -109,10 +120,14 @@ const api = {
     ipcRenderer.invoke('sfx:list', clientPath),
   sfxReadEntry: (clientPath: string, entryName: string): Promise<Buffer> =>
     ipcRenderer.invoke('sfx:readEntry', clientPath, entryName),
-  sfxIndexLoad: (activeLibrary: string): Promise<Record<string, { name?: string; comment?: string }>> =>
+  sfxIndexLoad: (
+    activeLibrary: string
+  ): Promise<Record<string, { name?: string; comment?: string }>> =>
     ipcRenderer.invoke('sfx:index:load', activeLibrary),
-  sfxIndexSave: (activeLibrary: string, data: Record<string, { name?: string; comment?: string }>) =>
-    ipcRenderer.invoke('sfx:index:save', activeLibrary, data),
+  sfxIndexSave: (
+    activeLibrary: string,
+    data: Record<string, { name?: string; comment?: string }>
+  ) => ipcRenderer.invoke('sfx:index:save', activeLibrary, data),
 
   // BIK → MP4 conversion (cached by content hash under cacheDir)
   bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string): Promise<string> =>
@@ -131,8 +146,18 @@ const api = {
     ipcRenderer.invoke('library:resolve', selectedPath),
 
   // Prefabs
-  prefabList: (libraryPath: string): Promise<{ filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[]> =>
-    ipcRenderer.invoke('prefab:list', libraryPath),
+  prefabList: (
+    libraryPath: string
+  ): Promise<
+    {
+      filename: string
+      name: string
+      width: number
+      height: number
+      createdAt: string
+      updatedAt: string
+    }[]
+  > => ipcRenderer.invoke('prefab:list', libraryPath),
   prefabLoad: (libraryPath: string, filename: string): Promise<unknown> =>
     ipcRenderer.invoke('prefab:load', libraryPath, filename),
   prefabSave: (libraryPath: string, filename: string, data: unknown): Promise<void> =>
@@ -143,50 +168,59 @@ const api = {
     ipcRenderer.invoke('prefab:rename', libraryPath, oldName, newName),
 
   // Tile Frequency Scanner
-  tileScanAnalyze: (dirPaths: string[]): Promise<{ background: [number, number][]; leftForeground: [number, number][]; rightForeground: [number, number][]; fileCount: number; tileCount: number }> =>
-    ipcRenderer.invoke('tileScan:analyze', dirPaths),
+  tileScanAnalyze: (
+    dirPaths: string[]
+  ): Promise<{
+    background: [number, number][]
+    leftForeground: [number, number][]
+    rightForeground: [number, number][]
+    fileCount: number
+    tileCount: number
+  }> => ipcRenderer.invoke('tileScan:analyze', dirPaths),
 
   // Tile Themes
-  themeList: (): Promise<{ filename: string; name: string }[]> =>
-    ipcRenderer.invoke('theme:list'),
-  themeLoad: (filename: string): Promise<unknown> =>
-    ipcRenderer.invoke('theme:load', filename),
+  themeList: (): Promise<{ filename: string; name: string }[]> => ipcRenderer.invoke('theme:list'),
+  themeLoad: (filename: string): Promise<unknown> => ipcRenderer.invoke('theme:load', filename),
   themeSave: (filename: string, data: unknown): Promise<void> =>
     ipcRenderer.invoke('theme:save', filename, data),
-  themeDelete: (filename: string): Promise<void> =>
-    ipcRenderer.invoke('theme:delete', filename),
+  themeDelete: (filename: string): Promise<void> => ipcRenderer.invoke('theme:delete', filename),
 
   // Asset Packs (.datf)
-  packScan: (dirPath: string): Promise<unknown[]> =>
-    ipcRenderer.invoke('pack:scan', dirPath),
-  packLoad: (filePath: string): Promise<unknown> =>
-    ipcRenderer.invoke('pack:load', filePath),
+  packScan: (dirPath: string): Promise<unknown[]> => ipcRenderer.invoke('pack:scan', dirPath),
+  packLoad: (filePath: string): Promise<unknown> => ipcRenderer.invoke('pack:load', filePath),
   packSave: (filePath: string, data: unknown): Promise<void> =>
     ipcRenderer.invoke('pack:save', filePath, data),
-  packDelete: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('pack:delete', filePath),
+  packDelete: (filePath: string): Promise<void> => ipcRenderer.invoke('pack:delete', filePath),
   packAddAsset: (packDir: string, sourcePath: string, targetFilename: string): Promise<void> =>
     ipcRenderer.invoke('pack:addAsset', packDir, sourcePath, targetFilename),
   packRemoveAsset: (packDir: string, filename: string): Promise<void> =>
     ipcRenderer.invoke('pack:removeAsset', packDir, filename),
-  packCompile: (packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string): Promise<void> =>
+  packCompile: (
+    packDir: string,
+    manifest: unknown,
+    assetFilenames: string[],
+    outputPath: string
+  ): Promise<void> =>
     ipcRenderer.invoke('pack:compile', packDir, manifest, assetFilenames, outputPath),
 
   // Palettes & Duotone (stored under the active asset-pack working directory)
-  paletteScan: (packDir: string): Promise<{ filename: string; id: string; name: string; entryCount: number }[]> =>
+  paletteScan: (
+    packDir: string
+  ): Promise<{ filename: string; id: string; name: string; entryCount: number }[]> =>
     ipcRenderer.invoke('palette:scan', packDir),
-  paletteLoad: (filePath: string): Promise<unknown> =>
-    ipcRenderer.invoke('palette:load', filePath),
+  paletteLoad: (filePath: string): Promise<unknown> => ipcRenderer.invoke('palette:load', filePath),
   paletteSave: (filePath: string, data: unknown): Promise<void> =>
     ipcRenderer.invoke('palette:save', filePath, data),
   paletteDelete: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('palette:delete', filePath),
-  paletteCalibrationLoad: (packDir: string, paletteId: string): Promise<Record<string, Record<string, unknown>>> =>
+  paletteCalibrationLoad: (
+    packDir: string,
+    paletteId: string
+  ): Promise<Record<string, Record<string, unknown>>> =>
     ipcRenderer.invoke('palette:calibrationLoad', packDir, paletteId),
   paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown): Promise<void> =>
     ipcRenderer.invoke('palette:calibrationSave', packDir, paletteId, data),
-  frameScan: (packDir: string): Promise<string[]> =>
-    ipcRenderer.invoke('frame:scan', packDir),
+  frameScan: (packDir: string): Promise<string[]> => ipcRenderer.invoke('frame:scan', packDir)
 }
 
 if (process.contextIsolated) {

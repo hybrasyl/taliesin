@@ -12,19 +12,19 @@ Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne ma
 
 ## Features
 
-| Feature | Status |
-| --- | --- |
-| Map Catalog | ✅ Complete |
-| Map XML Editor | ✅ Complete |
-| World Map Editor | ✅ Complete |
-| Music Manager | ✅ Complete |
-| Sound Effects Browser | ✅ Complete |
-| Settings | ✅ Complete |
-| Archive Browser | ⬜ Not Started |
-| Sprite Viewer | ⬜ Not Started |
-| Sound Effects Manager | ⬜ Not Started |
-| Asset Import Manager | ⬜ Not Started |
-| Map Editor / Creator | ⬜ Not Started |
+| Feature                   | Status         |
+| ------------------------- | -------------- |
+| Map Catalog               | ✅ Complete    |
+| Map XML Editor            | ✅ Complete    |
+| World Map Editor          | ✅ Complete    |
+| Music Manager             | ✅ Complete    |
+| Sound Effects Browser     | ✅ Complete    |
+| Settings                  | ✅ Complete    |
+| Archive Browser           | ⬜ Not Started |
+| Sprite Viewer             | ⬜ Not Started |
+| Sound Effects Manager     | ⬜ Not Started |
+| Asset Import Manager      | ⬜ Not Started |
+| Map Editor / Creator      | ⬜ Not Started |
 | Procedural Map Generation | ⬜ Not Started |
 
 ### Map Catalog
@@ -87,12 +87,12 @@ Node.js 18+ required; development is done on Node 24.
 
 ## Project structure
 
-| Path | Purpose |
-| --- | --- |
-| `src/main/` | Electron main process — IPC handlers, file I/O |
-| `src/renderer/src/pages/` | One page component per feature |
-| `src/renderer/src/components/` | Shared and feature-specific components |
-| `src/renderer/src/utils/` | XML parse/serialize, rendering utilities |
+| Path                           | Purpose                                        |
+| ------------------------------ | ---------------------------------------------- |
+| `src/main/`                    | Electron main process — IPC handlers, file I/O |
+| `src/renderer/src/pages/`      | One page component per feature                 |
+| `src/renderer/src/components/` | Shared and feature-specific components         |
+| `src/renderer/src/utils/`      | XML parse/serialize, rendering utilities       |
 
 ## Testing
 

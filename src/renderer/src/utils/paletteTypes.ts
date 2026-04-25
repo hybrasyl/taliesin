@@ -12,12 +12,12 @@
 export interface PaletteEntry {
   id: string
   name: string
-  shadowColor: string       // hex "#RRGGBB"
-  highlightColor: string    // hex "#RRGGBB"
-  defaultDarkFactor?: number   // 0.0–1.0
-  defaultLightFactor?: number  // 0.0–1.0
-  defaultClampBlack?: boolean  // pure black at luminance 0
-  defaultClampWhite?: boolean  // pure white at luminance 1
+  shadowColor: string // hex "#RRGGBB"
+  highlightColor: string // hex "#RRGGBB"
+  defaultDarkFactor?: number // 0.0–1.0
+  defaultLightFactor?: number // 0.0–1.0
+  defaultClampBlack?: boolean // pure black at luminance 0
+  defaultClampWhite?: boolean // pure white at luminance 1
   category?: string
   notes?: string
 }
@@ -36,10 +36,10 @@ export interface Palette {
   name: string
   description?: string
   version: number
-  lastModified: string        // ISO 8601
+  lastModified: string // ISO 8601
   entries: PaletteEntry[]
-  variants?: VariantDef[]     // optional per-palette override of DEFAULT_VARIANTS
-  testIconPath?: string       // optional canonical preview icon
+  variants?: VariantDef[] // optional per-palette override of DEFAULT_VARIANTS
+  testIconPath?: string // optional canonical preview icon
 }
 
 export interface DuotoneParams {
@@ -47,18 +47,18 @@ export interface DuotoneParams {
   lightFactor: number
   midpointLow: number
   midpointHigh: number
-  clampBlack?: boolean     // if true, luminance === 0 maps to pure #000
-  clampWhite?: boolean     // if true, luminance === 1 maps to pure #FFF
+  clampBlack?: boolean // if true, luminance === 0 maps to pure #000
+  clampWhite?: boolean // if true, luminance === 1 maps to pure #FFF
 }
 
 export interface EntryCalibration extends DuotoneParams {
   selectedVariantId?: string
   autoDetected?: boolean
-  lastCalibrated: string      // ISO 8601, minute precision
+  lastCalibrated: string // ISO 8601, minute precision
 }
 
 export interface SourceCalibration {
-  frame?: string         // filename of frame PNG within {packDir}/_frames/, or omitted for none
+  frame?: string // filename of frame PNG within {packDir}/_frames/, or omitted for none
   entries: { [entryId: string]: EntryCalibration }
 }
 

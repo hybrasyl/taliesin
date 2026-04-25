@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { Box, CircularProgress, Typography, Menu, MenuItem, Divider, ListItemIcon, ListItemText } from '@mui/material'
+import {
+  Box,
+  CircularProgress,
+  Typography,
+  Menu,
+  MenuItem,
+  Divider,
+  ListItemIcon,
+  ListItemText
+} from '@mui/material'
 import BrushIcon from '@mui/icons-material/Brush'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FormatColorFillIcon from '@mui/icons-material/FormatColorFill'
@@ -13,26 +22,51 @@ import ContentPasteIcon from '@mui/icons-material/ContentPaste'
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import { MapFile, type MapTile } from '@eriscorp/dalib-ts'
 import {
-  loadMapAssets, getGroundBitmap, getStcBitmap, getAnimatedTileId,
-  isoCanvasSize, tileToScreen, screenToTileCoords, isTilePassable,
-  ISO_HTILE_W, ISO_VTILE_STEP, ISO_FOREGROUND_PAD,
-  GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT,
-  type MapAssets,
+  loadMapAssets,
+  getGroundBitmap,
+  getStcBitmap,
+  getAnimatedTileId,
+  isoCanvasSize,
+  tileToScreen,
+  screenToTileCoords,
+  isTilePassable,
+  ISO_HTILE_W,
+  ISO_VTILE_STEP,
+  ISO_FOREGROUND_PAD,
+  GROUND_TILE_WIDTH,
+  GROUND_TILE_HEIGHT,
+  type MapAssets
 } from '../../utils/mapRenderer'
 import {
-  floodFill, bresenhamLine, getShapeCoords, applyChanges,
-  type TileChange, type TileCoord, type ShapeMode,
+  floodFill,
+  bresenhamLine,
+  getShapeCoords,
+  applyChanges,
+  type TileChange,
+  type TileCoord,
+  type ShapeMode
 } from '../../utils/mapEditorTools'
 import type { TileLayer } from './TilePicker'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type EditorTool = 'draw' | 'erase' | 'sample' | 'fill' | 'line' | 'shape' | 'select' | 'randomFill'
+export type EditorTool =
+  | 'draw'
+  | 'erase'
+  | 'sample'
+  | 'fill'
+  | 'line'
+  | 'shape'
+  | 'select'
+  | 'randomFill'
 
 export { type TileChange } from '../../utils/mapEditorTools'
 
 export interface Selection {
-  x: number; y: number; w: number; h: number
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface Clipboard {
@@ -73,17 +107,37 @@ interface Props {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const HTILE_W = ISO_HTILE_W
-const HALF_H  = ISO_VTILE_STEP
+const HALF_H = ISO_VTILE_STEP
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 const MapEditorCanvas: React.FC<Props> = ({
-  mapFile, clientPath, tool, activeLayer, selectedTileId, selectedTileIds, zoom,
-  shapeMode, showGrid, showBg, showLfg, showRfg, showPassability,
-  selection, clipboard, pasteMode,
-  onTileChange, onSampleTile, onHoverTile, onZoomChange,
-  onSelectionChange, onRequestPaste, onSelectionMove,
-  showAnimation, onContextAction, renderVersion,
+  mapFile,
+  clientPath,
+  tool,
+  activeLayer,
+  selectedTileId,
+  selectedTileIds,
+  zoom,
+  shapeMode,
+  showGrid,
+  showBg,
+  showLfg,
+  showRfg,
+  showPassability,
+  selection,
+  clipboard,
+  pasteMode,
+  onTileChange,
+  onSampleTile,
+  onHoverTile,
+  onZoomChange,
+  onSelectionChange,
+  onRequestPaste,
+  onSelectionMove,
+  showAnimation,
+  onContextAction,
+  renderVersion
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -108,7 +162,11 @@ const MapEditorCanvas: React.FC<Props> = ({
   const [dragOffset, setDragOffset] = useState<TileCoord | null>(null)
 
   // Context menu
-  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; tile: TileCoord } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number
+    mouseY: number
+    tile: TileCoord
+  } | null>(null)
 
   // Animation
   const elapsedRef = useRef(0)
@@ -138,7 +196,10 @@ const MapEditorCanvas: React.FC<Props> = ({
       return
     }
 
-    if (scale !== 1) { ctx.save(); ctx.scale(scale, scale) }
+    if (scale !== 1) {
+      ctx.save()
+      ctx.scale(scale, scale)
+    }
 
     const { tiles } = mapFile
 
@@ -195,7 +256,21 @@ const MapEditorCanvas: React.FC<Props> = ({
         }
       }
     }
-  }, [mapFile, scale, W, H, canvasW, canvasH, originX, originY, showBg, showLfg, showRfg, showPassability, showAnimation])
+  }, [
+    mapFile,
+    scale,
+    W,
+    H,
+    canvasW,
+    canvasH,
+    originX,
+    originY,
+    showBg,
+    showLfg,
+    showRfg,
+    showPassability,
+    showAnimation
+  ])
 
   // Initial render + asset loading
   useEffect(() => {
@@ -205,7 +280,9 @@ const MapEditorCanvas: React.FC<Props> = ({
       setStatusMsg('Loading assets...')
       try {
         if (clientPath) {
-          const assets = await loadMapAssets(clientPath, msg => { if (!cancelled) setStatusMsg(msg) })
+          const assets = await loadMapAssets(clientPath, (msg) => {
+            if (!cancelled) setStatusMsg(msg)
+          })
           if (cancelled) return
           assetsRef.current = assets
         }
@@ -214,11 +291,16 @@ const MapEditorCanvas: React.FC<Props> = ({
           await doFullRender()
         }
       } finally {
-        if (!cancelled) { setLoading(false); setStatusMsg(null) }
+        if (!cancelled) {
+          setLoading(false)
+          setStatusMsg(null)
+        }
       }
     }
     init()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [clientPath, doFullRender])
 
   const queueRender = useCallback(() => {
@@ -239,8 +321,8 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   useEffect(() => {
     const assets = assetsRef.current
-    const hasAnimations = showAnimation && assets &&
-      (assets.groundAnimationTable || assets.stcAnimationTable)
+    const hasAnimations =
+      showAnimation && assets && (assets.groundAnimationTable || assets.stcAnimationTable)
     if (!hasAnimations) return
 
     let lastTime = performance.now()
@@ -263,41 +345,52 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   useEffect(() => {
     const assets = assetsRef.current
-    const needsGhost = tool === 'draw' || tool === 'fill' || tool === 'line' || tool === 'shape' || tool === 'randomFill'
+    const needsGhost =
+      tool === 'draw' ||
+      tool === 'fill' ||
+      tool === 'line' ||
+      tool === 'shape' ||
+      tool === 'randomFill'
     if (!assets || !needsGhost || selectedTileId <= 0) {
       setGhostBitmap(null)
       return
     }
     let cancelled = false
     const load = async () => {
-      const bm = activeLayer === 'background'
-        ? await getGroundBitmap(selectedTileId, assets)
-        : await getStcBitmap(selectedTileId, assets)
+      const bm =
+        activeLayer === 'background'
+          ? await getGroundBitmap(selectedTileId, assets)
+          : await getStcBitmap(selectedTileId, assets)
       if (!cancelled) setGhostBitmap(bm)
     }
     load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [selectedTileId, activeLayer, tool])
 
   // ── Draw ghost at a tile position ──────────────────────────────────────────
 
-  const drawGhostAt = useCallback((ctx: CanvasRenderingContext2D, tx: number, ty: number, bm: ImageBitmap) => {
-    if (activeLayer === 'background') {
-      const gx = (originX + (tx - ty) * HTILE_W - HTILE_W) * scale
-      const gy = (originY + (tx + ty) * HALF_H) * scale
-      ctx.drawImage(bm, gx, gy, GROUND_TILE_WIDTH * scale, GROUND_TILE_HEIGHT * scale)
-    } else {
-      const fgBaseX = (originX + (tx - ty) * HTILE_W) * scale
-      const fgBaseY = (originY + (tx + ty) * HALF_H) * scale
-      const bw = bm.width * scale
-      const bh = bm.height * scale
-      if (activeLayer === 'leftForeground') {
-        ctx.drawImage(bm, fgBaseX - HTILE_W * scale, fgBaseY - bh + HTILE_W * scale, bw, bh)
+  const drawGhostAt = useCallback(
+    (ctx: CanvasRenderingContext2D, tx: number, ty: number, bm: ImageBitmap) => {
+      if (activeLayer === 'background') {
+        const gx = (originX + (tx - ty) * HTILE_W - HTILE_W) * scale
+        const gy = (originY + (tx + ty) * HALF_H) * scale
+        ctx.drawImage(bm, gx, gy, GROUND_TILE_WIDTH * scale, GROUND_TILE_HEIGHT * scale)
       } else {
-        ctx.drawImage(bm, fgBaseX, fgBaseY - bh + HTILE_W * scale, bw, bh)
+        const fgBaseX = (originX + (tx - ty) * HTILE_W) * scale
+        const fgBaseY = (originY + (tx + ty) * HALF_H) * scale
+        const bw = bm.width * scale
+        const bh = bm.height * scale
+        if (activeLayer === 'leftForeground') {
+          ctx.drawImage(bm, fgBaseX - HTILE_W * scale, fgBaseY - bh + HTILE_W * scale, bw, bh)
+        } else {
+          ctx.drawImage(bm, fgBaseX, fgBaseY - bh + HTILE_W * scale, bw, bh)
+        }
       }
-    }
-  }, [activeLayer, originX, originY, scale])
+    },
+    [activeLayer, originX, originY, scale]
+  )
 
   // ── Overlay ────────────────────────────────────────────────────────────────
 
@@ -428,7 +521,13 @@ const MapEditorCanvas: React.FC<Props> = ({
 
     // Shape tool preview
     if (tool === 'shape' && shapeStart && hoverTile) {
-      const coords = getShapeCoords(shapeStart.tx, shapeStart.ty, hoverTile.tx, hoverTile.ty, shapeMode)
+      const coords = getShapeCoords(
+        shapeStart.tx,
+        shapeStart.ty,
+        hoverTile.tx,
+        hoverTile.ty,
+        shapeMode
+      )
       ctx.save()
       ctx.globalAlpha = 0.45
       for (const { tx, ty } of coords) {
@@ -450,7 +549,11 @@ const MapEditorCanvas: React.FC<Props> = ({
       const { x: cx, y: cy } = tileToScreen(hoverTile.tx, hoverTile.ty, originX, originY, scale)
 
       // Ghost tile preview for single-tile tools
-      const showGhost = ghostBitmap && (tool === 'draw' || tool === 'fill' || tool === 'randomFill') && !lineStart && !shapeStart
+      const showGhost =
+        ghostBitmap &&
+        (tool === 'draw' || tool === 'fill' || tool === 'randomFill') &&
+        !lineStart &&
+        !shapeStart
       if (showGhost) {
         ctx.save()
         ctx.globalAlpha = 0.55
@@ -462,89 +565,137 @@ const MapEditorCanvas: React.FC<Props> = ({
       drawDiamond(ctx, cx, cy, scale)
       ctx.fillStyle = 'rgba(255,255,255,0.1)'
       ctx.fill()
-      ctx.strokeStyle = tool === 'erase' ? 'rgba(255,80,80,0.8)'
-        : altHeld ? 'rgba(255,200,50,0.8)'
-        : 'rgba(255,255,255,0.8)'
+      ctx.strokeStyle =
+        tool === 'erase'
+          ? 'rgba(255,80,80,0.8)'
+          : altHeld
+            ? 'rgba(255,200,50,0.8)'
+            : 'rgba(255,255,255,0.8)'
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
   }, [
-    hoverTile, canvasW, canvasH, originX, originY, scale, showGrid, W, H,
-    ghostBitmap, tool, activeLayer, altHeld,
-    lineStart, shapeStart, shapeMode,
-    selection, clipboard, pasteMode, dragOffset, mapFile,
-    drawGhostAt,
+    hoverTile,
+    canvasW,
+    canvasH,
+    originX,
+    originY,
+    scale,
+    showGrid,
+    W,
+    H,
+    ghostBitmap,
+    tool,
+    activeLayer,
+    altHeld,
+    lineStart,
+    shapeStart,
+    shapeMode,
+    selection,
+    clipboard,
+    pasteMode,
+    dragOffset,
+    mapFile,
+    drawGhostAt
   ])
 
   // ── Coordinate conversion ──────────────────────────────────────────────────
 
-  const eventToTile = useCallback((e: React.MouseEvent<HTMLCanvasElement>): TileCoord | null => {
-    const canvas = overlayRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const { tx, ty } = screenToTileCoords(e.clientX - rect.left, e.clientY - rect.top, originX, originY, scale)
-    if (tx < 0 || ty < 0 || tx >= W || ty >= H) return null
-    return { tx, ty }
-  }, [originX, originY, scale, W, H])
+  const eventToTile = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>): TileCoord | null => {
+      const canvas = overlayRef.current
+      if (!canvas) return null
+      const rect = canvas.getBoundingClientRect()
+      const { tx, ty } = screenToTileCoords(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        originX,
+        originY,
+        scale
+      )
+      if (tx < 0 || ty < 0 || tx >= W || ty >= H) return null
+      return { tx, ty }
+    },
+    [originX, originY, scale, W, H]
+  )
 
   // ── Tool application ───────────────────────────────────────────────────────
 
-  const applyDrawOrErase = useCallback((tx: number, ty: number) => {
-    const tile = mapFile.getTile(tx, ty)
-    const oldValue = tile[activeLayer]
-    const newValue = tool === 'erase' ? 0 : selectedTileId
-    if (oldValue === newValue) return
-    if (batchRef.current.some(c => c.x === tx && c.y === ty && c.layer === activeLayer)) return
-
-    mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
-    batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
-    queueRender()
-  }, [mapFile, tool, activeLayer, selectedTileId, queueRender])
-
-  const applyRandomFill = useCallback((tx: number, ty: number) => {
-    if (selectedTileIds.length === 0) return
-    const tile = mapFile.getTile(tx, ty)
-    const oldValue = tile[activeLayer]
-    if (oldValue !== 0) return // only fill empty
-    if (batchRef.current.some(c => c.x === tx && c.y === ty && c.layer === activeLayer)) return
-
-    const newValue = selectedTileIds[Math.floor(Math.random() * selectedTileIds.length)]
-    mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
-    batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
-    queueRender()
-  }, [mapFile, activeLayer, selectedTileIds, queueRender])
-
-  const applyFill = useCallback((tx: number, ty: number) => {
-    const changes = floodFill(mapFile, tx, ty, activeLayer, selectedTileId)
-    if (changes.length === 0) return
-    applyChanges(mapFile, changes)
-    onTileChange(changes)
-    queueRender()
-  }, [mapFile, activeLayer, selectedTileId, onTileChange, queueRender])
-
-  const commitLineOrShape = useCallback((coords: TileCoord[]) => {
-    const changes: TileChange[] = []
-    for (const { tx, ty } of coords) {
-      if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue
+  const applyDrawOrErase = useCallback(
+    (tx: number, ty: number) => {
       const tile = mapFile.getTile(tx, ty)
       const oldValue = tile[activeLayer]
-      const newValue = selectedTileId
-      if (oldValue === newValue) continue
-      changes.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
-    }
-    if (changes.length === 0) return
-    applyChanges(mapFile, changes)
-    onTileChange(changes)
-    queueRender()
-  }, [mapFile, activeLayer, selectedTileId, W, H, onTileChange, queueRender])
+      const newValue = tool === 'erase' ? 0 : selectedTileId
+      if (oldValue === newValue) return
+      if (batchRef.current.some((c) => c.x === tx && c.y === ty && c.layer === activeLayer)) return
+
+      mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
+      batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
+      queueRender()
+    },
+    [mapFile, tool, activeLayer, selectedTileId, queueRender]
+  )
+
+  const applyRandomFill = useCallback(
+    (tx: number, ty: number) => {
+      if (selectedTileIds.length === 0) return
+      const tile = mapFile.getTile(tx, ty)
+      const oldValue = tile[activeLayer]
+      if (oldValue !== 0) return // only fill empty
+      if (batchRef.current.some((c) => c.x === tx && c.y === ty && c.layer === activeLayer)) return
+
+      const newValue = selectedTileIds[Math.floor(Math.random() * selectedTileIds.length)]
+      mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
+      batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
+      queueRender()
+    },
+    [mapFile, activeLayer, selectedTileIds, queueRender]
+  )
+
+  const applyFill = useCallback(
+    (tx: number, ty: number) => {
+      const changes = floodFill(mapFile, tx, ty, activeLayer, selectedTileId)
+      if (changes.length === 0) return
+      applyChanges(mapFile, changes)
+      onTileChange(changes)
+      queueRender()
+    },
+    [mapFile, activeLayer, selectedTileId, onTileChange, queueRender]
+  )
+
+  const commitLineOrShape = useCallback(
+    (coords: TileCoord[]) => {
+      const changes: TileChange[] = []
+      for (const { tx, ty } of coords) {
+        if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue
+        const tile = mapFile.getTile(tx, ty)
+        const oldValue = tile[activeLayer]
+        const newValue = selectedTileId
+        if (oldValue === newValue) continue
+        changes.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
+      }
+      if (changes.length === 0) return
+      applyChanges(mapFile, changes)
+      onTileChange(changes)
+      queueRender()
+    },
+    [mapFile, activeLayer, selectedTileId, W, H, onTileChange, queueRender]
+  )
 
   // ── Is tile inside selection? ──────────────────────────────────────────────
 
-  const isInSelection = useCallback((tx: number, ty: number): boolean => {
-    if (!selection) return false
-    return tx >= selection.x && tx < selection.x + selection.w &&
-           ty >= selection.y && ty < selection.y + selection.h
-  }, [selection])
+  const isInSelection = useCallback(
+    (tx: number, ty: number): boolean => {
+      if (!selection) return false
+      return (
+        tx >= selection.x &&
+        tx < selection.x + selection.w &&
+        ty >= selection.y &&
+        ty < selection.y + selection.h
+      )
+    },
+    [selection]
+  )
 
   // ── Middle mouse pan ────────────────────────────────────────────────────────
 
@@ -553,172 +704,218 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   // ── Mouse handlers ─────────────────────────────────────────────────────────
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    // Middle mouse button — start panning
-    if (e.button === 1) {
-      e.preventDefault()
-      panningRef.current = true
-      const container = scrollRef.current
-      panStartRef.current = {
-        mx: e.clientX, my: e.clientY,
-        sx: container?.scrollLeft ?? 0, sy: container?.scrollTop ?? 0,
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Middle mouse button — start panning
+      if (e.button === 1) {
+        e.preventDefault()
+        panningRef.current = true
+        const container = scrollRef.current
+        panStartRef.current = {
+          mx: e.clientX,
+          my: e.clientY,
+          sx: container?.scrollLeft ?? 0,
+          sy: container?.scrollTop ?? 0
+        }
+        return
       }
-      return
-    }
-    if (e.button !== 0) return
-    const tile = eventToTile(e)
-    if (!tile) return
+      if (e.button !== 0) return
+      const tile = eventToTile(e)
+      if (!tile) return
 
-    const effectiveTool = altHeld ? 'sample' : tool
+      const effectiveTool = altHeld ? 'sample' : tool
 
-    // Alt-eyedropper
-    if (effectiveTool === 'sample') {
-      onSampleTile(mapFile.getTile(tile.tx, tile.ty)[activeLayer])
-      return
-    }
+      // Alt-eyedropper
+      if (effectiveTool === 'sample') {
+        onSampleTile(mapFile.getTile(tile.tx, tile.ty)[activeLayer])
+        return
+      }
 
-    // Paste mode
-    if (pasteMode) {
-      onRequestPaste(tile.tx, tile.ty, e.shiftKey)
-      return
-    }
+      // Paste mode
+      if (pasteMode) {
+        onRequestPaste(tile.tx, tile.ty, e.shiftKey)
+        return
+      }
 
-    // Select tool
-    if (effectiveTool === 'select') {
-      if (selection && isInSelection(tile.tx, tile.ty)) {
-        // Start drag inside selection
-        setDragStart(tile)
-        setDragOffset({ tx: 0, ty: 0 })
+      // Select tool
+      if (effectiveTool === 'select') {
+        if (selection && isInSelection(tile.tx, tile.ty)) {
+          // Start drag inside selection
+          setDragStart(tile)
+          setDragOffset({ tx: 0, ty: 0 })
+          paintingRef.current = true
+        } else {
+          // Start new selection
+          setSelectStart(tile)
+          onSelectionChange(null)
+          paintingRef.current = true
+        }
+        return
+      }
+
+      // Line tool
+      if (effectiveTool === 'line') {
+        if (lineStart) {
+          // Second click — commit line
+          const coords = bresenhamLine(lineStart.tx, lineStart.ty, tile.tx, tile.ty)
+          commitLineOrShape(coords)
+          setLineStart(null)
+        } else {
+          // First click — set start
+          setLineStart(tile)
+        }
+        return
+      }
+
+      // Shape tool
+      if (effectiveTool === 'shape') {
+        setShapeStart(tile)
         paintingRef.current = true
-      } else {
-        // Start new selection
-        setSelectStart(tile)
-        onSelectionChange(null)
-        paintingRef.current = true
+        return
       }
-      return
-    }
 
-    // Line tool
-    if (effectiveTool === 'line') {
-      if (lineStart) {
-        // Second click — commit line
-        const coords = bresenhamLine(lineStart.tx, lineStart.ty, tile.tx, tile.ty)
-        commitLineOrShape(coords)
-        setLineStart(null)
-      } else {
-        // First click — set start
-        setLineStart(tile)
+      // Fill tool
+      if (effectiveTool === 'fill') {
+        applyFill(tile.tx, tile.ty)
+        return
       }
-      return
-    }
 
-    // Shape tool
-    if (effectiveTool === 'shape') {
-      setShapeStart(tile)
+      // Draw / erase / randomFill
       paintingRef.current = true
-      return
-    }
-
-    // Fill tool
-    if (effectiveTool === 'fill') {
-      applyFill(tile.tx, tile.ty)
-      return
-    }
-
-    // Draw / erase / randomFill
-    paintingRef.current = true
-    batchRef.current = []
-    if (effectiveTool === 'randomFill') {
-      applyRandomFill(tile.tx, tile.ty)
-    } else {
-      applyDrawOrErase(tile.tx, tile.ty)
-    }
-  }, [
-    eventToTile, tool, altHeld, activeLayer, pasteMode, selection,
-    lineStart, onSampleTile, onRequestPaste, onSelectionChange,
-    isInSelection, applyFill, applyDrawOrErase, applyRandomFill,
-    commitLineOrShape, mapFile,
-  ])
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    // Middle mouse panning
-    if (panningRef.current) {
-      const container = scrollRef.current
-      if (container) {
-        container.scrollLeft = panStartRef.current.sx - (e.clientX - panStartRef.current.mx)
-        container.scrollTop = panStartRef.current.sy - (e.clientY - panStartRef.current.my)
-      }
-      return
-    }
-
-    setAltHeld(e.altKey)
-    const tile = eventToTile(e)
-    setHoverTile(tile)
-    onHoverTile(tile)
-
-    if (!paintingRef.current || !tile) return
-
-    const effectiveTool = altHeld ? 'sample' : tool
-
-    // Select: building selection rect
-    if (effectiveTool === 'select' && selectStart) {
-      const x = Math.min(selectStart.tx, tile.tx)
-      const y = Math.min(selectStart.ty, tile.ty)
-      const w = Math.abs(tile.tx - selectStart.tx) + 1
-      const h = Math.abs(tile.ty - selectStart.ty) + 1
-      onSelectionChange({ x, y, w, h })
-      return
-    }
-
-    // Select: dragging selection
-    if (effectiveTool === 'select' && dragStart) {
-      setDragOffset({ tx: tile.tx - dragStart.tx, ty: tile.ty - dragStart.ty })
-      return
-    }
-
-    // Shape: update shape end
-    // (preview is handled by overlay, no action needed here)
-
-    // Draw / erase continuous
-    if (effectiveTool === 'draw' || effectiveTool === 'erase') {
-      applyDrawOrErase(tile.tx, tile.ty)
-    }
-
-    // Random fill continuous
-    if (effectiveTool === 'randomFill') {
-      applyRandomFill(tile.tx, tile.ty)
-    }
-  }, [eventToTile, tool, altHeld, selectStart, dragStart, onHoverTile, onSelectionChange, applyDrawOrErase, applyRandomFill])
-
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (panningRef.current) { panningRef.current = false; return }
-    const tile = eventToTile(e)
-
-    // Shape tool: commit on release
-    if (tool === 'shape' && shapeStart && tile) {
-      const coords = getShapeCoords(shapeStart.tx, shapeStart.ty, tile.tx, tile.ty, shapeMode)
-      commitLineOrShape(coords)
-      setShapeStart(null)
-    }
-
-    // Select tool: finalize selection or drag
-    if (tool === 'select') {
-      if (dragStart && dragOffset && (dragOffset.tx !== 0 || dragOffset.ty !== 0)) {
-        onSelectionMove(dragOffset.tx, dragOffset.ty, e.shiftKey)
-      }
-      setSelectStart(null)
-      setDragStart(null)
-      setDragOffset(null)
-    }
-
-    // Commit batch for draw/erase/randomFill
-    if (paintingRef.current && batchRef.current.length > 0) {
-      onTileChange(batchRef.current)
       batchRef.current = []
-    }
-    paintingRef.current = false
-  }, [eventToTile, tool, shapeStart, shapeMode, dragStart, dragOffset, commitLineOrShape, onTileChange, onSelectionMove])
+      if (effectiveTool === 'randomFill') {
+        applyRandomFill(tile.tx, tile.ty)
+      } else {
+        applyDrawOrErase(tile.tx, tile.ty)
+      }
+    },
+    [
+      eventToTile,
+      tool,
+      altHeld,
+      activeLayer,
+      pasteMode,
+      selection,
+      lineStart,
+      onSampleTile,
+      onRequestPaste,
+      onSelectionChange,
+      isInSelection,
+      applyFill,
+      applyDrawOrErase,
+      applyRandomFill,
+      commitLineOrShape,
+      mapFile
+    ]
+  )
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Middle mouse panning
+      if (panningRef.current) {
+        const container = scrollRef.current
+        if (container) {
+          container.scrollLeft = panStartRef.current.sx - (e.clientX - panStartRef.current.mx)
+          container.scrollTop = panStartRef.current.sy - (e.clientY - panStartRef.current.my)
+        }
+        return
+      }
+
+      setAltHeld(e.altKey)
+      const tile = eventToTile(e)
+      setHoverTile(tile)
+      onHoverTile(tile)
+
+      if (!paintingRef.current || !tile) return
+
+      const effectiveTool = altHeld ? 'sample' : tool
+
+      // Select: building selection rect
+      if (effectiveTool === 'select' && selectStart) {
+        const x = Math.min(selectStart.tx, tile.tx)
+        const y = Math.min(selectStart.ty, tile.ty)
+        const w = Math.abs(tile.tx - selectStart.tx) + 1
+        const h = Math.abs(tile.ty - selectStart.ty) + 1
+        onSelectionChange({ x, y, w, h })
+        return
+      }
+
+      // Select: dragging selection
+      if (effectiveTool === 'select' && dragStart) {
+        setDragOffset({ tx: tile.tx - dragStart.tx, ty: tile.ty - dragStart.ty })
+        return
+      }
+
+      // Shape: update shape end
+      // (preview is handled by overlay, no action needed here)
+
+      // Draw / erase continuous
+      if (effectiveTool === 'draw' || effectiveTool === 'erase') {
+        applyDrawOrErase(tile.tx, tile.ty)
+      }
+
+      // Random fill continuous
+      if (effectiveTool === 'randomFill') {
+        applyRandomFill(tile.tx, tile.ty)
+      }
+    },
+    [
+      eventToTile,
+      tool,
+      altHeld,
+      selectStart,
+      dragStart,
+      onHoverTile,
+      onSelectionChange,
+      applyDrawOrErase,
+      applyRandomFill
+    ]
+  )
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (panningRef.current) {
+        panningRef.current = false
+        return
+      }
+      const tile = eventToTile(e)
+
+      // Shape tool: commit on release
+      if (tool === 'shape' && shapeStart && tile) {
+        const coords = getShapeCoords(shapeStart.tx, shapeStart.ty, tile.tx, tile.ty, shapeMode)
+        commitLineOrShape(coords)
+        setShapeStart(null)
+      }
+
+      // Select tool: finalize selection or drag
+      if (tool === 'select') {
+        if (dragStart && dragOffset && (dragOffset.tx !== 0 || dragOffset.ty !== 0)) {
+          onSelectionMove(dragOffset.tx, dragOffset.ty, e.shiftKey)
+        }
+        setSelectStart(null)
+        setDragStart(null)
+        setDragOffset(null)
+      }
+
+      // Commit batch for draw/erase/randomFill
+      if (paintingRef.current && batchRef.current.length > 0) {
+        onTileChange(batchRef.current)
+        batchRef.current = []
+      }
+      paintingRef.current = false
+    },
+    [
+      eventToTile,
+      tool,
+      shapeStart,
+      shapeMode,
+      dragStart,
+      dragOffset,
+      commitLineOrShape,
+      onTileChange,
+      onSelectionMove
+    ]
+  )
 
   const handleMouseLeave = useCallback(() => {
     panningRef.current = false
@@ -732,23 +929,29 @@ const MapEditorCanvas: React.FC<Props> = ({
     paintingRef.current = false
   }, [onHoverTile, onTileChange])
 
-  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    if (lineStart) setLineStart(null)
-    if (shapeStart) setShapeStart(null)
-    const tile = eventToTile(e)
-    if (tile) {
-      setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, tile })
-    }
-  }, [lineStart, shapeStart, eventToTile])
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      e.preventDefault()
+      if (lineStart) setLineStart(null)
+      if (shapeStart) setShapeStart(null)
+      const tile = eventToTile(e)
+      if (tile) {
+        setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, tile })
+      }
+    },
+    [lineStart, shapeStart, eventToTile]
+  )
 
   const handleMenuClose = useCallback(() => setContextMenu(null), [])
 
-  const handleMenuAction = useCallback((action: string) => {
-    const tile = contextMenu?.tile
-    setContextMenu(null)
-    onContextAction(action, tile ?? undefined)
-  }, [contextMenu, onContextAction])
+  const handleMenuAction = useCallback(
+    (action: string) => {
+      const tile = contextMenu?.tile
+      setContextMenu(null)
+      onContextAction(action, tile ?? undefined)
+    },
+    [contextMenu, onContextAction]
+  )
 
   // ── Wheel ──────────────────────────────────────────────────────────────────
 
@@ -787,18 +990,34 @@ const MapEditorCanvas: React.FC<Props> = ({
   else if (tool === 'select') {
     if (hoverTile && isInSelection(hoverTile.tx, hoverTile.ty)) cursor = 'move'
     else cursor = 'crosshair'
-  }
-  else if (pasteMode) cursor = 'copy'
+  } else if (pasteMode) cursor = 'copy'
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Box ref={scrollRef} sx={{ position: 'relative', overflow: 'auto', flex: 1, minWidth: 0, minHeight: 0 }}>
+    <Box
+      ref={scrollRef}
+      sx={{ position: 'relative', overflow: 'auto', flex: 1, minWidth: 0, minHeight: 0 }}
+    >
       {(loading || statusMsg) && (
-        <Box sx={{ position: 'absolute', top: 6, left: 6, zIndex: 10, display: 'flex', alignItems: 'center', gap: 0.75, pointerEvents: 'none' }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            pointerEvents: 'none'
+          }}
+        >
           {loading && <CircularProgress size={12} />}
           {statusMsg && (
-            <Typography variant="caption" sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}
+            >
               {statusMsg}
             </Typography>
           )}
@@ -823,43 +1042,67 @@ const MapEditorCanvas: React.FC<Props> = ({
         open={contextMenu !== null}
         onClose={handleMenuClose}
         anchorReference="anchorPosition"
-        anchorPosition={contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
+        anchorPosition={
+          contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
+        }
       >
         {selection && [
           <MenuItem key="cut" onClick={() => handleMenuAction('cut')}>
-            <ListItemIcon><ContentCutIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <ContentCutIcon fontSize="small" />
+            </ListItemIcon>
             <ListItemText>Cut</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+X</Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+              Ctrl+X
+            </Typography>
           </MenuItem>,
           <MenuItem key="copy" onClick={() => handleMenuAction('copy')}>
-            <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <ContentCopyIcon fontSize="small" />
+            </ListItemIcon>
             <ListItemText>Copy</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+C</Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+              Ctrl+C
+            </Typography>
           </MenuItem>,
           <MenuItem key="del" onClick={() => handleMenuAction('delete')}>
-            <ListItemIcon><DeleteForeverIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <DeleteForeverIcon fontSize="small" />
+            </ListItemIcon>
             <ListItemText>Delete</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Del</Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+              Del
+            </Typography>
           </MenuItem>,
           <MenuItem key="prefab" onClick={() => handleMenuAction('createPrefab')}>
-            <ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <SelectAllIcon fontSize="small" />
+            </ListItemIcon>
             <ListItemText>Create Prefab</ListItemText>
           </MenuItem>,
-          <Divider key="d1" />,
+          <Divider key="d1" />
         ]}
         {clipboard && (
           <MenuItem onClick={() => handleMenuAction('paste')}>
-            <ListItemIcon><ContentPasteIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <ContentPasteIcon fontSize="small" />
+            </ListItemIcon>
             <ListItemText>Paste</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>Ctrl+V</Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+              Ctrl+V
+            </Typography>
           </MenuItem>
         )}
         <MenuItem onClick={() => handleMenuAction('sample')}>
-          <ListItemIcon><ColorizeIcon fontSize="small" /></ListItemIcon>
+          <ListItemIcon>
+            <ColorizeIcon fontSize="small" />
+          </ListItemIcon>
           <ListItemText>Sample Tile</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleMenuAction('fillHere')}>
-          <ListItemIcon><FormatColorFillIcon fontSize="small" /></ListItemIcon>
+          <ListItemIcon>
+            <FormatColorFillIcon fontSize="small" />
+          </ListItemIcon>
           <ListItemText>Fill From Here</ListItemText>
         </MenuItem>
         <Divider />
@@ -876,12 +1119,42 @@ const MapEditorCanvas: React.FC<Props> = ({
           <ListItemText>{showPassability ? 'Hide' : 'Show'} Passability</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => handleMenuAction('tool-draw')}><ListItemIcon><BrushIcon fontSize="small" /></ListItemIcon><ListItemText>Draw</ListItemText></MenuItem>
-        <MenuItem onClick={() => handleMenuAction('tool-erase')}><ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon><ListItemText>Erase</ListItemText></MenuItem>
-        <MenuItem onClick={() => handleMenuAction('tool-fill')}><ListItemIcon><FormatColorFillIcon fontSize="small" /></ListItemIcon><ListItemText>Fill</ListItemText></MenuItem>
-        <MenuItem onClick={() => handleMenuAction('tool-line')}><ListItemIcon><TimelineIcon fontSize="small" /></ListItemIcon><ListItemText>Line</ListItemText></MenuItem>
-        <MenuItem onClick={() => handleMenuAction('tool-shape')}><ListItemIcon><CropSquareIcon fontSize="small" /></ListItemIcon><ListItemText>Shape</ListItemText></MenuItem>
-        <MenuItem onClick={() => handleMenuAction('tool-select')}><ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon><ListItemText>Select</ListItemText></MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-draw')}>
+          <ListItemIcon>
+            <BrushIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Draw</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-erase')}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Erase</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-fill')}>
+          <ListItemIcon>
+            <FormatColorFillIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Fill</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-line')}>
+          <ListItemIcon>
+            <TimelineIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Line</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-shape')}>
+          <ListItemIcon>
+            <CropSquareIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Shape</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('tool-select')}>
+          <ListItemIcon>
+            <SelectAllIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Select</ListItemText>
+        </MenuItem>
       </Menu>
     </Box>
   )
@@ -902,9 +1175,11 @@ function drawDiamond(ctx: CanvasRenderingContext2D, cx: number, cy: number, scal
 
 function drawEmptyGrid(
   ctx: CanvasRenderingContext2D,
-  W: number, H: number,
-  originX: number, originY: number,
-  scale: number,
+  W: number,
+  H: number,
+  originX: number,
+  originY: number,
+  scale: number
 ) {
   ctx.strokeStyle = '#ff00ff'
   ctx.lineWidth = 0.5

@@ -23,7 +23,11 @@ describe('useUnsavedGuard', () => {
   it('guard runs the action immediately when not dirty', () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
     let called = false
-    act(() => result.current.guard(() => { called = true }))
+    act(() =>
+      result.current.guard(() => {
+        called = true
+      })
+    )
     expect(called).toBe(true)
     expect(result.current.dialogOpen).toBe(false)
   })
@@ -32,7 +36,11 @@ describe('useUnsavedGuard', () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
     act(() => result.current.markDirty())
     let called = false
-    act(() => result.current.guard(() => { called = true }))
+    act(() =>
+      result.current.guard(() => {
+        called = true
+      })
+    )
     expect(called).toBe(false)
     expect(result.current.dialogOpen).toBe(true)
   })
@@ -41,7 +49,11 @@ describe('useUnsavedGuard', () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
     act(() => result.current.markDirty())
     let actionRan = false
-    act(() => result.current.guard(() => { actionRan = true }))
+    act(() =>
+      result.current.guard(() => {
+        actionRan = true
+      })
+    )
     act(() => result.current.handleDialogDiscard())
     expect(actionRan).toBe(true)
     expect(result.current.dialogOpen).toBe(false)
@@ -51,13 +63,21 @@ describe('useUnsavedGuard', () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
     act(() => result.current.markDirty())
     let actionRan = false
-    act(() => result.current.guard(() => { actionRan = true }))
+    act(() =>
+      result.current.guard(() => {
+        actionRan = true
+      })
+    )
     act(() => result.current.handleDialogCancel())
     expect(actionRan).toBe(false)
     expect(result.current.dialogOpen).toBe(false)
     // Still dirty: opening the dialog again should be deferred again
     let secondAction = false
-    act(() => result.current.guard(() => { secondAction = true }))
+    act(() =>
+      result.current.guard(() => {
+        secondAction = true
+      })
+    )
     expect(secondAction).toBe(false)
     expect(result.current.dialogOpen).toBe(true)
   })
@@ -66,12 +86,20 @@ describe('useUnsavedGuard', () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
 
     let savedCount = 0
-    result.current.saveRef.current = async () => { savedCount++ }
+    result.current.saveRef.current = async () => {
+      savedCount++
+    }
 
     act(() => result.current.markDirty())
     let actionRan = false
-    act(() => result.current.guard(() => { actionRan = true }))
-    await act(async () => { await result.current.handleDialogSave() })
+    act(() =>
+      result.current.guard(() => {
+        actionRan = true
+      })
+    )
+    await act(async () => {
+      await result.current.handleDialogSave()
+    })
 
     expect(savedCount).toBe(1)
     expect(actionRan).toBe(true)
@@ -80,12 +108,20 @@ describe('useUnsavedGuard', () => {
 
   it('handleDialogSave swallows save errors and skips the action', async () => {
     const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
-    result.current.saveRef.current = async () => { throw new Error('disk full') }
+    result.current.saveRef.current = async () => {
+      throw new Error('disk full')
+    }
 
     act(() => result.current.markDirty())
     let actionRan = false
-    act(() => result.current.guard(() => { actionRan = true }))
-    await act(async () => { await result.current.handleDialogSave() })
+    act(() =>
+      result.current.guard(() => {
+        actionRan = true
+      })
+    )
+    await act(async () => {
+      await result.current.handleDialogSave()
+    })
 
     expect(actionRan).toBe(false)
     expect(result.current.dialogOpen).toBe(false)
@@ -99,7 +135,11 @@ describe('useUnsavedGuard', () => {
     act(() => result.current.markClean())
     // After markClean the next guard() should run synchronously
     let ran = false
-    act(() => result.current.guard(() => { ran = true }))
+    act(() =>
+      result.current.guard(() => {
+        ran = true
+      })
+    )
     expect(ran).toBe(true)
   })
 
@@ -111,13 +151,17 @@ describe('useUnsavedGuard', () => {
     }
 
     const { result } = renderHook(() => Capture({ label: 'WorldMap' }), {
-      wrapper: makeRecoilWrapper(),
+      wrapper: makeRecoilWrapper()
     })
     act(() => result.current.markDirty())
     // Indirectly verify label propagation by triggering a save flow:
-    result.current.saveRef.current = async () => { capturedLabel = 'WorldMap' }
+    result.current.saveRef.current = async () => {
+      capturedLabel = 'WorldMap'
+    }
     act(() => result.current.guard(() => undefined))
-    await act(async () => { await result.current.handleDialogSave() })
+    await act(async () => {
+      await result.current.handleDialogSave()
+    })
     await waitFor(() => expect(capturedLabel).toBe('WorldMap'))
   })
 })

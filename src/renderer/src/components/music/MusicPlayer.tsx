@@ -17,7 +17,7 @@ function formatTime(secs: number): string {
 }
 
 const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingChange }) => {
-  const audioRef   = useRef<HTMLAudioElement | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const blobUrlRef = useRef<string | null>(null)
   // Keep a ref so async callbacks always see the latest playing intent
   const playingRef = useRef(playing)
@@ -61,19 +61,29 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
       return
     }
 
-    window.api.readFile(filePath).then((buffer) => {
-      const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
-      const mime = ext === '.wav' ? 'audio/wav' : ext === '.ogg' ? 'audio/ogg' : ext === '.flac' ? 'audio/flac' : 'audio/mpeg'
-      const blob = new Blob([new Uint8Array(buffer)], { type: mime })
-      const url = URL.createObjectURL(blob)
-      blobUrlRef.current = url
-      audio.src = url
-      audio.load()
-      // Playback starts from onCanPlay once the browser has buffered enough
-    }).catch((err) => {
-      console.error('MusicPlayer: failed to read file', filePath, err)
-      onPlayingChange(false)
-    })
+    window.api
+      .readFile(filePath)
+      .then((buffer) => {
+        const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
+        const mime =
+          ext === '.wav'
+            ? 'audio/wav'
+            : ext === '.ogg'
+              ? 'audio/ogg'
+              : ext === '.flac'
+                ? 'audio/flac'
+                : 'audio/mpeg'
+        const blob = new Blob([new Uint8Array(buffer)], { type: mime })
+        const url = URL.createObjectURL(blob)
+        blobUrlRef.current = url
+        audio.src = url
+        audio.load()
+        // Playback starts from onCanPlay once the browser has buffered enough
+      })
+      .catch((err) => {
+        console.error('MusicPlayer: failed to read file', filePath, err)
+        onPlayingChange(false)
+      })
 
     return () => {
       if (blobUrlRef.current) {
@@ -86,19 +96,32 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
   if (!filePath) return null
 
   return (
-    <Box sx={{
-      px: 2, py: 0.75,
-      bgcolor: 'secondary.main',
-      display: 'flex', alignItems: 'center', gap: 1.5,
-      borderTop: '1px solid', borderColor: 'divider',
-    }}>
+    <Box
+      sx={{
+        px: 2,
+        py: 0.75,
+        bgcolor: 'secondary.main',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        borderTop: '1px solid',
+        borderColor: 'divider'
+      }}
+    >
       {/* Audio element (hidden) */}
       <audio
         ref={audioRef}
-        onCanPlay={() => { if (playingRef.current) audioRef.current?.play().catch(() => onPlayingChange(false)) }}
-        onTimeUpdate={(e) => { if (!seeking) setCurrentTime((e.target as HTMLAudioElement).currentTime) }}
+        onCanPlay={() => {
+          if (playingRef.current) audioRef.current?.play().catch(() => onPlayingChange(false))
+        }}
+        onTimeUpdate={(e) => {
+          if (!seeking) setCurrentTime((e.target as HTMLAudioElement).currentTime)
+        }}
         onDurationChange={(e) => setDuration((e.target as HTMLAudioElement).duration)}
-        onEnded={() => { onPlayingChange(false); setCurrentTime(0) }}
+        onEnded={() => {
+          onPlayingChange(false)
+          setCurrentTime(0)
+        }}
         onError={() => onPlayingChange(false)}
       />
 
@@ -132,7 +155,9 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
         max={duration || 100}
         value={currentTime}
         onMouseDown={() => setSeeking(true)}
-        onChange={(_, v) => { setCurrentTime(v as number) }}
+        onChange={(_, v) => {
+          setCurrentTime(v as number)
+        }}
         onChangeCommitted={(_, v) => {
           setSeeking(false)
           if (audioRef.current) audioRef.current.currentTime = v as number

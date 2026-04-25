@@ -1,7 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import {
-  Box, Typography, TextField, Button, IconButton, Tooltip,
-  Table, TableHead, TableRow, TableCell, TableBody, CircularProgress, Divider,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  IconButton,
+  Tooltip,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  CircularProgress,
+  Divider
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
@@ -59,7 +70,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   }, [pack])
 
   const updateField = useCallback((field: string, value: unknown) => {
-    setDraft(prev => ({ ...prev, [field]: value, updatedAt: new Date().toISOString() }))
+    setDraft((prev) => ({ ...prev, [field]: value, updatedAt: new Date().toISOString() }))
     setDirty(true)
   }, [])
 
@@ -71,9 +82,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   }, [draft, packFilePath, onSave, onStatus])
 
   const handleAddAssets = useCallback(async () => {
-    const files = await window.api.openFile([
-      { name: 'PNG Images', extensions: ['png'] },
-    ])
+    const files = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
     if (!files) return
 
     // Determine prefix based on content type
@@ -84,24 +93,26 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     const filePath = files // openFile returns single file
     const id = nextSlotId(draft.assets, prefix)
     const padded = String(id).padStart(4, '0')
-    const targetFilename = draft.content_type === 'nation_badges'
-      ? `nation${padded}.png`
-      : `${prefix}${padded}.png`
+    const targetFilename =
+      draft.content_type === 'nation_badges' ? `nation${padded}.png` : `${prefix}${padded}.png`
 
     await window.api.packAddAsset(packDir, filePath, targetFilename)
 
     const newAssets = [...draft.assets, { filename: targetFilename, sourcePath: filePath }]
-    setDraft(prev => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
+    setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
     setDirty(true)
     onStatus(`Added ${targetFilename}`)
   }, [draft, packDir, onStatus])
 
-  const handleRemoveAsset = useCallback(async (filename: string) => {
-    await window.api.packRemoveAsset(packDir, filename)
-    const newAssets = draft.assets.filter(a => a.filename !== filename)
-    setDraft(prev => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
-    setDirty(true)
-  }, [draft, packDir])
+  const handleRemoveAsset = useCallback(
+    async (filename: string) => {
+      await window.api.packRemoveAsset(packDir, filename)
+      const newAssets = draft.assets.filter((a) => a.filename !== filename)
+      setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
+      setDirty(true)
+    },
+    [draft, packDir]
+  )
 
   const handleCompile = useCallback(async () => {
     // Save first
@@ -110,7 +121,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
 
     const outputPath = await window.api.saveFile(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      `${draft.pack_id}.datf`,
+      `${draft.pack_id}.datf`
     )
     if (!outputPath) return
 
@@ -122,9 +133,9 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
         pack_version: draft.pack_version,
         content_type: draft.content_type,
         priority: draft.priority,
-        covers: draft.covers,
+        covers: draft.covers
       }
-      const filenames = draft.assets.map(a => a.filename)
+      const filenames = draft.assets.map((a) => a.filename)
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
       onStatus(`Compiled ${draft.pack_id}.datf (${filenames.length} assets)`)
     } catch (err) {
@@ -137,10 +148,26 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
       {/* Header */}
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h6" sx={{ flex: 1 }}>{draft.pack_id}</Typography>
+      <Box
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Typography variant="h6" sx={{ flex: 1 }}>
+          {draft.pack_id}
+        </Typography>
         <Tooltip title="Save">
-          <IconButton size="small" onClick={handleSave} disabled={!dirty} sx={{ color: 'text.primary' }}>
+          <IconButton
+            size="small"
+            onClick={handleSave}
+            disabled={!dirty}
+            sx={{ color: 'text.primary' }}
+          >
             <SaveIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -158,18 +185,27 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       {/* Manifest fields */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
-          label="Pack ID" size="small" value={draft.pack_id}
-          onChange={e => updateField('pack_id', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-'))}
+          label="Pack ID"
+          size="small"
+          value={draft.pack_id}
+          onChange={(e) =>
+            updateField('pack_id', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-'))
+          }
           sx={{ width: 200 }}
         />
         <TextField
-          label="Version" size="small" value={draft.pack_version}
-          onChange={e => updateField('pack_version', e.target.value)}
+          label="Version"
+          size="small"
+          value={draft.pack_version}
+          onChange={(e) => updateField('pack_version', e.target.value)}
           sx={{ width: 120 }}
         />
         <TextField
-          label="Priority" size="small" type="number" value={draft.priority}
-          onChange={e => updateField('priority', parseInt(e.target.value) || 100)}
+          label="Priority"
+          size="small"
+          type="number"
+          value={draft.priority}
+          onChange={(e) => updateField('priority', parseInt(e.target.value) || 100)}
           sx={{ width: 100 }}
         />
         <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
@@ -181,8 +217,12 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
 
       {/* Asset table */}
       <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="body2" sx={{ flex: 1 }}>{draft.assets.length} assets</Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={handleAddAssets}>Add PNG</Button>
+        <Typography variant="body2" sx={{ flex: 1 }}>
+          {draft.assets.length} assets
+        </Typography>
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAddAssets}>
+          Add PNG
+        </Button>
       </Box>
 
       <Box sx={{ flex: 1, overflow: 'auto', px: 1 }}>
@@ -196,7 +236,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
             </TableRow>
           </TableHead>
           <TableBody>
-            {draft.assets.map(asset => {
+            {draft.assets.map((asset) => {
               const slotId = slotIdFromFilename(asset.filename)
               const imgSrc = `file://${packDir.replace(/\\/g, '/')}/${asset.filename}`
               return (
@@ -204,13 +244,19 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
                   <TableCell>
                     <img
                       src={imgSrc}
-                      width={32} height={32}
+                      width={32}
+                      height={32}
                       style={{ imageRendering: 'pixelated', background: '#1a1a2e' }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).style.display = 'none'
+                      }}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                    >
                       {asset.filename}
                     </Typography>
                   </TableCell>
@@ -220,7 +266,11 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" onClick={() => handleRemoveAsset(asset.filename)} sx={{ color: 'error.main' }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveAsset(asset.filename)}
+                      sx={{ color: 'error.main' }}
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

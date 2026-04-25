@@ -1,4 +1,16 @@
-import type { MapData, MapFlag, MapWarp, MapNpc, MapSign, MapSignEffect, MapReactor, MapSpawn, MapSpawnFlag, MapSpawnGroup, CardinalDirection } from '../data/mapData'
+import type {
+  MapData,
+  MapFlag,
+  MapWarp,
+  MapNpc,
+  MapSign,
+  MapSignEffect,
+  MapReactor,
+  MapSpawn,
+  MapSpawnFlag,
+  MapSpawnGroup,
+  CardinalDirection
+} from '../data/mapData'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,9 +53,7 @@ export function parseMapXml(xml: string): MapData {
 
   // Flags — space/comma separated text inside <Flags>
   const flagsText = childText(root, 'Flags')
-  const flags: MapFlag[] = flagsText
-    ? (flagsText.split(/[\s,]+/).filter(Boolean) as MapFlag[])
-    : []
+  const flags: MapFlag[] = flagsText ? (flagsText.split(/[\s,]+/).filter(Boolean) as MapFlag[]) : []
 
   // Warps
   const warps: MapWarp[] = []
@@ -55,7 +65,7 @@ export function parseMapXml(xml: string): MapData {
     const warp: MapWarp = {
       x: parseInt(attr(warpEl, 'X', '0'), 10),
       y: parseInt(attr(warpEl, 'Y', '0'), 10),
-      targetType: mapTargetEl ? 'map' : 'worldmap',
+      targetType: mapTargetEl ? 'map' : 'worldmap'
     }
     const desc = warpEl.querySelector('Description')?.textContent?.trim()
     if (desc) warp.description = desc
@@ -71,8 +81,10 @@ export function parseMapXml(xml: string): MapData {
     }
     if (restrictionsEl) {
       const r: MapWarp['restrictions'] = {}
-      if (restrictionsEl.hasAttribute('Level')) r.level = parseInt(attr(restrictionsEl, 'Level'), 10)
-      if (restrictionsEl.hasAttribute('Ability')) r.ability = parseInt(attr(restrictionsEl, 'Ability'), 10)
+      if (restrictionsEl.hasAttribute('Level'))
+        r.level = parseInt(attr(restrictionsEl, 'Level'), 10)
+      if (restrictionsEl.hasAttribute('Ability'))
+        r.ability = parseInt(attr(restrictionsEl, 'Ability'), 10)
       if (restrictionsEl.hasAttribute('Ab')) r.ab = parseInt(attr(restrictionsEl, 'Ab'), 10)
       warp.restrictions = r
     }
@@ -86,7 +98,7 @@ export function parseMapXml(xml: string): MapData {
       name: attr(npcEl, 'Name'),
       x: parseInt(attr(npcEl, 'X', '0'), 10),
       y: parseInt(attr(npcEl, 'Y', '0'), 10),
-      direction: (attr(npcEl, 'Direction', 'South')) as CardinalDirection,
+      direction: attr(npcEl, 'Direction', 'South') as CardinalDirection
     }
     const dn = attr(npcEl, 'DisplayName')
     if (dn) npc.displayName = dn
@@ -99,7 +111,7 @@ export function parseMapXml(xml: string): MapData {
     const sign: MapSign = {
       type: attr(signEl, 'Type', 'Signpost'),
       x: parseInt(attr(signEl, 'X', '0'), 10),
-      y: parseInt(attr(signEl, 'Y', '0'), 10),
+      y: parseInt(attr(signEl, 'Y', '0'), 10)
     }
     const bk = attr(signEl, 'BoardKey')
     if (bk) sign.boardKey = bk
@@ -114,7 +126,8 @@ export function parseMapXml(xml: string): MapData {
     const effectEl = signEl.querySelector('Effect')
     if (effectEl) {
       const effect: MapSignEffect = { onEntry: parseInt(attr(effectEl, 'OnEntry', '0'), 10) }
-      if (effectEl.hasAttribute('OnEntrySpeed')) effect.onEntrySpeed = parseInt(attr(effectEl, 'OnEntrySpeed', '100'), 10)
+      if (effectEl.hasAttribute('OnEntrySpeed'))
+        effect.onEntrySpeed = parseInt(attr(effectEl, 'OnEntrySpeed', '100'), 10)
       sign.effect = effect
     }
     signs.push(sign)
@@ -125,7 +138,7 @@ export function parseMapXml(xml: string): MapData {
   for (const el of root.querySelectorAll('Reactors > Reactor')) {
     const reactor: MapReactor = {
       x: parseInt(attr(el, 'X', '0'), 10),
-      y: parseInt(attr(el, 'Y', '0'), 10),
+      y: parseInt(attr(el, 'Y', '0'), 10)
     }
     const dn = attr(el, 'DisplayName')
     if (dn) reactor.displayName = dn
@@ -147,9 +160,9 @@ export function parseMapXml(xml: string): MapData {
       spawns.push({ import: attr(spawnEl, 'Import'), flags })
     }
     spawnGroup = {
-      name:      attr(sgEl, 'Name'),
+      name: attr(sgEl, 'Name'),
       baseLevel: Math.max(1, Math.min(99, parseInt(attr(sgEl, 'BaseLevel', '1'), 10))),
-      spawns,
+      spawns
     }
   }
 
@@ -174,7 +187,7 @@ export function parseMapXml(xml: string): MapData {
     npcs,
     signs,
     reactors,
-    spawnGroup,
+    spawnGroup
   }
 }
 
@@ -191,7 +204,7 @@ export function serializeMapXml(data: MapData): string {
     `Y="${data.y}"`,
     `IsEnabled="${data.isEnabled}"`,
     `AllowCasting="${data.allowCasting}"`,
-    ...(data.dynamicLighting ? [`DynamicLighting="true"`] : []),
+    ...(data.dynamicLighting ? [`DynamicLighting="true"`] : [])
   ].join(' ')
 
   lines.push(`<Map ${rootAttrs}>`)
@@ -203,9 +216,12 @@ export function serializeMapXml(data: MapData): string {
     lines.push('  <Warps>')
     for (const w of data.warps) {
       lines.push(`    <Warp X="${w.x}" Y="${w.y}">`)
-      if (w.description?.trim()) lines.push(`      <Description>${esc(w.description)}</Description>`)
+      if (w.description?.trim())
+        lines.push(`      <Description>${esc(w.description)}</Description>`)
       if (w.targetType === 'map' && w.mapTargetName !== undefined) {
-        lines.push(`      <MapTarget X="${w.mapTargetX ?? 0}" Y="${w.mapTargetY ?? 0}">${esc(w.mapTargetName)}</MapTarget>`)
+        lines.push(
+          `      <MapTarget X="${w.mapTargetX ?? 0}" Y="${w.mapTargetY ?? 0}">${esc(w.mapTargetName)}</MapTarget>`
+        )
       }
       if (w.targetType === 'worldmap' && w.worldMapTarget !== undefined) {
         lines.push(`      <WorldMapTarget>${esc(w.worldMapTarget)}</WorldMapTarget>`)
@@ -229,7 +245,7 @@ export function serializeMapXml(data: MapData): string {
         `Name="${esc(n.name)}"`,
         `X="${n.x}"`,
         `Y="${n.y}"`,
-        `Direction="${n.direction}"`,
+        `Direction="${n.direction}"`
       ]
       if (n.displayName) parts.push(`DisplayName="${esc(n.displayName)}"`)
       lines.push(`    <Npc ${parts.join(' ')} />`)
@@ -244,12 +260,14 @@ export function serializeMapXml(data: MapData): string {
       if (s.boardKey) parts.push(`BoardKey="${esc(s.boardKey)}"`)
       const children: string[] = []
       if (s.name?.trim()) children.push(`      <Name>${esc(s.name)}</Name>`)
-      if (s.description?.trim()) children.push(`      <Description>${esc(s.description)}</Description>`)
+      if (s.description?.trim())
+        children.push(`      <Description>${esc(s.description)}</Description>`)
       if (s.message?.trim()) children.push(`      <Message>${esc(s.message)}</Message>`)
       if (s.script?.trim()) children.push(`      <Script>${esc(s.script)}</Script>`)
       if (s.effect) {
         const eParts = [`OnEntry="${s.effect.onEntry}"`]
-        if (s.effect.onEntrySpeed !== undefined) eParts.push(`OnEntrySpeed="${s.effect.onEntrySpeed}"`)
+        if (s.effect.onEntrySpeed !== undefined)
+          eParts.push(`OnEntrySpeed="${s.effect.onEntrySpeed}"`)
         children.push(`      <Effect ${eParts.join(' ')} />`)
       }
       if (children.length > 0) {
@@ -284,8 +302,9 @@ export function serializeMapXml(data: MapData): string {
       const parts = [`X="${r.x}"`, `Y="${r.y}"`]
       if (r.displayName) parts.push(`DisplayName="${esc(r.displayName)}"`)
       const children: string[] = []
-      if (r.description?.trim()) children.push(`      <Description>${esc(r.description)}</Description>`)
-      if (r.script?.trim())      children.push(`      <Script>${esc(r.script)}</Script>`)
+      if (r.description?.trim())
+        children.push(`      <Description>${esc(r.description)}</Description>`)
+      if (r.script?.trim()) children.push(`      <Script>${esc(r.script)}</Script>`)
       if (children.length > 0) {
         lines.push(`    <Reactor ${parts.join(' ')}>`)
         lines.push(...children)

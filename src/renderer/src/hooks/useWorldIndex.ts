@@ -11,9 +11,13 @@ export function useWorldIndex() {
 
   // Read existing index whenever the active library changes
   useEffect(() => {
-    if (!activeLibrary) { setIndex(null); return }
+    if (!activeLibrary) {
+      setIndex(null)
+      return
+    }
     setLoading(true)
-    window.api.indexRead(activeLibrary)
+    window.api
+      .indexRead(activeLibrary)
       .then(setIndex)
       .finally(() => setLoading(false))
   }, [activeLibrary])

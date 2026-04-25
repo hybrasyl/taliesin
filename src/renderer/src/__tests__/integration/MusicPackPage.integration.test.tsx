@@ -10,8 +10,13 @@ const memfs = vi.hoisted(async () => {
 
 vi.mock('fs', async () => (await memfs).fsModule)
 vi.mock('@eriscorp/hybindex-ts', () => {
-  const m = { buildIndex: vi.fn(), loadIndex: vi.fn(async () => null), saveIndex: vi.fn(),
-    getIndexStatus: vi.fn(), deleteIndex: vi.fn() }
+  const m = {
+    buildIndex: vi.fn(),
+    loadIndex: vi.fn(async () => null),
+    saveIndex: vi.fn(),
+    getIndexStatus: vi.fn(),
+    deleteIndex: vi.fn()
+  }
   return { ...m, default: m }
 })
 // child_process mock — execFile is used by music:deploy-pack. Track args so we
@@ -20,7 +25,7 @@ const execFile = vi.hoisted(() => vi.fn())
 vi.mock('child_process', () => {
   const m = {
     execFile,
-    spawn: vi.fn(() => ({ unref: vi.fn() })),
+    spawn: vi.fn(() => ({ unref: vi.fn() }))
   }
   return { ...m, default: m }
 })
@@ -31,9 +36,14 @@ vi.mock('@tanstack/react-virtual', () => ({
     getTotalSize: () => count * 24,
     getVirtualItems: () =>
       Array.from({ length: count }, (_, index) => ({
-        index, key: index, start: index * 24, size: 24, end: (index + 1) * 24, lane: 0,
-      })),
-  }),
+        index,
+        key: index,
+        start: index * 24,
+        size: 24,
+        end: (index + 1) * 24,
+        lane: 0
+      }))
+  })
 }))
 
 import { RecoilRoot, type MutableSnapshot } from 'recoil'
@@ -64,12 +74,14 @@ async function mount(opts: { openDirectory?: () => Promise<string | null> } = {}
   installBridgedApi(handlers, {
     settingsPath: '/appdata/Taliesin',
     settingsManager: { load: async () => ({}), save: async () => undefined },
-    dialog: { openDirectory: opts.openDirectory },
+    dialog: { openDirectory: opts.openDirectory }
   })
   return render(
-    <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(musicLibraryPathState, LIB_DIR)}>
+    <RecoilRoot
+      initializeState={(snap: MutableSnapshot) => snap.set(musicLibraryPathState, LIB_DIR)}
+    >
       <MusicPage />
-    </RecoilRoot>,
+    </RecoilRoot>
   )
 }
 
@@ -107,13 +119,21 @@ describe('MusicPackPage — round-trip integration via MusicPage Packs tab', () 
     const fs = await memfs
     const seedPacks: MusicPack[] = [
       {
-        id: 'pack-a', name: 'Alpha', description: '',
-        tracks: [], createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+        id: 'pack-a',
+        name: 'Alpha',
+        description: '',
+        tracks: [],
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
       },
       {
-        id: 'pack-b', name: 'Beta', description: '',
-        tracks: [], createdAt: '2024-01-02T00:00:00Z', updatedAt: '2024-01-02T00:00:00Z',
-      },
+        id: 'pack-b',
+        name: 'Beta',
+        description: '',
+        tracks: [],
+        createdAt: '2024-01-02T00:00:00Z',
+        updatedAt: '2024-01-02T00:00:00Z'
+      }
     ]
     fs.files.set(`${LIB_DIR}/music-packs.json`, Buffer.from(JSON.stringify(seedPacks), 'utf-8'))
 
@@ -130,15 +150,18 @@ describe('MusicPackPage — round-trip integration via MusicPage Packs tab', () 
 
     // Seed: a pack with two .mp3 tracks, source files present, leftover at dest.
     const pack: MusicPack = {
-      id: 'demo', name: 'Demo Pack', description: '',
+      id: 'demo',
+      name: 'Demo Pack',
+      description: '',
       tracks: [
         { musicId: 1, sourceFile: 'first.mp3' },
-        { musicId: 2, sourceFile: 'second.mp3' },
+        { musicId: 2, sourceFile: 'second.mp3' }
       ],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z'
     }
     fs.files.set(`${LIB_DIR}/music-packs.json`, Buffer.from(JSON.stringify([pack]), 'utf-8'))
-    fs.files.set(`${LIB_DIR}/first.mp3`,  Buffer.from('S1'))
+    fs.files.set(`${LIB_DIR}/first.mp3`, Buffer.from('S1'))
     fs.files.set(`${LIB_DIR}/second.mp3`, Buffer.from('S2'))
     fs.files.set('/dest/leftover.mus', Buffer.from('OLD'))
 
@@ -153,7 +176,9 @@ describe('MusicPackPage — round-trip integration via MusicPage Packs tab', () 
     await user.click(await screen.findByRole('button', { name: /deploy pack/i }))
     const deployDialog = await screen.findByRole('dialog')
     // No working dir is configured — type the destination path into the field.
-    const destField = within(deployDialog).getByLabelText(/destination directory/i) as HTMLInputElement
+    const destField = within(deployDialog).getByLabelText(
+      /destination directory/i
+    ) as HTMLInputElement
     await user.clear(destField)
     await user.type(destField, '/dest')
     // Confirm with the "Deploy & Overwrite" action button

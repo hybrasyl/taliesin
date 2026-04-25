@@ -78,11 +78,15 @@ demands valibot.
   export const packSchema = z.object({
     id: z.string(),
     name: z.string(),
-    contentType: z.enum(['skill', 'spell', /* ... */]),
-    assets: z.array(z.object({ /* ... */ })),
+    contentType: z.enum(['skill', 'spell' /* ... */]),
+    assets: z.array(
+      z.object({
+        /* ... */
+      })
+    )
     // ...
   })
-  export type Pack = z.infer<typeof packSchema>  // replace existing interface
+  export type Pack = z.infer<typeof packSchema> // replace existing interface
   ```
 
 - Use `z.infer<>` to derive TS types from schemas — single source of
@@ -103,7 +107,7 @@ boundary:
 import { packSchema } from '../data/packData'
 
 export async function packSave(filePath: string, data: unknown) {
-  const parsed = packSchema.parse(data)  // throws ZodError on invalid
+  const parsed = packSchema.parse(data) // throws ZodError on invalid
   await fs.writeFile(filePath, JSON.stringify(parsed, null, 2), 'utf-8')
 }
 ```
@@ -125,11 +129,12 @@ should be a session-allowed root gets a refinement:
 
 ```ts
 // schema factory bound to a context
-export const fileReadArgsSchema = (roots: Set<string>) => z.object({
-  path: z.string().refine(p => isInsideAnyRoot(roots, p), {
-    message: 'Path is not inside an allowed root',
-  }),
-})
+export const fileReadArgsSchema = (roots: Set<string>) =>
+  z.object({
+    path: z.string().refine((p) => isInsideAnyRoot(roots, p), {
+      message: 'Path is not inside an allowed root'
+    })
+  })
 ```
 
 This collapses #3 (path-traversal) and #4 (schema validation) at the
@@ -182,7 +187,11 @@ strict `parse` throws and the file appears broken.
   Pattern from `catalogLoad`:
 
   ```ts
-  try { return packSchema.parse(JSON.parse(raw)) } catch { return defaults }
+  try {
+    return packSchema.parse(JSON.parse(raw))
+  } catch {
+    return defaults
+  }
   ```
 
 ### Test churn

@@ -9,7 +9,7 @@ let api: MockApi
 
 const fakeIndex = {
   libraryPath: '/lib',
-  builtAt: '2025-01-01T00:00:00Z',
+  builtAt: '2025-01-01T00:00:00Z'
   // … (the WorldIndex shape has many fields; tests don't read them)
 } as unknown as WorldIndex
 
@@ -45,7 +45,9 @@ describe('useWorldIndex', () => {
     const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    await act(async () => { await result.current.build() })
+    await act(async () => {
+      await result.current.build()
+    })
     expect(api.indexBuild).toHaveBeenCalledWith('/lib')
     expect(result.current.index).toBe(newIndex)
     expect(result.current.building).toBe(false)
@@ -59,7 +61,9 @@ describe('useWorldIndex', () => {
     const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    await act(async () => { await result.current.build() })
+    await act(async () => {
+      await result.current.build()
+    })
     expect(result.current.buildError).toBe('parse failed')
     expect(result.current.building).toBe(false)
   })
@@ -71,13 +75,17 @@ describe('useWorldIndex', () => {
     const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    await act(async () => { await result.current.build() })
+    await act(async () => {
+      await result.current.build()
+    })
     expect(result.current.buildError).toBe('Index build failed')
   })
 
   it('build() is a no-op when no library is active', async () => {
     const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary(null) })
-    await act(async () => { await result.current.build() })
+    await act(async () => {
+      await result.current.build()
+    })
     expect(api.indexBuild).not.toHaveBeenCalled()
   })
 })

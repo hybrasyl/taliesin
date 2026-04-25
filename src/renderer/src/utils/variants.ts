@@ -2,14 +2,70 @@ import { applyDuotone, luminance, PixelBuffer } from './duotone'
 import { DuotoneParams, PaletteEntry, VariantDef } from './paletteTypes'
 
 export const DEFAULT_VARIANTS: VariantDef[] = [
-  { id: 'simple',      label: 'Simple',      darkFactor: 0.0, lightFactor: 0.0, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'subtle',      label: 'Subtle',      darkFactor: 0.2, lightFactor: 0.2, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'balanced',    label: 'Balanced',    darkFactor: 0.3, lightFactor: 0.3, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'strong',      label: 'Strong',      darkFactor: 0.5, lightFactor: 0.5, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'deep-shadow', label: 'Deep Shadow', darkFactor: 0.5, lightFactor: 0.2, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'bright',      label: 'Bright',      darkFactor: 0.2, lightFactor: 0.5, midpointLow: 0.25, midpointHigh: 0.75 },
-  { id: 'compressed',  label: 'Compressed',  darkFactor: 0.3, lightFactor: 0.3, midpointLow: 0.35, midpointHigh: 0.65 },
-  { id: 'expanded',    label: 'Expanded',    darkFactor: 0.3, lightFactor: 0.3, midpointLow: 0.15, midpointHigh: 0.85 },
+  {
+    id: 'simple',
+    label: 'Simple',
+    darkFactor: 0.0,
+    lightFactor: 0.0,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'subtle',
+    label: 'Subtle',
+    darkFactor: 0.2,
+    lightFactor: 0.2,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    darkFactor: 0.3,
+    lightFactor: 0.3,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'strong',
+    label: 'Strong',
+    darkFactor: 0.5,
+    lightFactor: 0.5,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'deep-shadow',
+    label: 'Deep Shadow',
+    darkFactor: 0.5,
+    lightFactor: 0.2,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'bright',
+    label: 'Bright',
+    darkFactor: 0.2,
+    lightFactor: 0.5,
+    midpointLow: 0.25,
+    midpointHigh: 0.75
+  },
+  {
+    id: 'compressed',
+    label: 'Compressed',
+    darkFactor: 0.3,
+    lightFactor: 0.3,
+    midpointLow: 0.35,
+    midpointHigh: 0.65
+  },
+  {
+    id: 'expanded',
+    label: 'Expanded',
+    darkFactor: 0.3,
+    lightFactor: 0.3,
+    midpointLow: 0.15,
+    midpointHigh: 0.85
+  }
 ]
 
 export function variantToParams(v: VariantDef): DuotoneParams {
@@ -17,7 +73,7 @@ export function variantToParams(v: VariantDef): DuotoneParams {
     darkFactor: v.darkFactor,
     lightFactor: v.lightFactor,
     midpointLow: v.midpointLow,
-    midpointHigh: v.midpointHigh,
+    midpointHigh: v.midpointHigh
   }
 }
 
@@ -56,7 +112,7 @@ export function scoreVariant(
   sourceHist: number[],
   outputHist: number[],
   midpointLow: number,
-  midpointHigh: number,
+  midpointHigh: number
 ): VariantScore {
   let absDiffSum = 0
   for (let i = 0; i < 256; i++) absDiffSum += Math.abs(sourceHist[i] - outputHist[i])
@@ -84,7 +140,7 @@ export interface AutoDetectResult {
 export function autoDetectBest(
   source: PixelBuffer,
   entry: PaletteEntry,
-  variants: VariantDef[] = DEFAULT_VARIANTS,
+  variants: VariantDef[] = DEFAULT_VARIANTS
 ): AutoDetectResult {
   const sourceHist = luminanceHistogram(source)
   const scores: { variantId: string; score: VariantScore }[] = []

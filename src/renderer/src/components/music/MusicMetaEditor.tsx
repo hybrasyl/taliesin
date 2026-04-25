@@ -1,7 +1,13 @@
 import React from 'react'
 import {
-  Box, Typography, TextField, Chip, IconButton,
-  Tooltip, Divider, Button
+  Box,
+  Typography,
+  TextField,
+  Chip,
+  IconButton,
+  Tooltip,
+  Divider,
+  Button
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
@@ -42,7 +48,16 @@ const InfoChip: React.FC<{ label: React.ReactNode }> = ({ label }) => (
 )
 
 const MusicMetaEditor: React.FC<Props> = ({
-  entry, meta, draft, dirty, usedByMaps, onUpdate, onSave, onPlay, onRemove, isPlaying
+  entry,
+  meta,
+  draft,
+  dirty,
+  usedByMaps,
+  onUpdate,
+  onSave,
+  onPlay,
+  onRemove,
+  isPlaying
 }) => {
   const [tagInput, setTagInput] = React.useState('')
   const tagTrimmed = tagInput.trim()
@@ -72,12 +87,21 @@ const MusicMetaEditor: React.FC<Props> = ({
   }
 
   const durationStr = formatDuration(meta?.duration)
-  const bitrateStr  = meta?.bitrate    != null ? `${Math.round(meta.bitrate / 1000)} kbps` : null
-  const sampleStr   = meta?.sampleRate != null ? `${(meta.sampleRate / 1000).toFixed(1)} kHz` : null
+  const bitrateStr = meta?.bitrate != null ? `${Math.round(meta.bitrate / 1000)} kbps` : null
+  const sampleStr = meta?.sampleRate != null ? `${(meta.sampleRate / 1000).toFixed(1)} kHz` : null
   const channelsStr = formatChannels(meta?.channels)
 
   return (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
+    <Box
+      sx={{
+        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        height: '100%',
+        overflow: 'auto'
+      }}
+    >
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="h6" sx={{ flex: 1, color: 'text.button', fontWeight: 'bold' }}>
@@ -94,7 +118,12 @@ const MusicMetaEditor: React.FC<Props> = ({
         </Tooltip>
         <Tooltip title={dirty ? 'Save changes' : 'No changes'}>
           <span>
-            <IconButton size="small" disabled={!dirty} onClick={onSave} color={dirty ? 'primary' : 'default'}>
+            <IconButton
+              size="small"
+              disabled={!dirty}
+              onClick={onSave}
+              color={dirty ? 'primary' : 'default'}
+            >
               <SaveIcon fontSize="small" />
             </IconButton>
           </span>
@@ -110,13 +139,49 @@ const MusicMetaEditor: React.FC<Props> = ({
 
       {/* Audio properties */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, rowGap: 0.5 }}>
-        {durationStr && <InfoChip label={<>Duration: <strong>{durationStr}</strong></>} />}
-        {bitrateStr  && <InfoChip label={<>Bitrate: <strong>{bitrateStr}</strong></>} />}
-        {sampleStr   && <InfoChip label={<>Sample rate: <strong>{sampleStr}</strong></>} />}
+        {durationStr && (
+          <InfoChip
+            label={
+              <>
+                Duration: <strong>{durationStr}</strong>
+              </>
+            }
+          />
+        )}
+        {bitrateStr && (
+          <InfoChip
+            label={
+              <>
+                Bitrate: <strong>{bitrateStr}</strong>
+              </>
+            }
+          />
+        )}
+        {sampleStr && (
+          <InfoChip
+            label={
+              <>
+                Sample rate: <strong>{sampleStr}</strong>
+              </>
+            }
+          />
+        )}
         {channelsStr && <InfoChip label={<strong>{channelsStr}</strong>} />}
-        <InfoChip label={<>Size: <strong>{formatBytes(entry.sizeBytes)}</strong></>} />
+        <InfoChip
+          label={
+            <>
+              Size: <strong>{formatBytes(entry.sizeBytes)}</strong>
+            </>
+          }
+        />
         {entry.musicId !== null && (
-          <InfoChip label={<>Music ID: <strong>{entry.musicId}</strong></>} />
+          <InfoChip
+            label={
+              <>
+                Music ID: <strong>{entry.musicId}</strong>
+              </>
+            }
+          />
         )}
       </Box>
 
@@ -175,12 +240,7 @@ const MusicMetaEditor: React.FC<Props> = ({
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
           {(draft.tags ?? []).map((tag) => (
-            <Chip
-              key={tag}
-              label={tag}
-              size="small"
-              onDelete={() => handleRemoveTag(tag)}
-            />
+            <Chip key={tag} label={tag} size="small" onDelete={() => handleRemoveTag(tag)} />
           ))}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
@@ -189,7 +249,12 @@ const MusicMetaEditor: React.FC<Props> = ({
             placeholder="Add tag…"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canAddTag) { e.preventDefault(); handleAddTag() } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && canAddTag) {
+                e.preventDefault()
+                handleAddTag()
+              }
+            }}
             error={tagTooLong}
             helperText={tagTooLong ? `Tags must be ${MAX_TAG_LENGTH} characters or less` : ' '}
             sx={{ flex: 1 }}

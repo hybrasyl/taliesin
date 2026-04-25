@@ -59,7 +59,10 @@ const NavToolbar: React.FC = () => {
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
       {libName ? (
-        <Typography variant="caption" sx={{ color: 'text.button', opacity: 0.7, letterSpacing: '0.03em' }}>
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.button', opacity: 0.7, letterSpacing: '0.03em' }}
+        >
           Current Library: <strong>{libName}</strong>
         </Typography>
       ) : (
@@ -75,7 +78,11 @@ const NavToolbar: React.FC = () => {
         </IconButton>
       </Tooltip>
 
-      <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+      <Divider
+        orientation="vertical"
+        flexItem
+        sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
+      />
 
       <Tooltip title="Map Catalog">
         <IconButton sx={sx('catalog')} onClick={nav('catalog')}>
@@ -93,7 +100,11 @@ const NavToolbar: React.FC = () => {
         </IconButton>
       </Tooltip>
 
-      <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+      <Divider
+        orientation="vertical"
+        flexItem
+        sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
+      />
 
       <Tooltip title="Archive Browser">
         <IconButton sx={sx('archive')} onClick={nav('archive')}>
@@ -133,7 +144,11 @@ const NavToolbar: React.FC = () => {
 
       <Box sx={{ flexGrow: 1 }} />
 
-      <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+      <Divider
+        orientation="vertical"
+        flexItem
+        sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
+      />
 
       <Tooltip title="Settings">
         <IconButton sx={sx('settings')} onClick={nav('settings')}>

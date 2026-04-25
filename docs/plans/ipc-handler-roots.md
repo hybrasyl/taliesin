@@ -60,6 +60,7 @@ The set is mutable. Roots are added when a dialog returns a path
 library/pack.
 
 **Channels.**
+
 - `session:setActiveLibrary(path)` — renderer calls when the active
   library changes (or main reads from settingsManager and pushes).
 - `session:setActivePack(path)` — same shape for the active asset pack.
@@ -72,8 +73,11 @@ library/pack.
 ```ts
 export function assertInsideAnyRoot(roots: Iterable<string>, candidate: string): string {
   for (const root of roots) {
-    try { return assertInside(root, candidate) }
-    catch { /* try next */ }
+    try {
+      return assertInside(root, candidate)
+    } catch {
+      /* try next */
+    }
   }
   throw new Error(`Path "${candidate}" is not inside any allowed root`)
 }

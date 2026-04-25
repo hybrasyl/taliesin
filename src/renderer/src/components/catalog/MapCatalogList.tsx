@@ -31,11 +31,19 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
     count: filtered.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
+    overscan: 10
   })
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid', borderColor: 'divider' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        borderRight: '1px solid',
+        borderColor: 'divider'
+      }}
+    >
       {/* Search bar */}
       <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
         <TextField
@@ -50,8 +58,8 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
                 <InputAdornment position="start">
                   <SearchIcon fontSize="small" />
                 </InputAdornment>
-              ),
-            },
+              )
+            }
           }}
         />
       </Box>
@@ -88,12 +96,16 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
                   bgcolor: isSelected ? 'action.selected' : 'transparent',
                   borderBottom: '1px solid',
                   borderColor: 'divider',
-                  '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' },
+                  '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' }
                 }}
               >
                 <Box sx={{ flex: 1, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <Typography variant="body2" noWrap sx={{ color: 'text.button', fontWeight: 500 }}>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ color: 'text.button', fontWeight: 500 }}
+                    >
                       lod{entry.mapNumber}
                     </Typography>
                     {entry.variant && (

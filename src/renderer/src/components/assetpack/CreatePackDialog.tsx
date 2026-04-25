@@ -1,7 +1,16 @@
 import React, { useState } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box, Select, MenuItem, InputLabel, FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl
 } from '@mui/material'
 
 interface Props {
@@ -12,7 +21,7 @@ interface Props {
 
 const CONTENT_TYPES = [
   { value: 'ability_icons', label: 'Ability Icons (skill/spell)' },
-  { value: 'nation_badges', label: 'Nation Badges' },
+  { value: 'nation_badges', label: 'Nation Badges' }
 ]
 
 const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
@@ -21,11 +30,18 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
   const [version, setVersion] = useState('1.0.0')
 
   React.useEffect(() => {
-    if (open) { setPackId(''); setVersion('1.0.0'); setContentType('ability_icons') }
+    if (open) {
+      setPackId('')
+      setVersion('1.0.0')
+      setContentType('ability_icons')
+    }
   }, [open])
 
   const handleCreate = () => {
-    const id = packId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-')
+    const id = packId
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-')
     if (!id) return
     onCreate(id, contentType, version.trim() || '1.0.0')
     onClose()
@@ -47,9 +63,15 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
           />
           <FormControl size="small" fullWidth>
             <InputLabel>Content Type</InputLabel>
-            <Select value={contentType} label="Content Type" onChange={(e) => setContentType(e.target.value)}>
-              {CONTENT_TYPES.map(ct => (
-                <MenuItem key={ct.value} value={ct.value}>{ct.label}</MenuItem>
+            <Select
+              value={contentType}
+              label="Content Type"
+              onChange={(e) => setContentType(e.target.value)}
+            >
+              {CONTENT_TYPES.map((ct) => (
+                <MenuItem key={ct.value} value={ct.value}>
+                  {ct.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -64,7 +86,9 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleCreate} disabled={!packId.trim()}>Create</Button>
+        <Button variant="contained" onClick={handleCreate} disabled={!packId.trim()}>
+          Create
+        </Button>
       </DialogActions>
     </Dialog>
   )

@@ -14,7 +14,7 @@ const MINIMAL: MapData = {
   warps: [],
   npcs: [],
   signs: [],
-  reactors: [],
+  reactors: []
 }
 
 function build(overrides: Partial<MapData>): MapData {
@@ -113,7 +113,7 @@ describe('parseMapXml', () => {
     const data = parseMapXml(xml)
     expect(data.npcs).toEqual([
       { name: 'merchant', x: 5, y: 6, direction: 'North', displayName: 'Bob the Merchant' },
-      { name: 'guard', x: 7, y: 8, direction: 'South' },
+      { name: 'guard', x: 7, y: 8, direction: 'South' }
     ])
   })
 
@@ -131,9 +131,15 @@ describe('parseMapXml', () => {
     const data = parseMapXml(xml)
     expect(data.signs).toHaveLength(2)
     expect(data.signs[0]).toEqual({
-      type: 'Signpost', x: 2, y: 3, boardKey: 'welcome',
-      name: 'Welcome', description: 'A sign', message: 'Hello adventurer', script: 'greet',
-      effect: { onEntry: 42, onEntrySpeed: 200 },
+      type: 'Signpost',
+      x: 2,
+      y: 3,
+      boardKey: 'welcome',
+      name: 'Welcome',
+      description: 'A sign',
+      message: 'Hello adventurer',
+      script: 'greet',
+      effect: { onEntry: 42, onEntrySpeed: 200 }
     })
     expect(data.signs[1]).toEqual({ type: 'MessageBoard', x: 4, y: 5 })
   })
@@ -143,9 +149,15 @@ describe('parseMapXml', () => {
       <Reactor X="9" Y="10" DisplayName="Trap"><Description>Watch out</Description><Script>spike</Script></Reactor>
     </Reactors></Map>`
     const data = parseMapXml(xml)
-    expect(data.reactors).toEqual([{
-      x: 9, y: 10, displayName: 'Trap', description: 'Watch out', script: 'spike',
-    }])
+    expect(data.reactors).toEqual([
+      {
+        x: 9,
+        y: 10,
+        displayName: 'Trap',
+        description: 'Watch out',
+        script: 'spike'
+      }
+    ])
   })
 
   it('parses spawn group with flags', () => {
@@ -157,11 +169,12 @@ describe('parseMapXml', () => {
     </SpawnGroup></Map>`
     const data = parseMapXml(xml)
     expect(data.spawnGroup).toEqual({
-      name: 'goblins', baseLevel: 5,
+      name: 'goblins',
+      baseLevel: 5,
       spawns: [
         { import: 'goblin', flags: ['Active', 'MovementDisabled'] },
-        { import: 'hobgoblin', flags: [] },
-      ],
+        { import: 'hobgoblin', flags: [] }
+      ]
     })
   })
 
@@ -209,11 +222,13 @@ describe('serializeMapXml', () => {
   })
 
   it('escapes XML special characters in text and attributes', () => {
-    const xml = serializeMapXml(build({
-      name: 'A & <B>',
-      description: 'has "quotes"',
-      npcs: [{ name: 'a"b', x: 0, y: 0, direction: 'South', displayName: '<x>' }],
-    }))
+    const xml = serializeMapXml(
+      build({
+        name: 'A & <B>',
+        description: 'has "quotes"',
+        npcs: [{ name: 'a"b', x: 0, y: 0, direction: 'South', displayName: '<x>' }]
+      })
+    )
     expect(xml).toContain('<Name>A &amp; &lt;B&gt;</Name>')
     expect(xml).toContain('has &quot;quotes&quot;')
     expect(xml).toContain('Name="a&quot;b"')
@@ -227,27 +242,46 @@ describe('round-trip parse → serialize → parse', () => {
       id: 1234,
       name: 'Full Map',
       music: 7,
-      x: 100, y: 80,
+      x: 100,
+      y: 80,
       isEnabled: false,
       allowCasting: false,
       dynamicLighting: true,
       description: 'A description',
       flags: ['Snow', 'Dark'],
       warps: [
-        { x: 1, y: 2, targetType: 'map', mapTargetName: 'Inn', mapTargetX: 5, mapTargetY: 6, description: 'door',
-          restrictions: { level: 10, ability: 2, ab: 1 } },
-        { x: 3, y: 4, targetType: 'worldmap', worldMapTarget: 'Mileth' },
+        {
+          x: 1,
+          y: 2,
+          targetType: 'map',
+          mapTargetName: 'Inn',
+          mapTargetX: 5,
+          mapTargetY: 6,
+          description: 'door',
+          restrictions: { level: 10, ability: 2, ab: 1 }
+        },
+        { x: 3, y: 4, targetType: 'worldmap', worldMapTarget: 'Mileth' }
       ],
       npcs: [{ name: 'bob', x: 9, y: 9, direction: 'North', displayName: 'Bob' }],
-      signs: [{
-        type: 'Signpost', x: 7, y: 8, boardKey: 'k', name: 'N', description: 'D', message: 'M', script: 'S',
-        effect: { onEntry: 1, onEntrySpeed: 50 },
-      }],
+      signs: [
+        {
+          type: 'Signpost',
+          x: 7,
+          y: 8,
+          boardKey: 'k',
+          name: 'N',
+          description: 'D',
+          message: 'M',
+          script: 'S',
+          effect: { onEntry: 1, onEntrySpeed: 50 }
+        }
+      ],
       reactors: [{ x: 12, y: 13, displayName: 'R', description: 'rd', script: 'rs' }],
       spawnGroup: {
-        name: 'g', baseLevel: 12,
-        spawns: [{ import: 'goblin', flags: ['Active'] }],
-      },
+        name: 'g',
+        baseLevel: 12,
+        spawns: [{ import: 'goblin', flags: ['Active'] }]
+      }
     }
 
     const reparsed = parseMapXml(serializeMapXml(original))

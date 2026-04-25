@@ -41,9 +41,9 @@ const { fsMock, files, errors } = vi.hoisted(() => {
           files.delete(from)
           files.set(to, v)
         }),
-        mkdir: vi.fn(async () => undefined),
-      },
-    },
+        mkdir: vi.fn(async () => undefined)
+      }
+    }
   }
 })
 
@@ -54,8 +54,8 @@ const { createSettingsManager } = await import('../settingsManager')
 
 const USER_DATA = '/user/data'
 const PRIMARY = join(USER_DATA, 'settings.json')
-const BACKUP  = join(USER_DATA, 'settings.bak.json')
-const TMP     = join(USER_DATA, 'settings.tmp.json')
+const BACKUP = join(USER_DATA, 'settings.bak.json')
+const TMP = join(USER_DATA, 'settings.tmp.json')
 
 const VALID_SETTINGS = {
   libraries: ['libA', 'libB'],
@@ -64,7 +64,7 @@ const VALID_SETTINGS = {
   activeMapDirectory: '/maps',
   musicWorkingDirs: ['/music'],
   musEncodeKbps: 96,
-  musEncodeSampleRate: 44100,
+  musEncodeSampleRate: 44100
 }
 
 beforeEach(() => {
@@ -90,14 +90,17 @@ describe('createSettingsManager.load', () => {
   })
 
   it('reads valid JSON from primary and applies defaults for missing fields', async () => {
-    files.set(PRIMARY, JSON.stringify({
-      libraries: ['libA'],
-      mapDirectories: [],
-      // intentionally missing musEncodeKbps / musEncodeSampleRate
-    }))
+    files.set(
+      PRIMARY,
+      JSON.stringify({
+        libraries: ['libA'],
+        mapDirectories: []
+        // intentionally missing musEncodeKbps / musEncodeSampleRate
+      })
+    )
     const settings = await createSettingsManager(USER_DATA).load()
     expect(settings.libraries).toEqual(['libA'])
-    expect(settings.musEncodeKbps).toBe(64)        // default applied
+    expect(settings.musEncodeKbps).toBe(64) // default applied
     expect(settings.musEncodeSampleRate).toBe(22050)
     expect(settings.activeLibrary).toBeNull()
   })
@@ -153,19 +156,22 @@ describe('createSettingsManager.load', () => {
   })
 
   it('drops malformed entries inside mapDirectories arrays', async () => {
-    files.set(PRIMARY, JSON.stringify({
-      libraries: [],
-      mapDirectories: [
-        { path: '/a', name: 'A' },
-        { path: 123, name: 'bad' },          // wrong types — should be filtered
-        null,                                  // null entry — should be filtered
-        { path: '/b', name: 'B' },
-      ],
-    }))
+    files.set(
+      PRIMARY,
+      JSON.stringify({
+        libraries: [],
+        mapDirectories: [
+          { path: '/a', name: 'A' },
+          { path: 123, name: 'bad' }, // wrong types — should be filtered
+          null, // null entry — should be filtered
+          { path: '/b', name: 'B' }
+        ]
+      })
+    )
     const settings = await createSettingsManager(USER_DATA).load()
     expect(settings.mapDirectories).toEqual([
       { path: '/a', name: 'A' },
-      { path: '/b', name: 'B' },
+      { path: '/b', name: 'B' }
     ])
   })
 })
@@ -180,7 +186,7 @@ describe('createSettingsManager.save', () => {
       activeMapDirectory: null,
       musicWorkingDirs: [],
       musEncodeKbps: 64,
-      musEncodeSampleRate: 22050,
+      musEncodeSampleRate: 22050
     })
 
     // tmp file no longer exists (renamed away), primary now contains the content
@@ -202,7 +208,7 @@ describe('createSettingsManager.save', () => {
       activeMapDirectory: null,
       musicWorkingDirs: [],
       musEncodeKbps: 64,
-      musEncodeSampleRate: 22050,
+      musEncodeSampleRate: 22050
     })
 
     expect(files.has(BACKUP)).toBe(true)
@@ -212,15 +218,17 @@ describe('createSettingsManager.save', () => {
 
   it('does not throw when primary does not yet exist (first save scenario)', async () => {
     const mgr = createSettingsManager(USER_DATA)
-    await expect(mgr.save({
-      libraries: [],
-      activeLibrary: null,
-      mapDirectories: [],
-      activeMapDirectory: null,
-      musicWorkingDirs: [],
-      musEncodeKbps: 64,
-      musEncodeSampleRate: 22050,
-    })).resolves.toBeUndefined()
+    await expect(
+      mgr.save({
+        libraries: [],
+        activeLibrary: null,
+        mapDirectories: [],
+        activeMapDirectory: null,
+        musicWorkingDirs: [],
+        musEncodeKbps: 64,
+        musEncodeSampleRate: 22050
+      })
+    ).resolves.toBeUndefined()
     expect(files.has(PRIMARY)).toBe(true)
   })
 
@@ -232,18 +240,19 @@ describe('createSettingsManager.save', () => {
       activeMapDirectory: null,
       musicWorkingDirs: [],
       musEncodeKbps: 64,
-      musEncodeSampleRate: 22050,
+      musEncodeSampleRate: 22050
     }
     // Kick off three concurrent saves. The queue chain should write them in
     // submission order even though they're awaited together.
     await Promise.all([
       mgr.save({ ...base, libraries: ['first'] }),
       mgr.save({ ...base, libraries: ['second'] }),
-      mgr.save({ ...base, libraries: ['third'] }),
+      mgr.save({ ...base, libraries: ['third'] })
     ])
 
-    const writeCalls = fsMock.promises.writeFile.mock.calls
-      .map((args) => JSON.parse(args[1] as string).libraries[0])
+    const writeCalls = fsMock.promises.writeFile.mock.calls.map(
+      (args) => JSON.parse(args[1] as string).libraries[0]
+    )
     expect(writeCalls).toEqual(['first', 'second', 'third'])
     expect(JSON.parse(files.get(PRIMARY)!).libraries).toEqual(['third'])
   })
@@ -251,14 +260,16 @@ describe('createSettingsManager.save', () => {
   it('propagates errors when writeFile fails', async () => {
     const mgr = createSettingsManager(USER_DATA)
     errors.set(TMP, new Error('disk full'))
-    await expect(mgr.save({
-      libraries: [],
-      activeLibrary: null,
-      mapDirectories: [],
-      activeMapDirectory: null,
-      musicWorkingDirs: [],
-      musEncodeKbps: 64,
-      musEncodeSampleRate: 22050,
-    })).rejects.toThrow(/disk full/)
+    await expect(
+      mgr.save({
+        libraries: [],
+        activeLibrary: null,
+        mapDirectories: [],
+        activeMapDirectory: null,
+        musicWorkingDirs: [],
+        musEncodeKbps: 64,
+        musEncodeSampleRate: 22050
+      })
+    ).rejects.toThrow(/disk full/)
   })
 })

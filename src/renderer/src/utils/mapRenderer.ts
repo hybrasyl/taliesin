@@ -8,16 +8,23 @@
  * MapAssets so they're scoped to a specific client and evicted alongside it.
  */
 
-import { DataArchive, HpfFile, Palette, PaletteTable, MapFile, TileAnimationTable } from '@eriscorp/dalib-ts'
+import {
+  DataArchive,
+  HpfFile,
+  Palette,
+  PaletteTable,
+  MapFile,
+  TileAnimationTable
+} from '@eriscorp/dalib-ts'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const GROUND_TILE_WIDTH  = 56
+export const GROUND_TILE_WIDTH = 56
 export const GROUND_TILE_HEIGHT = 27
-export const GROUND_TILE_BYTES  = GROUND_TILE_WIDTH * GROUND_TILE_HEIGHT  // 1512
+export const GROUND_TILE_BYTES = GROUND_TILE_WIDTH * GROUND_TILE_HEIGHT // 1512
 
 /** Half tile dimensions used for isometric projection. */
-const HTILE_W = GROUND_TILE_WIDTH  / 2   // 28
+const HTILE_W = GROUND_TILE_WIDTH / 2 // 28
 
 /** Vertical padding above origin to accommodate tall foreground objects. */
 const FOREGROUND_PAD = 512
@@ -26,7 +33,7 @@ const FOREGROUND_PAD = 512
 
 export interface MapAssets {
   /** Raw pixel bytes from TILEA.BMP, sliced per tile (index 1-based). */
-  groundPixels: Uint8Array    // full TILEA.BMP, use slice(n*1512, (n+1)*1512) for tile n+1
+  groundPixels: Uint8Array // full TILEA.BMP, use slice(n*1512, (n+1)*1512) for tile n+1
   groundTileCount: number
   groundPaletteTable: PaletteTable
   groundPalettes: Map<number, Palette>
@@ -139,11 +146,15 @@ export async function loadMapAssets(
   try {
     const gndAniEntry = seoArchive.get('gndani.tbl')
     if (gndAniEntry) groundAnimationTable = TileAnimationTable.fromEntry(gndAniEntry)
-  } catch { /* absent or malformed */ }
+  } catch {
+    /* absent or malformed */
+  }
   try {
     const stcAniEntry = iaArchive.get('stcani.tbl')
     if (stcAniEntry) stcAnimationTable = TileAnimationTable.fromEntry(stcAniEntry)
-  } catch { /* absent or malformed */ }
+  } catch {
+    /* absent or malformed */
+  }
 
   const assets: MapAssets = {
     groundPixels,
@@ -157,7 +168,7 @@ export async function loadMapAssets(
     groundAnimationTable,
     stcAnimationTable,
     groundBitmapCache: new Map(),
-    stcBitmapCache:    new Map(),
+    stcBitmapCache: new Map()
   }
 
   lruTouch(assetCache, key, assets, ASSET_CACHE_LIMIT)
@@ -181,7 +192,7 @@ export function pixelsToImageData(
     if (idx === 0) continue // transparent
     const c = palette.get(idx)
     const dst = i * 4
-    d[dst]     = c.r
+    d[dst] = c.r
     d[dst + 1] = c.g
     d[dst + 2] = c.b
     d[dst + 3] = 255
@@ -189,7 +200,10 @@ export function pixelsToImageData(
   return img
 }
 
-export async function getGroundBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
+export async function getGroundBitmap(
+  tileIndex: number,
+  assets: MapAssets
+): Promise<ImageBitmap | null> {
   if (tileIndex <= 0 || tileIndex > assets.groundTileCount) return null
 
   const cached = assets.groundBitmapCache.get(tileIndex)
@@ -197,12 +211,12 @@ export async function getGroundBitmap(tileIndex: number, assets: MapAssets): Pro
 
   const start = (tileIndex - 1) * GROUND_TILE_BYTES
   const pixels = assets.groundPixels.subarray(start, start + GROUND_TILE_BYTES)
-  const palNum  = assets.groundPaletteTable.getPaletteNumber(tileIndex + 1)
+  const palNum = assets.groundPaletteTable.getPaletteNumber(tileIndex + 1)
   const palette = assets.groundPalettes.get(palNum)
   if (!palette) return null
 
   const imgData = pixelsToImageData(pixels, palette, GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT)
-  const bitmap  = await createImageBitmap(imgData)
+  const bitmap = await createImageBitmap(imgData)
   assets.groundBitmapCache.set(tileIndex, bitmap)
   return bitmap
 }
@@ -212,7 +226,10 @@ function isValidStcIndex(n: number): boolean {
   return n > 0 && ((n > 12 && n < 10000) || n > 10012)
 }
 
-export async function getStcBitmap(tileIndex: number, assets: MapAssets): Promise<ImageBitmap | null> {
+export async function getStcBitmap(
+  tileIndex: number,
+  assets: MapAssets
+): Promise<ImageBitmap | null> {
   if (!isValidStcIndex(tileIndex)) return null
 
   const cached = assets.stcBitmapCache.get(tileIndex)
@@ -223,12 +240,12 @@ export async function getStcBitmap(tileIndex: number, assets: MapAssets): Promis
   if (!entry) return null
 
   const hpf = HpfFile.fromEntry(entry)
-  const palNum  = assets.stcPaletteTable.getPaletteNumber(tileIndex + 1)
+  const palNum = assets.stcPaletteTable.getPaletteNumber(tileIndex + 1)
   const palette = assets.stcPalettes.get(palNum)
   if (!palette) return null
 
   const imgData = pixelsToImageData(hpf.data, palette, hpf.pixelWidth, hpf.pixelHeight)
-  const bitmap  = await createImageBitmap(imgData)
+  const bitmap = await createImageBitmap(imgData)
   assets.stcBitmapCache.set(tileIndex, bitmap)
   return bitmap
 }
@@ -254,7 +271,7 @@ export async function renderMap(
   const canvasW = Math.ceil(((W + H) * HTILE_W + GROUND_TILE_WIDTH) * scale)
   const canvasH = Math.ceil(((W + H) * (HTILE_W / 2) + FOREGROUND_PAD) * scale)
 
-  canvas.width  = canvasW
+  canvas.width = canvasW
   canvas.height = canvasH
 
   const ctx = canvas.getContext('2d')!
@@ -287,7 +304,7 @@ export async function renderMap(
         }
       }
       drawn++
-      if (drawn % 500 === 0) onProgress?.(`Rendering ground… ${Math.round(drawn / total * 50)}%`)
+      if (drawn % 500 === 0) onProgress?.(`Rendering ground… ${Math.round((drawn / total) * 50)}%`)
     }
   }
 
@@ -316,7 +333,8 @@ export async function renderMap(
       }
 
       drawn++
-      if (drawn % 500 === 0) onProgress?.(`Rendering foreground… ${Math.round(50 + drawn / total * 50)}%`)
+      if (drawn % 500 === 0)
+        onProgress?.(`Rendering foreground… ${Math.round(50 + (drawn / total) * 50)}%`)
     }
   }
 
@@ -341,7 +359,7 @@ export const ISO_FOREGROUND_PAD = FOREGROUND_PAD
 export function isoCanvasSize(mapW: number, mapH: number, scale = 1): { w: number; h: number } {
   return {
     w: Math.ceil(((mapW + mapH) * HTILE_W + GROUND_TILE_WIDTH) * scale),
-    h: Math.ceil(((mapW + mapH) * (HTILE_W / 2) + FOREGROUND_PAD) * scale),
+    h: Math.ceil(((mapW + mapH) * (HTILE_W / 2) + FOREGROUND_PAD) * scale)
   }
 }
 
@@ -350,15 +368,17 @@ export function isoCanvasSize(mapW: number, mapH: number, scale = 1): { w: numbe
  * originX = mapH * ISO_HTILE_W (unscaled), originY = ISO_FOREGROUND_PAD (unscaled).
  */
 export function tileToScreen(
-  tx: number, ty: number,
-  originX: number, originY: number,
-  scale = 1,
+  tx: number,
+  ty: number,
+  originX: number,
+  originY: number,
+  scale = 1
 ): { x: number; y: number } {
   const hw = HTILE_W * scale
   const hv = (HTILE_W / 2) * scale
   return {
     x: originX * scale + (tx - ty) * hw,
-    y: originY * scale + (tx + ty) * hv + hv,   // +hv = centre of diamond
+    y: originY * scale + (tx + ty) * hv + hv // +hv = centre of diamond
   }
 }
 
@@ -367,9 +387,11 @@ export function tileToScreen(
  * Returns tile coords clamped to any range; caller should bounds-check.
  */
 export function screenToTileCoords(
-  sx: number, sy: number,
-  originX: number, originY: number,
-  scale = 1,
+  sx: number,
+  sy: number,
+  originX: number,
+  originY: number,
+  scale = 1
 ): { tx: number; ty: number } {
   const hw = HTILE_W * scale
   const hv = (HTILE_W / 2) * scale
@@ -379,7 +401,7 @@ export function screenToTileCoords(
   const b = (sy - oy - hv) / hv
   return {
     tx: Math.round((a + b) / 2),
-    ty: Math.round((b - a) / 2),
+    ty: Math.round((b - a) / 2)
   }
 }
 
@@ -391,17 +413,17 @@ export function screenToTileCoords(
 export function isTilePassable(
   leftForeground: number,
   rightForeground: number,
-  sotpTable: Uint8Array,
+  sotpTable: Uint8Array
 ): boolean {
-  const lfOk = leftForeground  <= 0 || (sotpTable[leftForeground]  ?? 0) === 0
+  const lfOk = leftForeground <= 0 || (sotpTable[leftForeground] ?? 0) === 0
   const rfOk = rightForeground <= 0 || (sotpTable[rightForeground] ?? 0) === 0
   return lfOk && rfOk
 }
 
 // Schematic legend colors — kept in sync with the duplicate definitions in
 // catalog/MapCanvas.tsx and catalog/DimensionPickerDialog.tsx.
-const COLOR_VOID   = '#1a1a2e'
-const COLOR_FLOOR  = '#2d5a3d'
+const COLOR_VOID = '#1a1a2e'
+const COLOR_FLOOR = '#2d5a3d'
 const COLOR_OBJECT = '#8b4513'
 
 /**
@@ -411,11 +433,11 @@ const COLOR_OBJECT = '#8b4513'
 export function renderSchematicScaled(
   canvas: HTMLCanvasElement,
   map: MapFile,
-  pixPerTile: number,
+  pixPerTile: number
 ): void {
   const { width, height, tiles } = map
   const ppt = Math.max(1, Math.round(pixPerTile))
-  canvas.width  = width  * ppt
+  canvas.width = width * ppt
   canvas.height = height * ppt
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = false
@@ -431,10 +453,16 @@ export function renderSchematicScaled(
     ctx.strokeStyle = 'rgba(0,0,0,0.2)'
     ctx.lineWidth = 0.5
     for (let x = 0; x <= width; x++) {
-      ctx.beginPath(); ctx.moveTo(x * ppt, 0); ctx.lineTo(x * ppt, height * ppt); ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(x * ppt, 0)
+      ctx.lineTo(x * ppt, height * ppt)
+      ctx.stroke()
     }
     for (let y = 0; y <= height; y++) {
-      ctx.beginPath(); ctx.moveTo(0, y * ppt); ctx.lineTo(width * ppt, y * ppt); ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(0, y * ppt)
+      ctx.lineTo(width * ppt, y * ppt)
+      ctx.stroke()
     }
   }
 }
@@ -448,7 +476,7 @@ export function renderSchematicScaled(
 export function getAnimatedTileId(
   table: TileAnimationTable | null,
   tileId: number,
-  elapsedMs: number,
+  elapsedMs: number
 ): number {
   if (!table || tileId <= 0) return tileId
   const entry = table.tryGetEntry(tileId)

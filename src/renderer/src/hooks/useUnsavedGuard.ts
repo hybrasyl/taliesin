@@ -36,7 +36,12 @@ export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
   const markDirty = useCallback(() => {
     if (isDirtyRef.current) return
     isDirtyRef.current = true
-    setDirtyEditor({ label, onSave: async () => { await saveRef.current?.() } })
+    setDirtyEditor({
+      label,
+      onSave: async () => {
+        await saveRef.current?.()
+      }
+    })
   }, [label, setDirtyEditor])
 
   const markClean = useCallback(() => {
@@ -45,7 +50,10 @@ export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
   }, [setDirtyEditor])
 
   const guard = useCallback((action: () => void) => {
-    if (!isDirtyRef.current) { action(); return }
+    if (!isDirtyRef.current) {
+      action()
+      return
+    }
     pendingActionRef.current = action
     setDialogOpen(true)
   }, [])

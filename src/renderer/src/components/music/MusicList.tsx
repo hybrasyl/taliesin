@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
 import {
-  Box, Typography, TextField, InputAdornment, IconButton, Tooltip, Chip
+  Box,
+  Typography,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Tooltip,
+  Chip
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import SyncIcon from '@mui/icons-material/Sync'
@@ -29,15 +35,21 @@ function extOf(filename: string): string {
 }
 
 const EXT_COLOR: Record<string, 'default' | 'primary' | 'secondary' | 'info'> = {
-  mp3:  'primary',
-  ogg:  'secondary',
-  mus:  'info',
+  mp3: 'primary',
+  ogg: 'secondary',
+  mus: 'info',
   flac: 'secondary',
-  wav:  'default',
+  wav: 'default'
 }
 
 const MusicList: React.FC<Props> = ({
-  entries, metadata, selectedFilename, scanning, onSelect, onScan, onImport
+  entries,
+  metadata,
+  selectedFilename,
+  scanning,
+  onSelect,
+  onScan,
+  onImport
 }) => {
   const [query, setQuery] = useState('')
 
@@ -54,7 +66,7 @@ const MusicList: React.FC<Props> = ({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 48,
-    overscan: 10,
+    overscan: 10
   })
 
   // Scroll selected item into view on first load
@@ -69,7 +81,9 @@ const MusicList: React.FC<Props> = ({
       {/* Toolbar */}
       <Box sx={{ px: 1.5, pt: 1.5, pb: 1, display: 'flex', gap: 0.5, alignItems: 'center' }}>
         <TextField
-          size="small" placeholder="Search…" value={query}
+          size="small"
+          placeholder="Search…"
+          value={query}
           onChange={(e) => setQuery(e.target.value)}
           sx={{ flex: 1 }}
           slotProps={{
@@ -78,7 +92,7 @@ const MusicList: React.FC<Props> = ({
                 <InputAdornment position="start">
                   <SearchIcon fontSize="small" />
                 </InputAdornment>
-              ),
+              )
             }
           }}
         />
@@ -90,7 +104,10 @@ const MusicList: React.FC<Props> = ({
         <Tooltip title={scanning ? 'Scanning…' : 'Refresh'}>
           <span>
             <IconButton size="small" onClick={onScan} disabled={scanning}>
-              <SyncIcon fontSize="small" sx={scanning ? { animation: 'spin 1s linear infinite' } : {}} />
+              <SyncIcon
+                fontSize="small"
+                sx={scanning ? { animation: 'spin 1s linear infinite' } : {}}
+              />
             </IconButton>
           </span>
         </Tooltip>
@@ -105,9 +122,9 @@ const MusicList: React.FC<Props> = ({
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((vi) => {
             const entry = filtered[vi.index]
-            const meta  = metadata[entry.filename]
+            const meta = metadata[entry.filename]
             const label = meta?.name || entry.filename
-            const ext   = extOf(entry.filename)
+            const ext = extOf(entry.filename)
             const isSelected = entry.filename === selectedFilename
 
             return (
@@ -115,14 +132,20 @@ const MusicList: React.FC<Props> = ({
                 key={entry.filename}
                 onClick={() => onSelect(entry.filename)}
                 sx={{
-                  position: 'absolute', top: vi.start, left: 0, right: 0,
+                  position: 'absolute',
+                  top: vi.start,
+                  left: 0,
+                  right: 0,
                   height: vi.size,
-                  display: 'flex', alignItems: 'center', gap: 1,
-                  px: 1.5, cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 1.5,
+                  cursor: 'pointer',
                   bgcolor: isSelected ? 'action.selected' : 'transparent',
                   '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' },
                   borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: 'divider'
                 }}
               >
                 <Chip
@@ -133,15 +156,21 @@ const MusicList: React.FC<Props> = ({
                   sx={{ fontSize: '0.65rem', height: 18, minWidth: 32 }}
                 />
                 <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                  <Typography variant="body2" noWrap sx={{ color: 'text.primary', fontWeight: isSelected ? 600 : 400 }}>
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    sx={{ color: 'text.primary', fontWeight: isSelected ? 600 : 400 }}
+                  >
                     {label}
                   </Typography>
                   {(() => {
                     const slashIdx = entry.filename.lastIndexOf('/')
                     const folder = slashIdx > 0 ? entry.filename.slice(0, slashIdx) : null
                     const secondary = meta?.name
-                      ? folder ? `${entry.filename.slice(slashIdx + 1)} · ${folder}` : entry.filename
-                      : folder ?? null
+                      ? folder
+                        ? `${entry.filename.slice(slashIdx + 1)} · ${folder}`
+                        : entry.filename
+                      : (folder ?? null)
                     return secondary ? (
                       <Typography variant="caption" noWrap color="text.secondary">
                         {secondary}
@@ -149,14 +178,25 @@ const MusicList: React.FC<Props> = ({
                     ) : null
                   })()}
                 </Box>
-                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <Box
+                  sx={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end'
+                  }}
+                >
                   <Typography variant="caption" color="text.disabled">
                     {formatBytes(entry.sizeBytes)}
                   </Typography>
                   {(() => {
                     const d = formatDuration(meta?.duration)
                     return d ? (
-                      <Typography variant="caption" color="text.disabled" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
                         {d}
                       </Typography>
                     ) : null

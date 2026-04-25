@@ -1,8 +1,17 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import {
-  Box, Typography, TextField, Button, CircularProgress,
-  Divider, Tooltip, FormControl, InputLabel, Select, MenuItem,
-  type SelectChangeEvent,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Divider,
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  type SelectChangeEvent
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
@@ -16,11 +25,11 @@ const ArchivePage: React.FC = () => {
   const clientPath = useRecoilValue(clientPathState)
 
   const [archivePath, setArchivePath] = useState<string | null>(null)
-  const [archive, setArchive]         = useState<DataArchive | null>(null)
-  const [loading, setLoading]         = useState(false)
-  const [error, setError]             = useState<string | null>(null)
-  const [filter, setFilter]           = useState('')
-  const [selected, setSelected]       = useState<DataArchiveEntry | null>(null)
+  const [archive, setArchive] = useState<DataArchive | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState<DataArchiveEntry | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const [extracting, setExtracting] = useState(false)
@@ -59,24 +68,28 @@ const ArchivePage: React.FC = () => {
   }, [])
 
   const handleOpenFile = useCallback(async () => {
-    const path = await window.api.openFile([
-      { name: 'DA Archives', extensions: ['dat'] },
-    ])
+    const path = await window.api.openFile([{ name: 'DA Archives', extensions: ['dat'] }])
     if (path) loadArchive(path)
   }, [loadArchive])
 
-  const handleQuickOpen = useCallback((relPath: string) => {
-    if (!clientPath || !relPath) return
-    const sep = clientPath.includes('\\') ? '\\' : '/'
-    const normalized = relPath.replace(/\//g, sep)
-    loadArchive(`${clientPath}${sep}${normalized}`)
-  }, [clientPath, loadArchive])
+  const handleQuickOpen = useCallback(
+    (relPath: string) => {
+      if (!clientPath || !relPath) return
+      const sep = clientPath.includes('\\') ? '\\' : '/'
+      const normalized = relPath.replace(/\//g, sep)
+      loadArchive(`${clientPath}${sep}${normalized}`)
+    },
+    [clientPath, loadArchive]
+  )
 
   // Scan the client folder for .dat files (top level + one level of subfolders).
   // npc.dat lives under client/npc/, so we recurse one level deep.
   useEffect(() => {
     let cancelled = false
-    if (!clientPath) { setDatFiles([]); return }
+    if (!clientPath) {
+      setDatFiles([])
+      return
+    }
     ;(async () => {
       try {
         const top = await window.api.listDir(clientPath)
@@ -104,11 +117,13 @@ const ArchivePage: React.FC = () => {
         if (!cancelled) setDatFiles([])
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [clientPath])
 
   const handleToggleGroup = useCallback((ext: string) => {
-    setExpandedGroups(prev => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(ext)) next.delete(ext)
       else next.add(ext)
@@ -134,11 +149,18 @@ const ArchivePage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <Box sx={{
-        px: 2, py: 1,
-        display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-        borderBottom: '1px solid', borderColor: 'divider',
-      }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Button
           variant="outlined"
           size="small"
@@ -161,8 +183,10 @@ const ArchivePage: React.FC = () => {
                 value=""
                 onChange={(e: SelectChangeEvent<string>) => handleQuickOpen(e.target.value)}
               >
-                {datFiles.map(rel => (
-                  <MenuItem key={rel} value={rel}>{rel}</MenuItem>
+                {datFiles.map((rel) => (
+                  <MenuItem key={rel} value={rel}>
+                    {rel}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -210,7 +234,15 @@ const ArchivePage: React.FC = () => {
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {loading && (
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2
+            }}
+          >
             <CircularProgress size={20} />
             <Typography color="text.secondary">Loading archive…</Typography>
           </Box>
@@ -235,7 +267,16 @@ const ArchivePage: React.FC = () => {
         {!loading && !error && archive && (
           <>
             {/* Left: entry list */}
-            <Box sx={{ width: 360, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+            <Box
+              sx={{
+                width: 360,
+                flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
               <ArchiveEntryList
                 entries={entries}
                 filter={filter}
@@ -251,7 +292,14 @@ const ArchivePage: React.FC = () => {
               {selected ? (
                 <ArchivePreview entry={selected} archive={archive} />
               ) : (
-                <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
                   <Typography color="text.disabled">Select an entry to preview.</Typography>
                 </Box>
               )}

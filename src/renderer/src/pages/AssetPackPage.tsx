@@ -1,7 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import {
-  Box, Typography, Button, IconButton, Tooltip,
-  List, ListItemButton, ListItemText,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+  List,
+  ListItemButton,
+  ListItemText
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -34,7 +40,7 @@ interface PackProject {
 
 const DEFAULT_COVERS: Record<string, Record<string, unknown>> = {
   ability_icons: { skill_icons: { dimensions: [32, 32] }, spell_icons: { dimensions: [32, 32] } },
-  nation_badges: { nation_badges: {} },
+  nation_badges: { nation_badges: {} }
 }
 
 const AssetPackPage: React.FC = () => {
@@ -52,18 +58,27 @@ const AssetPackPage: React.FC = () => {
 
   // Scan packs
   const refresh = useCallback(async () => {
-    if (!packDir) { setPacks([]); return }
-    const list = await window.api.packScan(packDir) as PackSummary[]
+    if (!packDir) {
+      setPacks([])
+      return
+    }
+    const list = (await window.api.packScan(packDir)) as PackSummary[]
     setPacks(list.sort((a, b) => a.pack_id.localeCompare(b.pack_id)))
   }, [packDir])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   // Load selected pack
   useEffect(() => {
-    if (!packDir || !selected) { setLoadedPack(null); return }
-    window.api.packLoad(`${packDir}/${selected}`)
-      .then(data => setLoadedPack(data as PackProject))
+    if (!packDir || !selected) {
+      setLoadedPack(null)
+      return
+    }
+    window.api
+      .packLoad(`${packDir}/${selected}`)
+      .then((data) => setLoadedPack(data as PackProject))
       .catch(() => setLoadedPack(null))
   }, [packDir, selected])
 
@@ -74,25 +89,28 @@ const AssetPackPage: React.FC = () => {
   }, [setPackDir])
 
   // Create pack
-  const handleCreate = useCallback(async (packId: string, contentType: string, version: string) => {
-    if (!packDir) return
-    const project: PackProject = {
-      pack_id: packId,
-      pack_version: version,
-      content_type: contentType,
-      priority: 100,
-      covers: DEFAULT_COVERS[contentType] ?? {},
-      assets: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    const filename = `${packId}.json`
-    await window.api.packSave(`${packDir}/${filename}`, project)
-    await window.api.ensureDir(`${packDir}/${packId}`)
-    showStatus(`Created pack: ${packId}`)
-    refresh()
-    setSelected(filename)
-  }, [packDir, refresh, showStatus])
+  const handleCreate = useCallback(
+    async (packId: string, contentType: string, version: string) => {
+      if (!packDir) return
+      const project: PackProject = {
+        pack_id: packId,
+        pack_version: version,
+        content_type: contentType,
+        priority: 100,
+        covers: DEFAULT_COVERS[contentType] ?? {},
+        assets: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      const filename = `${packId}.json`
+      await window.api.packSave(`${packDir}/${filename}`, project)
+      await window.api.ensureDir(`${packDir}/${packId}`)
+      showStatus(`Created pack: ${packId}`)
+      refresh()
+      setSelected(filename)
+    },
+    [packDir, refresh, showStatus]
+  )
 
   // Delete pack
   const handleDelete = useCallback(async () => {
@@ -105,10 +123,13 @@ const AssetPackPage: React.FC = () => {
   }, [packDir, selected, refresh, showStatus])
 
   // Pack save callback
-  const handlePackSave = useCallback((updated: PackProject) => {
-    setLoadedPack(updated)
-    refresh()
-  }, [refresh])
+  const handlePackSave = useCallback(
+    (updated: PackProject) => {
+      setLoadedPack(updated)
+      refresh()
+    },
+    [refresh]
+  )
 
   // Derive pack assets directory
   const packAssetsDir = loadedPack && packDir ? `${packDir}/${loadedPack.pack_id}` : null
@@ -124,7 +145,11 @@ const AssetPackPage: React.FC = () => {
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           Set a working directory in Settings to manage .datf asset packs.
         </Typography>
-        <Button variant="outlined" startIcon={<SettingsIcon />} onClick={() => setCurrentPage('settings')}>
+        <Button
+          variant="outlined"
+          startIcon={<SettingsIcon />}
+          onClick={() => setCurrentPage('settings')}
+        >
           Open Settings
         </Button>
       </Box>
@@ -134,13 +159,21 @@ const AssetPackPage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <Box sx={{
-        px: 2, py: 1,
-        display: 'flex', alignItems: 'center', gap: 2,
-        borderBottom: '1px solid', borderColor: 'divider',
-      }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Tooltip title="Change working directory">
-          <IconButton size="small" onClick={handleSetDir}><FolderOpenIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={handleSetDir}>
+            <FolderOpenIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
         <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
           {packDir}
@@ -153,21 +186,39 @@ const AssetPackPage: React.FC = () => {
         <Typography variant="caption" color="text.disabled">
           {packs.length} pack{packs.length !== 1 ? 's' : ''}
         </Typography>
-        <Tooltip title="Refresh"><IconButton size="small" onClick={refresh}><RefreshIcon fontSize="small" /></IconButton></Tooltip>
+        <Tooltip title="Refresh">
+          <IconButton size="small" onClick={refresh}>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: pack list */}
-        <Box sx={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{
+            width: 260,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
           <Box sx={{ px: 1, py: 1, display: 'flex', gap: 1 }}>
-            <Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} fullWidth>
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              fullWidth
+            >
               New Pack
             </Button>
           </Box>
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             <List dense disablePadding>
-              {packs.map(p => (
+              {packs.map((p) => (
                 <ListItemButton
                   key={p.filename}
                   selected={selected === p.filename}
@@ -185,7 +236,13 @@ const AssetPackPage: React.FC = () => {
           </Box>
           {selected && (
             <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={handleDelete} fullWidth>
+              <Button
+                size="small"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleDelete}
+                fullWidth
+              >
                 Delete Pack
               </Button>
             </Box>
@@ -203,15 +260,29 @@ const AssetPackPage: React.FC = () => {
               onStatus={showStatus}
             />
           ) : (
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography color="text.disabled">Select a pack to edit, or create a new one.</Typography>
+            <Box
+              sx={{
+                p: 3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%'
+              }}
+            >
+              <Typography color="text.disabled">
+                Select a pack to edit, or create a new one.
+              </Typography>
             </Box>
           )}
         </Box>
       </Box>
 
       {/* Dialogs */}
-      <CreatePackDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreate={handleCreate} />
+      <CreatePackDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={handleCreate}
+      />
     </Box>
   )
 }

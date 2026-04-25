@@ -2,240 +2,289 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 
 // Hoisted shared state — populated by the electron mock at registration time
 // and consumed by tests after import('../index') triggers the registrations.
-const { handlers, listeners, files, dirs, dialogReplies, electronMock, fsMock,
-        settingsManager, hybindex, libraryPath, musicMetadata, archiver,
-        childProcess, electronToolkit, dalib }
-  = vi.hoisted(() => {
-    const handlers = new Map<string, (...args: unknown[]) => unknown>()
-    const listeners = new Map<string, (...args: unknown[]) => unknown>()
-    const files = new Map<string, Buffer>()                  // absolute path → contents (binary)
-    const dirs  = new Map<string, Set<string>>()             // absolute dir → set of immediate child names
-    const dialogReplies = {
-      openFile:      [] as string[],
-      openDirectory: null as string | null,
-      saveFile:      null as string | null,
+const {
+  handlers,
+  listeners,
+  files,
+  dirs,
+  dialogReplies,
+  electronMock,
+  fsMock,
+  settingsManager,
+  hybindex,
+  libraryPath,
+  musicMetadata,
+  archiver,
+  childProcess,
+  electronToolkit,
+  dalib
+} = vi.hoisted(() => {
+  const handlers = new Map<string, (...args: unknown[]) => unknown>()
+  const listeners = new Map<string, (...args: unknown[]) => unknown>()
+  const files = new Map<string, Buffer>() // absolute path → contents (binary)
+  const dirs = new Map<string, Set<string>>() // absolute dir → set of immediate child names
+  const dialogReplies = {
+    openFile: [] as string[],
+    openDirectory: null as string | null,
+    saveFile: null as string | null
+  }
+
+  const ensureDir = (path: string) => {
+    const norm = path.replace(/[\\/]+$/, '')
+    if (!dirs.has(norm)) dirs.set(norm, new Set())
+    // Create parent links so listing works for nested paths
+    const parts = norm.split(/[\\/]/).filter(Boolean)
+    for (let i = 1; i <= parts.length; i++) {
+      const parent = '/' + parts.slice(0, i - 1).join('/')
+      const child = parts[i - 1]
+      const pNorm = parent === '/' ? '/' : parent.replace(/[\\/]+$/, '')
+      if (!dirs.has(pNorm)) dirs.set(pNorm, new Set())
+      if (child) dirs.get(pNorm)!.add(child)
     }
+  }
 
-    const ensureDir = (path: string) => {
-      const norm = path.replace(/[\\/]+$/, '')
-      if (!dirs.has(norm)) dirs.set(norm, new Set())
-      // Create parent links so listing works for nested paths
-      const parts = norm.split(/[\\/]/).filter(Boolean)
-      for (let i = 1; i <= parts.length; i++) {
-        const parent = '/' + parts.slice(0, i - 1).join('/')
-        const child  = parts[i - 1]
-        const pNorm = parent === '/' ? '/' : parent.replace(/[\\/]+$/, '')
-        if (!dirs.has(pNorm)) dirs.set(pNorm, new Set())
-        if (child) dirs.get(pNorm)!.add(child)
-      }
+  const dirOf = (filePath: string) => {
+    const norm = filePath.replace(/\\/g, '/')
+    const slash = norm.lastIndexOf('/')
+    return slash > 0 ? norm.slice(0, slash) : '/'
+  }
+  const baseOf = (filePath: string) => {
+    const norm = filePath.replace(/\\/g, '/')
+    const slash = norm.lastIndexOf('/')
+    return slash >= 0 ? norm.slice(slash + 1) : norm
+  }
+
+  type Dirent = { name: string; isFile: () => boolean; isDirectory: () => boolean }
+
+  const readdir = vi.fn(async (path: string, opts?: { withFileTypes?: boolean }) => {
+    const norm = path.replace(/\\/g, '/').replace(/\/+$/, '')
+    // Collect direct file children from `files`, plus direct subdir children from `dirs`.
+    const childFiles = new Set<string>()
+    const childDirs = new Set<string>()
+    const prefix = norm === '/' ? '/' : norm + '/'
+    for (const filePath of files.keys()) {
+      if (!filePath.startsWith(prefix)) continue
+      const rest = filePath.slice(prefix.length)
+      const slash = rest.indexOf('/')
+      if (slash === -1) childFiles.add(rest)
+      else childDirs.add(rest.slice(0, slash))
     }
-
-    const dirOf = (filePath: string) => {
-      const norm = filePath.replace(/\\/g, '/')
-      const slash = norm.lastIndexOf('/')
-      return slash > 0 ? norm.slice(0, slash) : '/'
+    for (const dirPath of dirs.keys()) {
+      if (!dirPath.startsWith(prefix)) continue
+      const rest = dirPath.slice(prefix.length)
+      if (rest && !rest.includes('/')) childDirs.add(rest)
     }
-    const baseOf = (filePath: string) => {
-      const norm = filePath.replace(/\\/g, '/')
-      const slash = norm.lastIndexOf('/')
-      return slash >= 0 ? norm.slice(slash + 1) : norm
+    if (childFiles.size === 0 && childDirs.size === 0 && !dirs.has(norm)) {
+      const e: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      throw e
     }
+    const names = [...childFiles, ...childDirs]
+    if (opts?.withFileTypes) {
+      return names.map<Dirent>((name) => {
+        const isDir = childDirs.has(name)
+        return { name, isFile: () => !isDir, isDirectory: () => isDir }
+      })
+    }
+    return names
+  })
 
-    type Dirent = { name: string; isFile: () => boolean; isDirectory: () => boolean }
-
-    const readdir = vi.fn(async (path: string, opts?: { withFileTypes?: boolean }) => {
-      const norm = path.replace(/\\/g, '/').replace(/\/+$/, '')
-      // Collect direct file children from `files`, plus direct subdir children from `dirs`.
-      const childFiles = new Set<string>()
-      const childDirs  = new Set<string>()
-      const prefix = norm === '/' ? '/' : norm + '/'
-      for (const filePath of files.keys()) {
-        if (!filePath.startsWith(prefix)) continue
-        const rest = filePath.slice(prefix.length)
-        const slash = rest.indexOf('/')
-        if (slash === -1) childFiles.add(rest)
-        else childDirs.add(rest.slice(0, slash))
-      }
-      for (const dirPath of dirs.keys()) {
-        if (!dirPath.startsWith(prefix)) continue
-        const rest = dirPath.slice(prefix.length)
-        if (rest && !rest.includes('/')) childDirs.add(rest)
-      }
-      if (childFiles.size === 0 && childDirs.size === 0 && !dirs.has(norm)) {
-        const e: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-        throw e
-      }
-      const names = [...childFiles, ...childDirs]
-      if (opts?.withFileTypes) {
-        return names.map<Dirent>(name => {
-          const isDir = childDirs.has(name)
-          return { name, isFile: () => !isDir, isDirectory: () => isDir }
-        })
-      }
-      return names
-    })
-
-    const fsMock = {
-      promises: {
-        readFile: vi.fn(async (path: string, encoding?: string) => {
-          const norm = path.replace(/\\/g, '/')
-          const buf = files.get(norm)
-          if (!buf) {
-            const e: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-            throw e
-          }
-          return encoding === 'utf-8' || encoding === 'utf8' ? buf.toString('utf-8') : buf
-        }),
-        writeFile: vi.fn(async (path: string, content: string | Buffer | Uint8Array) => {
-          const norm = path.replace(/\\/g, '/')
-          const buf = typeof content === 'string'
+  const fsMock = {
+    promises: {
+      readFile: vi.fn(async (path: string, encoding?: string) => {
+        const norm = path.replace(/\\/g, '/')
+        const buf = files.get(norm)
+        if (!buf) {
+          const e: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+          throw e
+        }
+        return encoding === 'utf-8' || encoding === 'utf8' ? buf.toString('utf-8') : buf
+      }),
+      writeFile: vi.fn(async (path: string, content: string | Buffer | Uint8Array) => {
+        const norm = path.replace(/\\/g, '/')
+        const buf =
+          typeof content === 'string'
             ? Buffer.from(content, 'utf-8')
             : Buffer.from(content as Uint8Array)
-          files.set(norm, buf)
-          ensureDir(dirOf(norm))
-          dirs.get(dirOf(norm))!.add(baseOf(norm))
-        }),
-        copyFile: vi.fn(async (src: string, dst: string) => {
-          const sNorm = src.replace(/\\/g, '/')
-          const dNorm = dst.replace(/\\/g, '/')
-          const buf = files.get(sNorm)
-          if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-          files.set(dNorm, buf)
-          ensureDir(dirOf(dNorm))
-          dirs.get(dirOf(dNorm))!.add(baseOf(dNorm))
-        }),
-        mkdir: vi.fn(async (path: string) => {
-          ensureDir(path.replace(/\\/g, '/'))
-        }),
-        unlink: vi.fn(async (path: string) => {
-          const norm = path.replace(/\\/g, '/')
-          if (!files.has(norm)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-          files.delete(norm)
-          dirs.get(dirOf(norm))?.delete(baseOf(norm))
-        }),
-        rename: vi.fn(async (from: string, to: string) => {
-          const fNorm = from.replace(/\\/g, '/')
-          const tNorm = to.replace(/\\/g, '/')
-          const buf = files.get(fNorm)
-          if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-          files.delete(fNorm)
-          dirs.get(dirOf(fNorm))?.delete(baseOf(fNorm))
-          files.set(tNorm, buf)
-          ensureDir(dirOf(tNorm))
-          dirs.get(dirOf(tNorm))!.add(baseOf(tNorm))
-        }),
-        access: vi.fn(async (path: string) => {
-          const norm = path.replace(/\\/g, '/')
-          if (!files.has(norm) && !dirs.has(norm)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-        }),
-        stat: vi.fn(async (path: string) => {
-          const norm = path.replace(/\\/g, '/')
-          const buf = files.get(norm)
-          if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-          return { size: buf.length }
-        }),
-        readdir,
-      },
+        files.set(norm, buf)
+        ensureDir(dirOf(norm))
+        dirs.get(dirOf(norm))!.add(baseOf(norm))
+      }),
+      copyFile: vi.fn(async (src: string, dst: string) => {
+        const sNorm = src.replace(/\\/g, '/')
+        const dNorm = dst.replace(/\\/g, '/')
+        const buf = files.get(sNorm)
+        if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        files.set(dNorm, buf)
+        ensureDir(dirOf(dNorm))
+        dirs.get(dirOf(dNorm))!.add(baseOf(dNorm))
+      }),
+      mkdir: vi.fn(async (path: string) => {
+        ensureDir(path.replace(/\\/g, '/'))
+      }),
+      unlink: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/')
+        if (!files.has(norm)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        files.delete(norm)
+        dirs.get(dirOf(norm))?.delete(baseOf(norm))
+      }),
+      rename: vi.fn(async (from: string, to: string) => {
+        const fNorm = from.replace(/\\/g, '/')
+        const tNorm = to.replace(/\\/g, '/')
+        const buf = files.get(fNorm)
+        if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        files.delete(fNorm)
+        dirs.get(dirOf(fNorm))?.delete(baseOf(fNorm))
+        files.set(tNorm, buf)
+        ensureDir(dirOf(tNorm))
+        dirs.get(dirOf(tNorm))!.add(baseOf(tNorm))
+      }),
+      access: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/')
+        if (!files.has(norm) && !dirs.has(norm))
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      }),
+      stat: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/')
+        const buf = files.get(norm)
+        if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        return { size: buf.length }
+      }),
+      readdir
     }
+  }
 
-    const electronMock = {
-      app: {
-        getPath: vi.fn((key: string) => key === 'home' ? '/home' : '/appdata'),
-        setPath: vi.fn(),
-        // Never resolve in tests — keeps createWindow() and other ready-side
-        // effects from running. We only care about the synchronous IPC
-        // handler registrations at module load.
-        whenReady: vi.fn(() => new Promise(() => undefined)),
-        on: vi.fn(),
-        getVersion: vi.fn(() => '0.0.0-test'),
-      },
-      shell: { openExternal: vi.fn() },
-      BrowserWindow: vi.fn(),
-      ipcMain: {
-        handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
-          handlers.set(channel, fn)
-        }),
-        on: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
-          listeners.set(channel, fn)
-        }),
-      },
-      dialog: {
-        showOpenDialog: vi.fn(async (opts: { properties?: string[] }) => {
-          if (opts.properties?.includes('openDirectory')) {
-            return { canceled: dialogReplies.openDirectory == null, filePaths: dialogReplies.openDirectory ? [dialogReplies.openDirectory] : [] }
-          }
-          return { canceled: dialogReplies.openFile.length === 0, filePaths: [...dialogReplies.openFile] }
-        }),
-        showSaveDialog: vi.fn(async () => ({
-          canceled: dialogReplies.saveFile == null,
-          filePath: dialogReplies.saveFile ?? undefined,
-        })),
-      },
-      screen: {},
-    }
-
-    // Local module mocks
-    const settingsManager = { load: vi.fn(async () => ({})), save: vi.fn(async () => undefined) }
-    const hybindex = {
-      buildIndex: vi.fn<(...a: unknown[]) => Promise<unknown>>(async () => ({ libraryPath: '/lib', builtAt: 'now' })),
-      loadIndex:  vi.fn<(...a: unknown[]) => Promise<unknown>>(async () => null),
-      saveIndex:  vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined),
-      getIndexStatus: vi.fn<(...a: unknown[]) => Promise<{ exists: boolean; builtAt?: string }>>(async () => ({ exists: false })),
-      deleteIndex: vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined),
-    }
-    const libraryPath = { resolveLibraryPath: vi.fn(async (p: string) => p + '/world/xml') }
-
-    const musicMetadata = {
-      parseBuffer: vi.fn(async () => ({
-        common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
-        format: { duration: 60, bitrate: 128000, sampleRate: 44100, numberOfChannels: 2 },
-        native: {},
-      })),
-    }
-    const archiver = vi.fn(() => {
-      const events: Record<string, ((...a: unknown[]) => void)[]> = {}
-      return {
-        on: (ev: string, cb: (...a: unknown[]) => void) => { (events[ev] ??= []).push(cb) },
-        pipe: () => undefined,
-        append: () => undefined,
-        file: () => undefined,
-        finalize: () => undefined,
-      }
-    })
-    const childProcess = {
-      execFile: vi.fn((_cmd: string, _args: string[], cb?: (e: Error | null) => void) => { cb?.(null); return {} as never }),
-      spawn: vi.fn(() => ({ unref: vi.fn() })),
-    }
-    const electronToolkit = {
-      electronApp: { setAppUserModelId: vi.fn() },
-      optimizer: { watchWindowShortcuts: vi.fn() },
-      is: { dev: false },
-    }
-    const dalib = {
-      DataArchive: {
-        fromBuffer: vi.fn((buf: Uint8Array) => {
-          // The test seeds entries via mockResolvedValueOnce.
-          const stub = (electronMock.app.getPath as { _archive?: { entries: { entryName: string; fileSize: number; toUint8Array: () => Uint8Array }[] } })._archive
+  const electronMock = {
+    app: {
+      getPath: vi.fn((key: string) => (key === 'home' ? '/home' : '/appdata')),
+      setPath: vi.fn(),
+      // Never resolve in tests — keeps createWindow() and other ready-side
+      // effects from running. We only care about the synchronous IPC
+      // handler registrations at module load.
+      whenReady: vi.fn(() => new Promise(() => undefined)),
+      on: vi.fn(),
+      getVersion: vi.fn(() => '0.0.0-test')
+    },
+    shell: { openExternal: vi.fn() },
+    BrowserWindow: vi.fn(),
+    ipcMain: {
+      handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
+        handlers.set(channel, fn)
+      }),
+      on: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
+        listeners.set(channel, fn)
+      })
+    },
+    dialog: {
+      showOpenDialog: vi.fn(async (opts: { properties?: string[] }) => {
+        if (opts.properties?.includes('openDirectory')) {
           return {
-            entries: stub?.entries ?? [],
-            getEntryBuffer: () => buf,
+            canceled: dialogReplies.openDirectory == null,
+            filePaths: dialogReplies.openDirectory ? [dialogReplies.openDirectory] : []
           }
-        }),
-      },
-    }
+        }
+        return {
+          canceled: dialogReplies.openFile.length === 0,
+          filePaths: [...dialogReplies.openFile]
+        }
+      }),
+      showSaveDialog: vi.fn(async () => ({
+        canceled: dialogReplies.saveFile == null,
+        filePath: dialogReplies.saveFile ?? undefined
+      }))
+    },
+    screen: {}
+  }
 
+  // Local module mocks
+  const settingsManager = { load: vi.fn(async () => ({})), save: vi.fn(async () => undefined) }
+  const hybindex = {
+    buildIndex: vi.fn<(...a: unknown[]) => Promise<unknown>>(async () => ({
+      libraryPath: '/lib',
+      builtAt: 'now'
+    })),
+    loadIndex: vi.fn<(...a: unknown[]) => Promise<unknown>>(async () => null),
+    saveIndex: vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined),
+    getIndexStatus: vi.fn<(...a: unknown[]) => Promise<{ exists: boolean; builtAt?: string }>>(
+      async () => ({ exists: false })
+    ),
+    deleteIndex: vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined)
+  }
+  const libraryPath = { resolveLibraryPath: vi.fn(async (p: string) => p + '/world/xml') }
+
+  const musicMetadata = {
+    parseBuffer: vi.fn(async () => ({
+      common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
+      format: { duration: 60, bitrate: 128000, sampleRate: 44100, numberOfChannels: 2 },
+      native: {}
+    }))
+  }
+  const archiver = vi.fn(() => {
+    const events: Record<string, ((...a: unknown[]) => void)[]> = {}
     return {
-      handlers, listeners, files, dirs, dialogReplies,
-      electronMock, fsMock, settingsManager, hybindex, libraryPath,
-      musicMetadata, archiver, childProcess, electronToolkit, dalib,
+      on: (ev: string, cb: (...a: unknown[]) => void) => {
+        ;(events[ev] ??= []).push(cb)
+      },
+      pipe: () => undefined,
+      append: () => undefined,
+      file: () => undefined,
+      finalize: () => undefined
     }
   })
+  const childProcess = {
+    execFile: vi.fn((_cmd: string, _args: string[], cb?: (e: Error | null) => void) => {
+      cb?.(null)
+      return {} as never
+    }),
+    spawn: vi.fn(() => ({ unref: vi.fn() }))
+  }
+  const electronToolkit = {
+    electronApp: { setAppUserModelId: vi.fn() },
+    optimizer: { watchWindowShortcuts: vi.fn() },
+    is: { dev: false }
+  }
+  const dalib = {
+    DataArchive: {
+      fromBuffer: vi.fn((buf: Uint8Array) => {
+        // The test seeds entries via mockResolvedValueOnce.
+        const stub = (
+          electronMock.app.getPath as {
+            _archive?: {
+              entries: { entryName: string; fileSize: number; toUint8Array: () => Uint8Array }[]
+            }
+          }
+        )._archive
+        return {
+          entries: stub?.entries ?? [],
+          getEntryBuffer: () => buf
+        }
+      })
+    }
+  }
+
+  return {
+    handlers,
+    listeners,
+    files,
+    dirs,
+    dialogReplies,
+    electronMock,
+    fsMock,
+    settingsManager,
+    hybindex,
+    libraryPath,
+    musicMetadata,
+    archiver,
+    childProcess,
+    electronToolkit,
+    dalib
+  }
+})
 
 vi.mock('electron', () => electronMock)
 vi.mock('fs', () => fsMock)
 vi.mock('@eriscorp/hybindex-ts', () => hybindex)
 vi.mock('../settingsManager', () => ({
-  createSettingsManager: () => settingsManager,
+  createSettingsManager: () => settingsManager
 }))
 vi.mock('../libraryPath', () => libraryPath)
 vi.mock('music-metadata', () => musicMetadata)
@@ -341,7 +390,7 @@ describe('fs handlers', () => {
   })
 
   it('fs:writeBytes writes a Uint8Array to disk', async () => {
-    await invoke('fs:writeBytes', '/dir/out.bin', new Uint8Array([0xFF, 0x00]))
+    await invoke('fs:writeBytes', '/dir/out.bin', new Uint8Array([0xff, 0x00]))
     expect(files.get('/dir/out.bin')?.toString('hex')).toBe('ff00')
   })
 
@@ -355,9 +404,9 @@ describe('fs handlers', () => {
     files.set('/x/a.txt', Buffer.from('a'))
     files.set('/x/b.txt', Buffer.from('b'))
     const entries = await invoke<{ name: string; isDirectory: boolean }[]>('fs:listDir', '/x')
-    const names = entries.map(e => e.name).sort()
+    const names = entries.map((e) => e.name).sort()
     expect(names).toEqual(['a.txt', 'b.txt'])
-    expect(entries.every(e => !e.isDirectory)).toBe(true)
+    expect(entries.every((e) => !e.isDirectory)).toBe(true)
   })
 
   it('fs:ensureDir creates the directory recursively', async () => {
@@ -380,7 +429,10 @@ describe('fs handlers', () => {
 
 describe('catalog handlers', () => {
   it('catalog:load returns parsed JSON from the standard catalog path', async () => {
-    files.set('/maps/map-catalog.json', Buffer.from(JSON.stringify({ 'lod00001.map': { name: 'Inn' } }), 'utf-8'))
+    files.set(
+      '/maps/map-catalog.json',
+      Buffer.from(JSON.stringify({ 'lod00001.map': { name: 'Inn' } }), 'utf-8')
+    )
     const data = await invoke<Record<string, { name: string }>>('catalog:load', '/maps')
     expect(data['lod00001.map'].name).toBe('Inn')
   })
@@ -390,7 +442,10 @@ describe('catalog handlers', () => {
   })
 
   it('catalog:load uses .creidhne path when directory is named "mapfiles"', async () => {
-    files.set('/world/.creidhne/map-catalog.json', Buffer.from(JSON.stringify({ 'lod00001.map': { notes: 'shared' } }), 'utf-8'))
+    files.set(
+      '/world/.creidhne/map-catalog.json',
+      Buffer.from(JSON.stringify({ 'lod00001.map': { notes: 'shared' } }), 'utf-8')
+    )
     const data = await invoke<Record<string, { notes: string }>>('catalog:load', '/world/mapfiles')
     expect(data['lod00001.map'].notes).toBe('shared')
   })
@@ -406,7 +461,7 @@ describe('catalog handlers', () => {
     files.set('/maps/lod00002-summer.map', Buffer.alloc(200))
     files.set('/maps/notes.txt', Buffer.from('ignored'))
     const result = await invoke<{ filename: string; sizeBytes: number }[]>('catalog:scan', '/maps')
-    expect(result.map(e => e.filename).sort()).toEqual(['lod00001.map', 'lod00002-summer.map'])
+    expect(result.map((e) => e.filename).sort()).toEqual(['lod00001.map', 'lod00002-summer.map'])
   })
 })
 
@@ -440,10 +495,16 @@ describe('hybindex handlers', () => {
 
 describe('prefab handlers', () => {
   it('prefab:list returns summaries for valid JSON files only', async () => {
-    files.set('/lib/world/.creidhne/prefabs/a.json', Buffer.from(JSON.stringify({ name: 'A', width: 5, height: 5, createdAt: 't', updatedAt: 't' }), 'utf-8'))
+    files.set(
+      '/lib/world/.creidhne/prefabs/a.json',
+      Buffer.from(
+        JSON.stringify({ name: 'A', width: 5, height: 5, createdAt: 't', updatedAt: 't' }),
+        'utf-8'
+      )
+    )
     files.set('/lib/world/.creidhne/prefabs/broken.json', Buffer.from('not json', 'utf-8'))
     const list = await invoke<{ filename: string; name: string }[]>('prefab:list', '/lib/world/xml')
-    expect(list.map(p => p.filename)).toEqual(['a.json'])
+    expect(list.map((p) => p.filename)).toEqual(['a.json'])
     expect(list[0].name).toBe('A')
   })
 
@@ -453,7 +514,10 @@ describe('prefab handlers', () => {
   })
 
   it('prefab:load reads a previously-saved prefab', async () => {
-    files.set('/lib/world/.creidhne/prefabs/foo.json', Buffer.from(JSON.stringify({ name: 'foo' }), 'utf-8'))
+    files.set(
+      '/lib/world/.creidhne/prefabs/foo.json',
+      Buffer.from(JSON.stringify({ name: 'foo' }), 'utf-8')
+    )
     const data = await invoke<{ name: string }>('prefab:load', '/lib/world/xml', 'foo.json')
     expect(data.name).toBe('foo')
   })
@@ -471,9 +535,9 @@ describe('prefab handlers', () => {
   })
 
   it('prefab:load rejects a traversal in filename', async () => {
-    await expect(
-      invoke('prefab:load', '/lib/world/xml', '../boom.json')
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('prefab:load', '/lib/world/xml', '../boom.json')).rejects.toThrow(
+      /Path traversal/
+    )
   })
 
   it('prefab:rename rejects a traversal in either name', async () => {
@@ -495,10 +559,13 @@ describe('prefab handlers', () => {
 
 describe('asset pack handlers', () => {
   it('pack:scan returns only valid pack manifests', async () => {
-    files.set('/p/a.json', Buffer.from(JSON.stringify({ pack_id: 'a', content_type: 'ability_icons' }), 'utf-8'))
+    files.set(
+      '/p/a.json',
+      Buffer.from(JSON.stringify({ pack_id: 'a', content_type: 'ability_icons' }), 'utf-8')
+    )
     files.set('/p/incomplete.json', Buffer.from(JSON.stringify({ pack_id: 'b' }), 'utf-8')) // no content_type
     const list = await invoke<Array<{ filename: string }>>('pack:scan', '/p')
-    expect(list.map(p => p.filename)).toEqual(['a.json'])
+    expect(list.map((p) => p.filename)).toEqual(['a.json'])
   })
 
   it('pack:save writes the JSON manifest', async () => {
@@ -531,19 +598,25 @@ describe('asset pack handlers', () => {
   })
 
   it('pack:removeAsset rejects a traversal in filename', async () => {
-    await expect(
-      invoke('pack:removeAsset', '/pack', '../../boom.png')
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('pack:removeAsset', '/pack', '../../boom.png')).rejects.toThrow(
+      /Path traversal/
+    )
   })
 })
 
 describe('palette handlers', () => {
   it('palette:scan returns only valid palette files, sorted by id', async () => {
-    files.set('/p/_palettes/zeta.json', Buffer.from(JSON.stringify({ id: 'zeta', name: 'Z', entries: [1, 2] }), 'utf-8'))
-    files.set('/p/_palettes/alpha.json', Buffer.from(JSON.stringify({ id: 'alpha', name: 'A', entries: [1] }), 'utf-8'))
+    files.set(
+      '/p/_palettes/zeta.json',
+      Buffer.from(JSON.stringify({ id: 'zeta', name: 'Z', entries: [1, 2] }), 'utf-8')
+    )
+    files.set(
+      '/p/_palettes/alpha.json',
+      Buffer.from(JSON.stringify({ id: 'alpha', name: 'A', entries: [1] }), 'utf-8')
+    )
     files.set('/p/_palettes/broken.json', Buffer.from('not json', 'utf-8'))
     const list = await invoke<Array<{ id: string; entryCount: number }>>('palette:scan', '/p')
-    expect(list.map(p => p.id)).toEqual(['alpha', 'zeta'])
+    expect(list.map((p) => p.id)).toEqual(['alpha', 'zeta'])
     expect(list[0].entryCount).toBe(1)
     expect(list[1].entryCount).toBe(2)
   })
@@ -564,9 +637,9 @@ describe('palette handlers', () => {
   })
 
   it('palette:calibrationLoad rejects a traversal in paletteId', async () => {
-    await expect(
-      invoke('palette:calibrationLoad', '/p', '../../etc/passwd')
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('palette:calibrationLoad', '/p', '../../etc/passwd')).rejects.toThrow(
+      /Path traversal/
+    )
   })
 
   it('frame:scan returns sorted PNG filenames from _frames/', async () => {
@@ -579,10 +652,13 @@ describe('palette handlers', () => {
 
 describe('theme handlers', () => {
   it('theme:list ignores malformed JSON files', async () => {
-    files.set('/appdata/Erisco/Taliesin/themes/good.json', Buffer.from(JSON.stringify({ name: 'Good' }), 'utf-8'))
-    files.set('/appdata/Erisco/Taliesin/themes/bad.json',  Buffer.from('not json', 'utf-8'))
+    files.set(
+      '/appdata/Erisco/Taliesin/themes/good.json',
+      Buffer.from(JSON.stringify({ name: 'Good' }), 'utf-8')
+    )
+    files.set('/appdata/Erisco/Taliesin/themes/bad.json', Buffer.from('not json', 'utf-8'))
     const list = await invoke<{ filename: string; name: string }[]>('theme:list')
-    expect(list.map(t => t.filename)).toEqual(['good.json'])
+    expect(list.map((t) => t.filename)).toEqual(['good.json'])
   })
 
   it('theme:save writes JSON under the themes dir', async () => {
@@ -597,9 +673,9 @@ describe('theme handlers', () => {
   })
 
   it('theme:save rejects a traversal in filename', async () => {
-    await expect(
-      invoke('theme:save', '../../boom.json', { name: 'X' })
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('theme:save', '../../boom.json', { name: 'X' })).rejects.toThrow(
+      /Path traversal/
+    )
   })
 
   it('theme:delete rejects a traversal in filename', async () => {
@@ -609,10 +685,12 @@ describe('theme handlers', () => {
 
 describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicDeployPack)', () => {
   const pack = {
-    id: 'p1', name: 'P', tracks: [
+    id: 'p1',
+    name: 'P',
+    tracks: [
       { musicId: 1, sourceFile: 'song1.mp3' },
-      { musicId: 2, sourceFile: 'song2.mp3' },
-    ],
+      { musicId: 2, sourceFile: 'song2.mp3' }
+    ]
   }
 
   it('clears top-level files in the destination before deploying', async () => {
@@ -649,7 +727,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     expect(manifest.packId).toBe('p1')
     expect(manifest.tracks).toEqual([
       { id: 1, sourceFile: 'song1.mp3' },
-      { id: 2, sourceFile: 'song2.mp3' },
+      { id: 2, sourceFile: 'song2.mp3' }
     ])
     expect(typeof manifest.exportedAt).toBe('string')
   })
@@ -714,7 +792,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     musicMetadata.parseBuffer.mockImplementation(async () => ({
       common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
       format: { duration: 60, bitrate: 64000, sampleRate: 22050, numberOfChannels: 2 },
-      native: {},
+      native: {}
     }))
 
     await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
@@ -730,7 +808,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     musicMetadata.parseBuffer.mockImplementation(async () => ({
       common: { title: 't', artist: 'a', genre: ['rock'], album: 'al' },
       format: { duration: 60, bitrate: 128000, sampleRate: 22050, numberOfChannels: 2 }, // 128 kbps ≠ 64 kbps
-      native: {},
+      native: {}
     }))
 
     await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
@@ -757,8 +835,8 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
       ...pack,
       tracks: [
         { musicId: 1, sourceFile: 'song1.ogg' },
-        { musicId: 2, sourceFile: 'song2.wav' },
-      ],
+        { musicId: 2, sourceFile: 'song2.wav' }
+      ]
     }
 
     await invoke('music:deploy-pack', '/lib', oggPack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
@@ -787,19 +865,19 @@ describe('music:scan', () => {
   })
 
   it('discovers music files recursively with sizes', async () => {
-    files.set('/lib/a.mp3',     Buffer.from('AAA'))
+    files.set('/lib/a.mp3', Buffer.from('AAA'))
     files.set('/lib/sub/b.ogg', Buffer.from('BBBB'))
-    files.set('/lib/skip.txt',  Buffer.from('NOPE'))
-    const result = await invoke('music:scan', '/lib') as { filename: string; sizeBytes: number }[]
+    files.set('/lib/skip.txt', Buffer.from('NOPE'))
+    const result = (await invoke('music:scan', '/lib')) as { filename: string; sizeBytes: number }[]
     expect(result.sort((x, y) => x.filename.localeCompare(y.filename))).toEqual([
-      { filename: 'a.mp3',     sizeBytes: 3 },
-      { filename: 'sub/b.ogg', sizeBytes: 4 },
+      { filename: 'a.mp3', sizeBytes: 3 },
+      { filename: 'sub/b.ogg', sizeBytes: 4 }
     ])
   })
 })
 
 describe('bik:convert (handlers.ts bikConvert)', () => {
-  const bytes = new Uint8Array([0x42, 0x49, 0x4B, 0x69, 0xDE, 0xAD, 0xBE, 0xEF])
+  const bytes = new Uint8Array([0x42, 0x49, 0x4b, 0x69, 0xde, 0xad, 0xbe, 0xef])
 
   it('runs ffmpeg with libx264 + aac when no cached mp4 exists', async () => {
     await invoke('bik:convert', bytes, '/usr/bin/ffmpeg', '/cache/bik')
@@ -836,7 +914,7 @@ describe('bik:convert (handlers.ts bikConvert)', () => {
   })
 
   it('uses a different cache path for different input bytes', async () => {
-    const other = new Uint8Array([0x42, 0x49, 0x4B, 0x69, 0x01, 0x02, 0x03, 0x04])
+    const other = new Uint8Array([0x42, 0x49, 0x4b, 0x69, 0x01, 0x02, 0x03, 0x04])
     const a = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
     const b = await invoke<string>('bik:convert', other, null, '/cache/bik')
     expect(a).not.toBe(b)
@@ -856,9 +934,9 @@ describe('bik:convert (handlers.ts bikConvert)', () => {
     )
     await expect(invoke('bik:convert', bytes, null, '/cache/bik')).rejects.toThrow()
     // No leftover .bik or .mp4 in the cache.
-    const cacheKeys = [...files.keys()].filter(k => k.startsWith('/cache/bik/'))
-    const biks = cacheKeys.filter(k => k.endsWith('.bik'))
-    const mp4s = cacheKeys.filter(k => k.endsWith('.mp4'))
+    const cacheKeys = [...files.keys()].filter((k) => k.startsWith('/cache/bik/'))
+    const biks = cacheKeys.filter((k) => k.endsWith('.bik'))
+    const mp4s = cacheKeys.filter((k) => k.endsWith('.mp4'))
     expect(biks).toEqual([])
     expect(mp4s).toEqual([])
   })

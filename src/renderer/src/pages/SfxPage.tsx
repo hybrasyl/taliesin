@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
-  Box, Typography, TextField, Table, TableHead, TableRow,
-  TableCell, TableBody, IconButton, Tooltip, CircularProgress, Button, Divider
+  Box,
+  Typography,
+  TextField,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+  Button,
+  Divider
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
@@ -32,33 +43,34 @@ function sfxId(entryName: string): number | null {
 }
 
 const SfxPage: React.FC = () => {
-  const clientPath    = useRecoilValue(clientPathState)
+  const clientPath = useRecoilValue(clientPathState)
   const activeLibrary = useRecoilValue(activeLibraryState)
 
-  const [entries, setEntries]     = useState<SfxEntry[]>([])
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState<string | null>(null)
-  const [filter, setFilter]       = useState('')
-  const [selected, setSelected]   = useState<string | null>(null)
+  const [entries, setEntries] = useState<SfxEntry[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
 
   // Index state
-  const [index, setIndex]         = useState<SfxIndex>({})
-  const [draft, setDraft]         = useState<SfxMeta>({})
-  const [dirty, setDirty]         = useState(false)
-  const [saving, setSaving]       = useState(false)
+  const [index, setIndex] = useState<SfxIndex>({})
+  const [draft, setDraft] = useState<SfxMeta>({})
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   // Audio state
-  const [playingEntry, setPlayingEntry]   = useState<string | null>(null)
-  const [loadingEntry, setLoadingEntry]   = useState<string | null>(null)
-  const audioRef    = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef  = useRef<string | null>(null)
+  const [playingEntry, setPlayingEntry] = useState<string | null>(null)
+  const [loadingEntry, setLoadingEntry] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   // Load entries from legend.dat
   useEffect(() => {
     if (!clientPath) return
     setLoading(true)
     setError(null)
-    window.api.sfxList(clientPath)
+    window.api
+      .sfxList(clientPath)
       .then((list) => {
         const sorted = [...list].sort((a, b) => {
           const ia = sfxId(a.entryName) ?? Infinity
@@ -73,13 +85,23 @@ const SfxPage: React.FC = () => {
 
   // Load index when library changes
   useEffect(() => {
-    if (!activeLibrary) { setIndex({}); return }
-    window.api.sfxIndexLoad(activeLibrary).then(setIndex).catch(() => setIndex({}))
+    if (!activeLibrary) {
+      setIndex({})
+      return
+    }
+    window.api
+      .sfxIndexLoad(activeLibrary)
+      .then(setIndex)
+      .catch(() => setIndex({}))
   }, [activeLibrary])
 
   // Sync draft when selection changes
   useEffect(() => {
-    if (!selected) { setDraft({}); setDirty(false); return }
+    if (!selected) {
+      setDraft({})
+      setDirty(false)
+      return
+    }
     setDraft(index[selected] ?? {})
     setDirty(false)
   }, [selected, index])
@@ -101,37 +123,40 @@ const SfxPage: React.FC = () => {
     setPlayingEntry(null)
   }, [])
 
-  const handlePlay = useCallback(async (entryName: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!clientPath) return
+  const handlePlay = useCallback(
+    async (entryName: string, e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (!clientPath) return
 
-    if (playingEntry === entryName) {
+      if (playingEntry === entryName) {
+        stopCurrent()
+        return
+      }
+
       stopCurrent()
-      return
-    }
+      setLoadingEntry(entryName)
 
-    stopCurrent()
-    setLoadingEntry(entryName)
+      try {
+        const buf = await window.api.sfxReadEntry(clientPath, entryName)
+        const blob = new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
+        const url = URL.createObjectURL(blob)
+        blobUrlRef.current = url
 
-    try {
-      const buf = await window.api.sfxReadEntry(clientPath, entryName)
-      const blob = new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
-      const url = URL.createObjectURL(blob)
-      blobUrlRef.current = url
-
-      if (!audioRef.current) audioRef.current = new Audio()
-      const audio = audioRef.current
-      audio.src = url
-      audio.onended = () => setPlayingEntry(null)
-      audio.onerror = () => setPlayingEntry(null)
-      await audio.play()
-      setPlayingEntry(entryName)
-    } catch {
-      // play failed — clear state
-    } finally {
-      setLoadingEntry(null)
-    }
-  }, [clientPath, playingEntry, stopCurrent])
+        if (!audioRef.current) audioRef.current = new Audio()
+        const audio = audioRef.current
+        audio.src = url
+        audio.onended = () => setPlayingEntry(null)
+        audio.onerror = () => setPlayingEntry(null)
+        await audio.play()
+        setPlayingEntry(entryName)
+      } catch {
+        // play failed — clear state
+      } finally {
+        setLoadingEntry(null)
+      }
+    },
+    [clientPath, playingEntry, stopCurrent]
+  )
 
   const handleSave = useCallback(async () => {
     if (!activeLibrary || !selected) return
@@ -155,7 +180,7 @@ const SfxPage: React.FC = () => {
     if (!filter.trim()) return entries
     const q = filter.trim().toLowerCase()
     return entries.filter((e) => {
-      const id   = sfxId(e.entryName)
+      const id = sfxId(e.entryName)
       const meta = index[e.entryName]
       return (
         e.entryName.toLowerCase().includes(q) ||
@@ -195,12 +220,22 @@ const SfxPage: React.FC = () => {
     )
   }
 
-  const selectedEntry = selected ? entries.find((e) => e.entryName === selected) ?? null : null
+  const selectedEntry = selected ? (entries.find((e) => e.entryName === selected) ?? null) : null
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
           {filtered.length} / {entries.length} entries
         </Typography>
@@ -233,8 +268,8 @@ const SfxPage: React.FC = () => {
             </TableHead>
             <TableBody>
               {filtered.map((e) => {
-                const id        = sfxId(e.entryName)
-                const meta      = index[e.entryName]
+                const id = sfxId(e.entryName)
+                const meta = index[e.entryName]
                 const isPlaying = playingEntry === e.entryName
                 const isLoading = loadingEntry === e.entryName
                 const isSelected = selected === e.entryName
@@ -252,26 +287,36 @@ const SfxPage: React.FC = () => {
                       ) : (
                         <Tooltip title={isPlaying ? 'Stop' : 'Play'}>
                           <IconButton size="small" onClick={(ev) => handlePlay(e.entryName, ev)}>
-                            {isPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                            {isPlaying ? (
+                              <StopIcon fontSize="small" />
+                            ) : (
+                              <PlayArrowIcon fontSize="small" />
+                            )}
                           </IconButton>
                         </Tooltip>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">{id ?? '—'}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {id ?? '—'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       {meta?.name ? (
                         <>
                           <Typography variant="body2">{meta.name}</Typography>
-                          <Typography variant="caption" color="text.disabled">{e.entryName}</Typography>
+                          <Typography variant="caption" color="text.disabled">
+                            {e.entryName}
+                          </Typography>
                         </>
                       ) : (
                         <Typography variant="body2">{e.entryName}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" color="text.secondary">{formatBytes(e.sizeBytes)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatBytes(e.sizeBytes)}
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )
@@ -282,17 +327,30 @@ const SfxPage: React.FC = () => {
 
         {/* Right: detail panel */}
         <Divider orientation="vertical" flexItem />
-        <Box sx={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Box
+          sx={{
+            width: 300,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
           {!selectedEntry ? (
             <Box sx={{ p: 3 }}>
-              <Typography variant="body2" color="text.disabled">Select an entry to annotate it.</Typography>
+              <Typography variant="body2" color="text.disabled">
+                Select an entry to annotate it.
+              </Typography>
             </Box>
           ) : (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
               <Box>
-                <Typography variant="caption" color="text.secondary">{selectedEntry.entryName}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {selectedEntry.entryName}
+                </Typography>
                 <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-                  ID: {sfxId(selectedEntry.entryName) ?? '—'} · {formatBytes(selectedEntry.sizeBytes)}
+                  ID: {sfxId(selectedEntry.entryName) ?? '—'} ·{' '}
+                  {formatBytes(selectedEntry.sizeBytes)}
                 </Typography>
               </Box>
 
@@ -308,7 +366,10 @@ const SfxPage: React.FC = () => {
                 fullWidth
                 value={draft.name ?? ''}
                 disabled={!activeLibrary}
-                onChange={(e) => { setDraft((d) => ({ ...d, name: e.target.value || undefined })); setDirty(true) }}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, name: e.target.value || undefined }))
+                  setDirty(true)
+                }}
               />
               <TextField
                 label="Comment"
@@ -318,7 +379,10 @@ const SfxPage: React.FC = () => {
                 minRows={3}
                 value={draft.comment ?? ''}
                 disabled={!activeLibrary}
-                onChange={(e) => { setDraft((d) => ({ ...d, comment: e.target.value || undefined })); setDirty(true) }}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, comment: e.target.value || undefined }))
+                  setDirty(true)
+                }}
               />
 
               <Button

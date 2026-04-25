@@ -11,7 +11,13 @@ import { promises as fs } from 'fs'
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
 import { createHash } from 'crypto'
-import { buildIndex, loadIndex, saveIndex, getIndexStatus, deleteIndex } from '@eriscorp/hybindex-ts'
+import {
+  buildIndex,
+  loadIndex,
+  saveIndex,
+  getIndexStatus,
+  deleteIndex
+} from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import { assertInside } from './pathSafety'
 import type { createSettingsManager } from './settingsManager'
@@ -31,7 +37,9 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  return ctx.settingsManager.save(settings as Parameters<HandlerContext['settingsManager']['save']>[0])
+  return ctx.settingsManager.save(
+    settings as Parameters<HandlerContext['settingsManager']['save']>[0]
+  )
 }
 
 export function getUserDataPath(ctx: HandlerContext): string {
@@ -85,7 +93,12 @@ export async function writeBytes(filePath: string, data: Uint8Array): Promise<vo
 }
 
 export async function exists(filePath: string): Promise<boolean> {
-  try { await fs.access(filePath); return true } catch { return false }
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function ensureDir(dirPath: string): Promise<void> {
@@ -110,7 +123,12 @@ export async function listArchive(filePath: string): Promise<string[]> {
  * If named "mapfiles", store under sibling .creidhne/. Otherwise store inline.
  */
 function getCatalogPath(dirPath: string): string {
-  const folderName = dirPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop()?.toLowerCase() ?? ''
+  const folderName =
+    dirPath
+      .replace(/[\\/]+$/, '')
+      .split(/[\\/]/)
+      .pop()
+      ?.toLowerCase() ?? ''
   if (folderName === 'mapfiles') {
     return join(dirPath, '..', '.creidhne', 'map-catalog.json')
   }
@@ -119,7 +137,11 @@ function getCatalogPath(dirPath: string): string {
 
 export async function catalogLoad(dirPath: string): Promise<Record<string, unknown>> {
   const p = getCatalogPath(dirPath)
-  try { return JSON.parse(await fs.readFile(p, 'utf-8')) } catch { return {} }
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
 }
 
 export async function catalogSave(dirPath: string, data: unknown): Promise<void> {
@@ -128,11 +150,11 @@ export async function catalogSave(dirPath: string, data: unknown): Promise<void>
   await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export async function catalogScan(dirPath: string): Promise<{ filename: string; sizeBytes: number }[]> {
+export async function catalogScan(
+  dirPath: string
+): Promise<{ filename: string; sizeBytes: number }[]> {
   const entries = await fs.readdir(dirPath, { withFileTypes: true })
-  const maps = entries.filter(
-    (e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name)
-  )
+  const maps = entries.filter((e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name))
   return Promise.all(
     maps.map(async (e) => {
       const stat = await fs.stat(join(dirPath, e.name))
@@ -145,7 +167,10 @@ export async function catalogScan(dirPath: string): Promise<{ filename: string; 
 
 const MUSIC_SOURCE_EXTS = new Set(['.mp3', '.ogg', '.mus', '.wav', '.flac'])
 
-function findTxxxFrame(native: Record<string, { id: string; value: unknown }[]> | undefined, desc: string): string | null {
+function findTxxxFrame(
+  native: Record<string, { id: string; value: unknown }[]> | undefined,
+  desc: string
+): string | null {
   if (!native) return null
   const wantedId = `TXXX:${desc}`
   for (const entries of Object.values(native)) {
@@ -180,24 +205,30 @@ export async function musicReadFileMeta(filePath: string) {
     const { title, artist, genre, album } = meta.common
     const { duration, bitrate, sampleRate, numberOfChannels } = meta.format
     const genreStr = Array.isArray(genre) ? genre.join(', ') : (genre ?? null)
-    const prompt = findTxxxFrame(meta.native as Record<string, { id: string; value: unknown }[]>, 'PROMPT')
+    const prompt = findTxxxFrame(
+      meta.native as Record<string, { id: string; value: unknown }[]>,
+      'PROMPT'
+    )
     return {
-      title:      title        ?? null,
-      artist:     artist       ?? null,
-      genre:      genreStr     || null,
-      album:      album        ?? null,
-      duration:   duration     ?? null,
-      bitrate:    bitrate      ?? null,
-      sampleRate: sampleRate   ?? null,
-      channels:   numberOfChannels ?? null,
-      prompt:     prompt?.trim() || null,
+      title: title ?? null,
+      artist: artist ?? null,
+      genre: genreStr || null,
+      album: album ?? null,
+      duration: duration ?? null,
+      bitrate: bitrate ?? null,
+      sampleRate: sampleRate ?? null,
+      channels: numberOfChannels ?? null,
+      prompt: prompt?.trim() || null
     }
   } catch {
     return null
   }
 }
 
-async function scanMusicDir(rootDir: string, relDir = ''): Promise<{ filename: string; sizeBytes: number }[]> {
+async function scanMusicDir(
+  rootDir: string,
+  relDir = ''
+): Promise<{ filename: string; sizeBytes: number }[]> {
   const absDir = relDir ? join(rootDir, relDir) : rootDir
   const entries = await fs.readdir(absDir, { withFileTypes: true })
   const nested = await Promise.all(
@@ -216,13 +247,20 @@ async function scanMusicDir(rootDir: string, relDir = ''): Promise<{ filename: s
 }
 
 export async function musicScan(dirPath: string) {
-  try { return await scanMusicDir(dirPath) }
-  catch { return [] }
+  try {
+    return await scanMusicDir(dirPath)
+  } catch {
+    return []
+  }
 }
 
 export async function musicMetadataLoad(dirPath: string): Promise<Record<string, unknown>> {
   const p = join(dirPath, 'music-library.json')
-  try { return JSON.parse(await fs.readFile(p, 'utf-8')) } catch { return {} }
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
 }
 
 export async function musicMetadataSave(dirPath: string, data: unknown): Promise<void> {
@@ -233,7 +271,11 @@ export async function musicMetadataSave(dirPath: string, data: unknown): Promise
 
 export async function musicPacksLoad(dirPath: string): Promise<unknown> {
   const p = join(dirPath, 'music-packs.json')
-  try { return JSON.parse(await fs.readFile(p, 'utf-8')) } catch { return [] }
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return []
+  }
 }
 
 export async function musicPacksSave(dirPath: string, packs: unknown): Promise<void> {
@@ -242,15 +284,26 @@ export async function musicPacksSave(dirPath: string, packs: unknown): Promise<v
   await fs.writeFile(p, JSON.stringify(packs, null, 2), 'utf-8')
 }
 
-interface DeployTrack { musicId: number; sourceFile: string }
-interface DeployPack  { id: string; name: string; description?: string; tracks: DeployTrack[] }
+interface DeployTrack {
+  musicId: number
+  sourceFile: string
+}
+interface DeployPack {
+  id: string
+  name: string
+  description?: string
+  tracks: DeployTrack[]
+}
 
 type ParseBuffer = typeof import('music-metadata').parseBuffer
 
 async function deployTrackFn(
   parseBuffer: ParseBuffer,
-  srcPath: string, destPath: string,
-  ffmpegBin: string, kbps: number, sampleRate: number,
+  srcPath: string,
+  destPath: string,
+  ffmpegBin: string,
+  kbps: number,
+  sampleRate: number
 ): Promise<void> {
   // Fast path: a .mp3 source already encoded at the target bitrate + sample
   // rate can just be copied. Saves an ffmpeg roundtrip per track and avoids
@@ -264,21 +317,31 @@ async function deployTrackFn(
         await fs.copyFile(srcPath, destPath)
         return
       }
-    } catch { /* fall through to re-encode */ }
+    } catch {
+      /* fall through to re-encode */
+    }
   }
   await execFileAsync(ffmpegBin, [
     '-y',
-    '-i', srcPath,
-    '-codec:a', 'libmp3lame',
-    '-b:a', `${kbps}k`,
-    '-ar', String(sampleRate),
-    destPath,
+    '-i',
+    srcPath,
+    '-codec:a',
+    'libmp3lame',
+    '-b:a',
+    `${kbps}k`,
+    '-ar',
+    String(sampleRate),
+    destPath
   ])
 }
 
 export async function musicDeployPack(
-  srcLibDir: string, pack: DeployPack, destDir: string,
-  ffmpegPath: string | null, musEncodeKbps: number, musEncodeSampleRate: number,
+  srcLibDir: string,
+  pack: DeployPack,
+  destDir: string,
+  ffmpegPath: string | null,
+  musEncodeKbps: number,
+  musEncodeSampleRate: number
 ): Promise<void> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
   // Resolve and validate every track's source path up front. assertInside
@@ -292,12 +355,19 @@ export async function musicDeployPack(
     const dst = assertInside(destDir, `${track.musicId}.mus`)
     resolved.push({ src, dst, original: track.sourceFile })
   }
-  await Promise.all(resolved.map(async (r) => {
-    try { await fs.stat(r.src) }
-    catch { missing.push(r.original) }
-  }))
+  await Promise.all(
+    resolved.map(async (r) => {
+      try {
+        await fs.stat(r.src)
+      } catch {
+        missing.push(r.original)
+      }
+    })
+  )
   if (missing.length > 0) {
-    throw new Error(`Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`)
+    throw new Error(
+      `Cannot deploy pack "${pack.name}": missing source file(s): ${missing.join(', ')}`
+    )
   }
   await fs.mkdir(destDir, { recursive: true })
   const existing = await fs.readdir(destDir, { withFileTypes: true })
@@ -309,17 +379,22 @@ export async function musicDeployPack(
   // through to the real module.
   const { parseBuffer } = await import('music-metadata')
   await Promise.all(
-    resolved.map((r) => deployTrackFn(parseBuffer, r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate))
+    resolved.map((r) =>
+      deployTrackFn(parseBuffer, r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate)
+    )
   )
   const manifest = {
-    packId: pack.id, packName: pack.name,
+    packId: pack.id,
+    packName: pack.name,
     exportedAt: new Date().toISOString(),
-    tracks: pack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile })),
+    tracks: pack.tracks.map((t) => ({ id: t.musicId, sourceFile: t.sourceFile }))
   }
   await fs.writeFile(join(destDir, 'music-pack.json'), JSON.stringify(manifest, null, 2), 'utf-8')
 }
 
-export async function musicClientScan(clientPath: string): Promise<{ filename: string; sizeBytes: number }[]> {
+export async function musicClientScan(
+  clientPath: string
+): Promise<{ filename: string; sizeBytes: number }[]> {
   const musicDir = join(clientPath, 'music')
   try {
     const entries = await fs.readdir(musicDir, { withFileTypes: true })
@@ -330,12 +405,16 @@ export async function musicClientScan(clientPath: string): Promise<{ filename: s
         return { filename: e.name, sizeBytes: stat.size }
       })
     )
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 // ── SFX ──────────────────────────────────────────────────────────────────────
 
-export async function sfxList(clientPath: string): Promise<{ entryName: string; sizeBytes: number }[]> {
+export async function sfxList(
+  clientPath: string
+): Promise<{ entryName: string; sizeBytes: number }[]> {
   const { DataArchive } = await import('@eriscorp/dalib-ts')
   const legendPath = join(clientPath, 'legend.dat')
   const buf = await fs.readFile(legendPath)
@@ -357,7 +436,11 @@ export async function sfxReadEntry(clientPath: string, entryName: string): Promi
 
 export async function sfxIndexLoad(activeLibrary: string): Promise<Record<string, unknown>> {
   const p = join(activeLibrary, '..', 'sfx-index.json')
-  try { return JSON.parse(await fs.readFile(p, 'utf-8')) } catch { return {} }
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return {}
+  }
 }
 
 export async function sfxIndexSave(activeLibrary: string, data: unknown): Promise<void> {
@@ -375,7 +458,9 @@ export async function sfxIndexSave(activeLibrary: string, data: unknown): Promis
  * Returns the absolute path to the cached MP4.
  */
 export async function bikConvert(
-  bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string,
+  bytes: Uint8Array,
+  ffmpegPath: string | null,
+  cacheDir: string
 ): Promise<string> {
   const ffmpegBin = ffmpegPath || 'ffmpeg'
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 32)
@@ -386,21 +471,29 @@ export async function bikConvert(
   const mp4Path = assertInside(cacheDir, `${hash}.mp4`)
   try {
     await fs.access(mp4Path)
-    return mp4Path  // cache hit
-  } catch { /* fall through to conversion */ }
+    return mp4Path // cache hit
+  } catch {
+    /* fall through to conversion */
+  }
 
   const bikPath = assertInside(cacheDir, `${hash}.bik`)
   await fs.writeFile(bikPath, Buffer.from(bytes))
   try {
     await execFileAsync(ffmpegBin, [
       '-y',
-      '-i', bikPath,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '23',
-      '-c:a', 'aac',
-      '-movflags', '+faststart',
-      mp4Path,
+      '-i',
+      bikPath,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '23',
+      '-c:a',
+      'aac',
+      '-movflags',
+      '+faststart',
+      mp4Path
     ])
   } finally {
     // Always remove the source temp file; mp4 stays cached on success and
@@ -445,8 +538,15 @@ export async function prefabList(libraryPath: string) {
   try {
     await fs.mkdir(dir, { recursive: true })
     const entries = await fs.readdir(dir, { withFileTypes: true })
-    const summaries: { filename: string; name: string; width: number; height: number; createdAt: string; updatedAt: string }[] = []
-    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+    const summaries: {
+      filename: string
+      name: string
+      width: number
+      height: number
+      createdAt: string
+      updatedAt: string
+    }[] = []
+    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(dir, e.name), 'utf-8')
         const data = JSON.parse(raw)
@@ -456,12 +556,16 @@ export async function prefabList(libraryPath: string) {
           width: data.width ?? 0,
           height: data.height ?? 0,
           createdAt: data.createdAt ?? '',
-          updatedAt: data.updatedAt ?? '',
+          updatedAt: data.updatedAt ?? ''
         })
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     return summaries
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 export async function prefabLoad(libraryPath: string, filename: string) {
@@ -469,7 +573,11 @@ export async function prefabLoad(libraryPath: string, filename: string) {
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
-export async function prefabSave(libraryPath: string, filename: string, data: unknown): Promise<void> {
+export async function prefabSave(
+  libraryPath: string,
+  filename: string,
+  data: unknown
+): Promise<void> {
   const dir = prefabDir(libraryPath)
   const p = assertInside(dir, filename)
   await fs.mkdir(dir, { recursive: true })
@@ -480,7 +588,11 @@ export async function prefabDelete(libraryPath: string, filename: string): Promi
   await fs.unlink(assertInside(prefabDir(libraryPath), filename))
 }
 
-export async function prefabRename(libraryPath: string, oldName: string, newName: string): Promise<void> {
+export async function prefabRename(
+  libraryPath: string,
+  oldName: string,
+  newName: string
+): Promise<void> {
   const dir = prefabDir(libraryPath)
   await fs.rename(assertInside(dir, oldName), assertInside(dir, newName))
 }
@@ -491,17 +603,21 @@ export async function packScan(dirPath: string): Promise<Record<string, unknown>
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     const packs: Record<string, unknown>[] = []
-    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(dirPath, e.name), 'utf-8')
         const data = JSON.parse(raw)
         if (data.pack_id && data.content_type) {
           packs.push({ filename: e.name, ...data })
         }
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     return packs
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 export async function packLoad(filePath: string) {
@@ -517,7 +633,11 @@ export async function packDelete(filePath: string): Promise<void> {
   await fs.unlink(filePath)
 }
 
-export async function packAddAsset(packDir: string, sourcePath: string, targetFilename: string): Promise<void> {
+export async function packAddAsset(
+  packDir: string,
+  sourcePath: string,
+  targetFilename: string
+): Promise<void> {
   const dest = assertInside(packDir, targetFilename)
   await fs.mkdir(packDir, { recursive: true })
   await fs.copyFile(sourcePath, dest)
@@ -525,10 +645,19 @@ export async function packAddAsset(packDir: string, sourcePath: string, targetFi
 
 export async function packRemoveAsset(packDir: string, filename: string): Promise<void> {
   const target = assertInside(packDir, filename)
-  try { await fs.unlink(target) } catch { /* already gone */ }
+  try {
+    await fs.unlink(target)
+  } catch {
+    /* already gone */
+  }
 }
 
-export async function packCompile(packDir: string, manifest: unknown, assetFilenames: string[], outputPath: string): Promise<void> {
+export async function packCompile(
+  packDir: string,
+  manifest: unknown,
+  assetFilenames: string[],
+  outputPath: string
+): Promise<void> {
   // Validate every asset filename before opening the output stream — prevents
   // a malicious entry from leaking files outside packDir into the archive.
   const resolved = assetFilenames.map((f) => ({ name: f, abs: assertInside(packDir, f) }))
@@ -558,17 +687,26 @@ export async function paletteScan(packDir: string) {
     const dir = palettesSubdir(packDir)
     const entries = await fs.readdir(dir, { withFileTypes: true })
     const palettes: { filename: string; id: string; name: string; entryCount: number }[] = []
-    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(dir, e.name), 'utf-8')
         const data = JSON.parse(raw)
         if (data.id && Array.isArray(data.entries)) {
-          palettes.push({ filename: e.name, id: data.id, name: data.name ?? data.id, entryCount: data.entries.length })
+          palettes.push({
+            filename: e.name,
+            id: data.id,
+            name: data.name ?? data.id,
+            entryCount: data.entries.length
+          })
         }
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     return palettes.sort((a, b) => a.id.localeCompare(b.id))
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 export async function paletteLoad(filePath: string) {
@@ -581,15 +719,30 @@ export async function paletteSave(filePath: string, data: unknown): Promise<void
 }
 
 export async function paletteDelete(filePath: string): Promise<void> {
-  try { await fs.unlink(filePath) } catch { /* already gone */ }
+  try {
+    await fs.unlink(filePath)
+  } catch {
+    /* already gone */
+  }
 }
 
-export async function paletteCalibrationLoad(packDir: string, paletteId: string): Promise<Record<string, unknown>> {
+export async function paletteCalibrationLoad(
+  packDir: string,
+  paletteId: string
+): Promise<Record<string, unknown>> {
   const path = assertInside(calibrationsSubdir(packDir), `${paletteId}.json`)
-  try { return JSON.parse(await fs.readFile(path, 'utf-8')) } catch { return {} }
+  try {
+    return JSON.parse(await fs.readFile(path, 'utf-8'))
+  } catch {
+    return {}
+  }
 }
 
-export async function paletteCalibrationSave(packDir: string, paletteId: string, data: unknown): Promise<void> {
+export async function paletteCalibrationSave(
+  packDir: string,
+  paletteId: string,
+  data: unknown
+): Promise<void> {
   const dir = calibrationsSubdir(packDir)
   const path = assertInside(dir, `${paletteId}.json`)
   await fs.mkdir(dir, { recursive: true })
@@ -601,10 +754,12 @@ export async function frameScan(packDir: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true })
     return entries
-      .filter(e => e.isFile() && e.name.toLowerCase().endsWith('.png'))
-      .map(e => e.name)
+      .filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.png'))
+      .map((e) => e.name)
       .sort((a, b) => a.localeCompare(b))
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 // ── Tile frequency scanner ──────────────────────────────────────────────────
@@ -618,9 +773,12 @@ export async function tileScanAnalyze(dirPaths: string[]) {
 
   for (const dirPath of dirPaths) {
     let entries
-    try { entries = await fs.readdir(dirPath, { withFileTypes: true }) }
-    catch { continue }
-    const mapFiles = entries.filter(e => e.isFile() && /\.map$/i.test(e.name))
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    const mapFiles = entries.filter((e) => e.isFile() && /\.map$/i.test(e.name))
     for (const entry of mapFiles) {
       try {
         const buf = await fs.readFile(join(dirPath, entry.name))
@@ -636,7 +794,9 @@ export async function tileScanAnalyze(dirPaths: string[]) {
           if (lfg !== 0) lfgFreq.set(lfg, (lfgFreq.get(lfg) ?? 0) + 1)
           if (rfg !== 0) rfgFreq.set(rfg, (rfgFreq.get(rfg) ?? 0) + 1)
         }
-      } catch { /* skip unreadable */ }
+      } catch {
+        /* skip unreadable */
+      }
     }
   }
 
@@ -647,7 +807,8 @@ export async function tileScanAnalyze(dirPaths: string[]) {
     background: sortAndCap(bgFreq, 200),
     leftForeground: sortAndCap(lfgFreq, 200),
     rightForeground: sortAndCap(rfgFreq, 200),
-    fileCount, tileCount,
+    fileCount,
+    tileCount
   }
 }
 
@@ -659,15 +820,19 @@ export async function themeList(ctx: HandlerContext) {
     await fs.mkdir(themeDir, { recursive: true })
     const entries = await fs.readdir(themeDir, { withFileTypes: true })
     const summaries: { filename: string; name: string }[] = []
-    for (const e of entries.filter(e => e.isFile() && e.name.endsWith('.json'))) {
+    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
       try {
         const raw = await fs.readFile(join(themeDir, e.name), 'utf-8')
         const data = JSON.parse(raw)
         summaries.push({ filename: e.name, name: data.name ?? e.name.replace(/\.json$/, '') })
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     return summaries
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 export async function themeLoad(ctx: HandlerContext, filename: string) {
@@ -675,7 +840,11 @@ export async function themeLoad(ctx: HandlerContext, filename: string) {
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
-export async function themeSave(ctx: HandlerContext, filename: string, data: unknown): Promise<void> {
+export async function themeSave(
+  ctx: HandlerContext,
+  filename: string,
+  data: unknown
+): Promise<void> {
   const themeDir = join(ctx.settingsPath, 'themes')
   const p = assertInside(themeDir, filename)
   await fs.mkdir(themeDir, { recursive: true })
@@ -689,8 +858,12 @@ export async function themeDelete(ctx: HandlerContext, filename: string): Promis
 // ── Registration ────────────────────────────────────────────────────────────
 
 export interface DialogShape {
-  showOpenDialog: (opts: Electron.OpenDialogOptions) => Promise<{ canceled: boolean; filePaths: string[] }>
-  showSaveDialog: (opts: Electron.SaveDialogOptions) => Promise<{ canceled: boolean; filePath?: string }>
+  showOpenDialog: (
+    opts: Electron.OpenDialogOptions
+  ) => Promise<{ canceled: boolean; filePaths: string[] }>
+  showSaveDialog: (
+    opts: Electron.SaveDialogOptions
+  ) => Promise<{ canceled: boolean; filePath?: string }>
 }
 
 export interface RegisterDeps {
@@ -703,43 +876,56 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   const { ipcMain, BrowserWindow, dialog } = deps
 
   // Window controls
-  ipcMain.on('minimize-window', (e) => { BrowserWindow.fromWebContents(e.sender)?.minimize() })
+  ipcMain.on('minimize-window', (e) => {
+    BrowserWindow.fromWebContents(e.sender)?.minimize()
+  })
   ipcMain.on('maximize-window', (e) => {
     const win = BrowserWindow.fromWebContents(e.sender)
     win?.isMaximized() ? win.unmaximize() : win?.maximize()
   })
-  ipcMain.on('close-window', (e) => { BrowserWindow.fromWebContents(e.sender)?.close() })
+  ipcMain.on('close-window', (e) => {
+    BrowserWindow.fromWebContents(e.sender)?.close()
+  })
 
   // Settings / app
-  ipcMain.handle('settings:load',        () => loadSettings(ctx))
-  ipcMain.handle('settings:save',        (_, settings) => saveSettings(ctx, settings))
-  ipcMain.handle('get-user-data-path',   () => getUserDataPath(ctx))
-  ipcMain.handle('app:launchCompanion',  (_, p) => launchCompanion(p))
-  ipcMain.handle('app:getVersion',       () => getAppVersion(ctx))
+  ipcMain.handle('settings:load', () => loadSettings(ctx))
+  ipcMain.handle('settings:save', (_, settings) => saveSettings(ctx, settings))
+  ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
+  ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(p))
+  ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
 
   // Dialogs
-  ipcMain.handle('dialog:openFile',      async (_, filters?: Electron.FileFilter[]) => {
-    const r = await dialog.showOpenDialog({ properties: ['openFile'], filters: filters ?? [{ name: 'All Files', extensions: ['*'] }] })
+  ipcMain.handle('dialog:openFile', async (_, filters?: Electron.FileFilter[]) => {
+    const r = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: filters ?? [{ name: 'All Files', extensions: ['*'] }]
+    })
     return r.filePaths[0] ?? null
   })
   ipcMain.handle('dialog:openDirectory', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     return r.filePaths[0] ?? null
   })
-  ipcMain.handle('dialog:saveFile',      async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
-    const r = await dialog.showSaveDialog({ filters: filters ?? [{ name: 'All Files', extensions: ['*'] }], defaultPath: defaultPath ?? undefined })
-    return r.filePath ?? null
-  })
+  ipcMain.handle(
+    'dialog:saveFile',
+    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
+      const r = await dialog.showSaveDialog({
+        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+        defaultPath: defaultPath ?? undefined
+      })
+      return r.filePath ?? null
+    }
+  )
 
   // Filesystem
-  ipcMain.handle('fs:readFile',    (_, p) => readFile(p))
-  ipcMain.handle('fs:listDir',     (_, p) => listDir(p))
-  ipcMain.handle('fs:copyFile',    (_, s, d) => copyFile(s, d))
-  ipcMain.handle('fs:writeFile',   (_, p, c) => writeFile(p, c))
-  ipcMain.handle('fs:writeBytes',  (_, p, d) => writeBytes(p, d))
-  ipcMain.handle('fs:exists',      (_, p) => exists(p))
-  ipcMain.handle('fs:ensureDir',   (_, p) => ensureDir(p))
-  ipcMain.handle('fs:deleteFile',  (_, p) => deleteFile(p))
+  ipcMain.handle('fs:readFile', (_, p) => readFile(p))
+  ipcMain.handle('fs:listDir', (_, p) => listDir(p))
+  ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(s, d))
+  ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(p, c))
+  ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(p, d))
+  ipcMain.handle('fs:exists', (_, p) => exists(p))
+  ipcMain.handle('fs:ensureDir', (_, p) => ensureDir(p))
+  ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(p))
   ipcMain.handle('fs:listArchive', (_, p) => listArchive(p))
 
   // Catalog
@@ -748,62 +934,66 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('catalog:scan', (_, p) => catalogScan(p))
 
   // Music
-  ipcMain.handle('music:readFileMeta',     (_, p) => musicReadFileMeta(p))
-  ipcMain.handle('music:scan',             (_, p) => musicScan(p))
-  ipcMain.handle('music:metadata:load',    (_, p) => musicMetadataLoad(p))
-  ipcMain.handle('music:metadata:save',    (_, p, d) => musicMetadataSave(p, d))
-  ipcMain.handle('music:packs:load',       (_, p) => musicPacksLoad(p))
-  ipcMain.handle('music:packs:save',       (_, p, packs) => musicPacksSave(p, packs))
-  ipcMain.handle('music:deploy-pack',      (_, src, pack, dst, ffmpeg, kbps, sr) => musicDeployPack(src, pack, dst, ffmpeg, kbps, sr))
-  ipcMain.handle('music:client:scan',      (_, p) => musicClientScan(p))
+  ipcMain.handle('music:readFileMeta', (_, p) => musicReadFileMeta(p))
+  ipcMain.handle('music:scan', (_, p) => musicScan(p))
+  ipcMain.handle('music:metadata:load', (_, p) => musicMetadataLoad(p))
+  ipcMain.handle('music:metadata:save', (_, p, d) => musicMetadataSave(p, d))
+  ipcMain.handle('music:packs:load', (_, p) => musicPacksLoad(p))
+  ipcMain.handle('music:packs:save', (_, p, packs) => musicPacksSave(p, packs))
+  ipcMain.handle('music:deploy-pack', (_, src, pack, dst, ffmpeg, kbps, sr) =>
+    musicDeployPack(src, pack, dst, ffmpeg, kbps, sr)
+  )
+  ipcMain.handle('music:client:scan', (_, p) => musicClientScan(p))
 
   // SFX
-  ipcMain.handle('sfx:list',       (_, p) => sfxList(p))
-  ipcMain.handle('sfx:readEntry',  (_, p, n) => sfxReadEntry(p, n))
+  ipcMain.handle('sfx:list', (_, p) => sfxList(p))
+  ipcMain.handle('sfx:readEntry', (_, p, n) => sfxReadEntry(p, n))
   ipcMain.handle('sfx:index:load', (_, p) => sfxIndexLoad(p))
   ipcMain.handle('sfx:index:save', (_, p, d) => sfxIndexSave(p, d))
 
   // BIK conversion
-  ipcMain.handle('bik:convert',    (_, bytes, ffmpegPath, cacheDir) => bikConvert(bytes, ffmpegPath, cacheDir))
+  ipcMain.handle('bik:convert', (_, bytes, ffmpegPath, cacheDir) =>
+    bikConvert(bytes, ffmpegPath, cacheDir)
+  )
 
   // World index
-  ipcMain.handle('index:read',      (_, p) => indexRead(p))
-  ipcMain.handle('index:build',     (_, p) => indexBuild(p))
-  ipcMain.handle('index:status',    (_, p) => indexStatus(p))
-  ipcMain.handle('index:delete',    (_, p) => indexDelete(p))
+  ipcMain.handle('index:read', (_, p) => indexRead(p))
+  ipcMain.handle('index:build', (_, p) => indexBuild(p))
+  ipcMain.handle('index:status', (_, p) => indexStatus(p))
+  ipcMain.handle('index:delete', (_, p) => indexDelete(p))
   ipcMain.handle('library:resolve', (_, p) => libraryResolve(p))
 
   // Prefabs
-  ipcMain.handle('prefab:list',   (_, p) => prefabList(p))
-  ipcMain.handle('prefab:load',   (_, p, f) => prefabLoad(p, f))
-  ipcMain.handle('prefab:save',   (_, p, f, d) => prefabSave(p, f, d))
+  ipcMain.handle('prefab:list', (_, p) => prefabList(p))
+  ipcMain.handle('prefab:load', (_, p, f) => prefabLoad(p, f))
+  ipcMain.handle('prefab:save', (_, p, f, d) => prefabSave(p, f, d))
   ipcMain.handle('prefab:delete', (_, p, f) => prefabDelete(p, f))
   ipcMain.handle('prefab:rename', (_, p, o, n) => prefabRename(p, o, n))
 
   // Asset packs
-  ipcMain.handle('pack:scan',        (_, p) => packScan(p))
-  ipcMain.handle('pack:load',        (_, p) => packLoad(p))
-  ipcMain.handle('pack:save',        (_, p, d) => packSave(p, d))
-  ipcMain.handle('pack:delete',      (_, p) => packDelete(p))
-  ipcMain.handle('pack:addAsset',    (_, d, s, t) => packAddAsset(d, s, t))
+  ipcMain.handle('pack:scan', (_, p) => packScan(p))
+  ipcMain.handle('pack:load', (_, p) => packLoad(p))
+  ipcMain.handle('pack:save', (_, p, d) => packSave(p, d))
+  ipcMain.handle('pack:delete', (_, p) => packDelete(p))
+  ipcMain.handle('pack:addAsset', (_, d, s, t) => packAddAsset(d, s, t))
   ipcMain.handle('pack:removeAsset', (_, d, f) => packRemoveAsset(d, f))
-  ipcMain.handle('pack:compile',     (_, d, m, f, o) => packCompile(d, m, f, o))
+  ipcMain.handle('pack:compile', (_, d, m, f, o) => packCompile(d, m, f, o))
 
   // Palettes
-  ipcMain.handle('palette:scan',             (_, p) => paletteScan(p))
-  ipcMain.handle('palette:load',             (_, p) => paletteLoad(p))
-  ipcMain.handle('palette:save',             (_, p, d) => paletteSave(p, d))
-  ipcMain.handle('palette:delete',           (_, p) => paletteDelete(p))
-  ipcMain.handle('palette:calibrationLoad',  (_, d, id) => paletteCalibrationLoad(d, id))
-  ipcMain.handle('palette:calibrationSave',  (_, d, id, data) => paletteCalibrationSave(d, id, data))
-  ipcMain.handle('frame:scan',               (_, p) => frameScan(p))
+  ipcMain.handle('palette:scan', (_, p) => paletteScan(p))
+  ipcMain.handle('palette:load', (_, p) => paletteLoad(p))
+  ipcMain.handle('palette:save', (_, p, d) => paletteSave(p, d))
+  ipcMain.handle('palette:delete', (_, p) => paletteDelete(p))
+  ipcMain.handle('palette:calibrationLoad', (_, d, id) => paletteCalibrationLoad(d, id))
+  ipcMain.handle('palette:calibrationSave', (_, d, id, data) => paletteCalibrationSave(d, id, data))
+  ipcMain.handle('frame:scan', (_, p) => frameScan(p))
 
   // Tile scanner
   ipcMain.handle('tileScan:analyze', (_, paths) => tileScanAnalyze(paths))
 
   // Themes
-  ipcMain.handle('theme:list',   () => themeList(ctx))
-  ipcMain.handle('theme:load',   (_, f) => themeLoad(ctx, f))
-  ipcMain.handle('theme:save',   (_, f, d) => themeSave(ctx, f, d))
+  ipcMain.handle('theme:list', () => themeList(ctx))
+  ipcMain.handle('theme:load', (_, f) => themeLoad(ctx, f))
+  ipcMain.handle('theme:save', (_, f, d) => themeSave(ctx, f, d))
   ipcMain.handle('theme:delete', (_, f) => themeDelete(ctx, f))
 }

@@ -40,34 +40,40 @@ function getExt(entry: DataArchiveEntry): string {
 }
 
 const TYPE_ICONS: Record<string, string> = {
-  sprite: '\u{1F5BC}',  // framed picture
+  sprite: '\u{1F5BC}', // framed picture
   palette: '\u{1F3A8}', // palette
-  text: '\u{1F4C4}',    // page
-  audio: '\u{1F3B5}',   // music note
-  image: '\u{1F5BC}',   // framed picture
-  hex: '\u{1F4E6}',     // package
+  text: '\u{1F4C4}', // page
+  audio: '\u{1F3B5}', // music note
+  image: '\u{1F5BC}', // framed picture
+  hex: '\u{1F4E6}' // package
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 const ArchiveEntryList: React.FC<Props> = ({
-  entries, filter, selected, expandedGroups, onSelect, onToggleGroup,
+  entries,
+  filter,
+  selected,
+  expandedGroups,
+  onSelect,
+  onToggleGroup
 }) => {
   const parentRef = useRef<HTMLDivElement>(null)
 
   // Group + filter entries
   const items = useMemo<ListItem[]>(() => {
     const q = filter.trim().toLowerCase()
-    const filtered = q
-      ? entries.filter(e => e.entryName.toLowerCase().includes(q))
-      : entries
+    const filtered = q ? entries.filter((e) => e.entryName.toLowerCase().includes(q)) : entries
 
     // Group by extension
     const groups = new Map<string, DataArchiveEntry[]>()
     for (const entry of filtered) {
       const e = getExt(entry)
       let list = groups.get(e)
-      if (!list) { list = []; groups.set(e, list) }
+      if (!list) {
+        list = []
+        groups.set(e, list)
+      }
       list.push(entry)
     }
 
@@ -92,17 +98,20 @@ const ArchiveEntryList: React.FC<Props> = ({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (i) => items[i]?.kind === 'header' ? 36 : 32,
-    overscan: 20,
+    estimateSize: (i) => (items[i]?.kind === 'header' ? 36 : 32),
+    overscan: 20
   })
 
-  const handleClick = useCallback((item: ListItem) => {
-    if (item.kind === 'header') {
-      onToggleGroup(item.ext)
-    } else {
-      onSelect(item.entry)
-    }
-  }, [onToggleGroup, onSelect])
+  const handleClick = useCallback(
+    (item: ListItem) => {
+      if (item.kind === 'header') {
+        onToggleGroup(item.ext)
+      } else {
+        onSelect(item.entry)
+      }
+    },
+    [onToggleGroup, onSelect]
+  )
 
   return (
     <Box ref={parentRef} sx={{ flex: 1, overflow: 'auto' }}>
@@ -126,13 +135,14 @@ const ArchiveEntryList: React.FC<Props> = ({
                   bgcolor: 'action.hover',
                   borderBottom: '1px solid',
                   borderColor: 'divider',
-                  '&:hover': { bgcolor: 'action.selected' },
+                  '&:hover': { bgcolor: 'action.selected' }
                 }}
               >
-                {item.expanded
-                  ? <ExpandMoreIcon fontSize="small" sx={{ mr: 0.5 }} />
-                  : <ChevronRightIcon fontSize="small" sx={{ mr: 0.5 }} />
-                }
+                {item.expanded ? (
+                  <ExpandMoreIcon fontSize="small" sx={{ mr: 0.5 }} />
+                ) : (
+                  <ChevronRightIcon fontSize="small" sx={{ mr: 0.5 }} />
+                )}
                 <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
                   {item.ext}
                 </Typography>
@@ -162,7 +172,7 @@ const ArchiveEntryList: React.FC<Props> = ({
                 pl: 4,
                 cursor: 'pointer',
                 bgcolor: isSelected ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' },
+                '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' }
               }}
             >
               <Typography variant="body2" sx={{ mr: 1, fontSize: '0.8rem', flexShrink: 0 }}>

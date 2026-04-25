@@ -31,7 +31,7 @@ function makePack(overrides: Partial<PackProject> = {}): PackProject {
     assets: [],
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -50,9 +50,11 @@ describe('PackEditor — initial render', () => {
     render(
       <PackEditor
         pack={makePack({ pack_id: 'fancy-pack', pack_version: '2.1.0', priority: 50 })}
-        packDir="/p" packFilePath="/p/pack.json"
-        onSave={onSave} onStatus={onStatus}
-      />,
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
     )
     // pack_id appears in the header h6 and in the Pack ID text field
     expect(screen.getAllByText(/fancy-pack/).length).toBeGreaterThan(0)
@@ -64,11 +66,17 @@ describe('PackEditor — initial render', () => {
     const pack = makePack({
       assets: [
         { filename: 'skill_0001.png', sourcePath: '/src/a.png' },
-        { filename: 'skill_0002.png', sourcePath: '/src/b.png' },
-      ],
+        { filename: 'skill_0002.png', sourcePath: '/src/b.png' }
+      ]
     })
     render(
-      <PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />,
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
     )
     expect(screen.getByText('skill_0001.png')).toBeInTheDocument()
     expect(screen.getByText('skill_0002.png')).toBeInTheDocument()
@@ -76,18 +84,42 @@ describe('PackEditor — initial render', () => {
   })
 
   it('disables Save initially (not dirty)', () => {
-    render(<PackEditor pack={makePack()} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
   })
 
   it('disables Compile when there are no assets', () => {
-    render(<PackEditor pack={makePack()} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     expect(screen.getByRole('button', { name: /compile \.datf/i })).toBeDisabled()
   })
 
   it('enables Compile when there is at least one asset', () => {
     const pack = makePack({ assets: [{ filename: 'skill_0001.png', sourcePath: '/x' }] })
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     expect(screen.getByRole('button', { name: /compile \.datf/i })).not.toBeDisabled()
   })
 })
@@ -95,7 +127,15 @@ describe('PackEditor — initial render', () => {
 describe('PackEditor — field edits and dirty state', () => {
   it('sanitizes pack_id (lowercase, allowed chars only)', async () => {
     const user = userEvent.setup()
-    render(<PackEditor pack={makePack({ pack_id: 'a' })} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack({ pack_id: 'a' })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     const idField = screen.getByLabelText('Pack ID') as HTMLInputElement
     await user.clear(idField)
     await user.type(idField, 'My PACK!@#')
@@ -106,7 +146,15 @@ describe('PackEditor — field edits and dirty state', () => {
 
   it('parses Priority as int and falls back to 100 when blank', async () => {
     const user = userEvent.setup()
-    render(<PackEditor pack={makePack({ priority: 50 })} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack({ priority: 50 })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     const priorityField = screen.getByLabelText('Priority') as HTMLInputElement
     expect(priorityField.value).toBe('50')
 
@@ -120,7 +168,15 @@ describe('PackEditor — save flow', () => {
   it('Save calls packSave, onSave, onStatus, and clears dirty', async () => {
     const user = userEvent.setup()
     api.packSave.mockResolvedValue(undefined)
-    render(<PackEditor pack={makePack()} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
 
     // Edit a field to make it dirty
     const versionField = screen.getByLabelText('Version') as HTMLInputElement
@@ -134,7 +190,7 @@ describe('PackEditor — save flow', () => {
     await waitFor(() => expect(api.packSave).toHaveBeenCalledTimes(1))
     expect(api.packSave).toHaveBeenCalledWith(
       '/p/pack.json',
-      expect.objectContaining({ pack_version: '2.0.0' }),
+      expect.objectContaining({ pack_version: '2.0.0' })
     )
     expect(onSave).toHaveBeenCalled()
     expect(onStatus).toHaveBeenCalledWith('Pack saved')
@@ -147,12 +203,20 @@ describe('PackEditor — add and remove assets', () => {
     const user = userEvent.setup()
     const pack = makePack({
       content_type: 'ability_icons',
-      assets: [{ filename: 'skill_0007.png', sourcePath: '/src/old.png' }],
+      assets: [{ filename: 'skill_0007.png', sourcePath: '/src/old.png' }]
     })
     api.openFile.mockResolvedValue('/src/new.png')
     api.packAddAsset.mockResolvedValue(undefined)
 
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /add png/i }))
 
     await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
@@ -166,11 +230,15 @@ describe('PackEditor — add and remove assets', () => {
     api.openFile.mockResolvedValue('/src/n.png')
     api.packAddAsset.mockResolvedValue(undefined)
 
-    render(<PackEditor
-      pack={makePack({ content_type: 'nation_badges', assets: [] })}
-      packDir="/p" packFilePath="/p/pack.json"
-      onSave={onSave} onStatus={onStatus}
-    />)
+    render(
+      <PackEditor
+        pack={makePack({ content_type: 'nation_badges', assets: [] })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /add png/i }))
 
     await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
@@ -180,7 +248,15 @@ describe('PackEditor — add and remove assets', () => {
   it('Add PNG aborts cleanly when the user cancels the dialog', async () => {
     const user = userEvent.setup()
     api.openFile.mockResolvedValue(null)
-    render(<PackEditor pack={makePack()} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
 
     await user.click(screen.getByRole('button', { name: /add png/i }))
     // No state changes — assertion is the absence of side effects.
@@ -194,11 +270,19 @@ describe('PackEditor — add and remove assets', () => {
     const pack = makePack({
       assets: [
         { filename: 'skill_0001.png', sourcePath: '/a' },
-        { filename: 'skill_0002.png', sourcePath: '/b' },
-      ],
+        { filename: 'skill_0002.png', sourcePath: '/b' }
+      ]
     })
     api.packRemoveAsset.mockResolvedValue(undefined)
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
 
     // Find the row containing skill_0001 and click its delete IconButton.
     const targetRow = screen.getByText('skill_0001.png').closest('tr')!
@@ -215,31 +299,40 @@ describe('PackEditor — compile flow', () => {
   it('Compile saves first, prompts for output path, then calls packCompile', async () => {
     const user = userEvent.setup()
     const pack = makePack({
-      pack_id: 'my-pack', priority: 50,
-      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }],
+      pack_id: 'my-pack',
+      priority: 50,
+      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }]
     })
     api.packSave.mockResolvedValue(undefined)
     api.saveFile.mockResolvedValue('/out/my-pack.datf')
     api.packCompile.mockResolvedValue(undefined)
 
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /compile \.datf/i }))
 
     await waitFor(() => expect(api.packCompile).toHaveBeenCalled())
     expect(api.packSave).toHaveBeenCalledWith('/p/pack.json', expect.any(Object))
     expect(api.saveFile).toHaveBeenCalledWith(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      'my-pack.datf',
+      'my-pack.datf'
     )
     expect(api.packCompile).toHaveBeenCalledWith(
       '/p',
       expect.objectContaining({
         schema_version: 1,
         pack_id: 'my-pack',
-        priority: 50,
+        priority: 50
       }),
       ['skill_0001.png'],
-      '/out/my-pack.datf',
+      '/out/my-pack.datf'
     )
     expect(onStatus).toHaveBeenCalledWith('Compiled my-pack.datf (1 assets)')
   })
@@ -247,12 +340,20 @@ describe('PackEditor — compile flow', () => {
   it('Compile aborts when the save dialog is cancelled', async () => {
     const user = userEvent.setup()
     const pack = makePack({
-      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }],
+      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }]
     })
     api.packSave.mockResolvedValue(undefined)
     api.saveFile.mockResolvedValue(null)
 
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /compile \.datf/i }))
 
     await waitFor(() => expect(api.packSave).toHaveBeenCalled())
@@ -266,7 +367,15 @@ describe('PackEditor — compile flow', () => {
     api.saveFile.mockResolvedValue('/out/x.datf')
     api.packCompile.mockRejectedValue(new Error('zip failed'))
 
-    render(<PackEditor pack={pack} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />)
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /compile \.datf/i }))
 
     await waitFor(() => {
@@ -280,7 +389,13 @@ describe('PackEditor — pack prop reset', () => {
     const user = userEvent.setup()
     const initial = makePack({ pack_version: '1.0.0' })
     const { rerender } = render(
-      <PackEditor pack={initial} packDir="/p" packFilePath="/p/pack.json" onSave={onSave} onStatus={onStatus} />,
+      <PackEditor
+        pack={initial}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
     )
     const versionField = screen.getByLabelText('Version') as HTMLInputElement
     await user.clear(versionField)
@@ -289,10 +404,13 @@ describe('PackEditor — pack prop reset', () => {
 
     // Reload the editor with a new pack — should reset draft to incoming pack
     rerender(
-      <PackEditor pack={makePack({ pack_version: '2.0.0', pack_id: 'reloaded' })}
-        packDir="/p" packFilePath="/p/pack.json"
-        onSave={onSave} onStatus={onStatus}
-      />,
+      <PackEditor
+        pack={makePack({ pack_version: '2.0.0', pack_id: 'reloaded' })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
     )
 
     // Use getByDisplayValue for the new value to avoid duplicate-text matches
@@ -300,4 +418,3 @@ describe('PackEditor — pack prop reset', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
   })
 })
-

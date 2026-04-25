@@ -66,7 +66,12 @@ export interface MapSpawnGroup {
   spawns: MapSpawn[]
 }
 
-export const ALL_SPAWN_FLAGS: MapSpawnFlag[] = ['Active', 'MovementDisabled', 'AiDisabled', 'DeathDisabled']
+export const ALL_SPAWN_FLAGS: MapSpawnFlag[] = [
+  'Active',
+  'MovementDisabled',
+  'AiDisabled',
+  'DeathDisabled'
+]
 
 export interface MapData {
   id: number
@@ -99,7 +104,7 @@ export const DEFAULT_MAP: MapData = {
   warps: [],
   npcs: [],
   signs: [],
-  reactors: [],
+  reactors: []
 }
 
 export const ALL_FLAGS: MapFlag[] = ['Snow', 'Rain', 'Dark', 'NoMap', 'Winter']

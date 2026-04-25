@@ -15,25 +15,33 @@ import { promises as fs } from 'fs'
  */
 export async function resolveLibraryPath(selected: string): Promise<string | null> {
   const probe = async (p: string): Promise<boolean> => {
-    try { await fs.access(p); return true } catch { return false }
+    try {
+      await fs.access(p)
+      return true
+    } catch {
+      return false
+    }
   }
 
   const norm = selected.replace(/[\\/]+$/, '')
   const folderName = norm.split(/[\\/]/).pop()?.toLowerCase() ?? ''
 
   if (
-    await probe(join(norm, '..', '.creidhne')) ||
+    (await probe(join(norm, '..', '.creidhne'))) ||
     folderName === 'xml' ||
-    (await probe(join(norm, 'maps')) && await probe(join(norm, 'npcs')))
+    ((await probe(join(norm, 'maps'))) && (await probe(join(norm, 'npcs'))))
   ) {
     return norm
   }
 
-  if (await probe(join(norm, '.creidhne')) || await probe(join(norm, 'xml'))) {
+  if ((await probe(join(norm, '.creidhne'))) || (await probe(join(norm, 'xml')))) {
     return join(norm, 'xml')
   }
 
-  if (await probe(join(norm, 'world', '.creidhne')) || await probe(join(norm, 'world', 'xml'))) {
+  if (
+    (await probe(join(norm, 'world', '.creidhne'))) ||
+    (await probe(join(norm, 'world', 'xml')))
+  ) {
     return join(norm, 'world', 'xml')
   }
 

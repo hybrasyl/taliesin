@@ -1,9 +1,30 @@
 import React, { useState } from 'react'
 import {
-  Box, Typography, Button, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText,
-  TextField, Divider, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Table, TableHead, TableRow, TableCell, TableBody, MenuItem, Select,
-  FormControl, InputLabel
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  TextField,
+  Divider,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -32,10 +53,22 @@ interface Props {
 }
 
 const PacksPanel: React.FC<Props> = ({
-  packs, selectedPack, selectedPackId, libraryEntries, metadata,
-  musicWorkingDirs, activeMusicWorkingDir,
-  onSelectPack, onCreatePack, onRenamePack, onDeletePack,
-  onAddTrack, onRemoveTrack, onReorderTracks, onUpdateTrackId, onDeploy,
+  packs,
+  selectedPack,
+  selectedPackId,
+  libraryEntries,
+  metadata,
+  musicWorkingDirs,
+  activeMusicWorkingDir,
+  onSelectPack,
+  onCreatePack,
+  onRenamePack,
+  onDeletePack,
+  onAddTrack,
+  onRemoveTrack,
+  onReorderTracks,
+  onUpdateTrackId,
+  onDeploy
 }) => {
   const [newPackName, setNewPackName] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -98,12 +131,20 @@ const PacksPanel: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', height: '100%', gap: 0 }}>
       {/* Left: pack list */}
-      <Box sx={{
-        width: 220, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider',
-        display: 'flex', flexDirection: 'column',
-      }}>
+      <Box
+        sx={{
+          width: 220,
+          flexShrink: 0,
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
         <Box sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ flex: 1, color: 'text.button' }}>Packs</Typography>
+          <Typography variant="subtitle2" sx={{ flex: 1, color: 'text.button' }}>
+            Packs
+          </Typography>
           <Tooltip title="New pack">
             <IconButton size="small" onClick={() => setCreateOpen(true)}>
               <AddIcon fontSize="small" />
@@ -114,7 +155,13 @@ const PacksPanel: React.FC<Props> = ({
         <List dense sx={{ flex: 1, overflow: 'auto', p: 0 }}>
           {packs.length === 0 && (
             <ListItem>
-              <ListItemText primary={<Typography variant="caption" color="text.secondary">No packs yet</Typography>} />
+              <ListItemText
+                primary={
+                  <Typography variant="caption" color="text.secondary">
+                    No packs yet
+                  </Typography>
+                }
+              />
             </ListItem>
           )}
           {packs.map((pack) => (
@@ -143,8 +190,20 @@ const PacksPanel: React.FC<Props> = ({
           </Box>
         ) : (
           <>
-            <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 'bold', color: 'text.button' }}>
+            <Box
+              sx={{
+                p: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                sx={{ flex: 1, fontWeight: 'bold', color: 'text.button' }}
+              >
                 {selectedPack.name}
               </Typography>
               <Tooltip title="Rename pack">
@@ -153,7 +212,11 @@ const PacksPanel: React.FC<Props> = ({
                 </IconButton>
               </Tooltip>
               <Tooltip title="Delete pack">
-                <IconButton size="small" color="error" onClick={() => onDeletePack(selectedPack.id)}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => onDeletePack(selectedPack.id)}
+                >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -161,7 +224,10 @@ const PacksPanel: React.FC<Props> = ({
                 size="small"
                 variant="contained"
                 disabled={selectedPack.tracks.length === 0}
-                onClick={() => { setDeployDir(activeMusicWorkingDir ?? ''); setDeployOpen(true) }}
+                onClick={() => {
+                  setDeployDir(activeMusicWorkingDir ?? '')
+                  setDeployOpen(true)
+                }}
               >
                 Deploy Pack
               </Button>
@@ -186,10 +252,18 @@ const PacksPanel: React.FC<Props> = ({
                       <TableRow key={track.sourceFile} hover>
                         <TableCell sx={{ p: 0.5 }}>
                           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <IconButton size="small" disabled={idx === 0} onClick={() => handleMoveTrack(idx, -1)}>
+                            <IconButton
+                              size="small"
+                              disabled={idx === 0}
+                              onClick={() => handleMoveTrack(idx, -1)}
+                            >
                               <ArrowUpwardIcon sx={{ fontSize: 14 }} />
                             </IconButton>
-                            <IconButton size="small" disabled={idx === selectedPack.tracks.length - 1} onClick={() => handleMoveTrack(idx, 1)}>
+                            <IconButton
+                              size="small"
+                              disabled={idx === selectedPack.tracks.length - 1}
+                              onClick={() => handleMoveTrack(idx, 1)}
+                            >
                               <ArrowDownwardIcon sx={{ fontSize: 14 }} />
                             </IconButton>
                           </Box>
@@ -199,7 +273,13 @@ const PacksPanel: React.FC<Props> = ({
                             size="small"
                             type="number"
                             value={track.musicId}
-                            onChange={(e) => onUpdateTrackId(selectedPack.id, track.sourceFile, parseInt(e.target.value) || 1)}
+                            onChange={(e) =>
+                              onUpdateTrackId(
+                                selectedPack.id,
+                                track.sourceFile,
+                                parseInt(e.target.value) || 1
+                              )
+                            }
                             sx={{ width: 70 }}
                             slotProps={{ input: { inputProps: { min: 1 } } }}
                           />
@@ -215,7 +295,11 @@ const PacksPanel: React.FC<Props> = ({
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small" color="error" onClick={() => onRemoveTrack(selectedPack.id, track.sourceFile)}>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => onRemoveTrack(selectedPack.id, track.sourceFile)}
+                          >
                             <DeleteIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </TableCell>
@@ -236,7 +320,16 @@ const PacksPanel: React.FC<Props> = ({
             </Box>
 
             {/* Add track from library */}
-            <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                p: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                gap: 1,
+                flexWrap: 'wrap'
+              }}
+            >
               <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
                 Add track from library:
               </Typography>
@@ -254,7 +347,8 @@ const PacksPanel: React.FC<Props> = ({
                 ))}
               {libraryEntries.filter((e) => !usedFiles.has(e.filename)).length > 6 && (
                 <Typography variant="caption" color="text.secondary">
-                  +{libraryEntries.filter((e) => !usedFiles.has(e.filename)).length - 6} more (select in Library tab)
+                  +{libraryEntries.filter((e) => !usedFiles.has(e.filename)).length - 6} more
+                  (select in Library tab)
                 </Typography>
               )}
             </Box>
@@ -267,14 +361,22 @@ const PacksPanel: React.FC<Props> = ({
         <DialogTitle>New Pack</DialogTitle>
         <DialogContent sx={{ pt: '12px !important' }}>
           <TextField
-            autoFocus size="small" fullWidth label="Pack name"
-            value={newPackName} onChange={(e) => setNewPackName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+            autoFocus
+            size="small"
+            fullWidth
+            label="Pack name"
+            value={newPackName}
+            onChange={(e) => setNewPackName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate()
+            }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!newPackName.trim()}>Create</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={!newPackName.trim()}>
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -283,25 +385,40 @@ const PacksPanel: React.FC<Props> = ({
         <DialogTitle>Rename Pack</DialogTitle>
         <DialogContent sx={{ pt: '12px !important' }}>
           <TextField
-            autoFocus size="small" fullWidth label="Pack name"
-            value={renameName} onChange={(e) => setRenameName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleRenameConfirm() }}
+            autoFocus
+            size="small"
+            fullWidth
+            label="Pack name"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRenameConfirm()
+            }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRenameOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleRenameConfirm}>Rename</Button>
+          <Button variant="contained" onClick={handleRenameConfirm}>
+            Rename
+          </Button>
         </DialogActions>
       </Dialog>
 
       {/* Deploy dialog */}
-      <Dialog open={deployOpen} onClose={() => !deploying && setDeployOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={deployOpen}
+        onClose={() => !deploying && setDeployOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Deploy Pack — {selectedPack?.name}</DialogTitle>
-        <DialogContent sx={{ pt: '12px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <DialogContent
+          sx={{ pt: '12px !important', display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
           <Typography variant="body2" color="text.secondary">
-            The destination directory will be <strong>fully cleared</strong> before deploying.
-            All {selectedPack?.tracks.length} track{selectedPack?.tracks.length !== 1 ? 's' : ''} will be
-            written as <code>N.mus</code> files.
+            The destination directory will be <strong>fully cleared</strong> before deploying. All{' '}
+            {selectedPack?.tracks.length} track{selectedPack?.tracks.length !== 1 ? 's' : ''} will
+            be written as <code>N.mus</code> files.
           </Typography>
 
           {musicWorkingDirs.length > 0 ? (
@@ -313,26 +430,36 @@ const PacksPanel: React.FC<Props> = ({
                 onChange={(e) => setDeployDir(e.target.value)}
               >
                 {musicWorkingDirs.map((d) => (
-                  <MenuItem key={d} value={d}>{d}</MenuItem>
+                  <MenuItem key={d} value={d}>
+                    {d}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
           ) : (
             <TextField
-              size="small" fullWidth label="Destination directory"
-              value={deployDir} onChange={(e) => setDeployDir(e.target.value)}
+              size="small"
+              fullWidth
+              label="Destination directory"
+              value={deployDir}
+              onChange={(e) => setDeployDir(e.target.value)}
               helperText="No working directories configured. Enter a path manually or configure in Settings."
             />
           )}
 
           {deployError && (
-            <Typography variant="caption" color="error">{deployError}</Typography>
+            <Typography variant="caption" color="error">
+              {deployError}
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeployOpen(false)} disabled={deploying}>Cancel</Button>
+          <Button onClick={() => setDeployOpen(false)} disabled={deploying}>
+            Cancel
+          </Button>
           <Button
-            variant="contained" color="warning"
+            variant="contained"
+            color="warning"
             disabled={!deployDir || deploying}
             onClick={handleDeploy}
           >

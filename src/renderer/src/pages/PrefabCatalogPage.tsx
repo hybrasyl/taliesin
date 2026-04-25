@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Box, Typography, TextField, IconButton, Tooltip,
-  List, ListItemButton, ListItemText, Button, Dialog, DialogTitle,
-  DialogContent, DialogActions,
+  Box,
+  Typography,
+  TextField,
+  IconButton,
+  Tooltip,
+  List,
+  ListItemButton,
+  ListItemText,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -23,18 +33,27 @@ const PrefabCatalogPage: React.FC = () => {
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
 
   const refresh = useCallback(async () => {
-    if (!activeLibrary) { setPrefabs([]); return }
+    if (!activeLibrary) {
+      setPrefabs([])
+      return
+    }
     const list = await window.api.prefabList(activeLibrary)
     setPrefabs(list.sort((a, b) => a.name.localeCompare(b.name)))
   }, [activeLibrary])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   // Load selected prefab
   useEffect(() => {
-    if (!activeLibrary || !selected) { setLoadedPrefab(null); return }
-    window.api.prefabLoad(activeLibrary, selected)
-      .then(data => setLoadedPrefab(data as Prefab))
+    if (!activeLibrary || !selected) {
+      setLoadedPrefab(null)
+      return
+    }
+    window.api
+      .prefabLoad(activeLibrary, selected)
+      .then((data) => setLoadedPrefab(data as Prefab))
       .catch(() => setLoadedPrefab(null))
   }, [activeLibrary, selected])
 
@@ -75,8 +94,18 @@ const PrefabCatalogPage: React.FC = () => {
     if (ppt >= 4) {
       ctx.strokeStyle = 'rgba(255,255,255,0.1)'
       ctx.lineWidth = 0.5
-      for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x * ppt, 0); ctx.lineTo(x * ppt, H * ppt); ctx.stroke() }
-      for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0, y * ppt); ctx.lineTo(W * ppt, y * ppt); ctx.stroke() }
+      for (let x = 0; x <= W; x++) {
+        ctx.beginPath()
+        ctx.moveTo(x * ppt, 0)
+        ctx.lineTo(x * ppt, H * ppt)
+        ctx.stroke()
+      }
+      for (let y = 0; y <= H; y++) {
+        ctx.beginPath()
+        ctx.moveTo(0, y * ppt)
+        ctx.lineTo(W * ppt, y * ppt)
+        ctx.stroke()
+      }
     }
   }, [loadedPrefab])
 
@@ -91,7 +120,11 @@ const PrefabCatalogPage: React.FC = () => {
   const handleRename = useCallback(async () => {
     if (!activeLibrary || !selected || !loadedPrefab || !renameName.trim()) return
     const newFilename = renameName.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') + '.json'
-    const updated = { ...loadedPrefab, name: renameName.trim(), updatedAt: new Date().toISOString() }
+    const updated = {
+      ...loadedPrefab,
+      name: renameName.trim(),
+      updatedAt: new Date().toISOString()
+    }
     await window.api.prefabSave(activeLibrary, newFilename, updated)
     if (newFilename !== selected) {
       await window.api.prefabDelete(activeLibrary, selected)
@@ -102,10 +135,10 @@ const PrefabCatalogPage: React.FC = () => {
   }, [activeLibrary, selected, loadedPrefab, renameName, refresh])
 
   const filtered = filter.trim()
-    ? prefabs.filter(p => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
+    ? prefabs.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
     : prefabs
 
-  const selectedSummary = prefabs.find(p => p.filename === selected)
+  const selectedSummary = prefabs.find((p) => p.filename === selected)
 
   if (!activeLibrary) {
     return (
@@ -121,7 +154,17 @@ const PrefabCatalogPage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
           {filtered.length} / {prefabs.length} prefabs
         </Typography>
@@ -129,20 +172,30 @@ const PrefabCatalogPage: React.FC = () => {
           size="small"
           placeholder="Filter..."
           value={filter}
-          onChange={e => setFilter(e.target.value)}
+          onChange={(e) => setFilter(e.target.value)}
           sx={{ width: 260 }}
         />
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={refresh}><RefreshIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={refresh}>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
         </Tooltip>
       </Box>
 
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: list */}
-        <Box sx={{ width: 300, flexShrink: 0, overflow: 'auto', borderRight: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{
+            width: 300,
+            flexShrink: 0,
+            overflow: 'auto',
+            borderRight: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
           <List dense disablePadding>
-            {filtered.map(p => (
+            {filtered.map((p) => (
               <ListItemButton
                 key={p.filename}
                 selected={selected === p.filename}
@@ -174,22 +227,39 @@ const PrefabCatalogPage: React.FC = () => {
                 </Typography>
               </Box>
 
-              <canvas ref={previewCanvasRef} style={{ imageRendering: 'pixelated', maxWidth: '100%', alignSelf: 'flex-start' }} />
+              <canvas
+                ref={previewCanvasRef}
+                style={{ imageRendering: 'pixelated', maxWidth: '100%', alignSelf: 'flex-start' }}
+              />
 
               <Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  Created: {loadedPrefab.createdAt ? new Date(loadedPrefab.createdAt).toLocaleString() : '—'}
+                  Created:{' '}
+                  {loadedPrefab.createdAt ? new Date(loadedPrefab.createdAt).toLocaleString() : '—'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  Updated: {loadedPrefab.updatedAt ? new Date(loadedPrefab.updatedAt).toLocaleString() : '—'}
+                  Updated:{' '}
+                  {loadedPrefab.updatedAt ? new Date(loadedPrefab.updatedAt).toLocaleString() : '—'}
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button size="small" startIcon={<EditIcon />} onClick={() => { setRenameName(loadedPrefab.name); setRenameOpen(true) }}>
+                <Button
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={() => {
+                    setRenameName(loadedPrefab.name)
+                    setRenameOpen(true)
+                  }}
+                >
                   Rename
                 </Button>
-                <Button size="small" startIcon={<DeleteIcon />} color="error" onClick={handleDelete}>
+                <Button
+                  size="small"
+                  startIcon={<DeleteIcon />}
+                  color="error"
+                  onClick={handleDelete}
+                >
                   Delete
                 </Button>
               </Box>
@@ -208,14 +278,18 @@ const PrefabCatalogPage: React.FC = () => {
             fullWidth
             autoFocus
             value={renameName}
-            onChange={e => setRenameName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleRename() }}
+            onChange={(e) => setRenameName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRename()
+            }}
             sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRenameOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleRename} disabled={!renameName.trim()}>Rename</Button>
+          <Button variant="contained" onClick={handleRename} disabled={!renameName.trim()}>
+            Rename
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

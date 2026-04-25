@@ -12,13 +12,19 @@ const memfs = vi.hoisted(async () => {
 vi.mock('fs', async () => (await memfs).fsModule)
 vi.mock('@eriscorp/hybindex-ts', () => {
   const m = {
-    buildIndex: vi.fn(), loadIndex: vi.fn(), saveIndex: vi.fn(),
-    getIndexStatus: vi.fn(), deleteIndex: vi.fn(),
+    buildIndex: vi.fn(),
+    loadIndex: vi.fn(),
+    saveIndex: vi.fn(),
+    getIndexStatus: vi.fn(),
+    deleteIndex: vi.fn()
   }
   return { ...m, default: m }
 })
 vi.mock('child_process', () => {
-  const execFile = vi.fn((_c: string, _a: string[], cb?: (e: Error | null) => void) => { cb?.(null); return {} })
+  const execFile = vi.fn((_c: string, _a: string[], cb?: (e: Error | null) => void) => {
+    cb?.(null)
+    return {}
+  })
   const spawn = vi.fn(() => ({ unref: vi.fn() }))
   const m = { execFile, spawn }
   return { ...m, default: m }
@@ -46,7 +52,7 @@ beforeEach(async () => {
   const handlers = await loadHandlers()
   installBridgedApi(handlers, {
     settingsPath: '/appdata/Taliesin',
-    settingsManager: { load: async () => ({}), save: async () => undefined },
+    settingsManager: { load: async () => ({}), save: async () => undefined }
   })
 })
 
@@ -61,16 +67,38 @@ function withPackDir(): React.FC<{ children: React.ReactNode }> {
 describe('AssetPackPage — round-trip integration', () => {
   it('lists packs that already exist in the working directory', async () => {
     const fs = await memfs
-    fs.files.set(`${PACK_DIR}/alpha.json`, Buffer.from(JSON.stringify({
-      pack_id: 'alpha', pack_version: '1.0.0', content_type: 'ability_icons',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
-    fs.files.set(`${PACK_DIR}/beta.json`, Buffer.from(JSON.stringify({
-      pack_id: 'beta', pack_version: '1.0.0', content_type: 'nation_badges',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
+    fs.files.set(
+      `${PACK_DIR}/alpha.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'alpha',
+          pack_version: '1.0.0',
+          content_type: 'ability_icons',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
+    fs.files.set(
+      `${PACK_DIR}/beta.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'beta',
+          pack_version: '1.0.0',
+          content_type: 'nation_badges',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
 
     render(<AssetPackPage />, { wrapper: withPackDir() })
     expect(await screen.findByText('alpha')).toBeInTheDocument()
@@ -80,11 +108,22 @@ describe('AssetPackPage — round-trip integration', () => {
 
   it('selecting a pack loads it into the editor', async () => {
     const fs = await memfs
-    fs.files.set(`${PACK_DIR}/sample.json`, Buffer.from(JSON.stringify({
-      pack_id: 'sample', pack_version: '1.0.0', content_type: 'ability_icons',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
+    fs.files.set(
+      `${PACK_DIR}/sample.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'sample',
+          pack_version: '1.0.0',
+          content_type: 'ability_icons',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
 
     const user = userEvent.setup()
     render(<AssetPackPage />, { wrapper: withPackDir() })
@@ -97,18 +136,29 @@ describe('AssetPackPage — round-trip integration', () => {
 
   it('round-trip: edit a field, save, reload — change is persisted on disk and visible on next load', async () => {
     const fs = await memfs
-    fs.files.set(`${PACK_DIR}/sample.json`, Buffer.from(JSON.stringify({
-      pack_id: 'sample', pack_version: '1.0.0', content_type: 'ability_icons',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
+    fs.files.set(
+      `${PACK_DIR}/sample.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'sample',
+          pack_version: '1.0.0',
+          content_type: 'ability_icons',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
 
     const user = userEvent.setup()
     render(<AssetPackPage />, { wrapper: withPackDir() })
 
     // Select the pack
     await user.click(await screen.findByRole('button', { name: /sample/i }))
-    const versionField = await screen.findByLabelText('Version') as HTMLInputElement
+    const versionField = (await screen.findByLabelText('Version')) as HTMLInputElement
     expect(versionField.value).toBe('1.0.0')
 
     // Edit version
@@ -128,11 +178,22 @@ describe('AssetPackPage — round-trip integration', () => {
 
   it('delete removes the pack from the list and from disk', async () => {
     const fs = await memfs
-    fs.files.set(`${PACK_DIR}/doomed.json`, Buffer.from(JSON.stringify({
-      pack_id: 'doomed', pack_version: '1.0.0', content_type: 'ability_icons',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
+    fs.files.set(
+      `${PACK_DIR}/doomed.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'doomed',
+          pack_version: '1.0.0',
+          content_type: 'ability_icons',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
 
     const user = userEvent.setup()
     render(<AssetPackPage />, { wrapper: withPackDir() })
@@ -148,11 +209,22 @@ describe('AssetPackPage — round-trip integration', () => {
 
   it('add asset → save flow round-trips through packAddAsset + packSave', async () => {
     const fs = await memfs
-    fs.files.set(`${PACK_DIR}/sample.json`, Buffer.from(JSON.stringify({
-      pack_id: 'sample', pack_version: '1.0.0', content_type: 'ability_icons',
-      priority: 100, covers: {}, assets: [],
-      createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
-    }), 'utf-8'))
+    fs.files.set(
+      `${PACK_DIR}/sample.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'sample',
+          pack_version: '1.0.0',
+          content_type: 'ability_icons',
+          priority: 100,
+          covers: {},
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
     // Source PNG that the user "selected" via the dialog
     fs.files.set('/src/icon.png', Buffer.from('PNGDATA'))
 
@@ -161,7 +233,7 @@ describe('AssetPackPage — round-trip integration', () => {
     installBridgedApi(handlers, {
       settingsPath: '/appdata/Taliesin',
       settingsManager: { load: async () => ({}), save: async () => undefined },
-      dialog: { openFile: async () => '/src/icon.png' },
+      dialog: { openFile: async () => '/src/icon.png' }
     })
 
     const user = userEvent.setup()

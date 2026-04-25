@@ -1,7 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Box, Typography, Button, IconButton, Tooltip,
-  List, ListItemButton, ListItemText, TextField, Divider, Stack,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+  List,
+  ListItemButton,
+  ListItemText,
+  TextField,
+  Divider,
+  Stack
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -17,8 +26,11 @@ import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import { Palette, PaletteEntry, VariantDef } from '../../utils/paletteTypes'
 import { buildLuminanceRamp, PixelBuffer } from '../../utils/duotone'
 import {
-  scanPalettes, loadPalette, savePalette, deletePalette,
-  PaletteSummary,
+  scanPalettes,
+  loadPalette,
+  savePalette,
+  deletePalette,
+  PaletteSummary
 } from '../../utils/paletteIO'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import { buildFromPreset, PresetId } from '../../utils/presets'
@@ -40,7 +52,7 @@ function blankEntry(index: number): PaletteEntry {
     shadowColor: '#333333',
     highlightColor: '#CCCCCC',
     defaultDarkFactor: 0.3,
-    defaultLightFactor: 0.3,
+    defaultLightFactor: 0.3
   }
 }
 
@@ -53,8 +65,14 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
   const [testIconBuf, setTestIconBuf] = useState<PixelBuffer | null>(null)
 
   const {
-    markDirty, markClean, saveRef, guard,
-    dialogOpen, handleDialogSave, handleDialogDiscard, handleDialogCancel,
+    markDirty,
+    markClean,
+    saveRef,
+    guard,
+    dialogOpen,
+    handleDialogSave,
+    handleDialogDiscard,
+    handleDialogCancel
   } = useUnsavedGuard('Palette')
 
   const refresh = useCallback(async () => {
@@ -62,14 +80,20 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
     setSummaries(list)
   }, [packDir])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   // Load the active palette when selection changes
   useEffect(() => {
     let cancelled = false
-    if (!activeId) { setDraft(null); setOriginal(null); return }
+    if (!activeId) {
+      setDraft(null)
+      setOriginal(null)
+      return
+    }
     loadPalette(packDir, activeId)
-      .then(p => {
+      .then((p) => {
         if (cancelled) return
         setDraft(p)
         setOriginal(p)
@@ -80,42 +104,54 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
         setDraft(null)
         setOriginal(null)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [packDir, activeId, markClean])
 
-  const dirty = draft !== null && original !== null && JSON.stringify(draft) !== JSON.stringify(original)
-  useEffect(() => { if (dirty) markDirty() }, [dirty, markDirty])
+  const dirty =
+    draft !== null && original !== null && JSON.stringify(draft) !== JSON.stringify(original)
+  useEffect(() => {
+    if (dirty) markDirty()
+  }, [dirty, markDirty])
 
   // Load test icon as PixelBuffer when path changes
   useEffect(() => {
     let cancelled = false
     const path = draft?.testIconPath
-    if (!path) { setTestIconBuf(null); return }
+    if (!path) {
+      setTestIconBuf(null)
+      return
+    }
     loadPixelBufferFromPath(path)
-      .then(buf => { if (!cancelled) setTestIconBuf(buf) })
-      .catch(err => {
+      .then((buf) => {
+        if (!cancelled) setTestIconBuf(buf)
+      })
+      .catch((err) => {
         if (cancelled) return
         setTestIconBuf(null)
         onStatus(`Test icon load failed: ${err instanceof Error ? err.message : String(err)}`)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [draft?.testIconPath, onStatus])
 
   const handlePickTestIcon = useCallback(async () => {
     const path = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
-    if (path) setDraft(prev => prev ? { ...prev, testIconPath: path } : prev)
+    if (path) setDraft((prev) => (prev ? { ...prev, testIconPath: path } : prev))
   }, [])
 
   const handleClearTestIcon = useCallback(() => {
-    setDraft(prev => prev ? { ...prev, testIconPath: undefined } : prev)
+    setDraft((prev) => (prev ? { ...prev, testIconPath: undefined } : prev))
   }, [])
 
   const update = useCallback((patch: Partial<Palette>) => {
-    setDraft(prev => prev ? { ...prev, ...patch } : prev)
+    setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
   }, [])
 
   const updateEntry = useCallback((idx: number, next: PaletteEntry) => {
-    setDraft(prev => {
+    setDraft((prev) => {
       if (!prev) return prev
       const entries = prev.entries.slice()
       entries[idx] = next
@@ -124,14 +160,14 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
   }, [])
 
   const addEntry = useCallback(() => {
-    setDraft(prev => {
+    setDraft((prev) => {
       if (!prev) return prev
       return { ...prev, entries: [...prev.entries, blankEntry(prev.entries.length)] }
     })
   }, [])
 
   const deleteEntry = useCallback((idx: number) => {
-    setDraft(prev => {
+    setDraft((prev) => {
       if (!prev) return prev
       const entries = prev.entries.slice()
       entries.splice(idx, 1)
@@ -169,28 +205,52 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
     refresh()
   }, [activeId, packDir, setActiveId, markClean, onStatus, refresh])
 
-  const handleCreate = useCallback(async (id: string, name: string, preset: PresetId) => {
-    const p = buildFromPreset(preset, id, name)
-    await savePalette(packDir, p)
-    onStatus(`Created ${id}`)
-    setCreateOpen(false)
-    await refresh()
-    setActiveId(id)
-  }, [packDir, onStatus, refresh, setActiveId])
+  const handleCreate = useCallback(
+    async (id: string, name: string, preset: PresetId) => {
+      const p = buildFromPreset(preset, id, name)
+      await savePalette(packDir, p)
+      onStatus(`Created ${id}`)
+      setCreateOpen(false)
+      await refresh()
+      setActiveId(id)
+    },
+    [packDir, onStatus, refresh, setActiveId]
+  )
 
-  const existingIds = useMemo(() => summaries.map(s => s.id), [summaries])
+  const existingIds = useMemo(() => summaries.map((s) => s.id), [summaries])
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       {/* Left: palette list */}
-      <Box sx={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          width: 240,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Box sx={{ px: 1, py: 1, display: 'flex', gap: 1 }}>
-          <Button size="small" variant="outlined" fullWidth startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>New Palette</Button>
-          <Tooltip title="Refresh"><IconButton size="small" onClick={refresh}><RefreshIcon fontSize="small" /></IconButton></Tooltip>
+          <Button
+            size="small"
+            variant="outlined"
+            fullWidth
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+          >
+            New Palette
+          </Button>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={refresh}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           <List dense disablePadding>
-            {summaries.map(s => (
+            {summaries.map((s) => (
               <ListItemButton
                 key={s.id}
                 selected={activeId === s.id}
@@ -211,27 +271,49 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
       {/* Right: editor */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {!draft ? (
-          <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <Typography color="text.disabled">Select a palette to edit, or create a new one.</Typography>
+          <Box
+            sx={{
+              p: 3,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%'
+            }}
+          >
+            <Typography color="text.disabled">
+              Select a palette to edit, or create a new one.
+            </Typography>
           </Box>
         ) : (
           <>
-            <Box sx={{ px: 2, py: 1.5, display: 'flex', gap: 2, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                gap: 2,
+                alignItems: 'center',
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
               <TextField
                 label="Name"
                 size="small"
                 value={draft.name}
-                onChange={e => update({ name: e.target.value })}
+                onChange={(e) => update({ name: e.target.value })}
                 sx={{ width: 220 }}
               />
               <TextField
                 label="Description"
                 size="small"
                 value={draft.description ?? ''}
-                onChange={e => update({ description: e.target.value })}
+                onChange={(e) => update({ description: e.target.value })}
                 sx={{ flex: 1 }}
               />
-              <Tooltip title={draft.testIconPath ?? 'Pick a test icon to preview the palette against'}>
+              <Tooltip
+                title={draft.testIconPath ?? 'Pick a test icon to preview the palette against'}
+              >
                 <Button
                   size="small"
                   variant="outlined"
@@ -244,14 +326,34 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
               </Tooltip>
               {draft.testIconPath && (
                 <Tooltip title="Clear test icon">
-                  <IconButton size="small" onClick={handleClearTestIcon}><ClearIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={handleClearTestIcon}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
                 </Tooltip>
               )}
               <Stack direction="row" spacing={1}>
-                <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSave} disabled={!dirty}>Save</Button>
-                <Button variant="outlined" size="small" startIcon={<UndoIcon />} onClick={handleRevert} disabled={!dirty}>Revert</Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  disabled={!dirty}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<UndoIcon />}
+                  onClick={handleRevert}
+                  disabled={!dirty}
+                >
+                  Revert
+                </Button>
                 <Tooltip title="Delete palette">
-                  <IconButton size="small" color="error" onClick={handleDelete}><DeleteIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={handleDelete}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </Tooltip>
               </Stack>
             </Box>
@@ -262,13 +364,15 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                   key={idx}
                   entry={entry}
                   preview={testIconBuf ?? PREVIEW}
-                  onChange={next => updateEntry(idx, next)}
+                  onChange={(next) => updateEntry(idx, next)}
                   onDelete={() => deleteEntry(idx)}
                 />
               ))}
               <Divider />
               <Box sx={{ p: 1.5 }}>
-                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addEntry}>Add Entry</Button>
+                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addEntry}>
+                  Add Entry
+                </Button>
               </Box>
               <Divider />
               <VariantOverrideEditor

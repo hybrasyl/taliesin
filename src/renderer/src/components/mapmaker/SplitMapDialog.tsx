@@ -1,13 +1,25 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Box, Typography, ToggleButton, ToggleButtonGroup,
-  TextField, CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  TextField,
+  CircularProgress
 } from '@mui/material'
 import { MapFile } from '@eriscorp/dalib-ts'
 import {
-  loadMapAssets, renderMap, isoCanvasSize, tileToScreen,
-  ISO_HTILE_W, ISO_VTILE_STEP,
+  loadMapAssets,
+  renderMap,
+  isoCanvasSize,
+  tileToScreen,
+  ISO_HTILE_W,
+  ISO_VTILE_STEP
 } from '../../utils/mapRenderer'
 
 type SplitMode = '2x1' | '1x2' | '2x2'
@@ -20,7 +32,11 @@ interface Props {
   onStatus: (msg: string) => void
 }
 
-function splitDimensions(mode: SplitMode, W: number, H: number): { cols: number; rows: number; subW: number; subH: number } {
+function splitDimensions(
+  mode: SplitMode,
+  W: number,
+  H: number
+): { cols: number; rows: number; subW: number; subH: number } {
   const cols = mode === '1x2' ? 1 : 2
   const rows = mode === '2x1' ? 1 : 2
   return { cols, rows, subW: Math.floor(W / cols), subH: Math.floor(H / rows) }
@@ -43,18 +59,23 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
   const previewRef = useRef<HTMLCanvasElement>(null)
 
   const { width: W, height: H } = mapFile
-  const { cols, rows, subW, subH } = mode ? splitDimensions(mode, W, H) : { cols: 1, rows: 1, subW: W, subH: H }
+  const { cols, rows, subW, subH } = mode
+    ? splitDimensions(mode, W, H)
+    : { cols: 1, rows: 1, subW: W, subH: H }
   const count = cols * rows
   const labels = mode ? getLabels(mode) : []
 
   const canSplit = mode !== null && subW >= 1 && subH >= 1
 
   // Warning for non-even splits
-  const remainder = mode === '2x2'
-    ? (W % 2 !== 0 || H % 2 !== 0)
-    : mode === '2x1' ? W % 2 !== 0
-    : mode === '1x2' ? H % 2 !== 0
-    : false
+  const remainder =
+    mode === '2x2'
+      ? W % 2 !== 0 || H % 2 !== 0
+      : mode === '2x1'
+        ? W % 2 !== 0
+        : mode === '1x2'
+          ? H % 2 !== 0
+          : false
 
   // Draw isometric preview + cut lines
   useEffect(() => {
@@ -78,7 +99,9 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
           const assets = await loadMapAssets(clientPath)
           if (cancelled) return
           await renderMap(canvas, mapFile, assets, { scale: previewScale })
-        } catch { /* no assets — black bg is fine */ }
+        } catch {
+          /* no assets — black bg is fine */
+        }
       }
       if (cancelled) return
 
@@ -141,14 +164,19 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
     }
 
     draw()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [mode, mapFile, clientPath, W, H, cols, rows, subW, subH, labels])
 
   const handleSplit = useCallback(async () => {
     setSaving(true)
     try {
       const dir = await window.api.openDirectory()
-      if (!dir) { setSaving(false); return }
+      if (!dir) {
+        setSaving(false)
+        return
+      }
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -207,7 +235,10 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
 
         {/* Preview */}
         <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
-          <canvas ref={previewRef} style={{ imageRendering: 'pixelated', border: '1px solid', borderRadius: 4 }} />
+          <canvas
+            ref={previewRef}
+            style={{ imageRendering: 'pixelated', border: '1px solid', borderRadius: 4 }}
+          />
           <Box>
             {mode ? (
               <>
@@ -215,13 +246,23 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
                   {count} maps × {subW}×{subH} tiles each
                 </Typography>
                 {labels.map((label, i) => (
-                  <Typography key={i} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography
+                    key={i}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block' }}
+                  >
                     {baseName}_{i + 1}.map — {label}
                   </Typography>
                 ))}
                 {remainder && (
-                  <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 1 }}>
-                    Map dimensions don't divide evenly. Extra tiles on the right/bottom edges will be discarded.
+                  <Typography
+                    variant="caption"
+                    color="warning.main"
+                    sx={{ display: 'block', mt: 1 }}
+                  >
+                    Map dimensions don't divide evenly. Extra tiles on the right/bottom edges will
+                    be discarded.
                   </Typography>
                 )}
               </>
@@ -239,12 +280,14 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
           size="small"
           fullWidth
           value={baseName}
-          onChange={e => setBaseName(e.target.value)}
+          onChange={(e) => setBaseName(e.target.value)}
           helperText={`Files will be named ${baseName}_1.map, ${baseName}_2.map, etc.`}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleSplit}

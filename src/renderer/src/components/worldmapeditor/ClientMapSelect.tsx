@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  Box, FormControl, InputLabel, MenuItem, Select, type SelectChangeEvent,
-  Skeleton, Tooltip, Typography,
+  Box,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
+  Skeleton,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import BrokenImageIcon from '@mui/icons-material/BrokenImage'
 import { FIELD_NAMES, FIELD_WIDTH, FIELD_HEIGHT, renderField } from '../../utils/worldMapRenderer'
@@ -20,32 +27,67 @@ function FieldThumbnail({ fieldName, clientPath, width, height }: ThumbnailProps
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   useEffect(() => {
-    if (!clientPath || !fieldName) { setStatus('error'); return }
+    if (!clientPath || !fieldName) {
+      setStatus('error')
+      return
+    }
     setStatus('loading')
     let cancelled = false
 
-    renderField(fieldName, clientPath).then(bitmap => {
-      if (cancelled) return
-      if (!canvasRef.current) { setStatus('error'); return }
-      const ctx = canvasRef.current.getContext('2d')
-      if (!ctx) { setStatus('error'); return }
-      ctx.clearRect(0, 0, width, height)
-      ctx.drawImage(bitmap, 0, 0, FIELD_WIDTH, FIELD_HEIGHT, 0, 0, width, height)
-      setStatus('ok')
-    }).catch(() => { if (!cancelled) setStatus('error') })
+    renderField(fieldName, clientPath)
+      .then((bitmap) => {
+        if (cancelled) return
+        if (!canvasRef.current) {
+          setStatus('error')
+          return
+        }
+        const ctx = canvasRef.current.getContext('2d')
+        if (!ctx) {
+          setStatus('error')
+          return
+        }
+        ctx.clearRect(0, 0, width, height)
+        ctx.drawImage(bitmap, 0, 0, FIELD_WIDTH, FIELD_HEIGHT, 0, 0, width, height)
+        setStatus('ok')
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error')
+      })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [fieldName, clientPath, width, height])
 
   if (!clientPath) return null
 
   return (
-    <Box sx={{ width, height, flexShrink: 0, position: 'relative', borderRadius: 0.5, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
+    <Box
+      sx={{
+        width,
+        height,
+        flexShrink: 0,
+        position: 'relative',
+        borderRadius: 0.5,
+        overflow: 'hidden',
+        border: 1,
+        borderColor: 'divider'
+      }}
+    >
       {status === 'loading' && (
         <Skeleton variant="rectangular" width={width} height={height} animation="wave" />
       )}
       {status === 'error' && (
-        <Box sx={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
+        <Box
+          sx={{
+            width,
+            height,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'action.hover'
+          }}
+        >
           <BrokenImageIcon fontSize="small" color="disabled" />
         </Box>
       )}
@@ -81,9 +123,11 @@ export default function ClientMapSelect({ value, onChange, clientPath, disabled 
       <FormControl size="small" sx={{ minWidth: 160 }} disabled={disabled}>
         <InputLabel>Client Map</InputLabel>
         <Select value={value} label="Client Map" onChange={handleChange}>
-          {FIELD_NAMES.map(name => (
+          {FIELD_NAMES.map((name) => (
             <MenuItem key={name} value={name}>
-              <Typography variant="body2" fontFamily="monospace">{name}</Typography>
+              <Typography variant="body2" fontFamily="monospace">
+                {name}
+              </Typography>
             </MenuItem>
           ))}
         </Select>

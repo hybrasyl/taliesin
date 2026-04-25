@@ -7,7 +7,7 @@ import {
   migrateLongTagsToDescription,
   countEntriesWithLongTags,
   needsEnrichment,
-  MAX_TAG_LENGTH,
+  MAX_TAG_LENGTH
 } from '../useMusicLibrary'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
 
@@ -91,7 +91,7 @@ describe('migrateLongTagsToDescription', () => {
     const meta: Record<string, MusicMeta> = {
       'a.mus': { name: 'A', tags: ['ok'] },
       'b.mus': { name: 'B', tags: [long] },
-      'c.mus': { name: 'C', tags: [['nested', 'arr']] as unknown as string[] },
+      'c.mus': { name: 'C', tags: [['nested', 'arr']] as unknown as string[] }
     }
     const result = migrateLongTagsToDescription(meta)
     expect(result.movedCount).toBe(2) // b and c changed; a did not
@@ -109,7 +109,7 @@ describe('countEntriesWithLongTags', () => {
       a: { tags: ['short'] },
       b: { tags: [long] },
       c: { tags: [['nested']] as unknown as string[] },
-      d: {},
+      d: {}
     }
     expect(countEntriesWithLongTags(meta)).toBe(2)
   })
@@ -121,7 +121,7 @@ describe('needsEnrichment', () => {
   it('returns true for missing meta or missing fields', () => {
     expect(needsEnrichment(undefined)).toBe(true)
     expect(needsEnrichment({})).toBe(true)
-    expect(needsEnrichment({ name: 'x' })).toBe(true)            // no duration
+    expect(needsEnrichment({ name: 'x' })).toBe(true) // no duration
     expect(needsEnrichment({ name: 'x', duration: 0 })).toBe(false)
   })
 })
@@ -138,7 +138,10 @@ describe('useMusicLibrary', () => {
   })
 
   it('auto-scans and loads metadata when dirPath is set', async () => {
-    api.musicScan.mockResolvedValue([{ filename: '1.mus', sizeBytes: 100 }, { filename: '2.mus', sizeBytes: 200 }])
+    api.musicScan.mockResolvedValue([
+      { filename: '1.mus', sizeBytes: 100 },
+      { filename: '2.mus', sizeBytes: 200 }
+    ])
     api.musicMetadataLoad.mockResolvedValue({ '1.mus': { name: 'Track One', duration: 60 } })
 
     const { result } = renderHook(() => useMusicLibrary('/lib'))
@@ -155,12 +158,15 @@ describe('useMusicLibrary', () => {
       { filename: 'b.flac', sizeBytes: 1 },
       { filename: '10.mus', sizeBytes: 1 },
       { filename: 'a.flac', sizeBytes: 1 },
-      { filename: '2.mus', sizeBytes: 1 },
+      { filename: '2.mus', sizeBytes: 1 }
     ])
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.entries.length).toBe(4))
     expect(result.current.entries.map((e) => e.filename)).toEqual([
-      '2.mus', '10.mus', 'a.flac', 'b.flac',
+      '2.mus',
+      '10.mus',
+      'a.flac',
+      'b.flac'
     ])
   })
 
@@ -168,11 +174,13 @@ describe('useMusicLibrary', () => {
     api.musicScan.mockResolvedValue([
       { filename: '5.mus', sizeBytes: 1 },
       { filename: 'song.mus', sizeBytes: 1 },
-      { filename: '7.flac', sizeBytes: 1 },
+      { filename: '7.flac', sizeBytes: 1 }
     ])
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.entries.length).toBe(3))
-    const byFilename = Object.fromEntries(result.current.entries.map((e) => [e.filename, e.musicId]))
+    const byFilename = Object.fromEntries(
+      result.current.entries.map((e) => [e.filename, e.musicId])
+    )
     expect(byFilename['5.mus']).toBe(5)
     expect(byFilename['song.mus']).toBeNull()
     expect(byFilename['7.flac']).toBeNull()
@@ -181,12 +189,14 @@ describe('useMusicLibrary', () => {
   it('select() populates the draft without re-enrichment for already-enriched entries', async () => {
     api.musicScan.mockResolvedValue([{ filename: '1.mus', sizeBytes: 100 }])
     api.musicMetadataLoad.mockResolvedValue({
-      '1.mus': { name: 'Done', duration: 60, tags: ['x'] },
+      '1.mus': { name: 'Done', duration: 60, tags: ['x'] }
     })
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.scanning).toBe(false))
 
-    await act(async () => { await result.current.select('1.mus') })
+    await act(async () => {
+      await result.current.select('1.mus')
+    })
     expect(result.current.draft.name).toBe('Done')
     expect(api.musicReadFileMeta).not.toHaveBeenCalled()
   })
@@ -205,13 +215,20 @@ describe('useMusicLibrary', () => {
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.scanning).toBe(false))
 
-    await act(async () => { await result.current.select('1.mus') })
+    await act(async () => {
+      await result.current.select('1.mus')
+    })
     act(() => result.current.updateDraft({ name: 'New' }))
-    await act(async () => { await result.current.save() })
+    await act(async () => {
+      await result.current.save()
+    })
 
-    expect(api.musicMetadataSave).toHaveBeenCalledWith('/lib', expect.objectContaining({
-      '1.mus': expect.objectContaining({ name: 'New' }),
-    }))
+    expect(api.musicMetadataSave).toHaveBeenCalledWith(
+      '/lib',
+      expect.objectContaining({
+        '1.mus': expect.objectContaining({ name: 'New' })
+      })
+    )
     expect(result.current.dirty).toBe(false)
   })
 
@@ -221,8 +238,12 @@ describe('useMusicLibrary', () => {
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.scanning).toBe(false))
 
-    await act(async () => { await result.current.select('1.mus') })
-    await act(async () => { await result.current.remove('1.mus') })
+    await act(async () => {
+      await result.current.select('1.mus')
+    })
+    await act(async () => {
+      await result.current.remove('1.mus')
+    })
 
     expect(api.deleteFile).toHaveBeenCalledWith('/lib/1.mus')
     expect(result.current.entries).toEqual([])
@@ -231,12 +252,16 @@ describe('useMusicLibrary', () => {
 
   it('migrateLongTags() returns 0 when nothing needs migrating', async () => {
     api.musicScan.mockResolvedValue([{ filename: '1.mus', sizeBytes: 100 }])
-    api.musicMetadataLoad.mockResolvedValue({ '1.mus': { name: 'ok', tags: ['short'], duration: 1 } })
+    api.musicMetadataLoad.mockResolvedValue({
+      '1.mus': { name: 'ok', tags: ['short'], duration: 1 }
+    })
     const { result } = renderHook(() => useMusicLibrary('/lib'))
     await waitFor(() => expect(result.current.scanning).toBe(false))
 
     let moved = 0
-    await act(async () => { moved = await result.current.migrateLongTags() })
+    await act(async () => {
+      moved = await result.current.migrateLongTags()
+    })
     expect(moved).toBe(0)
     expect(api.musicMetadataSave).not.toHaveBeenCalled()
   })
@@ -249,10 +274,15 @@ describe('useMusicLibrary', () => {
     await waitFor(() => expect(result.current.scanning).toBe(false))
 
     let moved = 0
-    await act(async () => { moved = await result.current.migrateLongTags() })
+    await act(async () => {
+      moved = await result.current.migrateLongTags()
+    })
     expect(moved).toBe(1)
-    expect(api.musicMetadataSave).toHaveBeenCalledWith('/lib', expect.objectContaining({
-      '1.mus': expect.objectContaining({ description: long, tags: [] }),
-    }))
+    expect(api.musicMetadataSave).toHaveBeenCalledWith(
+      '/lib',
+      expect.objectContaining({
+        '1.mus': expect.objectContaining({ description: long, tags: [] })
+      })
+    )
   })
 })
