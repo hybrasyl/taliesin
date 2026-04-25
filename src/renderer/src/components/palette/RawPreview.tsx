@@ -1,17 +1,14 @@
 import React, { useEffect, useRef } from 'react'
-import { applyDuotone, PixelBuffer } from '../../utils/duotone'
+import { PixelBuffer } from '../../utils/duotone'
 import { compositeOnTop } from '../../utils/imageLoader'
-import { PaletteEntry, DuotoneParams } from '../../utils/paletteTypes'
 
 interface Props {
   source: PixelBuffer | null
-  entry: PaletteEntry
-  params: DuotoneParams
   frame?: PixelBuffer | null
   size?: number
 }
 
-const DuotonePreview: React.FC<Props> = ({ source, entry, params, frame, size = 96 }) => {
+const RawPreview: React.FC<Props> = ({ source, frame, size = 64 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -21,12 +18,11 @@ const DuotonePreview: React.FC<Props> = ({ source, entry, params, frame, size = 
     canvas.height = source.height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const duotoned = applyDuotone(source, entry, params)
-    const composed = frame ? compositeOnTop(duotoned, frame) : duotoned
+    const composed = frame ? compositeOnTop(source, frame) : source
     const imageData = ctx.createImageData(composed.width, composed.height)
     imageData.data.set(composed.data)
     ctx.putImageData(imageData, 0, 0)
-  }, [source, entry, params, frame])
+  }, [source, frame])
 
   return (
     <canvas
@@ -36,4 +32,4 @@ const DuotonePreview: React.FC<Props> = ({ source, entry, params, frame, size = 
   )
 }
 
-export default DuotonePreview
+export default RawPreview

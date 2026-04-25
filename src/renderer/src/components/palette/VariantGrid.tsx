@@ -13,13 +13,14 @@ interface Props {
   selectedId: string | null
   customParams: DuotoneParams | null
   autoBestId: string | null
+  frame?: PixelBuffer | null
   tileSize?: number
   onSelectVariant: (id: string) => void
   onOpenCustom: () => void
 }
 
 const VariantGrid: React.FC<Props> = ({
-  source, entry, variants, selectedId, customParams, autoBestId, tileSize = 64,
+  source, entry, variants, selectedId, customParams, autoBestId, frame, tileSize = 64,
   onSelectVariant, onOpenCustom,
 }) => {
   const renderTile = (
@@ -55,7 +56,7 @@ const VariantGrid: React.FC<Props> = ({
             <TuneIcon fontSize="small" />
           </Box>
         ) : (
-          <DuotonePreview source={source} entry={entry} params={params!} size={tileSize} />
+          <DuotonePreview source={source} entry={entry} params={params!} frame={frame} size={tileSize} />
         )}
         <Typography
           variant="caption"

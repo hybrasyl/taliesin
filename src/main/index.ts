@@ -679,6 +679,19 @@ ipcMain.handle('palette:calibrationSave', async (_, packDir: string, paletteId: 
   await fs.writeFile(join(dir, `${paletteId}.json`), JSON.stringify(data, null, 2), 'utf-8')
 })
 
+ipcMain.handle('frame:scan', async (_, packDir: string) => {
+  const dir = join(packDir, '_frames')
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+    return entries
+      .filter(e => e.isFile() && e.name.toLowerCase().endsWith('.png'))
+      .map(e => e.name)
+      .sort((a, b) => a.localeCompare(b))
+  } catch {
+    return []
+  }
+})
+
 // ── Tile Frequency Scanner ──────────────────────────────────────────────────
 
 ipcMain.handle('tileScan:analyze', async (_, dirPaths: string[]) => {

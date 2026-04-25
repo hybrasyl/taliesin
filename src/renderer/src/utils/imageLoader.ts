@@ -27,6 +27,36 @@ export async function loadPixelBufferFromPath(path: string): Promise<PixelBuffer
   }
 }
 
+// Composites `frame` on top of `base` with normal alpha blending, scaling
+// the frame to base dimensions if they differ. Pixel-art friendly: smoothing
+// is disabled so scaled frames remain crisp.
+export function compositeOnTop(base: PixelBuffer, frame: PixelBuffer): PixelBuffer {
+  const out = document.createElement('canvas')
+  out.width = base.width
+  out.height = base.height
+  const outCtx = out.getContext('2d')
+  if (!outCtx) throw new Error('canvas 2d context unavailable')
+
+  const baseImage = outCtx.createImageData(base.width, base.height)
+  baseImage.data.set(base.data)
+  outCtx.putImageData(baseImage, 0, 0)
+
+  const fc = document.createElement('canvas')
+  fc.width = frame.width
+  fc.height = frame.height
+  const fCtx = fc.getContext('2d')
+  if (!fCtx) throw new Error('canvas 2d context unavailable')
+  const fImage = fCtx.createImageData(frame.width, frame.height)
+  fImage.data.set(frame.data)
+  fCtx.putImageData(fImage, 0, 0)
+
+  outCtx.imageSmoothingEnabled = false
+  outCtx.drawImage(fc, 0, 0, frame.width, frame.height, 0, 0, base.width, base.height)
+
+  const data = outCtx.getImageData(0, 0, base.width, base.height)
+  return { data: data.data, width: data.width, height: data.height }
+}
+
 export async function pixelBufferToPngBytes(buf: PixelBuffer): Promise<Uint8Array> {
   const canvas = document.createElement('canvas')
   canvas.width = buf.width

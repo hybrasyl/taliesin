@@ -50,8 +50,11 @@ export interface EntryCalibration extends DuotoneParams {
   lastCalibrated: string      // ISO 8601, minute precision
 }
 
+export interface SourceCalibration {
+  frame?: string         // filename of frame PNG within {packDir}/_frames/, or omitted for none
+  entries: { [entryId: string]: EntryCalibration }
+}
+
 export type CalibrationFile = {
-  [sourceFilename: string]: {
-    [entryId: string]: EntryCalibration
-  }
+  [sourceFilename: string]: SourceCalibration
 }

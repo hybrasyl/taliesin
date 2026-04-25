@@ -12,6 +12,7 @@ interface Props {
   initial: DuotoneParams | null
   source: PixelBuffer | null
   entry: PaletteEntry
+  frame?: PixelBuffer | null
   onClose: () => void
   onApply: (params: DuotoneParams) => void
 }
@@ -23,7 +24,7 @@ const DEFAULT: DuotoneParams = {
   midpointHigh: 0.75,
 }
 
-const CustomVariantDialog: React.FC<Props> = ({ open, initial, source, entry, onClose, onApply }) => {
+const CustomVariantDialog: React.FC<Props> = ({ open, initial, source, entry, frame, onClose, onApply }) => {
   const [params, setParams] = useState<DuotoneParams>(initial ?? DEFAULT)
 
   useEffect(() => {
@@ -44,7 +45,7 @@ const CustomVariantDialog: React.FC<Props> = ({ open, initial, source, entry, on
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <DuotonePreview source={source} entry={entry} params={params} size={160} />
+            <DuotonePreview source={source} entry={entry} params={params} frame={frame} size={160} />
           </Box>
 
           <Box>

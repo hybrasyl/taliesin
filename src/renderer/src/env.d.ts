@@ -186,6 +186,7 @@ interface TaliesinAPI {
   paletteDelete: (filePath: string) => Promise<void>
   paletteCalibrationLoad: (packDir: string, paletteId: string) => Promise<Record<string, Record<string, unknown>>>
   paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown) => Promise<void>
+  frameScan: (packDir: string) => Promise<string[]>
 }
 
 declare global {

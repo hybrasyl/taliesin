@@ -181,6 +181,8 @@ const api = {
     ipcRenderer.invoke('palette:calibrationLoad', packDir, paletteId),
   paletteCalibrationSave: (packDir: string, paletteId: string, data: unknown): Promise<void> =>
     ipcRenderer.invoke('palette:calibrationSave', packDir, paletteId, data),
+  frameScan: (packDir: string): Promise<string[]> =>
+    ipcRenderer.invoke('frame:scan', packDir),
 }
 
 if (process.contextIsolated) {

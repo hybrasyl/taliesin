@@ -61,3 +61,11 @@ export async function loadCalibrations(packDir: string, paletteId: string): Prom
 export async function saveCalibrations(packDir: string, paletteId: string, data: CalibrationFile): Promise<void> {
   await window.api.paletteCalibrationSave(packDir, paletteId, data)
 }
+
+export async function scanFrames(packDir: string): Promise<string[]> {
+  return window.api.frameScan(packDir)
+}
+
+export function framePath(packDir: string, frameName: string): string {
+  return `${packDir}/_frames/${frameName}`
+}

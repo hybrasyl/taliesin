@@ -8,18 +8,20 @@ import SaveIcon from '@mui/icons-material/Save'
 import { useRecoilState } from 'recoil'
 import { activePaletteIdState, activeColorizeSourceState } from '../../recoil/atoms'
 import {
-  Palette, PaletteEntry, DuotoneParams, EntryCalibration, CalibrationFile,
+  Palette, PaletteEntry, DuotoneParams, EntryCalibration, CalibrationFile, SourceCalibration,
 } from '../../utils/paletteTypes'
 import {
   PaletteSummary, scanPalettes, loadPalette,
   loadCalibrations, saveCalibrations,
+  scanFrames, framePath,
   basenameFromPath, filenameFromPath, dirnameFromPath, outputFilename,
 } from '../../utils/paletteIO'
 import { applyDuotone, PixelBuffer } from '../../utils/duotone'
 import { DEFAULT_VARIANTS, variantToParams, autoDetectBest } from '../../utils/variants'
-import { loadPixelBufferFromPath, pixelBufferToPngBytes } from '../../utils/imageLoader'
+import { loadPixelBufferFromPath, pixelBufferToPngBytes, compositeOnTop } from '../../utils/imageLoader'
 import VariantGrid from './VariantGrid'
 import CustomVariantDialog from './CustomVariantDialog'
+import RawPreview from './RawPreview'
 
 interface Props {
   packDir: string
@@ -45,14 +47,40 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
   const [customDialog, setCustomDialog] = useState<{ open: boolean; entryId: string | null }>({ open: false, entryId: null })
   const [saving, setSaving] = useState(false)
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null)
+  const [frameOptions, setFrameOptions] = useState<string[]>([])
+  const [frameName, setFrameName] = useState<string | null>(null)
+  const [frameBuf, setFrameBuf] = useState<PixelBuffer | null>(null)
 
   const variants = useMemo(() => palette?.variants ?? DEFAULT_VARIANTS, [palette])
   const sourceFilename = sourcePath ? filenameFromPath(sourcePath) : null
 
-  // Initial palette scan
+  // Initial palette + frame scan
   useEffect(() => {
     scanPalettes(packDir).then(setSummaries).catch(() => setSummaries([]))
-  }, [packDir])
+    scanFrames(packDir)
+      .then(list => {
+        setFrameOptions(list)
+        if (list.length === 0) onStatus(`No PNGs found in ${packDir}/_frames`)
+      })
+      .catch(err => {
+        setFrameOptions([])
+        onStatus(`Frame scan failed: ${err instanceof Error ? err.message : String(err)}`)
+      })
+  }, [packDir, onStatus])
+
+  // Load frame PixelBuffer when frame name changes
+  useEffect(() => {
+    let cancelled = false
+    if (!frameName) { setFrameBuf(null); return }
+    loadPixelBufferFromPath(framePath(packDir, frameName))
+      .then(buf => { if (!cancelled) setFrameBuf(buf) })
+      .catch(err => {
+        if (cancelled) return
+        setFrameBuf(null)
+        onStatus(`Frame load failed: ${err instanceof Error ? err.message : String(err)}`)
+      })
+    return () => { cancelled = true }
+  }, [packDir, frameName, onStatus])
 
   // Load palette + calibrations when paletteId changes
   useEffect(() => {
@@ -92,12 +120,21 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
     if (!palette || !sourceBuf || !sourceFilename) {
       setSelections({})
       setAutoBest({})
+      setFrameName(null)
       return
     }
+    // Tolerate old-shape calibration files: { [src]: { [entryId]: ... } } without a wrapping `entries` key.
+    const raw = calibrations[sourceFilename] as unknown
+    const isNewShape = !!raw && typeof raw === 'object' && 'entries' in (raw as object)
+    const sourceCal = isNewShape ? (raw as SourceCalibration) : null
+    const entriesMap: Record<string, EntryCalibration> = sourceCal
+      ? sourceCal.entries
+      : (raw as Record<string, EntryCalibration> | undefined) ?? {}
+    setFrameName(sourceCal?.frame ?? null)
+
     const sel: Record<string, EntrySelection> = {}
-    const calForFile = calibrations[sourceFilename] ?? {}
     for (const entry of palette.entries) {
-      const cal = calForFile[entry.id]
+      const cal = entriesMap[entry.id]
       if (cal?.selectedVariantId) {
         sel[entry.id] = cal.selectedVariantId === 'custom'
           ? { variantId: 'custom', customParams: { darkFactor: cal.darkFactor, lightFactor: cal.lightFactor, midpointLow: cal.midpointLow, midpointHigh: cal.midpointHigh } }
@@ -174,8 +211,9 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
         const entry = palette.entries[i]
         const sel = selections[entry.id] ?? { variantId: autoBest[entry.id] ?? variants[0].id }
         const params = paramsForSelection(sel, entry)
-        const out = applyDuotone(sourceBuf, entry, params)
-        const bytes = await pixelBufferToPngBytes(out)
+        const duotoned = applyDuotone(sourceBuf, entry, params)
+        const composed = frameBuf ? compositeOnTop(duotoned, frameBuf) : duotoned
+        const bytes = await pixelBufferToPngBytes(composed)
         const filename = outputFilename(baseName, palette.id, entry.id)
         await window.api.writeBytes(`${outputDir}/${filename}`, bytes)
 
@@ -194,7 +232,11 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
         setSaveProgress({ current: i + 1, total })
       }
 
-      const nextCal: CalibrationFile = { ...calibrations, [sourceFilename]: nextCalForFile }
+      const nextSourceCal: SourceCalibration = {
+        entries: nextCalForFile,
+        ...(frameName ? { frame: frameName } : {}),
+      }
+      const nextCal: CalibrationFile = { ...calibrations, [sourceFilename]: nextSourceCal }
       await saveCalibrations(packDir, palette.id, nextCal)
       setCalibrations(nextCal)
       onStatus(`Saved ${palette.entries.length} outputs`)
@@ -204,7 +246,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
       setSaving(false)
       setSaveProgress(null)
     }
-  }, [palette, sourceBuf, sourcePath, sourceFilename, selections, autoBest, variants, calibrations, packDir, paramsForSelection, onStatus])
+  }, [palette, sourceBuf, sourcePath, sourceFilename, selections, autoBest, variants, calibrations, packDir, paramsForSelection, frameBuf, frameName, onStatus])
 
   const customEntry = customDialog.entryId && palette ? palette.entries.find(e => e.id === customDialog.entryId) : null
 
@@ -232,6 +274,20 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
           >
             {summaries.map(s => (
               <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }} disabled={frameOptions.length === 0}>
+          <InputLabel>Frame</InputLabel>
+          <Select
+            label="Frame"
+            value={frameName ?? ''}
+            onChange={e => setFrameName(e.target.value ? String(e.target.value) : null)}
+          >
+            <MenuItem value=""><em>None</em></MenuItem>
+            {frameOptions.map(name => (
+              <MenuItem key={name} value={name}>{name}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -303,6 +359,12 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
                     {selectedId ?? 'unset'}
                   </Typography>
                 </Box>
+                <Box sx={{ flexShrink: 0, textAlign: 'center' }}>
+                  <RawPreview source={sourceBuf} frame={frameBuf} size={TILE_SIZE} />
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.25, fontSize: '0.6rem', color: 'text.disabled' }}>
+                    Original
+                  </Typography>
+                </Box>
                 <Box sx={{ flex: 1, overflow: 'hidden' }}>
                   <VariantGrid
                     source={sourceBuf}
@@ -311,6 +373,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
                     selectedId={selectedId}
                     customParams={customParams}
                     autoBestId={autoBest[entry.id] ?? null}
+                    frame={frameBuf}
                     tileSize={TILE_SIZE}
                     onSelectVariant={id => handleSelectVariant(entry.id, id)}
                     onOpenCustom={() => handleOpenCustom(entry.id)}
@@ -328,6 +391,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
           initial={selections[customEntry.id]?.customParams ?? null}
           source={sourceBuf}
           entry={customEntry}
+          frame={frameBuf}
           onClose={() => setCustomDialog({ open: false, entryId: null })}
           onApply={handleApplyCustom}
         />
