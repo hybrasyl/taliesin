@@ -1,7 +1,7 @@
 {
-  "id": "elements",
-  "name": "Elements",
-  "description": "Seed palette — 17 element entries for form-swap ability icons. Copy this into {packDir}/_palettes/elements.json and edit the entries to match your element color scheme.",
+  "id": "hybrasyl-elements",
+  "name": "Hybrasyl Elements",
+  "description": "Seed palette — 17 element entries for Hybrasyl form-swap ability icons. Also available as a preset in the New Palette dialog.",
   "version": 1,
   "lastModified": "2026-04-24T00:00:00Z",
   "entries": [

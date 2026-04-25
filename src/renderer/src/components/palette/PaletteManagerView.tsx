@@ -21,6 +21,7 @@ import {
   PaletteSummary,
 } from '../../utils/paletteIO'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
+import { buildFromPreset, PresetId } from '../../utils/presets'
 import PaletteEntryEditor from './PaletteEntryEditor'
 import CreatePaletteDialog from './CreatePaletteDialog'
 import VariantOverrideEditor from './VariantOverrideEditor'
@@ -40,17 +41,6 @@ function blankEntry(index: number): PaletteEntry {
     highlightColor: '#CCCCCC',
     defaultDarkFactor: 0.3,
     defaultLightFactor: 0.3,
-  }
-}
-
-function blankPalette(id: string, name: string): Palette {
-  return {
-    id,
-    name,
-    description: '',
-    version: 1,
-    lastModified: new Date().toISOString(),
-    entries: [blankEntry(0)],
   }
 }
 
@@ -179,8 +169,8 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
     refresh()
   }, [activeId, packDir, setActiveId, markClean, onStatus, refresh])
 
-  const handleCreate = useCallback(async (id: string, name: string) => {
-    const p = blankPalette(id, name)
+  const handleCreate = useCallback(async (id: string, name: string, preset: PresetId) => {
+    const p = buildFromPreset(preset, id, name)
     await savePalette(packDir, p)
     onStatus(`Created ${id}`)
     setCreateOpen(false)

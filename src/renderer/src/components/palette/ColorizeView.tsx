@@ -7,6 +7,8 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveIcon from '@mui/icons-material/Save'
 import { useRecoilState } from 'recoil'
 import { activePaletteIdState, activeColorizeSourceState } from '../../recoil/atoms'
+import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
+import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import {
   Palette, PaletteEntry, DuotoneParams, EntryCalibration, CalibrationFile, SourceCalibration,
 } from '../../utils/paletteTypes'
@@ -25,6 +27,7 @@ import RawPreview from './RawPreview'
 
 interface Props {
   packDir: string
+  active: boolean
   onStatus: (msg: string) => void
 }
 
@@ -35,7 +38,7 @@ interface EntrySelection {
 
 const TILE_SIZE = 64
 
-const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
+const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const [summaries, setSummaries] = useState<PaletteSummary[]>([])
   const [paletteId, setPaletteId] = useRecoilState(activePaletteIdState)
   const [palette, setPalette] = useState<Palette | null>(null)
@@ -50,12 +53,28 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
   const [frameOptions, setFrameOptions] = useState<string[]>([])
   const [frameName, setFrameName] = useState<string | null>(null)
   const [frameBuf, setFrameBuf] = useState<PixelBuffer | null>(null)
+  const [dirty, setDirty] = useState(false)
+
+  const {
+    markDirty, markClean, saveRef,
+    dialogOpen: unsavedDialogOpen,
+    handleDialogSave: handleUnsavedSave,
+    handleDialogDiscard: handleUnsavedDiscard,
+    handleDialogCancel: handleUnsavedCancel,
+  } = useUnsavedGuard('Colorize')
+
+  useEffect(() => {
+    if (dirty) markDirty()
+    else markClean()
+  }, [dirty, markDirty, markClean])
 
   const variants = useMemo(() => palette?.variants ?? DEFAULT_VARIANTS, [palette])
   const sourceFilename = sourcePath ? filenameFromPath(sourcePath) : null
 
-  // Initial palette + frame scan
+  // Re-scan palettes + frames whenever the tab becomes active so newly-created
+  // palettes in the Palettes tab show up in the dropdown without remounting.
   useEffect(() => {
+    if (!active) return
     scanPalettes(packDir).then(setSummaries).catch(() => setSummaries([]))
     scanFrames(packDir)
       .then(list => {
@@ -66,7 +85,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
         setFrameOptions([])
         onStatus(`Frame scan failed: ${err instanceof Error ? err.message : String(err)}`)
       })
-  }, [packDir, onStatus])
+  }, [active, packDir, onStatus])
 
   // Load frame PixelBuffer when frame name changes
   useEffect(() => {
@@ -142,6 +161,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
       }
     }
     setSelections(sel)
+    setDirty(false)
 
     const auto: Record<string, string> = {}
     for (const entry of palette.entries) {
@@ -157,6 +177,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
 
   const handleSelectVariant = useCallback((entryId: string, variantId: string) => {
     setSelections(prev => ({ ...prev, [entryId]: { variantId } }))
+    setDirty(true)
   }, [])
 
   const handleApplyToAll = useCallback((variantId: string) => {
@@ -164,6 +185,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
     const next: Record<string, EntrySelection> = {}
     for (const entry of palette.entries) next[entry.id] = { variantId }
     setSelections(next)
+    setDirty(true)
   }, [palette])
 
   const handleApplyAuto = useCallback(() => {
@@ -171,6 +193,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
     const next: Record<string, EntrySelection> = {}
     for (const entry of palette.entries) next[entry.id] = { variantId: autoBest[entry.id] ?? variants[0].id }
     setSelections(next)
+    setDirty(true)
   }, [palette, autoBest, variants])
 
   const handleOpenCustom = useCallback((entryId: string) => {
@@ -181,7 +204,13 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
     const entryId = customDialog.entryId
     if (!entryId) return
     setSelections(prev => ({ ...prev, [entryId]: { variantId: 'custom', customParams: params } }))
+    setDirty(true)
   }, [customDialog.entryId])
+
+  const handleFrameChange = useCallback((next: string | null) => {
+    setFrameName(next)
+    setDirty(true)
+  }, [])
 
   const paramsForSelection = useCallback((sel: EntrySelection | undefined, entry: PaletteEntry): DuotoneParams => {
     if (!sel) {
@@ -239,6 +268,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
       const nextCal: CalibrationFile = { ...calibrations, [sourceFilename]: nextSourceCal }
       await saveCalibrations(packDir, palette.id, nextCal)
       setCalibrations(nextCal)
+      setDirty(false)
       onStatus(`Saved ${palette.entries.length} outputs`)
     } catch (err) {
       onStatus(`Save failed: ${err instanceof Error ? err.message : String(err)}`)
@@ -247,6 +277,8 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
       setSaveProgress(null)
     }
   }, [palette, sourceBuf, sourcePath, sourceFilename, selections, autoBest, variants, calibrations, packDir, paramsForSelection, frameBuf, frameName, onStatus])
+
+  saveRef.current = handleSave
 
   const customEntry = customDialog.entryId && palette ? palette.entries.find(e => e.id === customDialog.entryId) : null
 
@@ -283,7 +315,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
           <Select
             label="Frame"
             value={frameName ?? ''}
-            onChange={e => setFrameName(e.target.value ? String(e.target.value) : null)}
+            onChange={e => handleFrameChange(e.target.value ? String(e.target.value) : null)}
           >
             <MenuItem value=""><em>None</em></MenuItem>
             {frameOptions.map(name => (
@@ -396,6 +428,14 @@ const ColorizeView: React.FC<Props> = ({ packDir, onStatus }) => {
           onApply={handleApplyCustom}
         />
       )}
+
+      <UnsavedChangesDialog
+        open={unsavedDialogOpen}
+        label="Colorize"
+        onSave={handleUnsavedSave}
+        onDiscard={handleUnsavedDiscard}
+        onCancel={handleUnsavedCancel}
+      />
     </Box>
   )
 }

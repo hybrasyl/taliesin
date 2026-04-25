@@ -66,9 +66,13 @@ const PalettePage: React.FC = () => {
         <Tab value="colorize" label="Colorize" />
       </Tabs>
 
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
-        {tab === 'palettes' && <PaletteManagerView packDir={packDir} onStatus={showStatus} />}
-        {tab === 'colorize' && <ColorizeView packDir={packDir} onStatus={showStatus} />}
+      <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <Box sx={{ display: tab === 'palettes' ? 'block' : 'none', height: '100%' }}>
+          <PaletteManagerView packDir={packDir} onStatus={showStatus} />
+        </Box>
+        <Box sx={{ display: tab === 'colorize' ? 'block' : 'none', height: '100%' }}>
+          <ColorizeView packDir={packDir} active={tab === 'colorize'} onStatus={showStatus} />
+        </Box>
       </Box>
     </Box>
   )
