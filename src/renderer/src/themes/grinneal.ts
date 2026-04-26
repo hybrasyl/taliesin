@@ -148,10 +148,30 @@ const grinnealTheme = responsiveFontSizes(
         }
       },
       MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#6a7a50' } } },
+      MuiInputLabel: {
+        styleOverrides: { root: { '&.Mui-focused': { color: '#6a7a50' } } }
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: {
+            color: 'rgba(106,122,80,0.5)',
+            '&.Mui-checked': { color: '#6a7a50' }
+          }
+        }
+      },
       MuiSlider: {
         defaultProps: { color: 'secondary' },
         styleOverrides: {
           rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(106,122,80,0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(106,122,80,0.6)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6a7a50' }
+          }
         }
       }
     }

@@ -156,10 +156,30 @@ const chadulTheme = responsiveFontSizes(
         }
       },
       MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#2e7a3a' } } },
+      MuiInputLabel: {
+        styleOverrides: { root: { '&.Mui-focused': { color: '#2e7a3a' } } }
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: {
+            color: 'rgba(46,122,58,0.5)',
+            '&.Mui-checked': { color: '#2e7a3a' }
+          }
+        }
+      },
       MuiSlider: {
         defaultProps: { color: 'secondary' },
         styleOverrides: {
           rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(46,122,58,0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(46,122,58,0.6)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2e7a3a' }
+          }
         }
       }
     }

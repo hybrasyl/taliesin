@@ -179,10 +179,30 @@ const danaanTheme = responsiveFontSizes(
         }
       },
       MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#b8922a' } } },
+      MuiInputLabel: {
+        styleOverrides: { root: { '&.Mui-focused': { color: '#b8922a' } } }
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: {
+            color: 'rgba(184,146,42,0.5)',
+            '&.Mui-checked': { color: '#b8922a' }
+          }
+        }
+      },
       MuiSlider: {
         defaultProps: { color: 'secondary' },
         styleOverrides: {
           rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
+        }
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.6)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#b8922a' }
+          }
         }
       }
     }
