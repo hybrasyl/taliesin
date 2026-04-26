@@ -12,6 +12,7 @@ export type Page =
   | 'prefabs'
   | 'assetpacks'
   | 'palettes'
+  | 'fonteditor'
   | 'music'
   | 'sfx'
   | 'settings'

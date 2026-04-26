@@ -10,6 +10,7 @@ import MapMakerPage from '../pages/MapMakerPage'
 import PrefabCatalogPage from '../pages/PrefabCatalogPage'
 import AssetPackPage from '../pages/AssetPackPage'
 import PalettePage from '../pages/PalettePage'
+import FontEditorPage from '../pages/FontEditorPage'
 import MusicPage from '../pages/MusicPage'
 import SfxPage from '../pages/SfxPage'
 import SettingsPage from '../pages/SettingsPage'
@@ -36,6 +37,8 @@ const PageRenderer: React.FC = () => {
       return <AssetPackPage />
     case 'palettes':
       return <PalettePage />
+    case 'fonteditor':
+      return <FontEditorPage />
     case 'music':
       return <MusicPage />
     case 'sfx':
