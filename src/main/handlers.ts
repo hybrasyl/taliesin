@@ -69,7 +69,17 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
-  if (settings.activeLibrary) ctx.settingsRoots.add(settings.activeLibrary)
+  if (settings.activeLibrary) {
+    ctx.settingsRoots.add(settings.activeLibrary)
+    // activeLibrary is resolved to <world>/xml; bless the world parent too so
+    // sibling dirs (mapfiles, .creidhne, etc.) are reachable without forcing
+    // each one to be configured separately. Skip if dirname returns the same
+    // path (e.g. drive root) to avoid blessing the entire drive.
+    const worldRoot = dirname(settings.activeLibrary)
+    if (worldRoot && worldRoot !== settings.activeLibrary) {
+      ctx.settingsRoots.add(worldRoot)
+    }
+  }
   if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
   if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
   if (settings.activeMusicWorkingDir) ctx.settingsRoots.add(settings.activeMusicWorkingDir)
