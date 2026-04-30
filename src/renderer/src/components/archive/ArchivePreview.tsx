@@ -51,6 +51,7 @@ import {
 interface Props {
   entry: DataArchiveEntry
   archive: DataArchive
+  auxArchives?: DataArchive[]
 }
 
 // ── Sprite preview ───────────────────────────────────────────────────────────
@@ -58,7 +59,8 @@ interface Props {
 const SpritePreview: React.FC<{
   entry: DataArchiveEntry
   archive: DataArchive
-}> = ({ entry, archive }) => {
+  auxArchives: DataArchive[]
+}> = ({ entry, archive, auxArchives }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paletteNames, setPaletteNames] = useState<string[]>([])
   const [selectedPalette, setSelectedPalette] = useState<string>('')
@@ -70,10 +72,10 @@ const SpritePreview: React.FC<{
 
   // Load palette names on archive change
   useEffect(() => {
-    const names = getPaletteNames(archive)
+    const names = getPaletteNames([archive, ...auxArchives])
     setPaletteNames(names)
     if (names.length > 0 && !selectedPalette) setSelectedPalette(names[0])
-  }, [archive])
+  }, [archive, auxArchives])
 
   // Render entry when it changes or palette changes
   useEffect(() => {
@@ -83,7 +85,7 @@ const SpritePreview: React.FC<{
 
     let palette: Palette | null = null
     if (selectedPalette) {
-      palette = loadPaletteByName(archive, selectedPalette)
+      palette = loadPaletteByName([archive, ...auxArchives], selectedPalette)
     }
 
     try {
@@ -94,7 +96,7 @@ const SpritePreview: React.FC<{
       setError(e instanceof Error ? e.message : 'Render failed')
       setRendered(null)
     }
-  }, [entry, archive, selectedPalette])
+  }, [entry, archive, auxArchives, selectedPalette])
 
   // Draw current frame to canvas
   useEffect(() => {
@@ -479,10 +481,11 @@ const TILES_PER_PAGE = 256
 const TILE_PIXEL_WIDTH = 56
 const TILE_PIXEL_HEIGHT = 27
 
-const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
-  entry,
-  archive
-}) => {
+const TilesetPreview: React.FC<{
+  entry: DataArchiveEntry
+  archive: DataArchive
+  auxArchives: DataArchive[]
+}> = ({ entry, archive, auxArchives }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paletteNames, setPaletteNames] = useState<string[]>([])
   const [selectedPalette, setSelectedPalette] = useState<string>('')
@@ -491,11 +494,11 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const names = getPaletteNames(archive)
+    const names = getPaletteNames([archive, ...auxArchives])
     setPaletteNames(names)
     if (names.length > 0) setSelectedPalette((prev) => prev || names[0])
     setPage(0)
-  }, [archive])
+  }, [archive, auxArchives])
 
   useEffect(() => {
     setError(null)
@@ -503,7 +506,7 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
     const canvas = canvasRef.current
     if (!canvas) return
     try {
-      const palette = loadPaletteByName(archive, selectedPalette)
+      const palette = loadPaletteByName([archive, ...auxArchives], selectedPalette)
       if (!palette) {
         setError('Palette not found')
         return
@@ -529,7 +532,7 @@ const TilesetPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to render tileset')
     }
-  }, [entry, archive, selectedPalette, page])
+  }, [entry, archive, auxArchives, selectedPalette, page])
 
   const totalPages = Math.max(1, Math.ceil(tileCount / TILES_PER_PAGE))
 
@@ -1190,7 +1193,7 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
 
 // ── Main preview dispatcher ──────────────────────────────────────────────────
 
-const ArchivePreview: React.FC<Props> = ({ entry, archive }) => {
+const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) => {
   const type = classifyEntry(entry)
   const isRenderable =
     type === 'sprite' ||
@@ -1231,11 +1234,15 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive }) => {
       </Box>
 
       {/* Format-specific preview */}
-      {type === 'sprite' && <SpritePreview entry={entry} archive={archive} />}
+      {type === 'sprite' && (
+        <SpritePreview entry={entry} archive={archive} auxArchives={auxArchives} />
+      )}
       {type === 'palette' && <PalettePreview entry={entry} archive={archive} />}
       {type === 'text' && <TextPreview entry={entry} archive={archive} />}
       {type === 'audio' && <AudioPreview entry={entry} archive={archive} />}
-      {type === 'tileset' && <TilesetPreview entry={entry} archive={archive} />}
+      {type === 'tileset' && (
+        <TilesetPreview entry={entry} archive={archive} auxArchives={auxArchives} />
+      )}
       {type === 'pcx' && <PcxPreview entry={entry} archive={archive} />}
       {type === 'darkness' && <DarknessPreview entry={entry} archive={archive} />}
       {type === 'font' && <FontPreview entry={entry} archive={archive} />}

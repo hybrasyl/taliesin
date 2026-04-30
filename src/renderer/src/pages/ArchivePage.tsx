@@ -26,6 +26,9 @@ const ArchivePage: React.FC = () => {
 
   const [archivePath, setArchivePath] = useState<string | null>(null)
   const [archive, setArchive] = useState<DataArchive | null>(null)
+  // Auxiliary archives loaded from siblings of the open archive (e.g. khanpal.dat
+  // for khan*.dat sprites whose palettes live in a separate file).
+  const [auxArchives, setAuxArchives] = useState<DataArchive[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -58,10 +61,28 @@ const ArchivePage: React.FC = () => {
       const arc = DataArchive.fromBuffer(new Uint8Array(buf))
       setArchive(arc)
       setArchivePath(filePath)
+
+      // Khan sprites (.epf) live in khan*.dat / setoa.dat / roh.dat / etc., but their
+      // palettes (.pal) all live in a sibling khanpal.dat. Load it as an auxiliary
+      // archive so the palette dropdown is populated when viewing those sprites.
+      const sep = filePath.includes('\\') ? '\\' : '/'
+      const lastSep = filePath.lastIndexOf(sep)
+      const aux: DataArchive[] = []
+      if (lastSep > 0) {
+        const parentDir = filePath.slice(0, lastSep)
+        try {
+          const auxBuf = await window.api.readFile(`${parentDir}${sep}khanpal.dat`)
+          aux.push(DataArchive.fromBuffer(new Uint8Array(auxBuf)))
+        } catch {
+          // khanpal.dat not present alongside this archive — fine
+        }
+      }
+      setAuxArchives(aux)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to open archive')
       setArchive(null)
       setArchivePath(null)
+      setAuxArchives([])
     } finally {
       setLoading(false)
     }
@@ -290,7 +311,7 @@ const ArchivePage: React.FC = () => {
             {/* Right: preview */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
               {selected ? (
-                <ArchivePreview entry={selected} archive={archive} />
+                <ArchivePreview entry={selected} archive={archive} auxArchives={auxArchives} />
               ) : (
                 <Box
                   sx={{

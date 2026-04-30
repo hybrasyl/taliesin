@@ -82,22 +82,43 @@ export function loadPalettes(archive: DataArchive): Map<number, Palette> {
 
 /**
  * Get palette entry names for UI display.
+ * Accepts a single archive or an array of archives. When multiple are provided,
+ * names are merged in order (first archive wins on duplicate entry names).
  */
-export function getPaletteNames(archive: DataArchive): string[] {
-  return archive.getEntriesByExtension('.pal').map((e) => e.entryName)
+export function getPaletteNames(archives: DataArchive | DataArchive[]): string[] {
+  const list = Array.isArray(archives) ? archives : [archives]
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const archive of list) {
+    for (const e of archive.getEntriesByExtension('.pal')) {
+      const key = e.entryName.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(e.entryName)
+    }
+  }
+  return out
 }
 
 /**
  * Load a specific palette by entry name.
+ * Accepts a single archive or an array; returns the first archive's match.
  */
-export function loadPaletteByName(archive: DataArchive, entryName: string): Palette | null {
-  const entry = archive.get(entryName)
-  if (!entry) return null
-  try {
-    return Palette.fromBuffer(archive.getEntryBuffer(entry))
-  } catch {
-    return null
+export function loadPaletteByName(
+  archives: DataArchive | DataArchive[],
+  entryName: string
+): Palette | null {
+  const list = Array.isArray(archives) ? archives : [archives]
+  for (const archive of list) {
+    const entry = archive.get(entryName)
+    if (!entry) continue
+    try {
+      return Palette.fromBuffer(archive.getEntryBuffer(entry))
+    } catch {
+      // try next archive
+    }
   }
+  return null
 }
 
 /**
