@@ -204,6 +204,12 @@ const api = {
     outputPath: string
   ): Promise<void> =>
     ipcRenderer.invoke('pack:compile', packDir, manifest, assetFilenames, outputPath),
+  packImport: (
+    datfPath: string,
+    packDir: string,
+    options?: { force?: boolean }
+  ): Promise<{ projectFilename: string; warnings: string[] }> =>
+    ipcRenderer.invoke('pack:import', datfPath, packDir, options),
 
   // Palettes & Duotone (stored under the active asset-pack working directory)
   paletteScan: (

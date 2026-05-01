@@ -85,6 +85,7 @@ export function createMockApi(): MockApi {
     'packAddAsset',
     'packRemoveAsset',
     'packCompile',
+    'packImport',
     // Palettes
     'paletteScan',
     'paletteLoad',

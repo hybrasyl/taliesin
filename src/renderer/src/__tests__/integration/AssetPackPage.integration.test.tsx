@@ -271,6 +271,60 @@ describe('AssetPackPage — round-trip integration', () => {
     })
   })
 
+  it('Import .datf round-trips a compiled pack into an editable project', async () => {
+    const fs = await memfs
+
+    // Build a real .datf via archiver, drop it on memfs, then click Import.
+    const archiver = (await import('archiver')).default
+    const datfBytes = await new Promise<Buffer>((resolve, reject) => {
+      const archive = archiver('zip')
+      const chunks: Buffer[] = []
+      archive.on('data', (c: Buffer) => chunks.push(c))
+      archive.on('end', () => resolve(Buffer.concat(chunks)))
+      archive.on('error', reject)
+      archive.append(
+        JSON.stringify({
+          schema_version: 1,
+          pack_id: 'imported',
+          pack_version: '2.0.0',
+          content_type: 'ability_icons',
+          priority: 200,
+          covers: { ability_icons: { dimensions: [32, 32] } }
+        }),
+        { name: '_manifest.json' }
+      )
+      archive.append(Buffer.from('FIRST'), { name: 'skill0001.png' })
+      archive.append(Buffer.from('SECOND'), { name: 'skill0002.png' })
+      void archive.finalize()
+    })
+    fs.files.set('/imports/imported.datf', datfBytes)
+
+    const handlers = await loadHandlers()
+    installBridgedApi(handlers, {
+      settingsPath: '/appdata/Taliesin',
+      settingsManager: { load: async () => ({}), save: async () => undefined },
+      dialog: { openFile: async () => '/imports/imported.datf' }
+    })
+
+    const user = userEvent.setup()
+    render(<AssetPackPage />, { wrapper: withPackDir() })
+
+    await user.click(await screen.findByRole('button', { name: /import \.datf/i }))
+
+    // Project json + extracted assets should land under PACK_DIR
+    await waitFor(() => {
+      expect(fs.files.has(`${PACK_DIR}/imported.json`)).toBe(true)
+    })
+    expect(fs.files.get(`${PACK_DIR}/imported/skill0001.png`)?.toString('utf-8')).toBe('FIRST')
+    expect(fs.files.get(`${PACK_DIR}/imported/skill0002.png`)?.toString('utf-8')).toBe('SECOND')
+
+    // Pack list refreshes and the imported pack is selected — version field reflects it
+    await waitFor(() =>
+      expect((screen.getByLabelText('Version') as HTMLInputElement).value).toBe('2.0.0')
+    )
+    expect(screen.getByText(/Type: ability_icons/)).toBeInTheDocument()
+  })
+
   it('ui_sprite_overrides → New source file… creates nested mile.spf/0000.png on disk', async () => {
     const fs = await memfs
     fs.files.set(

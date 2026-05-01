@@ -882,6 +882,143 @@ export async function packCompile(
   })
 }
 
+export interface PackImportResult {
+  /** Filename of the project .json file that was written under `packDir`. */
+  projectFilename: string
+  /** Non-fatal warnings (e.g. unparseable filenames that were skipped). */
+  warnings: string[]
+}
+
+// Hydrate per-asset metadata from the on-wire covers blob. Today only
+// item_icons.no_dye round-trips into assetMeta. Other content types return
+// undefined.
+function hydrateAssetMeta(
+  contentType: string,
+  covers: Record<string, unknown>,
+  assetFilenames: string[]
+): Record<string, Record<string, unknown>> | undefined {
+  if (contentType !== 'item_icons') return undefined
+  const itemCovers = covers.item_icons as { no_dye?: number[] } | undefined
+  const noDyeIds = new Set(itemCovers?.no_dye ?? [])
+  if (noDyeIds.size === 0) return undefined
+  const meta: Record<string, Record<string, unknown>> = {}
+  for (const filename of assetFilenames) {
+    const m = filename.match(/^item(\d{5})\.png$/i)
+    if (m && noDyeIds.has(parseInt(m[1], 10))) {
+      meta[filename] = { noDye: true }
+    }
+  }
+  return Object.keys(meta).length > 0 ? meta : undefined
+}
+
+export async function packImport(
+  ctx: HandlerContext,
+  datfPath: string,
+  packDir: string,
+  options?: { force?: boolean }
+): Promise<PackImportResult> {
+  const safeDatf = assertInsideAnyRoot(allRoots(ctx), datfPath)
+  const safePackDir = assertInsideAnyRoot(allRoots(ctx), packDir)
+  if (!safeDatf.toLowerCase().endsWith('.datf')) {
+    throw new Error('pack:import expects a path ending in .datf')
+  }
+
+  // Read the entire .datf into a buffer; unzipper.Open.buffer parses the
+  // central directory without unpacking the whole archive into memory twice.
+  const datfBytes = await fs.readFile(safeDatf)
+  const unzipper = (await import('unzipper')).default
+  const directory = await unzipper.Open.buffer(datfBytes)
+
+  const manifestEntry = directory.files.find(
+    (f: { path: string; type: string }) => f.path === '_manifest.json' && f.type === 'File'
+  )
+  if (!manifestEntry) {
+    throw new Error('Missing _manifest.json in .datf archive')
+  }
+
+  let manifestRaw: string
+  try {
+    manifestRaw = (await manifestEntry.buffer()).toString('utf-8')
+  } catch (e) {
+    throw new Error(`Failed to read _manifest.json: ${e instanceof Error ? e.message : 'unknown'}`)
+  }
+  let manifestJson: unknown
+  try {
+    manifestJson = JSON.parse(manifestRaw)
+  } catch (e) {
+    throw new Error(`_manifest.json is not valid JSON: ${e instanceof Error ? e.message : 'unknown'}`)
+  }
+  const manifest = parseOrLog(ctx, 'pack:import:manifest', packManifestSchema, manifestJson)
+
+  const packId = manifest.pack_id
+  const projectFilename = `${packId}.json`
+  const projectFilePath = assertInside(safePackDir, projectFilename)
+  const packAssetsDir = assertInside(safePackDir, packId)
+
+  // Refuse to overwrite an existing pack project unless caller opts in.
+  let projectExists = false
+  try {
+    await fs.access(projectFilePath)
+    projectExists = true
+  } catch {
+    /* fresh */
+  }
+  if (projectExists && !options?.force) {
+    throw new Error(
+      `Pack project '${projectFilename}' already exists in ${safePackDir}; pass { force: true } to overwrite`
+    )
+  }
+
+  await fs.mkdir(packAssetsDir, { recursive: true })
+
+  // Extract every non-manifest entry. assertInside on each entry name blocks
+  // Zip-Slip (../escape.png and friends).
+  const warnings: string[] = []
+  const assetFilenames: string[] = []
+  for (const file of directory.files as { path: string; type: string; buffer: () => Promise<Buffer> }[]) {
+    if (file.type !== 'File') continue
+    if (file.path === '_manifest.json') continue
+
+    let dest: string
+    try {
+      dest = assertInside(packAssetsDir, file.path)
+    } catch (e) {
+      warnings.push(
+        `Skipped unsafe entry '${file.path}': ${e instanceof Error ? e.message : 'rejected'}`
+      )
+      continue
+    }
+    await fs.mkdir(dirname(dest), { recursive: true })
+    const buf = await file.buffer()
+    await fs.writeFile(dest, buf)
+    assetFilenames.push(file.path)
+  }
+
+  const now = new Date().toISOString()
+  const project = {
+    pack_id: manifest.pack_id,
+    pack_version: manifest.pack_version,
+    content_type: manifest.content_type,
+    priority: manifest.priority ?? 100,
+    covers: manifest.covers,
+    assets: assetFilenames.map((name) => ({
+      filename: name,
+      sourcePath: assertInside(packAssetsDir, name)
+    })),
+    assetMeta: hydrateAssetMeta(manifest.content_type, manifest.covers, assetFilenames),
+    createdAt: now,
+    updatedAt: now
+  }
+  // Re-parse via the project schema to catch any mismatch (e.g. the manifest
+  // had an unknown content_type that snuck past the manifest schema, or the
+  // assetMeta map keys don't match the assets).
+  const validated = parseOrLog(ctx, 'pack:import', packProjectSchema, project)
+
+  await fs.writeFile(projectFilePath, JSON.stringify(validated, null, 2), 'utf-8')
+
+  return { projectFilename, warnings }
+}
+
 // ── Palettes ─────────────────────────────────────────────────────────────────
 
 const palettesSubdir = (packDir: string) => join(packDir, '_palettes')
@@ -1208,6 +1345,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('pack:addAsset', (_, d, s, t) => packAddAsset(ctx, d, s, t))
   ipcMain.handle('pack:removeAsset', (_, d, f) => packRemoveAsset(ctx, d, f))
   ipcMain.handle('pack:compile', (_, d, m, f, o) => packCompile(ctx, d, m, f, o))
+  ipcMain.handle('pack:import', (_, d, p, o) => packImport(ctx, d, p, o))
 
   // Palettes
   ipcMain.handle('palette:scan', (_, p) => paletteScan(ctx, p))

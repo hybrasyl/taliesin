@@ -134,6 +134,11 @@ declare global {
       assetFilenames: string[],
       outputPath: string
     ) => Promise<void>
+    packImport: (
+      datfPath: string,
+      packDir: string,
+      options?: { force?: boolean }
+    ) => Promise<{ projectFilename: string; warnings: string[] }>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
     sfxIndexLoad: (

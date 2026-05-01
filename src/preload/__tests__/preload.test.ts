@@ -90,6 +90,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "pack:addAsset",
         "pack:compile",
         "pack:delete",
+        "pack:import",
         "pack:load",
         "pack:removeAsset",
         "pack:save",

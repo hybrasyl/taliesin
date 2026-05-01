@@ -14,6 +14,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import ArchiveIcon from '@mui/icons-material/Archive'
 import { useRecoilState, useSetRecoilState } from 'recoil'
 import { packDirState, currentPageState } from '../recoil/atoms'
 import PackEditor from '../components/assetpack/PackEditor'
@@ -105,6 +106,25 @@ const AssetPackPage: React.FC = () => {
     },
     [packDir, refresh, showStatus]
   )
+
+  // Import a .datf — extract into packDir/<pack_id>/, write the project json,
+  // refresh the list, and select the new pack.
+  const handleImport = useCallback(async () => {
+    if (!packDir) return
+    const datfPath = await window.api.openFile([{ name: 'DATF Asset Pack', extensions: ['datf'] }])
+    if (!datfPath) return
+    try {
+      const result = await window.api.packImport(datfPath, packDir)
+      const msg = result.warnings.length > 0
+        ? `Imported ${result.projectFilename} (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})`
+        : `Imported ${result.projectFilename}`
+      showStatus(msg)
+      await refresh()
+      setSelected(result.projectFilename)
+    } catch (e) {
+      showStatus(`Import failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+    }
+  }, [packDir, refresh, showStatus])
 
   // Delete pack
   const handleDelete = useCallback(async () => {
@@ -200,7 +220,7 @@ const AssetPackPage: React.FC = () => {
             borderColor: 'divider'
           }}
         >
-          <Box sx={{ px: 1, py: 1, display: 'flex', gap: 1 }}>
+          <Box sx={{ px: 1, py: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Button
               size="small"
               startIcon={<AddIcon />}
@@ -208,6 +228,15 @@ const AssetPackPage: React.FC = () => {
               fullWidth
             >
               New Pack
+            </Button>
+            <Button
+              size="small"
+              startIcon={<ArchiveIcon />}
+              onClick={handleImport}
+              fullWidth
+              variant="outlined"
+            >
+              Import .datf
             </Button>
           </Box>
           <Box sx={{ flex: 1, overflow: 'auto' }}>
