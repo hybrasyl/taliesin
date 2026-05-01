@@ -60,5 +60,10 @@ export const uiSpriteOverridesKind: PackKind = {
     const path = `${namespace}/${padded}.png`
     return { zipPath: path, relPath: path }
   },
-  namespaces: (existing) => uniqueNamespaces(existing)
+  namespaces: (existing) => uniqueNamespaces(existing),
+  customNamespacePrompt: {
+    menuLabel: 'New source file…',
+    dialogTitle: 'Add source file group',
+    dialogHelp: 'Filename of the legacy source the pack should override (e.g. mile.spf, nation.spf).'
+  }
 }

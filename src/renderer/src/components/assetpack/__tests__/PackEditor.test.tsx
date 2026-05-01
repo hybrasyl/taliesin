@@ -4,30 +4,15 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PackEditor from '../PackEditor'
 import { installMockApi, type MockApi } from '../../../__tests__/setup/mockApi'
-
-interface PackAsset {
-  filename: string
-  sourcePath: string
-}
-
-interface PackProject {
-  pack_id: string
-  pack_version: string
-  content_type: string
-  priority: number
-  covers: Record<string, unknown>
-  assets: PackAsset[]
-  createdAt: string
-  updatedAt: string
-}
+import type { ContentType, PackProject } from '../../../packKinds'
 
 function makePack(overrides: Partial<PackProject> = {}): PackProject {
   return {
     pack_id: 'my-pack',
     pack_version: '1.0.0',
-    content_type: 'ability_icons',
+    content_type: 'ability_icons' as ContentType,
     priority: 100,
-    covers: {},
+    covers: { ability_icons: { dimensions: [32, 32] } },
     assets: [],
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
@@ -56,17 +41,16 @@ describe('PackEditor — initial render', () => {
         onStatus={onStatus}
       />
     )
-    // pack_id appears in the header h6 and in the Pack ID text field
     expect(screen.getAllByText(/fancy-pack/).length).toBeGreaterThan(0)
     expect(screen.getByText(/Type: ability_icons/)).toBeInTheDocument()
     expect(screen.getByText(/0 assets/)).toBeInTheDocument()
   })
 
-  it('lists existing assets in the table with their slot numbers', () => {
+  it('lists existing assets in the table with their slot identity', () => {
     const pack = makePack({
       assets: [
-        { filename: 'skill_0001.png', sourcePath: '/src/a.png' },
-        { filename: 'skill_0002.png', sourcePath: '/src/b.png' }
+        { filename: 'skill0001.png', sourcePath: '/src/a.png' },
+        { filename: 'skill0002.png', sourcePath: '/src/b.png' }
       ]
     })
     render(
@@ -78,9 +62,12 @@ describe('PackEditor — initial render', () => {
         onStatus={onStatus}
       />
     )
-    expect(screen.getByText('skill_0001.png')).toBeInTheDocument()
-    expect(screen.getByText('skill_0002.png')).toBeInTheDocument()
+    expect(screen.getByText('skill0001.png')).toBeInTheDocument()
+    expect(screen.getByText('skill0002.png')).toBeInTheDocument()
     expect(screen.getByText(/2 assets/)).toBeInTheDocument()
+    // Slot column shows namespace + id
+    expect(screen.getByText('skill 1')).toBeInTheDocument()
+    expect(screen.getByText('skill 2')).toBeInTheDocument()
   })
 
   it('disables Save initially (not dirty)', () => {
@@ -110,7 +97,7 @@ describe('PackEditor — initial render', () => {
   })
 
   it('enables Compile when there is at least one asset', () => {
-    const pack = makePack({ assets: [{ filename: 'skill_0001.png', sourcePath: '/x' }] })
+    const pack = makePack({ assets: [{ filename: 'skill0001.png', sourcePath: '/x' }] })
     render(
       <PackEditor
         pack={pack}
@@ -139,7 +126,6 @@ describe('PackEditor — field edits and dirty state', () => {
     const idField = screen.getByLabelText('Pack ID') as HTMLInputElement
     await user.clear(idField)
     await user.type(idField, 'My PACK!@#')
-    // 'My PACK!@#' → lowercase 'my pack!@#' → replace 4 disallowed chars (space, !, @, #) with '-' → 'my-pack---'
     expect(idField.value).toBe('my-pack---')
     expect(screen.getByRole('button', { name: /save/i })).not.toBeDisabled()
   })
@@ -159,7 +145,6 @@ describe('PackEditor — field edits and dirty state', () => {
     expect(priorityField.value).toBe('50')
 
     await user.clear(priorityField)
-    // After clearing, the next render uses parseInt('') || 100 → 100
     expect(priorityField.value).toBe('100')
   })
 })
@@ -178,7 +163,6 @@ describe('PackEditor — save flow', () => {
       />
     )
 
-    // Edit a field to make it dirty
     const versionField = screen.getByLabelText('Version') as HTMLInputElement
     await user.clear(versionField)
     await user.type(versionField, '2.0.0')
@@ -194,16 +178,16 @@ describe('PackEditor — save flow', () => {
     )
     expect(onSave).toHaveBeenCalled()
     expect(onStatus).toHaveBeenCalledWith('Pack saved')
-    expect(saveBtn).toBeDisabled() // dirty cleared
+    expect(saveBtn).toBeDisabled()
   })
 })
 
 describe('PackEditor — add and remove assets', () => {
-  it('Add PNG opens file dialog and appends a new asset with the next slot id', async () => {
+  it('ability_icons opens a menu and adding a Skill produces skill0008.png after skill0007', async () => {
     const user = userEvent.setup()
     const pack = makePack({
       content_type: 'ability_icons',
-      assets: [{ filename: 'skill_0007.png', sourcePath: '/src/old.png' }]
+      assets: [{ filename: 'skill0007.png', sourcePath: '/src/old.png' }]
     })
     api.openFile.mockResolvedValue('/src/new.png')
     api.packAddAsset.mockResolvedValue(undefined)
@@ -218,21 +202,55 @@ describe('PackEditor — add and remove assets', () => {
       />
     )
     await user.click(screen.getByRole('button', { name: /add png/i }))
+    // Menu opens — pick "skill"
+    await user.click(await screen.findByRole('menuitem', { name: 'skill' }))
 
     await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
-    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/new.png', 'skill_0008.png')
-    expect(onStatus).toHaveBeenCalledWith('Added skill_0008.png')
-    expect(await screen.findByText('skill_0008.png')).toBeInTheDocument()
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/new.png', 'skill0008.png')
+    expect(onStatus).toHaveBeenCalledWith('Added skill0008.png')
+    expect(await screen.findByText('skill0008.png')).toBeInTheDocument()
   })
 
-  it('Add PNG with content_type=nation_badges uses the nation prefix', async () => {
+  it('ability_icons spell namespace produces spell0001.png independently of skill numbering', async () => {
+    const user = userEvent.setup()
+    const pack = makePack({
+      content_type: 'ability_icons',
+      assets: [
+        { filename: 'skill0001.png', sourcePath: '/a' },
+        { filename: 'skill0002.png', sourcePath: '/b' }
+      ]
+    })
+    api.openFile.mockResolvedValue('/src/sp.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'spell' }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/sp.png', 'spell0001.png')
+  })
+
+  it('nation_badges has no menu and adds nation0001.png on first click', async () => {
     const user = userEvent.setup()
     api.openFile.mockResolvedValue('/src/n.png')
     api.packAddAsset.mockResolvedValue(undefined)
 
     render(
       <PackEditor
-        pack={makePack({ content_type: 'nation_badges', assets: [] })}
+        pack={makePack({
+          content_type: 'nation_badges',
+          covers: { nation_badges: {} },
+          assets: []
+        })}
         packDir="/p"
         packFilePath="/p/pack.json"
         onSave={onSave}
@@ -245,12 +263,66 @@ describe('PackEditor — add and remove assets', () => {
     expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/n.png', 'nation0001.png')
   })
 
-  it('Add PNG aborts cleanly when the user cancels the dialog', async () => {
+  it('legend_mark_icons starts at legend0000.png (0-based)', async () => {
     const user = userEvent.setup()
-    api.openFile.mockResolvedValue(null)
+    api.openFile.mockResolvedValue('/src/l.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
     render(
       <PackEditor
-        pack={makePack()}
+        pack={makePack({
+          content_type: 'legend_mark_icons',
+          covers: { legend_mark_icons: {} },
+          assets: []
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/l.png', 'legend0000.png')
+  })
+
+  it('item_icons starts at item00001.png (5-digit, 1-based)', async () => {
+    const user = userEvent.setup()
+    api.openFile.mockResolvedValue('/src/i.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'item_icons',
+          covers: { item_icons: {} },
+          assets: []
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/i.png', 'item00001.png')
+  })
+
+  it('ui_sprite_overrides "New source file…" opens dialog, then adds nested mile.spf/0000.png', async () => {
+    const user = userEvent.setup()
+    api.openFile.mockResolvedValue('/src/u.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'ui_sprite_overrides',
+          covers: { ui_sprite_overrides: {} },
+          assets: []
+        })}
         packDir="/p"
         packFilePath="/p/pack.json"
         onSave={onSave}
@@ -259,7 +331,70 @@ describe('PackEditor — add and remove assets', () => {
     )
 
     await user.click(screen.getByRole('button', { name: /add png/i }))
-    // No state changes — assertion is the absence of side effects.
+    // Only the "New source file…" item should be present (no existing namespaces yet)
+    await user.click(await screen.findByRole('menuitem', { name: /new source file/i }))
+
+    // Custom-namespace dialog opens
+    const sourceField = await screen.findByLabelText('Source filename')
+    await user.type(sourceField, 'mile.spf')
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/u.png', 'mile.spf/0000.png')
+  })
+
+  it('ui_sprite_overrides menu lists existing source-file namespaces and increments per-namespace', async () => {
+    const user = userEvent.setup()
+    api.openFile.mockResolvedValue('/src/u.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'ui_sprite_overrides',
+          covers: { ui_sprite_overrides: {} },
+          assets: [
+            { filename: 'mile.spf/0000.png', sourcePath: '/a' },
+            { filename: 'mile.spf/0001.png', sourcePath: '/b' },
+            { filename: 'nation.spf/0000.png', sourcePath: '/c' }
+          ]
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+    // Menu should list mile.spf, nation.spf, and "New source file…"
+    expect(await screen.findByRole('menuitem', { name: 'mile.spf' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'nation.spf' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /new source file/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('menuitem', { name: 'mile.spf' }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/u.png', 'mile.spf/0002.png')
+  })
+
+  it('Add aborts cleanly when the file dialog is cancelled (kind without menu)', async () => {
+    const user = userEvent.setup()
+    api.openFile.mockResolvedValue(null)
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'nation_badges',
+          covers: { nation_badges: {} },
+          assets: []
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
     await new Promise((r) => setTimeout(r, 0))
     expect(api.packAddAsset).not.toHaveBeenCalled()
     expect(onStatus).not.toHaveBeenCalled()
@@ -269,8 +404,8 @@ describe('PackEditor — add and remove assets', () => {
     const user = userEvent.setup()
     const pack = makePack({
       assets: [
-        { filename: 'skill_0001.png', sourcePath: '/a' },
-        { filename: 'skill_0002.png', sourcePath: '/b' }
+        { filename: 'skill0001.png', sourcePath: '/a' },
+        { filename: 'skill0002.png', sourcePath: '/b' }
       ]
     })
     api.packRemoveAsset.mockResolvedValue(undefined)
@@ -284,14 +419,13 @@ describe('PackEditor — add and remove assets', () => {
       />
     )
 
-    // Find the row containing skill_0001 and click its delete IconButton.
-    const targetRow = screen.getByText('skill_0001.png').closest('tr')!
-    const deleteBtn = within(targetRow).getByRole('button')
+    const targetRow = screen.getByText('skill0001.png').closest('tr')!
+    const deleteBtn = within(targetRow).getByRole('button', { name: /delete skill0001/i })
     await user.click(deleteBtn)
 
-    await waitFor(() => expect(api.packRemoveAsset).toHaveBeenCalledWith('/p', 'skill_0001.png'))
-    await waitFor(() => expect(screen.queryByText('skill_0001.png')).toBeNull())
-    expect(screen.getByText('skill_0002.png')).toBeInTheDocument()
+    await waitFor(() => expect(api.packRemoveAsset).toHaveBeenCalledWith('/p', 'skill0001.png'))
+    await waitFor(() => expect(screen.queryByText('skill0001.png')).toBeNull())
+    expect(screen.getByText('skill0002.png')).toBeInTheDocument()
   })
 })
 
@@ -301,7 +435,7 @@ describe('PackEditor — compile flow', () => {
     const pack = makePack({
       pack_id: 'my-pack',
       priority: 50,
-      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }]
+      assets: [{ filename: 'skill0001.png', sourcePath: '/a' }]
     })
     api.packSave.mockResolvedValue(undefined)
     api.saveFile.mockResolvedValue('/out/my-pack.datf')
@@ -331,7 +465,7 @@ describe('PackEditor — compile flow', () => {
         pack_id: 'my-pack',
         priority: 50
       }),
-      ['skill_0001.png'],
+      ['skill0001.png'],
       '/out/my-pack.datf'
     )
     expect(onStatus).toHaveBeenCalledWith('Compiled my-pack.datf (1 assets)')
@@ -340,7 +474,7 @@ describe('PackEditor — compile flow', () => {
   it('Compile aborts when the save dialog is cancelled', async () => {
     const user = userEvent.setup()
     const pack = makePack({
-      assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }]
+      assets: [{ filename: 'skill0001.png', sourcePath: '/a' }]
     })
     api.packSave.mockResolvedValue(undefined)
     api.saveFile.mockResolvedValue(null)
@@ -362,7 +496,7 @@ describe('PackEditor — compile flow', () => {
 
   it('Compile reports failure via onStatus when packCompile rejects', async () => {
     const user = userEvent.setup()
-    const pack = makePack({ assets: [{ filename: 'skill_0001.png', sourcePath: '/a' }] })
+    const pack = makePack({ assets: [{ filename: 'skill0001.png', sourcePath: '/a' }] })
     api.packSave.mockResolvedValue(undefined)
     api.saveFile.mockResolvedValue('/out/x.datf')
     api.packCompile.mockRejectedValue(new Error('zip failed'))
@@ -402,7 +536,6 @@ describe('PackEditor — pack prop reset', () => {
     await user.type(versionField, '9.9.9')
     expect(screen.getByRole('button', { name: /save/i })).not.toBeDisabled()
 
-    // Reload the editor with a new pack — should reset draft to incoming pack
     rerender(
       <PackEditor
         pack={makePack({ pack_version: '2.0.0', pack_id: 'reloaded' })}
@@ -413,7 +546,6 @@ describe('PackEditor — pack prop reset', () => {
       />
     )
 
-    // Use getByDisplayValue for the new value to avoid duplicate-text matches
     expect(screen.getByDisplayValue('2.0.0')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
   })

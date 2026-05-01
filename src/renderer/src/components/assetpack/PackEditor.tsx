@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -12,28 +12,21 @@ import {
   TableCell,
   TableBody,
   CircularProgress,
-  Divider
+  Divider,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import BuildIcon from '@mui/icons-material/Build'
 import SaveIcon from '@mui/icons-material/Save'
-
-interface PackAsset {
-  filename: string
-  sourcePath: string
-}
-
-interface PackProject {
-  pack_id: string
-  pack_version: string
-  content_type: string
-  priority: number
-  covers: Record<string, unknown>
-  assets: PackAsset[]
-  createdAt: string
-  updatedAt: string
-}
+import { getKind } from '../../packKinds'
+import type { PackProject } from '../../packKinds'
 
 interface Props {
   pack: PackProject
@@ -43,33 +36,24 @@ interface Props {
   onStatus: (msg: string) => void
 }
 
-function slotIdFromFilename(filename: string): number | null {
-  const m = filename.match(/(\d{4})\.png$/i)
-  return m ? parseInt(m[1], 10) : null
-}
-
-function nextSlotId(assets: PackAsset[], prefix: string): number {
-  let max = 0
-  for (const a of assets) {
-    if (a.filename.startsWith(prefix)) {
-      const id = slotIdFromFilename(a.filename)
-      if (id && id > max) max = id
-    }
-  }
-  return max + 1
-}
-
 const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onStatus }) => {
   const [draft, setDraft] = useState<PackProject>(pack)
   const [dirty, setDirty] = useState(false)
   const [compiling, setCompiling] = useState(false)
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null)
+  const [customNsDialogOpen, setCustomNsDialogOpen] = useState(false)
+  const [customNsValue, setCustomNsValue] = useState('')
 
   useEffect(() => {
     setDraft(pack)
     setDirty(false)
   }, [pack])
 
-  const updateField = useCallback((field: string, value: unknown) => {
+  const kind = getKind(draft.content_type)
+  const namespaceList = useMemo(() => kind.namespaces?.(draft.assets) ?? [], [kind, draft.assets])
+  const hasMenu = namespaceList.length > 0 || !!kind.customNamespacePrompt
+
+  const updateField = useCallback((field: keyof PackProject, value: unknown) => {
     setDraft((prev) => ({ ...prev, [field]: value, updatedAt: new Date().toISOString() }))
     setDirty(true)
   }, [])
@@ -81,28 +65,58 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     onStatus('Pack saved')
   }, [draft, packFilePath, onSave, onStatus])
 
-  const handleAddAssets = useCallback(async () => {
-    const files = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
-    if (!files) return
+  const addAssetInNamespace = useCallback(
+    async (namespace: string | undefined) => {
+      const filePath = (await window.api.openFile([
+        { name: 'PNG Images', extensions: ['png'] }
+      ])) as string | null
+      if (!filePath) return
 
-    // Determine prefix based on content type
-    let prefix = 'asset_'
-    if (draft.content_type === 'ability_icons') prefix = 'skill_'
-    if (draft.content_type === 'nation_badges') prefix = 'nation'
+      const target = kind.nextAssetPath({
+        ctx: namespace ? { namespace } : undefined,
+        existingAssets: draft.assets
+      })
+      await window.api.packAddAsset(packDir, filePath, target.zipPath)
 
-    const filePath = files // openFile returns single file
-    const id = nextSlotId(draft.assets, prefix)
-    const padded = String(id).padStart(4, '0')
-    const targetFilename =
-      draft.content_type === 'nation_badges' ? `nation${padded}.png` : `${prefix}${padded}.png`
+      const newAssets = [...draft.assets, { filename: target.zipPath, sourcePath: filePath }]
+      setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
+      setDirty(true)
+      onStatus(`Added ${target.zipPath}`)
+    },
+    [draft.assets, kind, packDir, onStatus]
+  )
 
-    await window.api.packAddAsset(packDir, filePath, targetFilename)
+  const handleAddClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (hasMenu) {
+        setAddMenuAnchor(e.currentTarget)
+      } else {
+        addAssetInNamespace(undefined)
+      }
+    },
+    [hasMenu, addAssetInNamespace]
+  )
 
-    const newAssets = [...draft.assets, { filename: targetFilename, sourcePath: filePath }]
-    setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
-    setDirty(true)
-    onStatus(`Added ${targetFilename}`)
-  }, [draft, packDir, onStatus])
+  const handleMenuPick = useCallback(
+    (namespace: string) => {
+      setAddMenuAnchor(null)
+      addAssetInNamespace(namespace)
+    },
+    [addAssetInNamespace]
+  )
+
+  const handleOpenCustomNs = useCallback(() => {
+    setAddMenuAnchor(null)
+    setCustomNsValue('')
+    setCustomNsDialogOpen(true)
+  }, [])
+
+  const handleConfirmCustomNs = useCallback(() => {
+    const trimmed = customNsValue.trim()
+    if (!trimmed) return
+    setCustomNsDialogOpen(false)
+    addAssetInNamespace(trimmed)
+  }, [customNsValue, addAssetInNamespace])
 
   const handleRemoveAsset = useCallback(
     async (filename: string) => {
@@ -115,7 +129,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   )
 
   const handleCompile = useCallback(async () => {
-    // Save first
     await window.api.packSave(packFilePath, draft)
     setDirty(false)
 
@@ -162,14 +175,17 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           {draft.pack_id}
         </Typography>
         <Tooltip title="Save">
-          <IconButton
-            size="small"
-            onClick={handleSave}
-            disabled={!dirty}
-            sx={{ color: 'text.primary' }}
-          >
-            <SaveIcon fontSize="small" />
-          </IconButton>
+          <span>
+            <IconButton
+              size="small"
+              onClick={handleSave}
+              disabled={!dirty}
+              sx={{ color: 'text.primary' }}
+              aria-label="save"
+            >
+              <SaveIcon fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
         <Button
           size="small"
@@ -220,9 +236,28 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
         <Typography variant="body2" sx={{ flex: 1 }}>
           {draft.assets.length} assets
         </Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={handleAddAssets}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          endIcon={hasMenu ? <ArrowDropDownIcon /> : undefined}
+          onClick={handleAddClick}
+        >
           Add PNG
         </Button>
+        <Menu
+          anchorEl={addMenuAnchor}
+          open={!!addMenuAnchor}
+          onClose={() => setAddMenuAnchor(null)}
+        >
+          {namespaceList.map((ns) => (
+            <MenuItem key={ns} onClick={() => handleMenuPick(ns)}>
+              {ns}
+            </MenuItem>
+          ))}
+          {kind.customNamespacePrompt && (
+            <MenuItem onClick={handleOpenCustomNs}>{kind.customNamespacePrompt.menuLabel}</MenuItem>
+          )}
+        </Menu>
       </Box>
 
       <Box sx={{ flex: 1, overflow: 'auto', px: 1 }}>
@@ -231,13 +266,13 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
             <TableRow>
               <TableCell sx={{ width: 48 }}>Preview</TableCell>
               <TableCell>Filename</TableCell>
-              <TableCell sx={{ width: 60 }}>Slot</TableCell>
+              <TableCell sx={{ width: 100 }}>Slot</TableCell>
               <TableCell sx={{ width: 40 }} />
             </TableRow>
           </TableHead>
           <TableBody>
             {draft.assets.map((asset) => {
-              const slotId = slotIdFromFilename(asset.filename)
+              const slot = kind.parseSlot(asset.filename)
               const imgSrc = `file://${packDir.replace(/\\/g, '/')}/${asset.filename}`
               return (
                 <TableRow key={asset.filename}>
@@ -262,7 +297,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption" color="text.secondary">
-                      {slotId ?? '—'}
+                      {slot ? `${slot.namespace} ${slot.id}` : '—'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -270,6 +305,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
                       size="small"
                       onClick={() => handleRemoveAsset(asset.filename)}
                       sx={{ color: 'error.main' }}
+                      aria-label={`delete ${asset.filename}`}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -280,6 +316,46 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           </TableBody>
         </Table>
       </Box>
+
+      {/* Custom-namespace dialog (opt-in via kind.customNamespacePrompt) */}
+      {kind.customNamespacePrompt && (
+        <Dialog
+          open={customNsDialogOpen}
+          onClose={() => setCustomNsDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>{kind.customNamespacePrompt.dialogTitle}</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              label="Source filename"
+              value={customNsValue}
+              onChange={(e) => setCustomNsValue(e.target.value)}
+              helperText={kind.customNamespacePrompt.dialogHelp}
+              sx={{ mt: 1 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleConfirmCustomNs()
+                }
+              }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCustomNsDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleConfirmCustomNs}
+              disabled={!customNsValue.trim()}
+            >
+              Continue
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   )
 }

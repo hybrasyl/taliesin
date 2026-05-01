@@ -243,17 +243,20 @@ describe('AssetPackPage — round-trip integration', () => {
     // Click Add PNG inside the editor
     await user.click(await screen.findByRole('button', { name: /add png/i }))
 
+    // ability_icons opens a menu — pick the skill namespace
+    await user.click(await screen.findByRole('menuitem', { name: 'skill' }))
+
     // Wait for the asset to appear in the table
-    const row = await screen.findByText('skill_0001.png')
+    const row = await screen.findByText('skill0001.png')
     expect(row).toBeInTheDocument()
     // The handler copied the source PNG to the pack assets dir
-    expect(fs.files.get(`${PACK_DIR}/sample/skill_0001.png`)?.toString('utf-8')).toBe('PNGDATA')
+    expect(fs.files.get(`${PACK_DIR}/sample/skill0001.png`)?.toString('utf-8')).toBe('PNGDATA')
 
     // Save the manifest so the new asset list persists
     await user.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => {
       const saved = JSON.parse(fs.files.get(`${PACK_DIR}/sample.json`)!.toString('utf-8'))
-      expect(saved.assets).toEqual([{ filename: 'skill_0001.png', sourcePath: '/src/icon.png' }])
+      expect(saved.assets).toEqual([{ filename: 'skill0001.png', sourcePath: '/src/icon.png' }])
     })
   })
 })

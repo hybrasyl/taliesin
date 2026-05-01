@@ -10,32 +10,36 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  FormControl
+  FormControl,
+  FormHelperText,
+  Typography
 } from '@mui/material'
+import { listKinds, getKind } from '../../packKinds'
+import type { ContentType } from '../../packKinds'
 
 interface Props {
   open: boolean
   onClose: () => void
-  onCreate: (packId: string, contentType: string, version: string) => void
+  onCreate: (packId: string, contentType: ContentType, version: string) => void
 }
 
-const CONTENT_TYPES = [
-  { value: 'ability_icons', label: 'Ability Icons (skill/spell)' },
-  { value: 'nation_badges', label: 'Nation Badges' }
-]
+const KIND_OPTIONS = listKinds().map((k) => ({ value: k.type, label: k.label }))
+const DEFAULT_TYPE: ContentType = KIND_OPTIONS[0].value
 
 const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
   const [packId, setPackId] = useState('')
-  const [contentType, setContentType] = useState('ability_icons')
+  const [contentType, setContentType] = useState<ContentType>(DEFAULT_TYPE)
   const [version, setVersion] = useState('1.0.0')
 
   React.useEffect(() => {
     if (open) {
       setPackId('')
       setVersion('1.0.0')
-      setContentType('ability_icons')
+      setContentType(DEFAULT_TYPE)
     }
   }, [open])
+
+  const kind = getKind(contentType)
 
   const handleCreate = () => {
     const id = packId
@@ -66,14 +70,22 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             <Select
               value={contentType}
               label="Content Type"
-              onChange={(e) => setContentType(e.target.value)}
+              onChange={(e) => setContentType(e.target.value as ContentType)}
             >
-              {CONTENT_TYPES.map((ct) => (
+              {KIND_OPTIONS.map((ct) => (
                 <MenuItem key={ct.value} value={ct.value}>
                   {ct.label}
                 </MenuItem>
               ))}
             </Select>
+            <FormHelperText component="div">
+              <Typography variant="caption" component="div">
+                {kind.description}
+              </Typography>
+              <Typography variant="caption" component="div" sx={{ opacity: 0.7 }}>
+                Dimensions: {kind.dimension.label}
+              </Typography>
+            </FormHelperText>
           </FormControl>
           <TextField
             label="Version"

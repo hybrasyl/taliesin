@@ -97,8 +97,16 @@ export interface PackKind {
   assetMetaFields?(): Record<string, AssetMetaField>
   /** Namespaces shown in the "Add" splitter. ability_icons returns
    *  ['skill','spell']; ui_sprite_overrides returns the union of existing
-   *  source-file tokens (caller appends a "+ new source" entry separately). */
+   *  source-file tokens. */
   namespaces?(existing: PackAsset[]): string[]
+  /** When set, the Add menu also offers a "create a new namespace" item that
+   *  prompts the user for a free-form value (used by ui_sprite_overrides
+   *  for adding a new source-file group). */
+  customNamespacePrompt?: {
+    menuLabel: string
+    dialogTitle: string
+    dialogHelp: string
+  }
   /** Optional kind-specific UI panel rendered inside PackEditor. Lets a new
    *  pack type ship its own affordances without PackEditor naming the kind. */
   Panel?: React.FC<PackKindPanelProps>

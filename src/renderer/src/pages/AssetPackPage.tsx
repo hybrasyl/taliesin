@@ -18,6 +18,8 @@ import { useRecoilState, useSetRecoilState } from 'recoil'
 import { packDirState, currentPageState } from '../recoil/atoms'
 import PackEditor from '../components/assetpack/PackEditor'
 import CreatePackDialog from '../components/assetpack/CreatePackDialog'
+import { getKind, isKnownContentType } from '../packKinds'
+import type { ContentType, PackProject } from '../packKinds'
 
 interface PackSummary {
   filename: string
@@ -25,22 +27,6 @@ interface PackSummary {
   pack_version: string
   content_type: string
   assets?: { filename: string; sourcePath: string }[]
-}
-
-interface PackProject {
-  pack_id: string
-  pack_version: string
-  content_type: string
-  priority: number
-  covers: Record<string, unknown>
-  assets: { filename: string; sourcePath: string }[]
-  createdAt: string
-  updatedAt: string
-}
-
-const DEFAULT_COVERS: Record<string, Record<string, unknown>> = {
-  ability_icons: { skill_icons: { dimensions: [32, 32] }, spell_icons: { dimensions: [32, 32] } },
-  nation_badges: { nation_badges: {} }
 }
 
 const AssetPackPage: React.FC = () => {
@@ -78,9 +64,17 @@ const AssetPackPage: React.FC = () => {
     }
     window.api
       .packLoad(`${packDir}/${selected}`)
-      .then((data) => setLoadedPack(data as PackProject))
+      .then((data) => {
+        const raw = data as { content_type: string } & Omit<PackProject, 'content_type'>
+        if (!isKnownContentType(raw.content_type)) {
+          showStatus(`Unknown content_type: ${raw.content_type}`)
+          setLoadedPack(null)
+          return
+        }
+        setLoadedPack(raw as PackProject)
+      })
       .catch(() => setLoadedPack(null))
-  }, [packDir, selected])
+  }, [packDir, selected, showStatus])
 
   // Set working directory
   const handleSetDir = useCallback(async () => {
@@ -90,14 +84,14 @@ const AssetPackPage: React.FC = () => {
 
   // Create pack
   const handleCreate = useCallback(
-    async (packId: string, contentType: string, version: string) => {
+    async (packId: string, contentType: ContentType, version: string) => {
       if (!packDir) return
       const project: PackProject = {
         pack_id: packId,
         pack_version: version,
         content_type: contentType,
         priority: 100,
-        covers: DEFAULT_COVERS[contentType] ?? {},
+        covers: getKind(contentType).defaultCovers(),
         assets: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
