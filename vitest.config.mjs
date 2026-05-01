@@ -143,7 +143,8 @@ export default defineConfig({
           include: [
             'src/main/**/__tests__/**/*.test.ts',
             'src/preload/**/__tests__/**/*.test.ts',
-            'src/renderer/src/utils/__tests__/**/*.test.ts'
+            'src/renderer/src/utils/__tests__/**/*.test.ts',
+            'src/renderer/src/packKinds/__tests__/**/*.test.ts'
           ],
           // mapXml/worldMapXml use DOMParser → jsdom project picks them up instead.
           exclude: [

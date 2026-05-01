@@ -244,6 +244,36 @@ describe('packProjectSchema and packManifestSchema', () => {
     expect(() => packProjectSchema.parse({ ...validPackProject, pack_id: '' })).toThrow()
   })
 
+  it('packProjectSchema accepts all 5 known content types', () => {
+    for (const ct of [
+      'ability_icons',
+      'nation_badges',
+      'legend_mark_icons',
+      'ui_sprite_overrides',
+      'item_icons'
+    ]) {
+      expect(() =>
+        packProjectSchema.parse({ ...validPackProject, content_type: ct })
+      ).not.toThrow()
+    }
+  })
+
+  it('packProjectSchema rejects an unknown content_type', () => {
+    expect(() =>
+      packProjectSchema.parse({ ...validPackProject, content_type: 'tiles' })
+    ).toThrow()
+  })
+
+  it('packProjectSchema accepts an optional assetMeta map', () => {
+    expect(() =>
+      packProjectSchema.parse({
+        ...validPackProject,
+        content_type: 'item_icons',
+        assetMeta: { 'item00001.png': { noDye: true } }
+      })
+    ).not.toThrow()
+  })
+
   it('packManifestSchema accepts a valid manifest', () => {
     expect(() =>
       packManifestSchema.parse({
@@ -260,6 +290,19 @@ describe('packProjectSchema and packManifestSchema', () => {
   it('packManifestSchema rejects a missing schema_version', () => {
     expect(() =>
       packManifestSchema.parse({
+        pack_id: 'x',
+        pack_version: '1.0.0',
+        content_type: 'ability_icons',
+        priority: 0,
+        covers: {}
+      })
+    ).toThrow()
+  })
+
+  it('packManifestSchema rejects schema_version other than 1', () => {
+    expect(() =>
+      packManifestSchema.parse({
+        schema_version: 2,
         pack_id: 'x',
         pack_version: '1.0.0',
         content_type: 'ability_icons',
