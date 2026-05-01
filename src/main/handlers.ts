@@ -826,7 +826,10 @@ export async function packAddAsset(
   const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
   const safeSrc = assertInsideAnyRoot(allRoots(ctx), sourcePath)
   const dest = assertInside(safePack, targetFilename)
-  await fs.mkdir(safePack, { recursive: true })
+  // ui_sprite_overrides nests frames inside per-source-file folders
+  // (e.g. mile.spf/0001.png), so the destination's parent may be deeper than
+  // packDir. mkdir-p the target's parent before the copy.
+  await fs.mkdir(dirname(dest), { recursive: true })
   await fs.copyFile(safeSrc, dest)
 }
 

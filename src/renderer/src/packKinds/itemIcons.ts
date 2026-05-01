@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { PackAsset, PackKind, SlotIdentity } from './types'
+import type { PackAsset, PackKind, PackProject, SlotIdentity } from './types'
+import ItemIconsPanel from '../components/assetpack/ItemIconsPanel'
 
 const ITEM_RE = /^item(\d{5})\.png$/i
 
@@ -50,5 +51,20 @@ export const itemIconsKind: PackKind = {
       label: 'No dye',
       help: 'This icon does not use the canonical purple dye palette.'
     }
-  })
+  }),
+  Panel: ItemIconsPanel,
+  reduceCoversFromMeta(draft: PackProject) {
+    const meta = draft.assetMeta ?? {}
+    const noDyeIds: number[] = []
+    for (const asset of draft.assets) {
+      if (meta[asset.filename]?.noDye === true) {
+        const slot = parseSlot(asset.filename)
+        if (slot) noDyeIds.push(slot.id)
+      }
+    }
+    noDyeIds.sort((a, b) => a - b)
+    return noDyeIds.length > 0
+      ? { item_icons: { no_dye: noDyeIds } }
+      : { item_icons: {} }
+  }
 }

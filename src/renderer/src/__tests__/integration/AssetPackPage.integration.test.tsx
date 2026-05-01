@@ -30,6 +30,17 @@ vi.mock('child_process', () => {
   return { ...m, default: m }
 })
 
+// PackEditor's renderer-side dimension validation tries to decode the picked
+// PNG via canvas. Stub it so the integration test's fake byte payloads don't
+// fail the validation step.
+vi.mock('../../utils/imageLoader', () => ({
+  loadPixelBufferFromPath: vi.fn(async () => ({
+    data: new Uint8ClampedArray(32 * 32 * 4),
+    width: 32,
+    height: 32
+  }))
+}))
+
 import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import AssetPackPage from '../../pages/AssetPackPage'
 import { packDirState } from '../../recoil/atoms'
@@ -258,6 +269,53 @@ describe('AssetPackPage — round-trip integration', () => {
       const saved = JSON.parse(fs.files.get(`${PACK_DIR}/sample.json`)!.toString('utf-8'))
       expect(saved.assets).toEqual([{ filename: 'skill0001.png', sourcePath: '/src/icon.png' }])
     })
+  })
+
+  it('ui_sprite_overrides → New source file… creates nested mile.spf/0000.png on disk', async () => {
+    const fs = await memfs
+    fs.files.set(
+      `${PACK_DIR}/uipack.json`,
+      Buffer.from(
+        JSON.stringify({
+          pack_id: 'uipack',
+          pack_version: '1.0.0',
+          content_type: 'ui_sprite_overrides',
+          priority: 100,
+          covers: { ui_sprite_overrides: {} },
+          assets: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }),
+        'utf-8'
+      )
+    )
+    fs.files.set('/src/frame.png', Buffer.from('FRAMEDATA'))
+
+    const handlers = await loadHandlers()
+    installBridgedApi(handlers, {
+      settingsPath: '/appdata/Taliesin',
+      settingsManager: { load: async () => ({}), save: async () => undefined },
+      dialog: { openFile: async () => '/src/frame.png' }
+    })
+
+    const user = userEvent.setup()
+    render(<AssetPackPage />, { wrapper: withPackDir() })
+
+    await user.click(await screen.findByRole('button', { name: /uipack/i }))
+    await user.click(await screen.findByRole('button', { name: /add png/i }))
+    await user.click(await screen.findByRole('menuitem', { name: /new source file/i }))
+
+    // Custom-namespace dialog
+    await user.type(await screen.findByLabelText('Source filename'), 'mile.spf')
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+
+    // Asset lands at <packDir>/<pack_id>/mile.spf/0000.png
+    await waitFor(() => {
+      expect(
+        fs.files.get(`${PACK_DIR}/uipack/mile.spf/0000.png`)?.toString('utf-8')
+      ).toBe('FRAMEDATA')
+    })
+    expect(await screen.findByText('mile.spf/0000.png')).toBeInTheDocument()
   })
 })
 

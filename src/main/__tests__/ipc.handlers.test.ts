@@ -631,8 +631,14 @@ describe('asset pack handlers', () => {
 
   it('pack:addAsset copies the source PNG into the pack dir', async () => {
     files.set('/src/icon.png', Buffer.from('PNGDATA'))
-    await invoke('pack:addAsset', '/pack', '/src/icon.png', 'skill_0001.png')
-    expect(files.get('/pack/skill_0001.png')?.toString('utf-8')).toBe('PNGDATA')
+    await invoke('pack:addAsset', '/pack', '/src/icon.png', 'skill0001.png')
+    expect(files.get('/pack/skill0001.png')?.toString('utf-8')).toBe('PNGDATA')
+  })
+
+  it('pack:addAsset creates nested parent dirs for ui_sprite_overrides paths', async () => {
+    files.set('/src/icon.png', Buffer.from('FRAMEDATA'))
+    await invoke('pack:addAsset', '/pack', '/src/icon.png', 'mile.spf/0001.png')
+    expect(files.get('/pack/mile.spf/0001.png')?.toString('utf-8')).toBe('FRAMEDATA')
   })
 
   it('pack:removeAsset deletes silently when the file is gone', async () => {

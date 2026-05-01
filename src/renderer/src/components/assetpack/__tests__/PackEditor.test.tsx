@@ -2,9 +2,24 @@ import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import PackEditor from '../PackEditor'
 import { installMockApi, type MockApi } from '../../../__tests__/setup/mockApi'
 import type { ContentType, PackProject } from '../../../packKinds'
+
+// Mock the renderer-side image loader so tests don't need a real canvas.
+// Returns a fake 32×32 buffer by default; per-test overrides set custom
+// dimensions or pixel data via vi.mocked(loadPixelBufferFromPath).
+vi.mock('../../../utils/imageLoader', () => ({
+  loadPixelBufferFromPath: vi.fn(async () => ({
+    data: new Uint8ClampedArray(32 * 32 * 4),
+    width: 32,
+    height: 32
+  }))
+}))
+
+import PackEditor from '../PackEditor'
+import { loadPixelBufferFromPath } from '../../../utils/imageLoader'
+
+const mockLoadPng = vi.mocked(loadPixelBufferFromPath)
 
 function makePack(overrides: Partial<PackProject> = {}): PackProject {
   return {
@@ -28,6 +43,12 @@ beforeEach(() => {
   api = installMockApi()
   onSave.mockReset()
   onStatus.mockReset()
+  // Reset the PNG decoder mock to a default 32×32 buffer.
+  mockLoadPng.mockResolvedValue({
+    data: new Uint8ClampedArray(32 * 32 * 4),
+    width: 32,
+    height: 32
+  })
 })
 
 describe('PackEditor — initial render', () => {
@@ -263,8 +284,13 @@ describe('PackEditor — add and remove assets', () => {
     expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/n.png', 'nation0001.png')
   })
 
-  it('legend_mark_icons starts at legend0000.png (0-based)', async () => {
+  it('legend_mark_icons starts at legend0000.png (0-based) with a 20×20 PNG', async () => {
     const user = userEvent.setup()
+    mockLoadPng.mockResolvedValue({
+      data: new Uint8ClampedArray(20 * 20 * 4),
+      width: 20,
+      height: 20
+    })
     api.openFile.mockResolvedValue('/src/l.png')
     api.packAddAsset.mockResolvedValue(undefined)
 
@@ -515,6 +541,177 @@ describe('PackEditor — compile flow', () => {
     await waitFor(() => {
       expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/Compile failed: zip failed/))
     })
+  })
+})
+
+describe('PackEditor — dimension validation', () => {
+  it('rejects a 29×29 PNG into an ability_icons pack (expects 32×32)', async () => {
+    const user = userEvent.setup()
+    mockLoadPng.mockResolvedValue({
+      data: new Uint8ClampedArray(29 * 29 * 4),
+      width: 29,
+      height: 29
+    })
+    api.openFile.mockResolvedValue('/src/wrong-size.png')
+
+    render(
+      <PackEditor
+        pack={makePack({ content_type: 'ability_icons' })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'skill' }))
+
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/Rejected.*32×32/))
+    )
+    expect(api.packAddAsset).not.toHaveBeenCalled()
+  })
+
+  it('rejects a 22×20 PNG into a legend_mark_icons pack', async () => {
+    const user = userEvent.setup()
+    mockLoadPng.mockResolvedValue({
+      data: new Uint8ClampedArray(22 * 20 * 4),
+      width: 22,
+      height: 20
+    })
+    api.openFile.mockResolvedValue('/src/wrong.png')
+
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'legend_mark_icons',
+          covers: { legend_mark_icons: {} }
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/Rejected.*width/))
+    )
+    expect(api.packAddAsset).not.toHaveBeenCalled()
+  })
+
+  it('reports decoder failure via onStatus and does not call packAddAsset', async () => {
+    const user = userEvent.setup()
+    mockLoadPng.mockRejectedValue(new Error('not a PNG'))
+    api.openFile.mockResolvedValue('/src/garbage.png')
+
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'skill' }))
+
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/Failed to read image/))
+    )
+    expect(api.packAddAsset).not.toHaveBeenCalled()
+  })
+})
+
+describe('PackEditor — item_icons dye flow', () => {
+  it('toggling No dye on an item_icons asset and saving puts the slot id into covers.item_icons.no_dye', async () => {
+    const user = userEvent.setup()
+    api.packSave.mockResolvedValue(undefined)
+    const pack = makePack({
+      content_type: 'item_icons',
+      covers: { item_icons: {} },
+      assets: [
+        { filename: 'item00001.png', sourcePath: '/a' },
+        { filename: 'item00002.png', sourcePath: '/b' },
+        { filename: 'item00003.png', sourcePath: '/c' }
+      ]
+    })
+
+    render(
+      <PackEditor
+        pack={pack}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+
+    // Toggle No dye on item 1 and item 3
+    const checkbox1 = screen.getByLabelText('No dye for item00001.png') as HTMLInputElement
+    const checkbox3 = screen.getByLabelText('No dye for item00003.png') as HTMLInputElement
+    await user.click(checkbox1)
+    await user.click(checkbox3)
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(api.packSave).toHaveBeenCalled())
+    const savedArg = api.packSave.mock.calls[0][1] as PackProject
+    expect(savedArg.covers).toEqual({ item_icons: { no_dye: [1, 3] } })
+    expect(savedArg.assetMeta).toEqual({
+      'item00001.png': { noDye: true },
+      'item00003.png': { noDye: true }
+    })
+  })
+
+  it('warns about non-canonical near-purple pixels when adding an item_icons PNG', async () => {
+    const user = userEvent.setup()
+    // Build a 16×16 buffer with a few off-palette purple pixels
+    const data = new Uint8ClampedArray(16 * 16 * 4)
+    // First 4 pixels are off-palette purple (200, 100, 200) at full alpha
+    for (let i = 0; i < 4; i++) {
+      data[i * 4] = 200
+      data[i * 4 + 1] = 100
+      data[i * 4 + 2] = 200
+      data[i * 4 + 3] = 255
+    }
+    mockLoadPng.mockResolvedValue({ data, width: 16, height: 16 })
+    api.openFile.mockResolvedValue('/src/i.png')
+    api.packAddAsset.mockResolvedValue(undefined)
+
+    render(
+      <PackEditor
+        pack={makePack({ content_type: 'item_icons', covers: { item_icons: {} } })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+
+    await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
+    // Asset is still added — the warning is non-blocking — but onStatus
+    // includes the heuristic message.
+    expect(onStatus).toHaveBeenCalledWith(
+      expect.stringMatching(/Added item00001\.png.*near-purple pixels/)
+    )
+  })
+
+  it('renders the dye palette swatches via the kind Panel', () => {
+    render(
+      <PackEditor
+        pack={makePack({ content_type: 'item_icons', covers: { item_icons: {} } })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    expect(screen.getByText(/Dye palette/i)).toBeInTheDocument()
+    expect(screen.getByText('No items flagged no_dye.')).toBeInTheDocument()
   })
 })
 

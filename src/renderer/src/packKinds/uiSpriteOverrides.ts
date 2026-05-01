@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { PackAsset, PackKind, SlotIdentity } from './types'
+import UiSpriteSourcesPanel from '../components/assetpack/UiSpriteSourcesPanel'
 
 // ui_sprite_overrides nest a 4-digit frame index inside a folder named after
 // the legacy source file (e.g. 'mile.spf/0001.png'). The folder is the
@@ -65,5 +66,6 @@ export const uiSpriteOverridesKind: PackKind = {
     menuLabel: 'New source file…',
     dialogTitle: 'Add source file group',
     dialogHelp: 'Filename of the legacy source the pack should override (e.g. mile.spf, nation.spf).'
-  }
+  },
+  Panel: UiSpriteSourcesPanel
 }

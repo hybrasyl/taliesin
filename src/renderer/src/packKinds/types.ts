@@ -73,6 +73,7 @@ export type AssetMetaField =
 export interface PackKindPanelProps {
   draft: PackProject
   onChange: (updates: Partial<PackProject>) => void
+  kind: PackKind
 }
 
 export interface PackKind {
@@ -110,4 +111,9 @@ export interface PackKind {
   /** Optional kind-specific UI panel rendered inside PackEditor. Lets a new
    *  pack type ship its own affordances without PackEditor naming the kind. */
   Panel?: React.FC<PackKindPanelProps>
+  /** Optional reducer called just before packSave / packCompile to derive the
+   *  covers blob from per-asset metadata. item_icons uses this to compute
+   *  covers.item_icons.no_dye from assetMeta. Returning undefined leaves
+   *  draft.covers unchanged. */
+  reduceCoversFromMeta?(draft: PackProject): Record<string, unknown> | undefined
 }

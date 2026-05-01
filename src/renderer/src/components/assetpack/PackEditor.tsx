@@ -18,7 +18,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Checkbox
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
@@ -27,6 +28,8 @@ import BuildIcon from '@mui/icons-material/Build'
 import SaveIcon from '@mui/icons-material/Save'
 import { getKind } from '../../packKinds'
 import type { PackProject } from '../../packKinds'
+import { loadPixelBufferFromPath } from '../../utils/imageLoader'
+import { scanDyeUsage } from '../../packKinds/itemIconsDye'
 
 interface Props {
   pack: PackProject
@@ -34,6 +37,15 @@ interface Props {
   packFilePath: string
   onSave: (pack: PackProject) => void
   onStatus: (msg: string) => void
+}
+
+// Apply kind.reduceCoversFromMeta if defined; otherwise return draft
+// unchanged. Used at save and compile time so per-asset metadata feeds the
+// covers blob the client actually reads.
+function withReducedCovers(draft: PackProject): PackProject {
+  const kind = getKind(draft.content_type)
+  const reduced = kind.reduceCoversFromMeta?.(draft)
+  return reduced ? { ...draft, covers: reduced } : draft
 }
 
 const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onStatus }) => {
@@ -52,6 +64,8 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const kind = getKind(draft.content_type)
   const namespaceList = useMemo(() => kind.namespaces?.(draft.assets) ?? [], [kind, draft.assets])
   const hasMenu = namespaceList.length > 0 || !!kind.customNamespacePrompt
+  const metaFields = useMemo(() => kind.assetMetaFields?.() ?? {}, [kind])
+  const metaFieldEntries = Object.entries(metaFields)
 
   const updateField = useCallback((field: keyof PackProject, value: unknown) => {
     setDraft((prev) => ({ ...prev, [field]: value, updatedAt: new Date().toISOString() }))
@@ -59,8 +73,10 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   }, [])
 
   const handleSave = useCallback(async () => {
-    await window.api.packSave(packFilePath, draft)
-    onSave(draft)
+    const reduced = withReducedCovers(draft)
+    await window.api.packSave(packFilePath, reduced)
+    setDraft(reduced)
+    onSave(reduced)
     setDirty(false)
     onStatus('Pack saved')
   }, [draft, packFilePath, onSave, onStatus])
@@ -72,6 +88,21 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       ])) as string | null
       if (!filePath) return
 
+      // Decode the picked PNG once. Used for dimension validation, and for
+      // the kind-specific dye scan when applicable.
+      let buf: Awaited<ReturnType<typeof loadPixelBufferFromPath>>
+      try {
+        buf = await loadPixelBufferFromPath(filePath)
+      } catch (e) {
+        onStatus(`Failed to read image: ${e instanceof Error ? e.message : 'unknown error'}`)
+        return
+      }
+      const dimError = kind.dimension.validate(buf.width, buf.height)
+      if (dimError) {
+        onStatus(`Rejected: ${dimError}`)
+        return
+      }
+
       const target = kind.nextAssetPath({
         ctx: namespace ? { namespace } : undefined,
         existingAssets: draft.assets
@@ -81,9 +112,20 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       const newAssets = [...draft.assets, { filename: target.zipPath, sourcePath: filePath }]
       setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
       setDirty(true)
-      onStatus(`Added ${target.zipPath}`)
+
+      // Item-icon dye heuristic: warn (non-blocking) on near-purple pixels
+      // outside the canonical palette. Skipped when the asset is flagged
+      // noDye (the kind decides via assetMetaFields).
+      let suffix = ''
+      if (draft.content_type === 'item_icons') {
+        const report = scanDyeUsage(buf)
+        if (report.nonDyeablePurplePixels > 0) {
+          suffix = ` (warning: ${report.nonDyeablePurplePixels} near-purple pixels not in canonical palette — mark No dye if intentional)`
+        }
+      }
+      onStatus(`Added ${target.zipPath}${suffix}`)
     },
-    [draft.assets, kind, packDir, onStatus]
+    [draft.assets, draft.content_type, kind, packDir, onStatus]
   )
 
   const handleAddClick = useCallback(
@@ -121,20 +163,46 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const handleRemoveAsset = useCallback(
     async (filename: string) => {
       await window.api.packRemoveAsset(packDir, filename)
-      const newAssets = draft.assets.filter((a) => a.filename !== filename)
-      setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
+      setDraft((prev) => {
+        const newAssetMeta = { ...(prev.assetMeta ?? {}) }
+        delete newAssetMeta[filename]
+        return {
+          ...prev,
+          assets: prev.assets.filter((a) => a.filename !== filename),
+          assetMeta: Object.keys(newAssetMeta).length > 0 ? newAssetMeta : undefined,
+          updatedAt: new Date().toISOString()
+        }
+      })
       setDirty(true)
     },
-    [draft, packDir]
+    [packDir]
+  )
+
+  const handleMetaFieldChange = useCallback(
+    (filename: string, fieldKey: string, value: unknown) => {
+      setDraft((prev) => {
+        const prevForFile = prev.assetMeta?.[filename] ?? {}
+        const nextForFile = { ...prevForFile, [fieldKey]: value }
+        return {
+          ...prev,
+          assetMeta: { ...(prev.assetMeta ?? {}), [filename]: nextForFile },
+          updatedAt: new Date().toISOString()
+        }
+      })
+      setDirty(true)
+    },
+    []
   )
 
   const handleCompile = useCallback(async () => {
-    await window.api.packSave(packFilePath, draft)
+    const reduced = withReducedCovers(draft)
+    await window.api.packSave(packFilePath, reduced)
+    setDraft(reduced)
     setDirty(false)
 
     const outputPath = await window.api.saveFile(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      `${draft.pack_id}.datf`
+      `${reduced.pack_id}.datf`
     )
     if (!outputPath) return
 
@@ -142,15 +210,15 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     try {
       const manifest = {
         schema_version: 1,
-        pack_id: draft.pack_id,
-        pack_version: draft.pack_version,
-        content_type: draft.content_type,
-        priority: draft.priority,
-        covers: draft.covers
+        pack_id: reduced.pack_id,
+        pack_version: reduced.pack_version,
+        content_type: reduced.content_type,
+        priority: reduced.priority,
+        covers: reduced.covers
       }
-      const filenames = draft.assets.map((a) => a.filename)
+      const filenames = reduced.assets.map((a) => a.filename)
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
-      onStatus(`Compiled ${draft.pack_id}.datf (${filenames.length} assets)`)
+      onStatus(`Compiled ${reduced.pack_id}.datf (${filenames.length} assets)`)
     } catch (err) {
       onStatus(`Compile failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
@@ -267,6 +335,11 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
               <TableCell sx={{ width: 48 }}>Preview</TableCell>
               <TableCell>Filename</TableCell>
               <TableCell sx={{ width: 100 }}>Slot</TableCell>
+              {metaFieldEntries.map(([key, def]) => (
+                <TableCell key={key} sx={{ width: 80 }}>
+                  {def.label}
+                </TableCell>
+              ))}
               <TableCell sx={{ width: 40 }} />
             </TableRow>
           </TableHead>
@@ -274,6 +347,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
             {draft.assets.map((asset) => {
               const slot = kind.parseSlot(asset.filename)
               const imgSrc = `file://${packDir.replace(/\\/g, '/')}/${asset.filename}`
+              const meta = draft.assetMeta?.[asset.filename] ?? {}
               return (
                 <TableRow key={asset.filename}>
                   <TableCell>
@@ -300,6 +374,22 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
                       {slot ? `${slot.namespace} ${slot.id}` : '—'}
                     </Typography>
                   </TableCell>
+                  {metaFieldEntries.map(([key, def]) => (
+                    <TableCell key={key}>
+                      {def.kind === 'boolean' && (
+                        <Tooltip title={def.help ?? ''}>
+                          <Checkbox
+                            size="small"
+                            checked={meta[key] === true}
+                            onChange={(e) =>
+                              handleMetaFieldChange(asset.filename, key, e.target.checked)
+                            }
+                            inputProps={{ 'aria-label': `${def.label} for ${asset.filename}` }}
+                          />
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  ))}
                   <TableCell>
                     <IconButton
                       size="small"
@@ -316,6 +406,18 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           </TableBody>
         </Table>
       </Box>
+
+      {/* Kind-specific panel (item-icon dye reference, ui sprite source groups, etc.) */}
+      {kind.Panel && (
+        <kind.Panel
+          draft={draft}
+          kind={kind}
+          onChange={(updates) => {
+            setDraft((prev) => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }))
+            setDirty(true)
+          }}
+        />
+      )}
 
       {/* Custom-namespace dialog (opt-in via kind.customNamespacePrompt) */}
       {kind.customNamespacePrompt && (
