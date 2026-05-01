@@ -1,7 +1,9 @@
 /**
  * pack:import tests use the real archiver + unzipper libraries (no mocks for
- * those — only fs is mocked via the shared memfs helper). The reusable
- * test-side memfs lives in src/renderer/src/__tests__/setup/handlerBridge.ts.
+ * those — only fs is mocked via an in-test memfs). The renderer's
+ * handlerBridge has a richer memfs for full integration tests; this one is a
+ * focused subset that doesn't need to cross the main↔renderer tsconfig
+ * boundary.
  *
  * Each test seeds memfs with a synthesized .datf buffer built via archiver,
  * then exercises packImport end-to-end and asserts on the extracted on-disk
@@ -9,12 +11,54 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const memfs = vi.hoisted(async () => {
-  const { createMemoryFs } = await import('../../renderer/src/__tests__/setup/handlerBridge')
-  return createMemoryFs()
+const memfs = vi.hoisted(() => {
+  const files = new Map<string, Buffer>()
+  const dirs = new Set<string>(['/'])
+  const dirOf = (p: string) => {
+    const n = p.replace(/\\/g, '/')
+    const slash = n.lastIndexOf('/')
+    return slash > 0 ? n.slice(0, slash) : '/'
+  }
+  const ensureDir = (p: string) => dirs.add(p.replace(/[\\/]+$/, '').replace(/\\/g, '/'))
+  const enoent = () => Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+
+  const fsModule = {
+    promises: {
+      readFile: vi.fn(async (p: string, enc?: string) => {
+        const buf = files.get(p.replace(/\\/g, '/'))
+        if (!buf) throw enoent()
+        return enc === 'utf-8' || enc === 'utf8' ? buf.toString('utf-8') : buf
+      }),
+      writeFile: vi.fn(async (p: string, content: string | Buffer | Uint8Array) => {
+        const norm = p.replace(/\\/g, '/')
+        files.set(
+          norm,
+          typeof content === 'string'
+            ? Buffer.from(content, 'utf-8')
+            : Buffer.from(content as Uint8Array)
+        )
+        ensureDir(dirOf(norm))
+      }),
+      mkdir: vi.fn(async (p: string) => ensureDir(p.replace(/\\/g, '/'))),
+      access: vi.fn(async (p: string) => {
+        const n = p.replace(/\\/g, '/')
+        if (!files.has(n) && !dirs.has(n)) throw enoent()
+      })
+    }
+  }
+  ;(fsModule as unknown as { default: unknown }).default = fsModule
+  return {
+    files,
+    fsModule,
+    reset: () => {
+      files.clear()
+      dirs.clear()
+      dirs.add('/')
+    }
+  }
 })
 
-vi.mock('fs', async () => (await memfs).fsModule)
+vi.mock('fs', () => memfs.fsModule)
 vi.mock('@eriscorp/hybindex-ts', () => {
   const m = {
     buildIndex: vi.fn(),
@@ -63,14 +107,13 @@ async function buildDatfBytes(
   })
 }
 
-beforeEach(async () => {
-  const fs = await memfs
-  fs.reset()
+beforeEach(() => {
+  memfs.reset()
 })
 
 describe('packImport — basics', () => {
   it('extracts a compiled .datf into a fresh project + asset files', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes(
       {
         schema_version: 1,
@@ -114,7 +157,7 @@ describe('packImport — basics', () => {
   })
 
   it('preserves nested ui_sprite_overrides paths', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes(
       {
         schema_version: 1,
@@ -148,7 +191,7 @@ describe('packImport — basics', () => {
   })
 
   it('hydrates assetMeta.noDye from item_icons covers.no_dye', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes(
       {
         schema_version: 1,
@@ -176,7 +219,7 @@ describe('packImport — basics', () => {
   })
 
   it('refuses to overwrite an existing project unless force is true', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes(
       {
         schema_version: 1,
@@ -204,13 +247,13 @@ describe('packImport — basics', () => {
 
 describe('packImport — error paths', () => {
   it('rejects a path not ending in .datf', async () => {
-    const fs = await memfs
+    const fs = memfs
     fs.files.set('/out/foo.zip', Buffer.from('whatever'))
     await expect(packImport(ctx, '/out/foo.zip', '/work')).rejects.toThrow(/\.datf/)
   })
 
   it('rejects a .datf with no _manifest.json', async () => {
-    const fs = await memfs
+    const fs = memfs
     const archiver = (await import('archiver')).default
     const archive = archiver('zip')
     const chunks: Buffer[] = []
@@ -226,7 +269,7 @@ describe('packImport — error paths', () => {
   })
 
   it('rejects a manifest with an unknown content_type', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes(
       {
         schema_version: 1,
@@ -245,7 +288,7 @@ describe('packImport — error paths', () => {
   })
 
   it('rejects malformed JSON in _manifest.json', async () => {
-    const fs = await memfs
+    const fs = memfs
     const datfBytes = await buildDatfBytes('this is not json', {})
     fs.files.set('/out/bad.datf', datfBytes)
     await expect(packImport(ctx, '/out/bad.datf', '/work')).rejects.toThrow(/not valid JSON/)

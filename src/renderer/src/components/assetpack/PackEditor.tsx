@@ -27,9 +27,10 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import BuildIcon from '@mui/icons-material/Build'
 import SaveIcon from '@mui/icons-material/Save'
 import { getKind } from '../../packKinds'
-import type { PackProject } from '../../packKinds'
+import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import { scanDyeUsage } from '../../packKinds/itemIconsDye'
+import AssetThumbnail from './AssetThumbnail'
 
 interface Props {
   pack: PackProject
@@ -46,6 +47,137 @@ function withReducedCovers(draft: PackProject): PackProject {
   const kind = getKind(draft.content_type)
   const reduced = kind.reduceCoversFromMeta?.(draft)
   return reduced ? { ...draft, covers: reduced } : draft
+}
+
+interface RenderRowsArgs {
+  assets: PackAsset[]
+  kind: ReturnType<typeof getKind>
+  metaFieldEntries: [string, NonNullable<ReturnType<NonNullable<ReturnType<typeof getKind>['assetMetaFields']>>>[string]][]
+  packDir: string
+  meta: Record<string, Record<string, unknown>>
+  onMetaFieldChange: (filename: string, fieldKey: string, value: unknown) => void
+  onRemoveAsset: (filename: string) => void
+}
+
+// Render the asset table body. For kinds that declare a namespaces() method,
+// rows are grouped under namespace headings (skill / spell for ability_icons,
+// per-source-file for ui_sprite_overrides). Other kinds render flat.
+function renderRows(args: RenderRowsArgs): React.ReactElement[] {
+  const { assets, kind, metaFieldEntries, packDir, meta, onMetaFieldChange, onRemoveAsset } = args
+  const colSpan = 4 + metaFieldEntries.length
+
+  const renderOne = (asset: PackAsset): React.ReactElement => {
+    const slot = kind.parseSlot(asset.filename)
+    const assetMeta = meta[asset.filename] ?? {}
+    return (
+      <TableRow key={asset.filename}>
+        <TableCell>
+          <AssetThumbnail packDir={packDir} filename={asset.filename} />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+            {asset.filename}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="caption" color="text.secondary">
+            {slot ? `${slot.namespace} ${slot.id}` : '—'}
+          </Typography>
+        </TableCell>
+        {metaFieldEntries.map(([key, def]) => (
+          <TableCell key={key}>
+            {def.kind === 'boolean' && (
+              <Tooltip title={def.help ?? ''}>
+                <Checkbox
+                  size="small"
+                  checked={assetMeta[key] === true}
+                  onChange={(e) => onMetaFieldChange(asset.filename, key, e.target.checked)}
+                  inputProps={{ 'aria-label': `${def.label} for ${asset.filename}` }}
+                />
+              </Tooltip>
+            )}
+          </TableCell>
+        ))}
+        <TableCell>
+          <IconButton
+            size="small"
+            onClick={() => onRemoveAsset(asset.filename)}
+            sx={{ color: 'error.main' }}
+            aria-label={`delete ${asset.filename}`}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  // Kinds without namespaces (nation_badges, legend_mark_icons, item_icons)
+  // render a flat list.
+  if (!kind.namespaces) {
+    return assets.map(renderOne)
+  }
+
+  // Group by namespace via kind.parseSlot, preserving insertion order, then
+  // sorting each group by id for predictability.
+  const groups = new Map<string, PackAsset[]>()
+  const orphans: PackAsset[] = []
+  for (const asset of assets) {
+    const slot = kind.parseSlot(asset.filename)
+    if (!slot) {
+      orphans.push(asset)
+      continue
+    }
+    if (!groups.has(slot.namespace)) groups.set(slot.namespace, [])
+    groups.get(slot.namespace)!.push(asset)
+  }
+  for (const list of groups.values()) {
+    list.sort((a, b) => {
+      const ai = kind.parseSlot(a.filename)?.id ?? 0
+      const bi = kind.parseSlot(b.filename)?.id ?? 0
+      return ai - bi
+    })
+  }
+
+  const rows: React.ReactElement[] = []
+  // Sort groups by namespace name for stable ordering, but keep skill before
+  // spell etc. for ability_icons by using the kind's declared order when
+  // available.
+  const declaredOrder = kind.namespaces?.(assets) ?? []
+  const orderedNs = [
+    ...declaredOrder.filter((n) => groups.has(n)),
+    ...[...groups.keys()].filter((n) => !declaredOrder.includes(n)).sort()
+  ]
+
+  for (const ns of orderedNs) {
+    const list = groups.get(ns)!
+    rows.push(
+      <TableRow key={`__group__${ns}`} sx={{ '& > td': { backgroundColor: 'action.hover' } }}>
+        <TableCell colSpan={colSpan}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+            {ns}
+          </Typography>{' '}
+          <Typography variant="caption" color="text.secondary">
+            ({list.length})
+          </Typography>
+        </TableCell>
+      </TableRow>
+    )
+    for (const asset of list) rows.push(renderOne(asset))
+  }
+  if (orphans.length > 0) {
+    rows.push(
+      <TableRow key="__group__orphans" sx={{ '& > td': { backgroundColor: 'action.hover' } }}>
+        <TableCell colSpan={colSpan}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold' }} color="warning.main">
+            unparseable filenames
+          </Typography>
+        </TableCell>
+      </TableRow>
+    )
+    for (const asset of orphans) rows.push(renderOne(asset))
+  }
+  return rows
 }
 
 const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onStatus }) => {
@@ -344,64 +476,14 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
             </TableRow>
           </TableHead>
           <TableBody>
-            {draft.assets.map((asset) => {
-              const slot = kind.parseSlot(asset.filename)
-              const imgSrc = `file://${packDir.replace(/\\/g, '/')}/${asset.filename}`
-              const meta = draft.assetMeta?.[asset.filename] ?? {}
-              return (
-                <TableRow key={asset.filename}>
-                  <TableCell>
-                    <img
-                      src={imgSrc}
-                      width={32}
-                      height={32}
-                      style={{ imageRendering: 'pixelated', background: '#1a1a2e' }}
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).style.display = 'none'
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                    >
-                      {asset.filename}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary">
-                      {slot ? `${slot.namespace} ${slot.id}` : '—'}
-                    </Typography>
-                  </TableCell>
-                  {metaFieldEntries.map(([key, def]) => (
-                    <TableCell key={key}>
-                      {def.kind === 'boolean' && (
-                        <Tooltip title={def.help ?? ''}>
-                          <Checkbox
-                            size="small"
-                            checked={meta[key] === true}
-                            onChange={(e) =>
-                              handleMetaFieldChange(asset.filename, key, e.target.checked)
-                            }
-                            inputProps={{ 'aria-label': `${def.label} for ${asset.filename}` }}
-                          />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleRemoveAsset(asset.filename)}
-                      sx={{ color: 'error.main' }}
-                      aria-label={`delete ${asset.filename}`}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              )
+            {renderRows({
+              assets: draft.assets,
+              kind,
+              metaFieldEntries,
+              packDir,
+              meta: draft.assetMeta ?? {},
+              onMetaFieldChange: handleMetaFieldChange,
+              onRemoveAsset: handleRemoveAsset
             })}
           </TableBody>
         </Table>
