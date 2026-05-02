@@ -407,16 +407,31 @@ export function screenToTileCoords(
 
 /**
  * True when a map tile can be walked on.
- * sotp.dat convention: index N → 0 means stc tile N is passable; non-zero means impassable.
- * Tiles with no foreground (index <= 0) are always considered passable by this check.
+ *
+ * sotp.dat byte layout (Static Object Tile Properties):
+ *   - Indexing: tile IDs are 1-based ("tile 0 = empty"), so for foreground
+ *     tile N the property byte lives at SOTP[N-1]. Earlier code read SOTP[N]
+ *     directly, which shifted every tile's collision answer by one slot.
+ *   - Low nibble (0x0f) = collision flag. 0x0 = passable, 0xf = impassable.
+ *   - Bit 7 (0x80)      = property flag, separate from collision (interactable
+ *                         surface — chair/table/altar/etc.). Does NOT affect
+ *                         walkability.
+ *   - Other high bits (0x10..0x40) appear unused in retail data.
+ *
+ * Earlier versions of this function tested `byte === 0` against `SOTP[N]`,
+ * which combined two errors: it missed the off-by-one and it incorrectly
+ * marked the 322 tiles with byte 0x80 (passable + property bit) as impassable.
+ * Tiles with no foreground (index <= 0) are always passable.
  */
 export function isTilePassable(
   leftForeground: number,
   rightForeground: number,
   sotpTable: Uint8Array
 ): boolean {
-  const lfOk = leftForeground <= 0 || (sotpTable[leftForeground] ?? 0) === 0
-  const rfOk = rightForeground <= 0 || (sotpTable[rightForeground] ?? 0) === 0
+  const lfOk =
+    leftForeground <= 0 || ((sotpTable[leftForeground - 1] ?? 0) & 0x0f) === 0
+  const rfOk =
+    rightForeground <= 0 || ((sotpTable[rightForeground - 1] ?? 0) & 0x0f) === 0
   return lfOk && rfOk
 }
 
