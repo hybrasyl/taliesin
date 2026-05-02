@@ -12,16 +12,16 @@ The `sotp.dat` file is a flat byte array. Across 20,423 bytes only four distinct
 
 | Byte | Count | % | Meaning |
 |---|---|---|---|
-| `0x0f` | 15,782 | 77.3% | impassable, no special property |
-| `0x00` | 4,265  | 20.9% | passable, no special property |
-| `0x80` | 322    | 1.6%  | passable, property bit set (interactable surface — chair / table / altar / etc.) |
-| `0x8f` | 54     | 0.3%  | impassable, property bit set |
+| `0x0f` | 15,782 | 77.3% | impassable, static |
+| `0x00` | 4,265  | 20.9% | passable, static |
+| `0x80` | 322    | 1.6%  | passable, **animated tile** (cycles frames — fountains, fires, candles, water) |
+| `0x8f` | 54     | 0.3%  | impassable, animated tile |
 
 Encoding rules confirmed against an in-game corpus of 14 known tile IDs (10 impassable / 4 passable, all matched 14/14):
 
 - **Indexing is 1-based.** Foreground tile ID `N` lives at `sotp[N-1]`. Tile 0 is the empty marker — it has no SOTP entry — so the array packs tiles 1..20423 starting at byte 0. Reading `sotp[N]` directly shifts every answer by one slot.
 - **Collision is the low nibble (`& 0x0f`).** `0x0` = passable, `0xf` = impassable (binary `1111`, "fully blocked"). Intermediate values 0x1..0xe are unused in retail.
-- **Bit 7 (`0x80`) is a separate property flag.** Set on 376 tiles total (322 passable, 54 impassable). It does NOT affect collision — both `0x80` and `0x00` are walkable. The property is most likely "interactable surface" (chair / table / etc., based on contiguous runs in the high tile-ID range and the chair-sitting-scoping discussion).
+- **Bit 7 (`0x80`) is the animated-tile flag.** Set on 376 tiles total (322 passable, 54 impassable). It does NOT affect collision — both `0x80` and `0x00` are walkable. Visual sampling confirmed every tile in the bit-7 ranges (16208..16863, 17802..17855, 18213..18254, 19544..19585, etc.) is an animated tile — fountains, fires, candles, flowing water. The bit is redundant with `gndani.tbl` / `stcani.tbl` (which carry the actual animation frame data) and likely exists as a fast lookup for the engine — "does this tile cycle?" without scanning the animation tables.
 - **Other high-nibble bits (`0x10..0x40`) appear unused** in retail data. The full nibble space is reserved for future extension.
 
 > Note: [dat-files.md:190](./dat-files.md#L190) describes the client masking every byte with `& 0xF0` after read. That doesn't square with the actual byte distribution (only `0x0f` would be impassable post-mask if mask were `0x0F`; the empirical impassable bytes are `0x0f` and `0x8f`). Either the mask direction is misdocumented or the masking step is followed by a separate inversion. Worth re-reading the client's `FUN_005CF3B0` to confirm.
@@ -40,7 +40,7 @@ References:
 ## Out of scope
 
 - **Per-map per-coordinate overrides.** "This chair in Mileth should be sittable but the same sprite in Piet shouldn't" is a server-push problem (see [chair-sitting-scoping.md:101–106](./chair-sitting-scoping.md#L101)). Confirmed deferred — the TabMap passable/non-passable overlay covers the secret-passages use case, and chairs are universally chairs.
-- **Multi-property authoring** (water vs. wall vs. chair). v1 is boolean; v2 path documented below.
+- **Authoring the animated-tile bit.** Bit 7 is an engine-level flag derived from the animation tables, not something an override author should be flipping. The merge rule below preserves it explicitly.
 - **Editing the base SOTP itself.** Authoring is always sparse overrides; the base ships in `ia.dat` and is read-only.
 
 ## Format v1
@@ -91,50 +91,31 @@ The keys are strings (not numbers) because JSON objects can't carry integer keys
 
 ### Semantics
 
-- **Sparse overlay, absolute values.** Each entry replaces the base SOTP byte for that tile ID. Only tiles listed in `overrides.json` are affected; everything else falls through to base SOTP.
+- **Sparse overlay, absolute on collision only.** Each entry replaces the **collision** of the base SOTP byte for that tile ID; the animated-tile bit is preserved from the base. Only tiles listed in `overrides.json` are affected; everything else falls through to base SOTP unchanged.
+- **Merge rule:** `merged = (base & 0x80) | (override === "passable" ? 0x00 : 0x0f)`. This way an animated impassable tile (`0x8f`) flipped to passable becomes `0x80` (still animated, now walkable), not `0x00` (animation lost).
 - **Multi-pack priority resolution.** When two packs both override the same tile ID, the higher-priority pack wins (matches the existing asset-pack `priority` field).
-- **No "delta" mode.** The pack is the source of truth for any tile it lists, in either direction.
+- **No "delta" mode.** The pack is the source of truth for any tile's collision in either direction.
 
-## Format v2 (planned, non-breaking expansion path)
+## Format v2 (reserved, may never be needed)
 
-Once the high-nibble byte-value table is reverse-engineered, the value position graduates to support optional structured metadata. v2 readers must accept v1's string form and v2's object form interchangeably:
+Earlier drafts of this plan reserved a v2 expansion path with a structured `{ passable, staticType }` value form, anticipating that SOTP encoded multiple property codes that authors would want to set per-tile. Empirical analysis of retail data (see "Confirmed encoding" above) showed the only non-collision bit is the animated-tile flag, and that flag is derived from the animation tables, not author-set. There is therefore no obvious driver for a v2.
 
-```json
-{
-  "format": 2,
-  "tiles": {
-    "1234": "passable",
-    "5678": { "passable": false, "staticType": "chair" },
-    "9999": { "passable": false, "staticType": "wall" }
-  }
-}
-```
+The `format: 1` field is still part of v1 so that a v2 *can* be added if a future need emerges (e.g. the client introduces additional property bits that authors should control). Until then, v1 is the only format.
 
-- `format: 2` — declares that values may be either a v1 string or a v2 object.
-- Object form: `{ "passable": boolean, "staticType"?: string }`.
-  - `passable` — required. The boolean collision flag, equivalent semantics to the v1 string.
-  - `staticType` — optional. Name of the property code from the high-nibble table (`chair`, `water`, `door`, `portal`, etc. — exact set determined by the byte-value RE).
-- Backward compatibility: v2 packs can keep using the v1 string form for tiles that don't need a typed property; v1 packs are read by v2 clients without changes; v2 packs declared `format: 2` are rejected by v1-only clients.
-
-The `staticType` value is informational at the format level — what each name *means* in terms of client behavior is decided by the client at merge time. Authoring tools enumerate the legal names from a single shared list.
-
-This shape was chosen over alternative expansions (richer string enum, parallel maps per property) because:
-- The boolean stays primary and required, matching the dominant use case.
-- The optional `staticType` is purely additive; it never silently changes a tile's collision.
-- v2 clients fall back to "treat unknown `staticType` as just the boolean" on the field.
+If v2 ever ships, the recommended shape is the same boolean-primary form previously sketched: values may be either a v1 string or `{ "passable": boolean, ...other-fields... }`, with v2 readers accepting both. The "what extra fields" decision is deferred to whenever the driver appears.
 
 ## Client-side responsibilities (Chaos.Client)
 
 This is the gate before the format is useful — Taliesin can author packs, but the client must consume them. Sketch of what's needed:
 
 1. **Register the content type** in `AssetPackRegistry`. New handler reads `overrides.json`, parses, validates `format` against the supported version range (currently `1`), builds an `IDictionary<int, byte>` of tile-ID → override byte.
-2. **Merge step at SOTP load time.** After the base `sotp.dat` is loaded from `ia.dat`, walk the merged override map (in pack-priority order, lowest first so highest writes last) and stamp the override byte on the in-memory SOTP table:
-   - `"passable"` → byte = `0x00`
-   - `"impassable"` → byte = the byte the client uses for "wall" (likely `0x10`, but pick whatever matches the existing wall encoding; see Open Q1).
+2. **Merge step at SOTP load time.** After the base `sotp.dat` is loaded from `ia.dat`, walk the merged override map (in pack-priority order, lowest first so highest writes last) and stamp the override byte on the in-memory SOTP table, **preserving the animation bit from the base byte**:
+   - `merged_byte = (base_byte & 0x80) | (override === "passable" ? 0x00 : 0x0f)`
+   - This keeps animated impassable tiles animated when an author flips them to passable (and vice versa).
 3. **Hot-reload semantics:** none. Same as other asset-pack types — restart applies changes.
 4. **Validation/logging:** if a tile ID is outside the SOTP table bounds, log a warning and skip; if `format` is unsupported, reject the pack with a warning.
 
-The client work is small (one new content-type handler + a merge step) but it's a real coordination point. Confirm "what byte means impassable" before locking the format.
+The client work is small (one new content-type handler + a merge step) but it's a real coordination point.
 
 ## Taliesin pack-kind module
 
@@ -257,6 +238,5 @@ Modified:
 
 ## Open questions
 
-1. **Reverse-engineering the high-nibble byte-value table.** The client's `& 0xF0` mask reduces SOTP to 16 possible property codes. Today only one (impassable) is meaningfully named. Mapping the rest unlocks v2's `staticType` field. User has volunteered to supply known non-passable tile IDs as a starting corpus; pair that with the client's `IsTileWall`/`IsTileChair`/etc. branches and the high-nibble values can be sampled.
-2. **What byte does the client write for `"impassable"`?** Specifically, is it `0x10` (probable, single-flag wall) or some other value in the high nibble? Cheap to settle once Q1 starts but should be settled before format v1 ships.
-3. **Authoring UX without a baseline library.** Acceptable to author overrides when no library is set (no baseline visible), or block the editor until a library is set?
+1. **The dat-files.md `& 0xF0` mask claim.** The empirical byte distribution (`0x00` / `0x0f` / `0x80` / `0x8f`) doesn't match a high-nibble mask — that would zero the low-nibble collision flag. Either the client's mask is `& 0x0F` and dat-files.md got the direction wrong, or there's a second step (e.g. a swap or invert) the doc didn't capture. Worth re-reading `FUN_005CF3B0` to settle and update dat-files.md accordingly. Doesn't block this format.
+2. **Authoring UX without a baseline library.** Acceptable to author overrides when no library is set (no baseline visible), or block the editor until a library is set?
