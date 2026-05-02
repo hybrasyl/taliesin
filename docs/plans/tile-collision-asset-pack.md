@@ -96,13 +96,39 @@ The keys are strings (not numbers) because JSON objects can't carry integer keys
 - **Multi-pack priority resolution.** When two packs both override the same tile ID, the higher-priority pack wins (matches the existing asset-pack `priority` field).
 - **No "delta" mode.** The pack is the source of truth for any tile's collision in either direction.
 
-## Format v2 (reserved, may never be needed)
+## Format v2 (planned, non-breaking expansion path)
 
-Earlier drafts of this plan reserved a v2 expansion path with a structured `{ passable, staticType }` value form, anticipating that SOTP encoded multiple property codes that authors would want to set per-tile. Empirical analysis of retail data (see "Confirmed encoding" above) showed the only non-collision bit is the animated-tile flag, and that flag is derived from the animation tables, not author-set. There is therefore no obvious driver for a v2.
+Retail SOTP only carries one non-collision bit (animated, engine-derived) — but the Hybrasyl client is not bound to retail's encoding. The client team can introduce new SOTP semantics, or define a successor table (`sotp2.dat` or similar), to encode properties retail never had: `chair` (sittable), `water` (slowing / swim animation), `portal` (transition trigger), `door` (interactable), and so on. The chair-sitting-scoping discussion is the canonical example — marking a tile as a chair unlocks server-side seated-state without per-map server pushes.
 
-The `format: 1` field is still part of v1 so that a v2 *can* be added if a future need emerges (e.g. the client introduces additional property bits that authors should control). Until then, v1 is the only format.
+When that happens, this override format graduates to express the new properties. v2 readers must accept v1's string form and v2's object form interchangeably so existing v1 packs continue to work:
 
-If v2 ever ships, the recommended shape is the same boolean-primary form previously sketched: values may be either a v1 string or `{ "passable": boolean, ...other-fields... }`, with v2 readers accepting both. The "what extra fields" decision is deferred to whenever the driver appears.
+```json
+{
+  "format": 2,
+  "tiles": {
+    "1234": "passable",
+    "5678": { "passable": false, "staticType": "chair" },
+    "9999": { "passable": true, "staticType": "water" }
+  }
+}
+```
+
+- `format: 2` — declares that values may be either a v1 string or a v2 object.
+- Object form: `{ "passable": boolean, "staticType"?: string }`.
+  - `passable` — required. Same semantics as the v1 string.
+  - `staticType` — optional. Name of a property the Hybrasyl client recognizes (`chair`, `water`, `door`, `portal`, etc. — exact set defined by whatever extension the client team adds).
+- Backward compatibility: v2 packs may still use the v1 string for tiles that only need a collision change; v1 packs are read by v2 clients without modification; v2 packs declared `format: 2` are rejected by v1-only clients with a warning.
+
+Why this shape:
+
+- The collision boolean stays primary and required — the dominant use case is "make this tile walkable / not walkable," not "tag it with a property."
+- `staticType` is purely additive and never silently changes a tile's collision. An author setting `staticType: "chair"` still has to decide whether the chair is `passable: true`.
+- Single-property-per-tile (`staticType` as a scalar string, not `properties` as an array) is the simplest model and matches retail SOTP's "tile has at most one property" pattern. If multi-property tiles become real, that's a v3 conversation.
+- `staticType` strings are kept in a single shared list owned by the client team. The override format itself doesn't validate the names — authoring tools enumerate them from the client's exported list, but unknown names are passed through verbatim so future client additions don't require an editor update.
+
+What's *not* author-settable in v2:
+
+- The animated-tile bit (retail's `0x80`). Engine-derived from animation tables; preserved by the merge rule, never expressed in the JSON.
 
 ## Client-side responsibilities (Chaos.Client)
 
