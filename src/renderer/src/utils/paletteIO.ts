@@ -37,6 +37,14 @@ export function calibrationFilePath(packDir: string, paletteId: string): string 
   return `${packDir}/_calibrations/${paletteId}.json`
 }
 
+export function testIconPath(packDir: string, paletteId: string): string {
+  return `${packDir}/_test_icons/${paletteId}.png`
+}
+
+export function testIconDir(packDir: string): string {
+  return `${packDir}/_test_icons`
+}
+
 export async function scanPalettes(packDir: string): Promise<PaletteSummary[]> {
   return (await window.api.paletteScan(packDir)) as PaletteSummary[]
 }

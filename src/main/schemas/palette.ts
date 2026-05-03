@@ -36,7 +36,7 @@ export const paletteSchema = z.object({
   lastModified: z.string(),
   entries: z.array(paletteEntrySchema),
   variants: z.array(variantDefSchema).optional(),
-  testIconPath: z.string().optional()
+  hasTestIcon: z.boolean().optional()
 })
 
 const duotoneParamsShape = {

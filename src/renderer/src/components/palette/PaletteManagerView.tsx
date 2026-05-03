@@ -30,6 +30,8 @@ import {
   loadPalette,
   savePalette,
   deletePalette,
+  testIconPath,
+  testIconDir,
   PaletteSummary
 } from '../../utils/paletteIO'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
@@ -115,14 +117,14 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
     if (dirty) markDirty()
   }, [dirty, markDirty])
 
-  // Load test icon as PixelBuffer when path changes
+  // Load test icon as PixelBuffer when the flag flips on.
   useEffect(() => {
     let cancelled = false
-    const path = draft?.testIconPath
-    if (!path) {
+    if (!draft?.hasTestIcon || !draft.id) {
       setTestIconBuf(null)
       return
     }
+    const path = testIconPath(packDir, draft.id)
     loadPixelBufferFromPath(path)
       .then((buf) => {
         if (!cancelled) setTestIconBuf(buf)
@@ -135,16 +137,34 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
     return () => {
       cancelled = true
     }
-  }, [draft?.testIconPath, onStatus])
+  }, [draft?.hasTestIcon, draft?.id, packDir, onStatus])
 
   const handlePickTestIcon = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
-    if (path) setDraft((prev) => (prev ? { ...prev, testIconPath: path } : prev))
-  }, [])
+    if (!draft?.id) return
+    const sourcePath = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
+    if (!sourcePath) return
+    try {
+      // Copy the picked PNG into <packDir>/_test_icons/<id>.png so the file
+      // lives under packDir (an allowed root) and survives across sessions.
+      // The dialog's session bless covers the source read; the destination
+      // is always inside packDir.
+      await window.api.ensureDir(testIconDir(packDir))
+      await window.api.copyFile(sourcePath, testIconPath(packDir, draft.id))
+      setDraft((prev) => (prev ? { ...prev, hasTestIcon: true } : prev))
+    } catch (err) {
+      onStatus(`Test icon copy failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }, [draft?.id, packDir, onStatus])
 
-  const handleClearTestIcon = useCallback(() => {
-    setDraft((prev) => (prev ? { ...prev, testIconPath: undefined } : prev))
-  }, [])
+  const handleClearTestIcon = useCallback(async () => {
+    if (!draft?.id) return
+    try {
+      await window.api.deleteFile(testIconPath(packDir, draft.id))
+    } catch {
+      /* file might already be gone — non-fatal */
+    }
+    setDraft((prev) => (prev ? { ...prev, hasTestIcon: false } : prev))
+  }, [draft?.id, packDir])
 
   const update = useCallback((patch: Partial<Palette>) => {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
@@ -312,7 +332,11 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                 sx={{ flex: 1 }}
               />
               <Tooltip
-                title={draft.testIconPath ?? 'Pick a test icon to preview the palette against'}
+                title={
+                  draft.hasTestIcon
+                    ? 'Replace test icon (current copy lives in _test_icons/)'
+                    : 'Pick a test icon to preview the palette against'
+                }
               >
                 <Button
                   size="small"
@@ -324,7 +348,7 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                   Test Icon
                 </Button>
               </Tooltip>
-              {draft.testIconPath && (
+              {draft.hasTestIcon && (
                 <Tooltip title="Clear test icon">
                   <IconButton size="small" onClick={handleClearTestIcon}>
                     <ClearIcon fontSize="small" />

@@ -8,7 +8,7 @@
 // stay optional so any downstream parser can ignore them.
 //
 // If the schemas ever diverge, add a `palette:export` IPC that emits a
-// slimmed copy (drop `notes`, `lastModified`, `description`, `testIconPath`,
+// slimmed copy (drop `notes`, `lastModified`, `description`, `hasTestIcon`,
 // `defaultDarkFactor`, `defaultLightFactor`, `defaultClampBlack`,
 // `defaultClampWhite`, `category`, `variants`) at a user-chosen path.
 
@@ -42,7 +42,11 @@ export interface Palette {
   lastModified: string // ISO 8601
   entries: PaletteEntry[]
   variants?: VariantDef[] // optional per-palette override of DEFAULT_VARIANTS
-  testIconPath?: string // optional canonical preview icon
+  // True iff a preview icon exists at <packDir>/_test_icons/<id>.png. The
+  // file lives inside packDir so it stays inside an allowed root across
+  // sessions; before this change the field was an absolute external path
+  // that broke after restart once session-scoped blessings were dropped.
+  hasTestIcon?: boolean
 }
 
 export interface DuotoneParams {
