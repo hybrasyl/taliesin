@@ -41,6 +41,13 @@ const { fsMock, files, errors } = vi.hoisted(() => {
           files.delete(from)
           files.set(to, v)
         }),
+        unlink: vi.fn(async (path: string) => {
+          if (!files.has(path)) {
+            const e: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+            throw e
+          }
+          files.delete(path)
+        }),
         mkdir: vi.fn(async () => undefined)
       }
     }
@@ -271,5 +278,133 @@ describe('createSettingsManager.save', () => {
         musEncodeSampleRate: 22050
       })
     ).rejects.toThrow(/disk full/)
+  })
+
+  it('queue survives a failed save — next save still runs', async () => {
+    // Under the previous one-arg .then(async fn) pattern, a single failure
+    // poisoned the chain and every subsequent save silently no-op'd through
+    // the rejected promise. The two-arg .then(fn, fn) form keeps the queue
+    // alive.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const mgr = createSettingsManager(USER_DATA)
+    const base = {
+      activeLibrary: null,
+      mapDirectories: [],
+      activeMapDirectory: null,
+      musicWorkingDirs: [],
+      musEncodeKbps: 64,
+      musEncodeSampleRate: 22050
+    }
+
+    errors.set(TMP, new Error('first save fails'))
+    await expect(
+      mgr.save({ ...base, libraries: ['first'] })
+    ).rejects.toThrow(/first save fails/)
+
+    // Clear the injected failure and try again — this would silently no-op
+    // (resolve undefined without ever calling writeFile) under the old
+    // poisoned-queue behavior.
+    errors.delete(TMP)
+    await mgr.save({ ...base, libraries: ['second'] })
+
+    expect(JSON.parse(files.get(PRIMARY)!).libraries).toEqual(['second'])
+    consoleError.mockRestore()
+  })
+})
+
+describe('createSettingsManager.save — renameWithRetry', () => {
+  const eperm = (): NodeJS.ErrnoException =>
+    Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' })
+
+  function baseSettings() {
+    return {
+      libraries: [] as string[],
+      activeLibrary: null,
+      mapDirectories: [],
+      activeMapDirectory: null,
+      musicWorkingDirs: [],
+      musEncodeKbps: 64,
+      musEncodeSampleRate: 22050
+    }
+  }
+
+  it('retries rename on EPERM and eventually succeeds without unlinking', async () => {
+    // First two attempts fail with EPERM; the third uses the default mock
+    // impl (which succeeds). renameWithRetry's loop runs up to 3 attempts
+    // before falling back to unlink, so this case stays inside the loop.
+    fsMock.promises.rename
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+
+    const mgr = createSettingsManager(USER_DATA)
+    await mgr.save(baseSettings())
+
+    expect(fsMock.promises.rename).toHaveBeenCalledTimes(3)
+    expect(fsMock.promises.unlink).not.toHaveBeenCalled()
+    expect(files.has(PRIMARY)).toBe(true)
+  })
+
+  it('falls back to unlink+rename when all retries exhaust on EPERM', async () => {
+    // All 3 in-loop attempts fail with EPERM. The final fallback unlinks
+    // the destination, then renames using the default mock impl.
+    fsMock.promises.rename
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+
+    // Pre-populate primary so unlink has something to remove (otherwise
+    // unlink throws ENOENT, which renameWithRetry tolerates anyway).
+    files.set(PRIMARY, '{"libraries":[],"mapDirectories":[]}')
+
+    const mgr = createSettingsManager(USER_DATA)
+    await mgr.save(baseSettings())
+
+    // 3 in-loop attempts + 1 final-fallback rename = 4 total
+    expect(fsMock.promises.rename).toHaveBeenCalledTimes(4)
+    expect(fsMock.promises.unlink).toHaveBeenCalledWith(PRIMARY)
+    expect(files.has(PRIMARY)).toBe(true)
+  })
+
+  it('does not retry on non-EPERM errors', async () => {
+    fsMock.promises.rename.mockImplementationOnce(async () => {
+      throw new Error('some other error')
+    })
+
+    const mgr = createSettingsManager(USER_DATA)
+    await expect(mgr.save(baseSettings())).rejects.toThrow(/some other error/)
+
+    // Single attempt, no retry, no fallback
+    expect(fsMock.promises.rename).toHaveBeenCalledTimes(1)
+    expect(fsMock.promises.unlink).not.toHaveBeenCalled()
+  })
+
+  it('tolerates unlink ENOENT in the final fallback (dest may not exist)', async () => {
+    fsMock.promises.rename
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+      .mockImplementationOnce(async () => {
+        throw eperm()
+      })
+
+    // No primary file exists, so unlink will throw ENOENT — must be swallowed.
+    const mgr = createSettingsManager(USER_DATA)
+    await mgr.save(baseSettings())
+
+    expect(fsMock.promises.unlink).toHaveBeenCalledWith(PRIMARY)
+    expect(files.has(PRIMARY)).toBe(true)
   })
 })
