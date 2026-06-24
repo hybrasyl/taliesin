@@ -1,4 +1,4 @@
-appId: com.hybrasyl.taliesin
+appId: co.eris.taliesin
 productName: Taliesin
 icon: resources/taliesin.png
 directories:
@@ -28,13 +28,22 @@ nsis:
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  target:
+    - target: dmg
+      arch:
+        - universal
+  notarize: true
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
