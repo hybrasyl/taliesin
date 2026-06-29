@@ -10,6 +10,9 @@ export type ContentType =
   | 'music'
   | 'sound_effects'
   | 'world_maps'
+  | 'npc_portraits'
+  | 'static_tiles'
+  | 'creature_sprites'
 
 export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'ability_icons',
@@ -19,7 +22,10 @@ export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'item_icons',
   'music',
   'sound_effects',
-  'world_maps'
+  'world_maps',
+  'npc_portraits',
+  'static_tiles',
+  'creature_sprites'
 ] as const
 
 export interface PackAsset {

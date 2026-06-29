@@ -16,7 +16,10 @@ const contentTypeSchema = z.enum([
   'item_icons',
   'music',
   'sound_effects',
-  'world_maps'
+  'world_maps',
+  'npc_portraits',
+  'static_tiles',
+  'creature_sprites'
 ])
 
 // Per-kind covers schemas live with their kind modules in

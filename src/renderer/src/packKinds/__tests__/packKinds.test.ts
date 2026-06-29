@@ -7,27 +7,33 @@ import { uiSpriteOverridesKind } from '../uiSpriteOverrides'
 import { musicKind } from '../music'
 import { soundEffectsKind } from '../soundEffects'
 import { worldMapsKind } from '../worldMaps'
+import { npcPortraitsKind } from '../npcPortraits'
+import { staticTilesKind } from '../staticTiles'
+import { creatureSpritesKind } from '../creatureSprites'
 import { getKind, listKinds, isKnownContentType, PACK_KINDS } from '../index'
-import type { PackAsset } from '../types'
+import type { PackAsset, PackProject } from '../types'
 
 describe('PACK_KINDS registry', () => {
-  it('has all 8 known content types', () => {
+  it('has all 11 known content types', () => {
     expect(Object.keys(PACK_KINDS).sort()).toEqual([
       'ability_icons',
+      'creature_sprites',
       'item_icons',
       'legend_mark_icons',
       'music',
       'nation_badges',
+      'npc_portraits',
       'sound_effects',
+      'static_tiles',
       'ui_sprite_overrides',
       'world_maps'
     ])
   })
 
   it('listKinds returns each kind once', () => {
-    expect(listKinds()).toHaveLength(8)
+    expect(listKinds()).toHaveLength(11)
     const types = new Set(listKinds().map((k) => k.type))
-    expect(types.size).toBe(8)
+    expect(types.size).toBe(11)
   })
 
   it('getKind returns the matching kind', () => {
@@ -319,5 +325,139 @@ describe('worldMapsKind', () => {
       'field001.png'
     )
     expect(() => worldMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(/requires ctx.namespace/)
+  })
+})
+
+describe('staticTilesKind', () => {
+  it('parseSlot reads floor and wall namespaces with 5-digit ids', () => {
+    expect(staticTilesKind.parseSlot('floor00001.png')).toEqual({ namespace: 'floor', id: 1 })
+    expect(staticTilesKind.parseSlot('wall00342.png')).toEqual({ namespace: 'wall', id: 342 })
+    expect(staticTilesKind.parseSlot('floor001.png')).toBeNull() // 3 digits
+    expect(staticTilesKind.parseSlot('skill0001.png')).toBeNull()
+  })
+
+  it('nextAssetPath defaults to floor, 1-based with 5-digit padding', () => {
+    expect(staticTilesKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('floor00001.png')
+  })
+
+  it('nextAssetPath honors the wall namespace and increments per namespace', () => {
+    const existing: PackAsset[] = [
+      { filename: 'floor00001.png', sourcePath: 'a' },
+      { filename: 'floor00002.png', sourcePath: 'b' }
+    ]
+    expect(
+      staticTilesKind.nextAssetPath({ ctx: { namespace: 'floor' }, existingAssets: existing }).zipPath
+    ).toBe('floor00003.png')
+    expect(
+      staticTilesKind.nextAssetPath({ ctx: { namespace: 'wall' }, existingAssets: existing }).zipPath
+    ).toBe('wall00001.png')
+  })
+
+  it('namespaces returns floor and wall', () => {
+    expect(staticTilesKind.namespaces?.([])).toEqual(['floor', 'wall'])
+  })
+
+  it('dimension accepts anything and covers is strict empty', () => {
+    expect(staticTilesKind.dimension!.validate(28, 28)).toBeNull()
+    expect(() => staticTilesKind.coversSchema.parse({ static_tiles: {} })).not.toThrow()
+    expect(() => staticTilesKind.coversSchema.parse({ static_tiles: { x: 1 } })).toThrow()
+  })
+})
+
+describe('creatureSpritesKind', () => {
+  it('parseSlot reads the nested n/e master path with the creature id as slot id', () => {
+    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/n_001.png')).toEqual({
+      namespace: 'n',
+      id: 123
+    })
+    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00001/stand/e_001.png')).toEqual({
+      namespace: 'e',
+      id: 1
+    })
+    // backslash separators tolerated
+    expect(creatureSpritesKind.parseSlot('creature_sprites\\creature_00007\\stand\\n_001.png')).toEqual({
+      namespace: 'n',
+      id: 7
+    })
+    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/walk/n_001.png')).toBeNull()
+    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/s_001.png')).toBeNull()
+    expect(creatureSpritesKind.parseSlot('skill0001.png')).toBeNull()
+  })
+
+  it('nextAssetPath builds the nested path, defaults to n, 1-based per namespace', () => {
+    expect(creatureSpritesKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe(
+      'creature_sprites/creature_00001/stand/n_001.png'
+    )
+    const existing: PackAsset[] = [
+      { filename: 'creature_sprites/creature_00001/stand/n_001.png', sourcePath: 'a' },
+      { filename: 'creature_sprites/creature_00004/stand/n_001.png', sourcePath: 'b' }
+    ]
+    expect(
+      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'n' }, existingAssets: existing }).zipPath
+    ).toBe('creature_sprites/creature_00005/stand/n_001.png')
+    expect(
+      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'e' }, existingAssets: existing }).zipPath
+    ).toBe('creature_sprites/creature_00001/stand/e_001.png')
+  })
+
+  it('namespaces returns n and e and covers is strict empty', () => {
+    expect(creatureSpritesKind.namespaces?.([])).toEqual(['n', 'e'])
+    expect(() => creatureSpritesKind.coversSchema.parse({ creature_sprites: {} })).not.toThrow()
+    expect(() => creatureSpritesKind.coversSchema.parse({ creature_sprites: { x: 1 } })).toThrow()
+  })
+})
+
+describe('npcPortraitsKind', () => {
+  it('parseSlot reads the portrait key as the identity, rejecting nesting', () => {
+    expect(npcPortraitsKind.parseSlot('Gobalt.png')).toEqual({ namespace: 'Gobalt', id: 0 })
+    expect(npcPortraitsKind.parseSlot('inn.spf.png')).toEqual({ namespace: 'inn.spf', id: 0 })
+    expect(npcPortraitsKind.parseSlot('sub/Gobalt.png')).toBeNull()
+    expect(npcPortraitsKind.parseSlot('Gobalt.epf')).toBeNull()
+  })
+
+  it('nextAssetPath names the file after the portrait key, requires ctx.namespace', () => {
+    expect(npcPortraitsKind.nextAssetPath({ ctx: { namespace: 'Gobalt' }, existingAssets: [] }).zipPath).toBe(
+      'Gobalt.png'
+    )
+    expect(() => npcPortraitsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(
+      /requires ctx.namespace/
+    )
+  })
+
+  it('dimension enforces square', () => {
+    expect(npcPortraitsKind.dimension!.validate(200, 200)).toBeNull()
+    expect(npcPortraitsKind.dimension!.validate(200, 256)).toMatch(/square/)
+  })
+
+  it('coversSchema requires a square dimensions tuple and string portraits map', () => {
+    expect(() =>
+      npcPortraitsKind.coversSchema.parse({ npc_portraits: { dimensions: [200, 200] } })
+    ).not.toThrow()
+    expect(() =>
+      npcPortraitsKind.coversSchema.parse({
+        npc_portraits: { dimensions: [200, 200], portraits: { Gobalt: 'Gobalt.png' } }
+      })
+    ).not.toThrow()
+    expect(() =>
+      npcPortraitsKind.coversSchema.parse({ npc_portraits: { dimensions: [200, 256] } })
+    ).toThrow() // non-square
+  })
+
+  it('reduceCoversFromMeta rebuilds the portraits map and preserves the square size', () => {
+    const draft = {
+      content_type: 'npc_portraits',
+      covers: { npc_portraits: { dimensions: [200, 200], portraits: {} } },
+      assets: [
+        { filename: 'Gobalt.png', sourcePath: 'a' },
+        { filename: 'inn.spf.png', sourcePath: 'b' }
+      ]
+    } as unknown as PackProject
+    const reduced = npcPortraitsKind.reduceCoversFromMeta?.(draft)
+    expect(reduced).toEqual({
+      npc_portraits: {
+        dimensions: [200, 200],
+        portraits: { Gobalt: 'Gobalt.png', 'inn.spf': 'inn.spf.png' }
+      }
+    })
   })
 })
