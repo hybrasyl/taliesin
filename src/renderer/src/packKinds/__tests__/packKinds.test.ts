@@ -4,24 +4,30 @@ import { nationBadgesKind } from '../nationBadges'
 import { legendMarkIconsKind } from '../legendMarkIcons'
 import { itemIconsKind } from '../itemIcons'
 import { uiSpriteOverridesKind } from '../uiSpriteOverrides'
+import { musicKind } from '../music'
+import { soundEffectsKind } from '../soundEffects'
+import { worldMapsKind } from '../worldMaps'
 import { getKind, listKinds, isKnownContentType, PACK_KINDS } from '../index'
 import type { PackAsset } from '../types'
 
 describe('PACK_KINDS registry', () => {
-  it('has all 5 known content types', () => {
+  it('has all 8 known content types', () => {
     expect(Object.keys(PACK_KINDS).sort()).toEqual([
       'ability_icons',
       'item_icons',
       'legend_mark_icons',
+      'music',
       'nation_badges',
-      'ui_sprite_overrides'
+      'sound_effects',
+      'ui_sprite_overrides',
+      'world_maps'
     ])
   })
 
   it('listKinds returns each kind once', () => {
-    expect(listKinds()).toHaveLength(5)
+    expect(listKinds()).toHaveLength(8)
     const types = new Set(listKinds().map((k) => k.type))
-    expect(types.size).toBe(5)
+    expect(types.size).toBe(8)
   })
 
   it('getKind returns the matching kind', () => {
@@ -68,9 +74,9 @@ describe('abilityIconsKind', () => {
   })
 
   it('dimension validates 32×32 strict', () => {
-    expect(abilityIconsKind.dimension.validate(32, 32)).toBeNull()
-    expect(abilityIconsKind.dimension.validate(31, 31)).toMatch(/Expected 32×32/)
-    expect(abilityIconsKind.dimension.validate(64, 64)).toMatch(/Expected 32×32/)
+    expect(abilityIconsKind.dimension!.validate(32, 32)).toBeNull()
+    expect(abilityIconsKind.dimension!.validate(31, 31)).toMatch(/Expected 32×32/)
+    expect(abilityIconsKind.dimension!.validate(64, 64)).toMatch(/Expected 32×32/)
   })
 
   it('coversSchema requires the [32, 32] tuple', () => {
@@ -98,8 +104,8 @@ describe('nationBadgesKind', () => {
   })
 
   it('dimension accepts anything', () => {
-    expect(nationBadgesKind.dimension.validate(1, 1)).toBeNull()
-    expect(nationBadgesKind.dimension.validate(128, 256)).toBeNull()
+    expect(nationBadgesKind.dimension!.validate(1, 1)).toBeNull()
+    expect(nationBadgesKind.dimension!.validate(128, 256)).toBeNull()
   })
 
   it('coversSchema is strict empty', () => {
@@ -131,10 +137,10 @@ describe('legendMarkIconsKind', () => {
   })
 
   it('dimension accepts 20×20 and 21×20, rejects others', () => {
-    expect(legendMarkIconsKind.dimension.validate(20, 20)).toBeNull()
-    expect(legendMarkIconsKind.dimension.validate(21, 20)).toBeNull()
-    expect(legendMarkIconsKind.dimension.validate(22, 20)).toMatch(/width/)
-    expect(legendMarkIconsKind.dimension.validate(20, 21)).toMatch(/height/)
+    expect(legendMarkIconsKind.dimension!.validate(20, 20)).toBeNull()
+    expect(legendMarkIconsKind.dimension!.validate(21, 20)).toBeNull()
+    expect(legendMarkIconsKind.dimension!.validate(22, 20)).toMatch(/width/)
+    expect(legendMarkIconsKind.dimension!.validate(20, 21)).toMatch(/height/)
   })
 })
 
@@ -150,12 +156,12 @@ describe('itemIconsKind', () => {
   })
 
   it('dimension accepts 16–32 in both axes', () => {
-    expect(itemIconsKind.dimension.validate(16, 16)).toBeNull()
-    expect(itemIconsKind.dimension.validate(32, 32)).toBeNull()
-    expect(itemIconsKind.dimension.validate(24, 30)).toBeNull()
-    expect(itemIconsKind.dimension.validate(15, 16)).toMatch(/width/)
-    expect(itemIconsKind.dimension.validate(33, 16)).toMatch(/width/)
-    expect(itemIconsKind.dimension.validate(16, 33)).toMatch(/height/)
+    expect(itemIconsKind.dimension!.validate(16, 16)).toBeNull()
+    expect(itemIconsKind.dimension!.validate(32, 32)).toBeNull()
+    expect(itemIconsKind.dimension!.validate(24, 30)).toBeNull()
+    expect(itemIconsKind.dimension!.validate(15, 16)).toMatch(/width/)
+    expect(itemIconsKind.dimension!.validate(33, 16)).toMatch(/width/)
+    expect(itemIconsKind.dimension!.validate(16, 33)).toMatch(/height/)
   })
 
   it('coversSchema accepts optional no_dye array', () => {
@@ -234,7 +240,84 @@ describe('uiSpriteOverridesKind', () => {
   })
 
   it('dimension accepts anything', () => {
-    expect(uiSpriteOverridesKind.dimension.validate(1, 1)).toBeNull()
-    expect(uiSpriteOverridesKind.dimension.validate(64, 64)).toBeNull()
+    expect(uiSpriteOverridesKind.dimension!.validate(1, 1)).toBeNull()
+    expect(uiSpriteOverridesKind.dimension!.validate(64, 64)).toBeNull()
+  })
+})
+
+describe('musicKind', () => {
+  it('has no dimension rule and offers audio extensions', () => {
+    expect(musicKind.dimension).toBeUndefined()
+    expect(musicKind.fileExtensions).toEqual(['ogg', 'mp3', 'wav', 'flac', 'mus'])
+  })
+
+  it('parseSlot reads music_{id} entries, zero-pad tolerant, rejects non-matches', () => {
+    expect(musicKind.parseSlot('music_0001.ogg')).toEqual({ namespace: 'music', id: 1 })
+    expect(musicKind.parseSlot('music_5.mp3')).toEqual({ namespace: 'music', id: 5 })
+    expect(musicKind.parseSlot('music_0200.flac')).toEqual({ namespace: 'music', id: 200 })
+    expect(musicKind.parseSlot('music0001.ogg')).toBeNull() // missing underscore
+    expect(musicKind.parseSlot('music_.ogg')).toBeNull() // empty id
+    expect(musicKind.parseSlot('sfx_0001.wav')).toBeNull()
+    expect(musicKind.parseSlot('music_0001.png')).toBeNull() // not an audio extension
+  })
+
+  it('nextAssetPath increments id and preserves a valid source extension', () => {
+    const existing: PackAsset[] = [
+      { filename: 'music_0001.ogg', sourcePath: 'a' },
+      { filename: 'music_0007.mp3', sourcePath: 'b' }
+    ]
+    expect(musicKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'mp3' }).zipPath).toBe(
+      'music_0008.mp3'
+    )
+    // unknown/absent source extension falls back to the recommended ogg
+    expect(musicKind.nextAssetPath({ existingAssets: [], sourceExtension: 'aiff' }).zipPath).toBe(
+      'music_0001.ogg'
+    )
+    expect(musicKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('music_0001.ogg')
+  })
+})
+
+describe('soundEffectsKind', () => {
+  it('has no dimension rule and offers audio extensions', () => {
+    expect(soundEffectsKind.dimension).toBeUndefined()
+    expect(soundEffectsKind.fileExtensions).toEqual(['wav', 'ogg', 'mp3', 'flac'])
+  })
+
+  it('parseSlot reads sfx_{id} entries, rejects non-matches', () => {
+    expect(soundEffectsKind.parseSlot('sfx_0001.wav')).toEqual({ namespace: 'sfx', id: 1 })
+    expect(soundEffectsKind.parseSlot('sfx_500.ogg')).toEqual({ namespace: 'sfx', id: 500 })
+    expect(soundEffectsKind.parseSlot('sfx0001.wav')).toBeNull() // missing underscore
+    expect(soundEffectsKind.parseSlot('music_0001.ogg')).toBeNull()
+    expect(soundEffectsKind.parseSlot('sfx_0001.mus')).toBeNull() // .mus is music-only
+  })
+
+  it('nextAssetPath increments id and defaults to wav', () => {
+    const existing: PackAsset[] = [{ filename: 'sfx_0003.wav', sourcePath: 'a' }]
+    expect(soundEffectsKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'ogg' }).zipPath).toBe(
+      'sfx_0004.ogg'
+    )
+    expect(soundEffectsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('sfx_0001.wav')
+  })
+})
+
+describe('worldMapsKind', () => {
+  it('accepts any dimension and uses a custom field-name prompt', () => {
+    expect(worldMapsKind.dimension!.validate(2000, 1500)).toBeNull()
+    expect(worldMapsKind.customNamespacePrompt).toBeDefined()
+    expect(worldMapsKind.namespaces).toBeUndefined()
+  })
+
+  it('parseSlot reads {fieldName}.png as a named identity', () => {
+    expect(worldMapsKind.parseSlot('field001.png')).toEqual({ namespace: 'field001', id: 0 })
+    expect(worldMapsKind.parseSlot('Mileth.png')).toEqual({ namespace: 'Mileth', id: 0 })
+    expect(worldMapsKind.parseSlot('sub/field001.png')).toBeNull() // must be at root
+    expect(worldMapsKind.parseSlot('field001.epf')).toBeNull()
+  })
+
+  it('nextAssetPath names the file after the field namespace', () => {
+    expect(worldMapsKind.nextAssetPath({ ctx: { namespace: 'field001' }, existingAssets: [] }).zipPath).toBe(
+      'field001.png'
+    )
+    expect(() => worldMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(/requires ctx.namespace/)
   })
 })

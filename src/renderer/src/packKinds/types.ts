@@ -7,13 +7,19 @@ export type ContentType =
   | 'legend_mark_icons'
   | 'ui_sprite_overrides'
   | 'item_icons'
+  | 'music'
+  | 'sound_effects'
+  | 'world_maps'
 
 export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'ability_icons',
   'nation_badges',
   'legend_mark_icons',
   'ui_sprite_overrides',
-  'item_icons'
+  'item_icons',
+  'music',
+  'sound_effects',
+  'world_maps'
 ] as const
 
 export interface PackAsset {
@@ -64,6 +70,10 @@ export interface AddAssetOptions {
    *  ui_sprite_overrides expects { namespace: '<source-filename>' }. */
   ctx?: Record<string, unknown>
   existingAssets: PackAsset[]
+  /** Lowercased extension (no dot) of the picked source file, e.g. 'ogg'. Audio
+   *  kinds use it to preserve the source format in the generated filename; image
+   *  kinds ignore it (they always emit '.png'). */
+  sourceExtension?: string
 }
 
 export type AssetMetaField =
@@ -82,7 +92,14 @@ export interface PackKind {
   label: string
   /** One-line description shown under the dropdown when this kind is picked. */
   description: string
-  dimension: DimensionRule
+  /** Pixel-dimension rule for image kinds. Omitted by non-image kinds (audio),
+   *  for which there is no width/height to validate — the add flow skips the
+   *  image decode entirely when this is absent. */
+  dimension?: DimensionRule
+  /** Source file extensions (lowercase, no dot) the "Add" file picker offers for
+   *  this kind. Defaults to ['png'] when omitted (every image kind). Audio kinds
+   *  set their accepted audio formats. */
+  fileExtensions?: string[]
   /** Initial `covers` blob used at pack creation. */
   defaultCovers(): Record<string, unknown>
   /** Renderer-side strict schema for this kind's covers payload. Main does not
@@ -107,6 +124,9 @@ export interface PackKind {
     menuLabel: string
     dialogTitle: string
     dialogHelp: string
+    /** Label for the dialog's text input. Defaults to 'Source filename' (the
+     *  ui_sprite_overrides framing); world_maps overrides it to 'Field name'. */
+    inputLabel?: string
   }
   /** Optional kind-specific UI panel rendered inside PackEditor. Lets a new
    *  pack type ship its own affordances without PackEditor naming the kind. */

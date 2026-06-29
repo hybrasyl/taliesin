@@ -196,6 +196,11 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const kind = getKind(draft.content_type)
   const namespaceList = useMemo(() => kind.namespaces?.(draft.assets) ?? [], [kind, draft.assets])
   const hasMenu = namespaceList.length > 0 || !!kind.customNamespacePrompt
+  // "Add PNG" for single-format (image) kinds; generic "Add file" for multi-format (audio) kinds
+  const addLabel = useMemo(() => {
+    const exts = kind.fileExtensions ?? ['png']
+    return exts.length === 1 ? `Add ${exts[0].toUpperCase()}` : 'Add file'
+  }, [kind])
   const metaFields = useMemo(() => kind.assetMetaFields?.() ?? {}, [kind])
   const metaFieldEntries = Object.entries(metaFields)
 
@@ -215,29 +220,35 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
 
   const addAssetInNamespace = useCallback(
     async (namespace: string | undefined) => {
+      const extensions = kind.fileExtensions ?? ['png']
       const filePath = (await window.api.openFile([
-        { name: 'PNG Images', extensions: ['png'] }
+        { name: kind.label, extensions }
       ])) as string | null
       if (!filePath) return
 
-      // Decode the picked PNG once. Used for dimension validation, and for
-      // the kind-specific dye scan when applicable.
-      let buf: Awaited<ReturnType<typeof loadPixelBufferFromPath>>
-      try {
-        buf = await loadPixelBufferFromPath(filePath)
-      } catch (e) {
-        onStatus(`Failed to read image: ${e instanceof Error ? e.message : 'unknown error'}`)
-        return
-      }
-      const dimError = kind.dimension.validate(buf.width, buf.height)
-      if (dimError) {
-        onStatus(`Rejected: ${dimError}`)
-        return
+      // Image kinds decode the picked PNG once (dimension validation + the
+      // kind-specific dye scan). Non-image kinds (audio) have no dimension rule,
+      // so the decode is skipped entirely and the file is copied through as-is.
+      let buf: Awaited<ReturnType<typeof loadPixelBufferFromPath>> | null = null
+      if (kind.dimension) {
+        try {
+          buf = await loadPixelBufferFromPath(filePath)
+        } catch (e) {
+          onStatus(`Failed to read image: ${e instanceof Error ? e.message : 'unknown error'}`)
+          return
+        }
+        const dimError = kind.dimension.validate(buf.width, buf.height)
+        if (dimError) {
+          onStatus(`Rejected: ${dimError}`)
+          return
+        }
       }
 
+      const sourceExtension = filePath.split('.').pop()?.toLowerCase()
       const target = kind.nextAssetPath({
         ctx: namespace ? { namespace } : undefined,
-        existingAssets: draft.assets
+        existingAssets: draft.assets,
+        sourceExtension
       })
       await window.api.packAddAsset(packDir, filePath, target.zipPath)
 
@@ -249,7 +260,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       // outside the canonical palette. Skipped when the asset is flagged
       // noDye (the kind decides via assetMetaFields).
       let suffix = ''
-      if (draft.content_type === 'item_icons') {
+      if (buf && draft.content_type === 'item_icons') {
         const report = scanDyeUsage(buf)
         if (report.nonDyeablePurplePixels > 0) {
           suffix = ` (warning: ${report.nonDyeablePurplePixels} near-purple pixels not in canonical palette — mark No dye if intentional)`
@@ -442,7 +453,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           endIcon={hasMenu ? <ArrowDropDownIcon /> : undefined}
           onClick={handleAddClick}
         >
-          Add PNG
+          {addLabel}
         </Button>
         <Menu
           anchorEl={addMenuAnchor}
@@ -515,7 +526,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
               autoFocus
               fullWidth
               size="small"
-              label="Source filename"
+              label={kind.customNamespacePrompt.inputLabel ?? 'Source filename'}
               value={customNsValue}
               onChange={(e) => setCustomNsValue(e.target.value)}
               helperText={kind.customNamespacePrompt.dialogHelp}

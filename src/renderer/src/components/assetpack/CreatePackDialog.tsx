@@ -82,9 +82,11 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
               <Typography variant="caption" component="div">
                 {kind.description}
               </Typography>
-              <Typography variant="caption" component="div" sx={{ opacity: 0.7 }}>
-                Dimensions: {kind.dimension.label}
-              </Typography>
+              {kind.dimension && (
+                <Typography variant="caption" component="div" sx={{ opacity: 0.7 }}>
+                  Dimensions: {kind.dimension.label}
+                </Typography>
+              )}
             </FormHelperText>
           </FormControl>
           <TextField
