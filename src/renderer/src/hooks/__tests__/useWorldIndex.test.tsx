@@ -15,6 +15,9 @@ const fakeIndex = {
 
 beforeEach(() => {
   api = installMockApi()
+  // Default: an up-to-date cache exists, so the hook takes the read path.
+  // Individual tests override this to exercise the auto-build path.
+  api.indexStatus.mockResolvedValue({ exists: true, stale: false })
 })
 
 function withLibrary(value: string | null) {
@@ -87,5 +90,26 @@ describe('useWorldIndex', () => {
       await result.current.build()
     })
     expect(api.indexBuild).not.toHaveBeenCalled()
+  })
+
+  it('auto-builds when no cache exists on load', async () => {
+    api.indexStatus.mockResolvedValue({ exists: false })
+    const built = { ...fakeIndex, builtAt: '2025-03-03T00:00:00Z' } as WorldIndex
+    api.indexBuild.mockResolvedValue(built)
+
+    const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
+    await waitFor(() => expect(result.current.index).toBe(built))
+    expect(api.indexBuild).toHaveBeenCalledWith('/lib')
+    expect(api.indexRead).not.toHaveBeenCalled()
+  })
+
+  it('auto-builds when the cache is stale on load', async () => {
+    api.indexStatus.mockResolvedValue({ exists: true, stale: true })
+    const built = { ...fakeIndex, builtAt: '2025-04-04T00:00:00Z' } as WorldIndex
+    api.indexBuild.mockResolvedValue(built)
+
+    const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
+    await waitFor(() => expect(result.current.index).toBe(built))
+    expect(api.indexBuild).toHaveBeenCalledWith('/lib')
   })
 })

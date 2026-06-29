@@ -9,17 +9,47 @@ export function useWorldIndex() {
   const [building, setBuilding] = useState(false)
   const [buildError, setBuildError] = useState<string | null>(null)
 
-  // Read existing index whenever the active library changes
+  // Load the index whenever the active library changes. The index is now a
+  // rebuildable cache that lives outside the (git) world folder and is shared
+  // with Creidhne, so a fresh machine — or a world edited externally — may have
+  // no cache or a stale one. Auto-build in that case, then use the result;
+  // otherwise read the existing cache. buildIndex is incremental, so an
+  // up-to-date cache makes the build path cheap.
   useEffect(() => {
     if (!activeLibrary) {
       setIndex(null)
       return
     }
+    let cancelled = false
     setLoading(true)
-    window.api
-      .indexRead(activeLibrary)
-      .then(setIndex)
-      .finally(() => setLoading(false))
+    ;(async () => {
+      try {
+        const status = await window.api.indexStatus(activeLibrary)
+        if (!status?.exists || status?.stale) {
+          if (cancelled) return
+          setBuilding(true)
+          setBuildError(null)
+          try {
+            const built = await window.api.indexBuild(activeLibrary)
+            if (!cancelled) setIndex(built)
+          } catch (e) {
+            if (!cancelled) {
+              setBuildError(e instanceof Error ? e.message : 'Index build failed')
+            }
+          } finally {
+            if (!cancelled) setBuilding(false)
+          }
+        } else {
+          const existing = await window.api.indexRead(activeLibrary)
+          if (!cancelled) setIndex(existing)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [activeLibrary])
 
   // Trigger a full rebuild (writes to disk, then updates state)

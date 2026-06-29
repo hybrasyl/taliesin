@@ -103,7 +103,9 @@ declare global {
     musicClientScan: (clientPath: string) => Promise<MusicScanEntry[]>
     indexRead: (libraryRoot: string) => Promise<WorldIndex | null>
     indexBuild: (libraryRoot: string) => Promise<WorldIndex>
-    indexStatus: (libraryRoot: string) => Promise<{ exists: boolean; builtAt?: string }>
+    indexStatus: (
+      libraryRoot: string
+    ) => Promise<{ exists: boolean; builtAt?: string; stale?: boolean }>
     indexDelete: (libraryRoot: string) => Promise<void>
     libraryResolve: (selectedPath: string) => Promise<string | null>
     prefabList: (
