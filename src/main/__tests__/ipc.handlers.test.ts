@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import { normalize as pathNormalize } from 'path'
 
 // Hoisted shared state — populated by the electron mock at registration time
@@ -322,13 +322,24 @@ function reset() {
 
 // ── Setup: import index.ts to register handlers ───────────────────────────────
 
+let prevLocalAppData: string | undefined
 beforeAll(async () => {
+  // Settings now resolve from %LOCALAPPDATA% on Windows; pin it to the same
+  // base the electron mock returns for app.getPath('appData') so the in-memory
+  // fs paths the handler tests assert (/appdata/...) stay deterministic.
+  prevLocalAppData = process.env.LOCALAPPDATA
+  process.env.LOCALAPPDATA = '/appdata'
   const indexModule = await import('../index')
   // Wide-open root for the in-memory test filesystem. assertInsideAnyRoot
   // accepts every absolute path when '/' is in the allowed set, which lets
   // existing handler tests keep using synthetic paths. Phase 3 dedicated
   // negative tests override this per-case to verify rejection works.
   indexModule.ctx.blessedRoots.add('/')
+})
+
+afterAll(() => {
+  if (prevLocalAppData === undefined) delete process.env.LOCALAPPDATA
+  else process.env.LOCALAPPDATA = prevLocalAppData
 })
 
 beforeEach(() => {

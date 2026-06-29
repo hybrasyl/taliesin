@@ -1,15 +1,41 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, screen } from 'electron'
 import { join } from 'path'
+import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 
-// Settings in %APPDATA%/Erisco/Taliesin (roaming), cache in %LOCALAPPDATA%/Erisco/Taliesin (local).
-// Electron removed 'cache' from getPath, so we resolve LOCALAPPDATA ourselves.
-const settingsPath = join(app.getPath('appData'), 'Erisco', 'Taliesin')
-const localAppData = process.env.LOCALAPPDATA ?? join(app.getPath('home'), 'AppData', 'Local')
+// Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
+// Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
+// %LOCALAPPDATA% ourselves. macOS/Linux have no roaming concept; appData is local.
+const localAppData =
+  process.platform === 'win32'
+    ? (process.env.LOCALAPPDATA ?? join(app.getPath('home'), 'AppData', 'Local'))
+    : app.getPath('appData')
+const settingsPath = join(localAppData, 'Erisco', 'Taliesin')
 const cachePath = join(localAppData, 'Erisco', 'Taliesin')
 app.setPath('userData', cachePath)
+
+// One-time roaming → local settings migration (Windows). Previously settings
+// lived in %APPDATA%/Erisco/Taliesin; carry a returning user's settings over so
+// active library / packs / preferences don't reset. Best-effort.
+function migrateSettingsFromRoaming(): void {
+  try {
+    const oldDir = join(app.getPath('appData'), 'Erisco', 'Taliesin')
+    if (oldDir === settingsPath) return // same location (non-Windows) — nothing to do
+    const newPrimary = join(settingsPath, 'settings.json')
+    if (existsSync(newPrimary)) return // already migrated or fresh local settings exist
+    const oldPrimary = join(oldDir, 'settings.json')
+    if (!existsSync(oldPrimary)) return // nothing to migrate
+    mkdirSync(settingsPath, { recursive: true })
+    copyFileSync(oldPrimary, newPrimary)
+    const oldBackup = join(oldDir, 'settings.bak.json')
+    if (existsSync(oldBackup)) copyFileSync(oldBackup, join(settingsPath, 'settings.bak.json'))
+  } catch {
+    /* best effort — settings manager falls back to defaults */
+  }
+}
+migrateSettingsFromRoaming()
 
 const settingsManager = createSettingsManager(settingsPath)
 
