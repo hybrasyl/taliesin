@@ -4,6 +4,12 @@ import { nationBadgesKind } from './nationBadges'
 import { legendMarkIconsKind } from './legendMarkIcons'
 import { itemIconsKind } from './itemIcons'
 import { uiSpriteOverridesKind } from './uiSpriteOverrides'
+import { musicKind } from './music'
+import { soundEffectsKind } from './soundEffects'
+import { worldMapsKind } from './worldMaps'
+import { npcPortraitsKind } from './npcPortraits'
+import { staticTilesKind } from './staticTiles'
+import { creatureSpritesKind } from './creatureSprites'
 
 // To add a new content type:
 //   1. Create src/renderer/src/packKinds/<kind>.ts exporting a PackKind.
@@ -15,7 +21,13 @@ export const PACK_KINDS: Record<ContentType, PackKind> = {
   nation_badges: nationBadgesKind,
   legend_mark_icons: legendMarkIconsKind,
   ui_sprite_overrides: uiSpriteOverridesKind,
-  item_icons: itemIconsKind
+  item_icons: itemIconsKind,
+  music: musicKind,
+  sound_effects: soundEffectsKind,
+  world_maps: worldMapsKind,
+  npc_portraits: npcPortraitsKind,
+  static_tiles: staticTilesKind,
+  creature_sprites: creatureSpritesKind
 }
 
 export function getKind(type: ContentType): PackKind {
