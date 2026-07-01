@@ -168,7 +168,12 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
   )
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      sx={{ '& .MuiDialog-paper': { width: 560 } }}
+    >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', py: 1.5, gap: 1 }}>
         Music
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -217,7 +222,9 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
             {filtered.map((id) => {
               const isPlaying = playingId === id
               const fromPack = preferPack && packIds.has(id)
-              const title = formatMeta(metas.get(id))
+              // Only label the pack (Hybrasyl) row — vanilla plays the original
+              // {id}.mus, whose tags may differ from the pack override's.
+              const title = fromPack ? formatMeta(metas.get(id)) : ''
               return (
                 <ListItemButton
                   key={id}
