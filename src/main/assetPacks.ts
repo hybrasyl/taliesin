@@ -119,9 +119,31 @@ const worldMapsHandler: PackHandler = {
   }
 }
 
+// music: music_{id}.{ext} at the zip root, id is the integer music id. Consumed
+// by the map-editor music picker to preview an installed pack override.
+const MUSIC_RE = /^music_(\d+)\.(ogg|mp3|wav|flac|mus)$/i
+
+const musicHandler: PackHandler = {
+  contentType: 'music',
+  subtypes: ['music'],
+  parseEntry(path) {
+    const base = path.split(/[\\/]/).pop() ?? ''
+    const m = MUSIC_RE.exec(base)
+    if (!m) return null
+    const id = parseInt(m[1], 10)
+    if (!Number.isFinite(id)) return null
+    return { subtype: 'music', id, key: `music:${id}` }
+  },
+  keyFor(subtype, id) {
+    if (String(subtype).toLowerCase() !== 'music') return null
+    return `music:${id}`
+  }
+}
+
 const HANDLERS = new Map<string, PackHandler>([
   [staticTilesHandler.contentType, staticTilesHandler],
-  [worldMapsHandler.contentType, worldMapsHandler]
+  [worldMapsHandler.contentType, worldMapsHandler],
+  [musicHandler.contentType, musicHandler]
 ])
 
 // ── Manifest validation (lenient, matches Brigid) ─────────────────────────────
@@ -285,8 +307,23 @@ export async function listCoveredIds(subtype: string): Promise<(number | string)
     : ids.sort((a, b) => String(a).localeCompare(String(b)))
 }
 
-/** Raw PNG buffer from the highest-priority pack covering (subtype, id), or null. */
-export async function resolveAsset(subtype: string, id: number | string): Promise<Buffer | null> {
+// MIME by entry extension — image packs (static_tiles/world_maps) are PNG;
+// music packs carry the source audio format.
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  webp: 'image/webp',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+  mus: 'audio/mpeg'
+}
+
+// Read the highest-priority covering entry as { buffer, ext }, or null.
+async function resolveEntry(
+  subtype: string,
+  id: number | string
+): Promise<{ buffer: Buffer; ext: string } | null> {
   await pendingLoad
   for (const pack of state.packs) {
     const key = pack.handler.keyFor(subtype, id)
@@ -294,7 +331,9 @@ export async function resolveAsset(subtype: string, id: number | string): Promis
     const entry = pack.entries.get(key)
     if (!entry) continue
     try {
-      return await entry.buffer()
+      const buffer = await entry.buffer()
+      const ext = (String(entry.path).split('.').pop() ?? '').toLowerCase()
+      return { buffer, ext }
     } catch (err) {
       console.warn(`[assetPacks] failed reading ${subtype}:${id} from ${pack.fileName}: ${(err as Error).message}`)
     }
@@ -302,10 +341,19 @@ export async function resolveAsset(subtype: string, id: number | string): Promis
   return null
 }
 
-/** Like resolveAsset but a ready-to-use `data:image/png;base64,…` URL, or null. */
+/** Raw asset buffer from the highest-priority pack covering (subtype, id), or null. */
+export async function resolveAsset(subtype: string, id: number | string): Promise<Buffer | null> {
+  const r = await resolveEntry(subtype, id)
+  return r ? r.buffer : null
+}
+
+/** A ready-to-use `data:<mime>;base64,…` URL (MIME inferred from the covering
+ *  entry's extension — PNG for tiles, the source format for music), or null. */
 export async function resolveAssetUrl(subtype: string, id: number | string): Promise<string | null> {
-  const buf = await resolveAsset(subtype, id)
-  return buf ? `data:image/png;base64,${buf.toString('base64')}` : null
+  const r = await resolveEntry(subtype, id)
+  if (!r) return null
+  const mime = MIME_BY_EXT[r.ext] ?? 'application/octet-stream'
+  return `data:${mime};base64,${r.buffer.toString('base64')}`
 }
 
 /**
@@ -325,4 +373,4 @@ export function _resetForTests(): void {
 }
 
 // Exposed for unit tests that exercise the filename conventions directly.
-export const _handlers = { staticTilesHandler, worldMapsHandler }
+export const _handlers = { staticTilesHandler, worldMapsHandler, musicHandler }

@@ -76,6 +76,9 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
+  // Installed .datf packs live here; whitelist it so pack-adjacent reads (e.g.
+  // audio preview of an installed pack) pass the path-safety check.
+  if (settings.brigidAssetsPath) ctx.settingsRoots.add(settings.brigidAssetsPath)
   if (settings.activeLibrary) {
     ctx.settingsRoots.add(settings.activeLibrary)
     // activeLibrary is resolved to <world>/xml; bless the world parent too so

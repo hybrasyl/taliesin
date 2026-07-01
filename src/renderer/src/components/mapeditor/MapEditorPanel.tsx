@@ -46,6 +46,7 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
@@ -56,6 +57,7 @@ import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
+import MusicPickerDialog from './MusicPickerDialog'
 import { mapFilesDirectoryState, clientPathState } from '../../recoil/atoms'
 import {
   ALL_BOARD_TYPES,
@@ -433,6 +435,7 @@ export function MusicIdField({
   const [availableIds, setAvailableIds] = useState<Set<number>>(new Set())
   const [playing, setPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const blobUrlRef = useRef<string | null>(null)
 
@@ -553,6 +556,18 @@ export function MusicIdField({
         onChange={(e) => handleTextChange(e.target.value)}
         error={!!error}
         helperText={error ?? undefined}
+      />
+      <Tooltip title="Browse music…">
+        <IconButton size="small" onClick={() => setPickerOpen(true)}>
+          <LibraryMusicIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <MusicPickerDialog
+        open={pickerOpen}
+        value={value}
+        clientPath={clientPath}
+        onClose={() => setPickerOpen(false)}
+        onChange={onChange}
       />
       <Tooltip title="Clear (no music)">
         <span>

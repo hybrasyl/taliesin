@@ -44,7 +44,20 @@ const manifest = (content_type: string, pack_id: string, priority: number): Reco
 })
 
 describe('assetPacks handlers', () => {
-  const { staticTilesHandler, worldMapsHandler } = _handlers
+  const { staticTilesHandler, worldMapsHandler, musicHandler } = _handlers
+
+  it('music parseEntry reads music_{id}.{ext}, rejects non-audio', () => {
+    expect(musicHandler.parseEntry('music_0001.mp3')).toEqual({
+      subtype: 'music',
+      id: 1,
+      key: 'music:1'
+    })
+    expect(musicHandler.parseEntry('music_42.ogg')).toEqual({ subtype: 'music', id: 42, key: 'music:42' })
+    expect(musicHandler.parseEntry('music_0001.png')).toBeNull()
+    expect(musicHandler.parseEntry('sfx_0001.mp3')).toBeNull()
+    expect(musicHandler.keyFor('music', 5)).toBe('music:5')
+    expect(musicHandler.keyFor('floor', 5)).toBeNull()
+  })
 
   it('static_tiles parseEntry reads floor/wall ids, rejects others', () => {
     expect(staticTilesHandler.parseEntry('floor00001.png')).toEqual({
@@ -154,14 +167,22 @@ describe('assetPacks loading + resolution', () => {
     expect(await listCoveredIds('world_maps')).toEqual(['field001', 'mileth'])
   })
 
-  it('resolveAssetUrl returns a base64 data URL', async () => {
+  it('resolveAssetUrl returns a base64 data URL with the right MIME', async () => {
     await buildDatf(join(dir, 's.datf'), manifest('static_tiles', 's', 100), [
       { name: 'floor00001.png', content: Buffer.from('PNGBYTES') }
     ])
+    await buildDatf(join(dir, 'm.datf'), manifest('music', 'm', 100), [
+      { name: 'music_0001.mp3', content: Buffer.from('MP3BYTES') }
+    ])
     await loadPacks({ brigidAssetsPath: dir })
 
-    const url = await resolveAssetUrl('floor', 1)
-    expect(url).toBe(`data:image/png;base64,${Buffer.from('PNGBYTES').toString('base64')}`)
+    // PNG for tiles, audio/mpeg for an mp3 music entry.
+    expect(await resolveAssetUrl('floor', 1)).toBe(
+      `data:image/png;base64,${Buffer.from('PNGBYTES').toString('base64')}`
+    )
+    expect(await resolveAssetUrl('music', 1)).toBe(
+      `data:audio/mpeg;base64,${Buffer.from('MP3BYTES').toString('base64')}`
+    )
     expect(await resolveAssetUrl('floor', 2)).toBeNull()
   })
 
