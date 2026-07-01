@@ -145,6 +145,7 @@ declare global {
     packListCoveredIds: (subtype: string) => Promise<(number | string)[]>
     packResolveAsset: (subtype: string, id: number | string) => Promise<string | null>
     packSuggestedBrigidAssetsPath: () => Promise<string | null>
+    packReload: () => Promise<void>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
     sfxIndexLoad: (

@@ -135,6 +135,17 @@ export function getUserDataPath(ctx: HandlerContext): string {
   return ctx.settingsPath
 }
 
+/**
+ * Re-scan installed .datf packs from the currently-configured sources. Called
+ * on demand (e.g. when the map-editor music picker opens) so a pack dropped
+ * into the assets dir since launch is picked up without a restart. Cheap — reads
+ * each pack's manifest + zip index, not its asset bytes.
+ */
+export async function reloadPacks(ctx: HandlerContext): Promise<void> {
+  const s = await ctx.settingsManager.load()
+  await loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
+}
+
 export async function launchCompanion(ctx: HandlerContext, exePath: string): Promise<boolean> {
   // Whitelist: only the exe path explicitly configured in Settings may be
   // launched. spawn() bypasses the file-read root check (a process is much
@@ -1279,6 +1290,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
     resolveAssetUrl(subtype, id)
   )
   ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
+  ipcMain.handle('pack:reload', () => reloadPacks(ctx))
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))

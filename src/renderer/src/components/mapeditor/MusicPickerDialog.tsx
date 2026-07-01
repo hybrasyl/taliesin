@@ -71,6 +71,9 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
         if (!cancelled) setClientIds(new Set())
       }
       try {
+        // Rescan installed packs so a .datf dropped in since launch is picked
+        // up without a restart, then read the (possibly updated) coverage.
+        await window.api.packReload()
         const ids = await window.api.packListCoveredIds('music')
         if (!cancelled) setPackIds(new Set(ids.map((x) => Number(x))))
       } catch {

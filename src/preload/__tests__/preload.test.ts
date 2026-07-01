@@ -94,6 +94,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "pack:listActive",
         "pack:listCoveredIds",
         "pack:load",
+        "pack:reload",
         "pack:removeAsset",
         "pack:resolveAsset",
         "pack:save",

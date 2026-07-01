@@ -220,6 +220,7 @@ const api = {
     ipcRenderer.invoke('pack:resolveAsset', subtype, id),
   packSuggestedBrigidAssetsPath: (): Promise<string | null> =>
     ipcRenderer.invoke('pack:suggestedBrigidAssetsPath'),
+  packReload: (): Promise<void> => ipcRenderer.invoke('pack:reload'),
 
   // Palettes & Duotone (stored under the active asset-pack working directory)
   paletteScan: (
