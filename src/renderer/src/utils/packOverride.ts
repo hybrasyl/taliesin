@@ -1,24 +1,23 @@
 // Renderer-side bridge to installed .datf pack overrides (static_tiles /
-// world_maps). The main process resolves the highest-priority pack asset and
-// returns a `data:image/png;base64,…` URL; we decode it to an ImageBitmap for
-// canvas draw. Returns null when no pack covers (subtype, id) — callers fall
-// back to legacy .dat art. Defensive against a missing `window.api` (tests) so
-// map/worldmap rendering never breaks when packs are unavailable.
+// world_maps). The main process returns raw bytes + MIME; we wrap them in a Blob
+// and decode to an ImageBitmap for canvas draw. Bytes (not a data: URL) because
+// the app CSP blocks fetch(data:) via connect-src. Returns null when no pack
+// covers (subtype, id) — callers fall back to legacy .dat art. Defensive against
+// a missing `window.api` (tests) so rendering never breaks when packs are off.
 
 export async function resolvePackBitmap(
   subtype: string,
   id: number | string
 ): Promise<ImageBitmap | null> {
-  let url: string | null
+  let res: { bytes: Uint8Array; mime: string } | null
   try {
-    url = await window.api.packResolveAsset(subtype, id)
+    res = await window.api.packResolveAsset(subtype, id)
   } catch {
     return null
   }
-  if (!url) return null
+  if (!res) return null
   try {
-    const blob = await (await fetch(url)).blob()
-    return await createImageBitmap(blob)
+    return await createImageBitmap(new Blob([res.bytes], { type: res.mime }))
   } catch {
     return null
   }

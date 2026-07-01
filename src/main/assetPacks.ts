@@ -347,13 +347,19 @@ export async function resolveAsset(subtype: string, id: number | string): Promis
   return r ? r.buffer : null
 }
 
-/** A ready-to-use `data:<mime>;base64,…` URL (MIME inferred from the covering
- *  entry's extension — PNG for tiles, the source format for music), or null. */
-export async function resolveAssetUrl(subtype: string, id: number | string): Promise<string | null> {
+/**
+ * Raw bytes + MIME (from the covering entry's extension) for the highest-priority
+ * pack covering (subtype, id), or null. The renderer wraps the bytes in a Blob
+ * directly — no data: URL — because the app CSP blocks both `fetch(data:)`
+ * (connect-src) and `<audio src="data:">` (media-src).
+ */
+export async function resolveAssetBytes(
+  subtype: string,
+  id: number | string
+): Promise<{ bytes: Uint8Array; mime: string } | null> {
   const r = await resolveEntry(subtype, id)
   if (!r) return null
-  const mime = MIME_BY_EXT[r.ext] ?? 'application/octet-stream'
-  return `data:${mime};base64,${r.buffer.toString('base64')}`
+  return { bytes: new Uint8Array(r.buffer), mime: MIME_BY_EXT[r.ext] ?? 'application/octet-stream' }
 }
 
 /**

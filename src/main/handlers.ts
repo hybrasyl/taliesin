@@ -23,7 +23,7 @@ import {
   loadPacks,
   listActivePacks,
   listCoveredIds,
-  resolveAssetUrl,
+  resolveAssetBytes,
   suggestedBrigidAssetsPath
 } from './assetPacks'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
@@ -1287,7 +1287,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('pack:listActive', () => listActivePacks())
   ipcMain.handle('pack:listCoveredIds', (_, subtype: string) => listCoveredIds(subtype))
   ipcMain.handle('pack:resolveAsset', (_, subtype: string, id: number | string) =>
-    resolveAssetUrl(subtype, id)
+    resolveAssetBytes(subtype, id)
   )
   ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
   ipcMain.handle('pack:reload', () => reloadPacks(ctx))

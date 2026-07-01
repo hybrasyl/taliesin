@@ -216,7 +216,10 @@ const api = {
   packListActive: (): Promise<unknown[]> => ipcRenderer.invoke('pack:listActive'),
   packListCoveredIds: (subtype: string): Promise<(number | string)[]> =>
     ipcRenderer.invoke('pack:listCoveredIds', subtype),
-  packResolveAsset: (subtype: string, id: number | string): Promise<string | null> =>
+  packResolveAsset: (
+    subtype: string,
+    id: number | string
+  ): Promise<{ bytes: Uint8Array; mime: string } | null> =>
     ipcRenderer.invoke('pack:resolveAsset', subtype, id),
   packSuggestedBrigidAssetsPath: (): Promise<string | null> =>
     ipcRenderer.invoke('pack:suggestedBrigidAssetsPath'),

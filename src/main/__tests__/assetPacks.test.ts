@@ -8,7 +8,7 @@ import {
   listActivePacks,
   listCoveredIds,
   resolveAsset,
-  resolveAssetUrl,
+  resolveAssetBytes,
   suggestedBrigidAssetsPath,
   _resetForTests,
   _handlers
@@ -167,7 +167,7 @@ describe('assetPacks loading + resolution', () => {
     expect(await listCoveredIds('world_maps')).toEqual(['field001', 'mileth'])
   })
 
-  it('resolveAssetUrl returns a base64 data URL with the right MIME', async () => {
+  it('resolveAssetBytes returns raw bytes + the right MIME', async () => {
     await buildDatf(join(dir, 's.datf'), manifest('static_tiles', 's', 100), [
       { name: 'floor00001.png', content: Buffer.from('PNGBYTES') }
     ])
@@ -177,13 +177,13 @@ describe('assetPacks loading + resolution', () => {
     await loadPacks({ brigidAssetsPath: dir })
 
     // PNG for tiles, audio/mpeg for an mp3 music entry.
-    expect(await resolveAssetUrl('floor', 1)).toBe(
-      `data:image/png;base64,${Buffer.from('PNGBYTES').toString('base64')}`
-    )
-    expect(await resolveAssetUrl('music', 1)).toBe(
-      `data:audio/mpeg;base64,${Buffer.from('MP3BYTES').toString('base64')}`
-    )
-    expect(await resolveAssetUrl('floor', 2)).toBeNull()
+    const floor = await resolveAssetBytes('floor', 1)
+    expect(floor?.mime).toBe('image/png')
+    expect(Buffer.from(floor!.bytes).toString()).toBe('PNGBYTES')
+    const music = await resolveAssetBytes('music', 1)
+    expect(music?.mime).toBe('audio/mpeg')
+    expect(Buffer.from(music!.bytes).toString()).toBe('MP3BYTES')
+    expect(await resolveAssetBytes('floor', 2)).toBeNull()
   })
 
   it('listActivePacks summarizes packs and their covered subtypes', async () => {

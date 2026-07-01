@@ -143,7 +143,10 @@ declare global {
     ) => Promise<{ projectFilename: string; warnings: string[] }>
     packListActive: () => Promise<unknown[]>
     packListCoveredIds: (subtype: string) => Promise<(number | string)[]>
-    packResolveAsset: (subtype: string, id: number | string) => Promise<string | null>
+    packResolveAsset: (
+      subtype: string,
+      id: number | string
+    ) => Promise<{ bytes: Uint8Array; mime: string } | null>
     packSuggestedBrigidAssetsPath: () => Promise<string | null>
     packReload: () => Promise<void>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
