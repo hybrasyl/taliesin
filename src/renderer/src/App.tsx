@@ -5,6 +5,7 @@ import {
   themeState,
   currentPageState,
   clientPathState,
+  brigidAssetsPathState,
   librariesState,
   activeLibraryState,
   mapDirectoriesState,
@@ -21,6 +22,8 @@ import {
   ThemeName,
   type MapDirectory
 } from './recoil/atoms'
+import { clearAllCaches } from './utils/mapRenderer'
+import { clearFieldCache } from './utils/worldMapRenderer'
 import { hybrasylTheme, chadulTheme, danaanTheme, grinnealTheme } from './themes'
 import type { Theme } from '@mui/material/styles'
 import MainLayout from './components/MainLayout'
@@ -60,6 +63,7 @@ const scrollbarColors: Record<ThemeName, { thumb: string; thumbHover: string; tr
 export default function App(): React.ReactElement {
   const [theme, setTheme] = useRecoilState(themeState)
   const [, setClientPath] = useRecoilState(clientPathState)
+  const [, setBrigidAssetsPath] = useRecoilState(brigidAssetsPathState)
   const [, setLibraries] = useRecoilState(librariesState)
   const [, setActiveLibrary] = useRecoilState(activeLibraryState)
   const [, setMapDirectories] = useRecoilState(mapDirectoriesState)
@@ -96,6 +100,8 @@ export default function App(): React.ReactElement {
       if (typeof settings.theme === 'string' && settings.theme in themes)
         setTheme(settings.theme as ThemeName)
       if (typeof settings.clientPath === 'string') setClientPath(settings.clientPath)
+      if (typeof settings.brigidAssetsPath === 'string')
+        setBrigidAssetsPath(settings.brigidAssetsPath)
       if (Array.isArray(settings.libraries)) setLibraries(settings.libraries as string[])
       if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
       if (Array.isArray(settings.mapDirectories))
@@ -120,6 +126,7 @@ export default function App(): React.ReactElement {
 
   // Persist settings when they change
   const clientPath = useRecoilValue(clientPathState)
+  const brigidAssetsPath = useRecoilValue(brigidAssetsPathState)
   const libraries = useRecoilValue(librariesState)
   const activeLibrary = useRecoilValue(activeLibraryState)
   const mapDirectories = useRecoilValue(mapDirectoriesState)
@@ -138,6 +145,7 @@ export default function App(): React.ReactElement {
     window.api.saveSettings({
       theme,
       clientPath,
+      brigidAssetsPath,
       libraries,
       activeLibrary,
       mapDirectories,
@@ -154,6 +162,7 @@ export default function App(): React.ReactElement {
   }, [
     theme,
     clientPath,
+    brigidAssetsPath,
     libraries,
     activeLibrary,
     mapDirectories,
@@ -167,6 +176,14 @@ export default function App(): React.ReactElement {
     musEncodeKbps,
     musEncodeSampleRate
   ])
+
+  // When the pack sources change, drop cached tile/field bitmaps so the map +
+  // worldmap editors re-resolve against the newly installed packs on next render.
+  useEffect(() => {
+    if (!settingsLoaded.current) return
+    clearAllCaches()
+    clearFieldCache()
+  }, [clientPath, brigidAssetsPath])
 
   useEffect(() => {
     dirtyEditorRef.current = dirtyEditor

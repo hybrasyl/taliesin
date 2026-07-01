@@ -19,6 +19,13 @@ import {
   deleteIndex
 } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
+import {
+  loadPacks,
+  listActivePacks,
+  listCoveredIds,
+  resolveAssetUrl,
+  suggestedBrigidAssetsPath
+} from './assetPacks'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
 import { parseOrLog } from './schemaLog'
 import {
@@ -101,11 +108,24 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings)
-  await ctx.settingsManager.save(parsed as TaliesinSettings)
+  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings) as TaliesinSettings
+  const prev = await ctx.settingsManager.load().catch(() => null)
+  await ctx.settingsManager.save(parsed)
   // Refresh the allowed-root set so subsequent path-validating handlers
   // see the new active library / pack / etc. without waiting for a restart.
-  applySettingsRoots(ctx, parsed as TaliesinSettings)
+  applySettingsRoots(ctx, parsed)
+  // Reload installed .datf packs when a pack-source path changes, so the map +
+  // worldmap editors pick up new overrides without a restart.
+  if (
+    !prev ||
+    prev.brigidAssetsPath !== parsed.brigidAssetsPath ||
+    prev.clientPath !== parsed.clientPath
+  ) {
+    void loadPacks({
+      brigidAssetsPath: parsed.brigidAssetsPath ?? null,
+      clientPath: parsed.clientPath ?? null
+    })
+  }
 }
 
 export function getUserDataPath(ctx: HandlerContext): string {
@@ -1248,6 +1268,14 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // Settings / app
   ipcMain.handle('settings:load', () => loadSettings(ctx))
   ipcMain.handle('settings:save', (_, settings) => saveSettings(ctx, settings))
+
+  // Installed .datf pack consumption (static_tiles / world_maps overrides).
+  ipcMain.handle('pack:listActive', () => listActivePacks())
+  ipcMain.handle('pack:listCoveredIds', (_, subtype: string) => listCoveredIds(subtype))
+  ipcMain.handle('pack:resolveAsset', (_, subtype: string, id: number | string) =>
+    resolveAssetUrl(subtype, id)
+  )
+  ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))

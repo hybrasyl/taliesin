@@ -141,6 +141,10 @@ declare global {
       packDir: string,
       options?: { force?: boolean }
     ) => Promise<{ projectFilename: string; warnings: string[] }>
+    packListActive: () => Promise<unknown[]>
+    packListCoveredIds: (subtype: string) => Promise<(number | string)[]>
+    packResolveAsset: (subtype: string, id: number | string) => Promise<string | null>
+    packSuggestedBrigidAssetsPath: () => Promise<string | null>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
     sfxIndexLoad: (

@@ -16,6 +16,7 @@ import {
   MapFile,
   TileAnimationTable
 } from '@eriscorp/dalib-ts'
+import { resolvePackBitmap, coveredIdSet } from './packOverride'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,11 @@ export interface MapAssets {
   groundBitmapCache: Map<number, ImageBitmap>
   /** Rendered stc bitmaps, keyed by tile index. */
   stcBitmapCache: Map<number, ImageBitmap>
+
+  /** Floor tile ids covered by an installed static_tiles pack (snapshot at load). */
+  floorCoverage: Set<number>
+  /** Wall tile ids covered by an installed static_tiles pack (snapshot at load). */
+  wallCoverage: Set<number>
 }
 
 // ── LRU helpers ───────────────────────────────────────────────────────────────
@@ -156,6 +162,14 @@ export async function loadMapAssets(
     /* absent or malformed */
   }
 
+  // Snapshot which tile ids an installed static_tiles pack overrides, so
+  // per-tile rendering only pays an IPC round-trip for covered ids. Captured at
+  // load; a brigidAssetsPath change busts this cache (clearAllCaches) → re-read.
+  const [floorCoverage, wallCoverage] = await Promise.all([
+    coveredIdSet('floor', (id) => Number(id)),
+    coveredIdSet('wall', (id) => Number(id))
+  ])
+
   const assets: MapAssets = {
     groundPixels,
     groundTileCount,
@@ -168,7 +182,9 @@ export async function loadMapAssets(
     groundAnimationTable,
     stcAnimationTable,
     groundBitmapCache: new Map(),
-    stcBitmapCache: new Map()
+    stcBitmapCache: new Map(),
+    floorCoverage,
+    wallCoverage
   }
 
   lruTouch(assetCache, key, assets, ASSET_CACHE_LIMIT)
@@ -204,10 +220,22 @@ export async function getGroundBitmap(
   tileIndex: number,
   assets: MapAssets
 ): Promise<ImageBitmap | null> {
-  if (tileIndex <= 0 || tileIndex > assets.groundTileCount) return null
+  if (tileIndex <= 0) return null
 
   const cached = assets.groundBitmapCache.get(tileIndex)
   if (cached) return cached
+
+  // Installed static_tiles pack override wins over legacy TILEA.BMP art. Gated
+  // on the coverage snapshot so uncovered tiles never pay an IPC round-trip.
+  if (assets.floorCoverage.has(tileIndex)) {
+    const override = await resolvePackBitmap('floor', tileIndex)
+    if (override) {
+      assets.groundBitmapCache.set(tileIndex, override)
+      return override
+    }
+  }
+
+  if (tileIndex > assets.groundTileCount) return null
 
   const start = (tileIndex - 1) * GROUND_TILE_BYTES
   const pixels = assets.groundPixels.subarray(start, start + GROUND_TILE_BYTES)
@@ -234,6 +262,15 @@ export async function getStcBitmap(
 
   const cached = assets.stcBitmapCache.get(tileIndex)
   if (cached) return cached
+
+  // Installed static_tiles pack override wins over legacy stc*.hpf art.
+  if (assets.wallCoverage.has(tileIndex)) {
+    const override = await resolvePackBitmap('wall', tileIndex)
+    if (override) {
+      assets.stcBitmapCache.set(tileIndex, override)
+      return override
+    }
+  }
 
   const entryName = `stc${String(tileIndex).padStart(5, '0')}.hpf`
   const entry = assets.iaArchive.get(entryName)

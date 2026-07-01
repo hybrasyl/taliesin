@@ -86,6 +86,10 @@ export function createMockApi(): MockApi {
     'packRemoveAsset',
     'packCompile',
     'packImport',
+    'packListActive',
+    'packListCoveredIds',
+    'packResolveAsset',
+    'packSuggestedBrigidAssetsPath',
     // Palettes
     'paletteScan',
     'paletteLoad',

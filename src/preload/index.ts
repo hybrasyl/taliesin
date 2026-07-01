@@ -211,6 +211,16 @@ const api = {
   ): Promise<{ projectFilename: string; warnings: string[] }> =>
     ipcRenderer.invoke('pack:import', datfPath, packDir, options),
 
+  // Installed .datf pack consumption (static_tiles / world_maps overrides used
+  // by the map + worldmap renderers).
+  packListActive: (): Promise<unknown[]> => ipcRenderer.invoke('pack:listActive'),
+  packListCoveredIds: (subtype: string): Promise<(number | string)[]> =>
+    ipcRenderer.invoke('pack:listCoveredIds', subtype),
+  packResolveAsset: (subtype: string, id: number | string): Promise<string | null> =>
+    ipcRenderer.invoke('pack:resolveAsset', subtype, id),
+  packSuggestedBrigidAssetsPath: (): Promise<string | null> =>
+    ipcRenderer.invoke('pack:suggestedBrigidAssetsPath'),
+
   // Palettes & Duotone (stored under the active asset-pack working directory)
   paletteScan: (
     packDir: string

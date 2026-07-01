@@ -18,6 +18,7 @@ const mapDirectorySchema = z.object({
  */
 export const taliesinSettingsSchema = z.object({
   clientPath: z.string().nullable().optional(),
+  brigidAssetsPath: z.string().nullable().optional(),
   libraries: z.array(z.string()),
   activeLibrary: z.string().nullable(),
   mapDirectories: z.array(mapDirectorySchema),
