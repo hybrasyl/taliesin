@@ -109,7 +109,17 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
       try {
         let url: string | null = null
         if (preferPack && packIds.has(id)) {
-          url = await window.api.packResolveAsset('music', id) // data URL
+          // The main process returns a data: URL, but the CSP only allows
+          // media-src blob: — so convert to a blob: URL, matching the vanilla
+          // path below. (data: is fine for <img> but Chromium blocks it for
+          // <audio>.)
+          const dataUrl = await window.api.packResolveAsset('music', id)
+          if (dataUrl) {
+            const blob = await (await fetch(dataUrl)).blob()
+            const objUrl = URL.createObjectURL(blob)
+            blobUrlRef.current = objUrl
+            url = objUrl
+          }
         } else if (clientIds.has(id) && clientPath) {
           const sep = clientPath.includes('\\') ? '\\' : '/'
           const buf = await window.api.readFile(`${clientPath}${sep}music${sep}${id}.mus`)
