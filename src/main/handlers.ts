@@ -69,19 +69,23 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
-  if (settings.activeLibrary) {
-    ctx.settingsRoots.add(settings.activeLibrary)
-    // activeLibrary is resolved to <world>/xml; bless the world parent too so
-    // sibling dirs (mapfiles, .creidhne, etc.) are reachable without forcing
-    // each one to be configured separately. Skip if dirname returns the same
-    // path (e.g. drive root) to avoid blessing the entire drive.
-    const worldRoot = dirname(settings.activeLibrary)
-    if (worldRoot && worldRoot !== settings.activeLibrary) {
-      ctx.settingsRoots.add(worldRoot)
-    }
+  // Whitelist EVERY configured world library (each is a <world>/xml dir) plus its
+  // world parent — not just the active one. The Settings index panel checks
+  // status for every library, and sibling dirs (mapfiles, .creidhne,
+  // worldmaps/.ignore) hang off the world parent. Skip a dirname that equals the
+  // path (e.g. drive root) to avoid blessing an entire drive.
+  const libs = new Set<string>(settings.libraries ?? [])
+  if (settings.activeLibrary) libs.add(settings.activeLibrary)
+  for (const lib of libs) {
+    ctx.settingsRoots.add(lib)
+    const worldRoot = dirname(lib)
+    if (worldRoot && worldRoot !== lib) ctx.settingsRoots.add(worldRoot)
   }
   if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
   if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
+  // All music working dirs, not just the active one, so previewing a deployed
+  // track in any configured working dir passes path-safety.
+  for (const d of settings.musicWorkingDirs ?? []) ctx.settingsRoots.add(d)
   if (settings.activeMusicWorkingDir) ctx.settingsRoots.add(settings.activeMusicWorkingDir)
   if (settings.packDir) ctx.settingsRoots.add(settings.packDir)
 }
@@ -153,8 +157,16 @@ export async function listDir(
   dirPath: string
 ): Promise<{ name: string; isDirectory: boolean }[]> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
-  const entries = await fs.readdir(safe, { withFileTypes: true })
-  return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory() }))
+  try {
+    const entries = await fs.readdir(safe, { withFileTypes: true })
+    return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory() }))
+  } catch (err) {
+    // A not-yet-created dir (e.g. maps/.ignore before the first archive) lists as
+    // empty rather than throwing — the path-safety check above still applies, so
+    // this only softens "directory absent", not "path not allowed".
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw err
+  }
 }
 
 export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
