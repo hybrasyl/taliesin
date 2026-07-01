@@ -19,6 +19,13 @@ import {
   deleteIndex
 } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
+import {
+  loadPacks,
+  listActivePacks,
+  listCoveredIds,
+  resolveAssetBytes,
+  suggestedBrigidAssetsPath
+} from './assetPacks'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
 import { parseOrLog } from './schemaLog'
 import {
@@ -69,6 +76,9 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
+  // Installed .datf packs live here; whitelist it so pack-adjacent reads (e.g.
+  // audio preview of an installed pack) pass the path-safety check.
+  if (settings.brigidAssetsPath) ctx.settingsRoots.add(settings.brigidAssetsPath)
   // Whitelist EVERY configured world library (each is a <world>/xml dir) plus its
   // world parent — not just the active one. The Settings index panel checks
   // status for every library, and sibling dirs (mapfiles, .creidhne,
@@ -105,15 +115,61 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings)
-  await ctx.settingsManager.save(parsed as TaliesinSettings)
+  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings) as TaliesinSettings
+  const prev = await ctx.settingsManager.load().catch(() => null)
+  await ctx.settingsManager.save(parsed)
   // Refresh the allowed-root set so subsequent path-validating handlers
   // see the new active library / pack / etc. without waiting for a restart.
-  applySettingsRoots(ctx, parsed as TaliesinSettings)
+  applySettingsRoots(ctx, parsed)
+  // Reload installed .datf packs when a pack-source path changes, so the map +
+  // worldmap editors pick up new overrides without a restart.
+  if (
+    !prev ||
+    prev.brigidAssetsPath !== parsed.brigidAssetsPath ||
+    prev.clientPath !== parsed.clientPath
+  ) {
+    void loadPacks({
+      brigidAssetsPath: parsed.brigidAssetsPath ?? null,
+      clientPath: parsed.clientPath ?? null
+    })
+  }
 }
 
 export function getUserDataPath(ctx: HandlerContext): string {
   return ctx.settingsPath
+}
+
+/**
+ * Re-scan installed .datf packs from the currently-configured sources. Called
+ * on demand (e.g. when the map-editor music picker opens) so a pack dropped
+ * into the assets dir since launch is picked up without a restart. Cheap — reads
+ * each pack's manifest + zip index, not its asset bytes.
+ */
+export async function reloadPacks(ctx: HandlerContext): Promise<void> {
+  const s = await ctx.settingsManager.load()
+  await loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
+}
+
+/**
+ * ID3/tag metadata (title / artist / album) for an installed pack audio track,
+ * or null if the pack doesn't cover it or the entry has no tags. Used by the
+ * music picker to label pack tracks. `artist` is the TPE1 "contributing artist".
+ */
+export async function packTrackMeta(
+  subtype: string,
+  id: number | string
+): Promise<{ title: string | null; artist: string | null; album: string | null } | null> {
+  const r = await resolveAssetBytes(subtype, id)
+  if (!r) return null
+  try {
+    const { parseBuffer } = await import('music-metadata')
+    const meta = await parseBuffer(r.bytes, { mimeType: r.mime }, { duration: false, skipCovers: true })
+    const { title, artist, album } = meta.common
+    if (!title && !artist && !album) return null
+    return { title: title ?? null, artist: artist ?? null, album: album ?? null }
+  } catch {
+    return null
+  }
 }
 
 export async function launchCompanion(ctx: HandlerContext, exePath: string): Promise<boolean> {
@@ -1260,6 +1316,18 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // Settings / app
   ipcMain.handle('settings:load', () => loadSettings(ctx))
   ipcMain.handle('settings:save', (_, settings) => saveSettings(ctx, settings))
+
+  // Installed .datf pack consumption (static_tiles / world_maps overrides).
+  ipcMain.handle('pack:listActive', () => listActivePacks())
+  ipcMain.handle('pack:listCoveredIds', (_, subtype: string) => listCoveredIds(subtype))
+  ipcMain.handle('pack:resolveAsset', (_, subtype: string, id: number | string) =>
+    resolveAssetBytes(subtype, id)
+  )
+  ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
+  ipcMain.handle('pack:reload', () => reloadPacks(ctx))
+  ipcMain.handle('pack:trackMeta', (_, subtype: string, id: number | string) =>
+    packTrackMeta(subtype, id)
+  )
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))

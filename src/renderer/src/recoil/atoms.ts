@@ -43,6 +43,14 @@ export const clientPathState = atom<string | null>({
   default: null
 })
 
+// Where installed Brigid .datf packs live. Scanned (main process) so the map +
+// worldmap editors preview static_tiles / world_maps overrides. Defaults are
+// suggested to %LOCALAPPDATA%\erisco\Brigid\assets.
+export const brigidAssetsPathState = atom<string | null>({
+  key: 'brigidAssetsPathState',
+  default: null
+})
+
 // List of Hybrasyl world library root paths (mirrors creidhne)
 export const librariesState = atom<string[]>({
   key: 'librariesState',

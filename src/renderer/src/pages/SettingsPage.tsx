@@ -23,7 +23,8 @@ import {
   CircularProgress,
   Alert,
   Tabs,
-  Tab
+  Tab,
+  Link
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -36,6 +37,7 @@ import { useRecoilState } from 'recoil'
 import {
   themeState,
   clientPathState,
+  brigidAssetsPathState,
   librariesState,
   activeLibraryState,
   mapDirectoriesState,
@@ -157,6 +159,7 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
 function GeneralTab() {
   const [theme, setTheme] = useRecoilState(themeState)
   const [clientPath, setClientPath] = useRecoilState(clientPathState)
+  const [brigidAssetsPath, setBrigidAssetsPath] = useRecoilState(brigidAssetsPathState)
   const [companionPath, setCompanionPath] = useRecoilState(companionPathState)
   return (
     <Box>
@@ -195,6 +198,40 @@ function GeneralTab() {
           }}
         />
       </Box>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Brigid asset packs */}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        Installed Asset Packs
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+        Folder Brigid loads .datf packs from. Taliesin scans it to preview installed{' '}
+        <em>static tiles</em> and <em>world map</em> overrides in the map editors.
+      </Typography>
+      <Box sx={{ mb: 1 }}>
+        <PathInput
+          value={brigidAssetsPath ?? ''}
+          onChange={(v) => setBrigidAssetsPath(v || null)}
+          placeholder="e.g. %LOCALAPPDATA%\erisco\Brigid\assets"
+          onBrowse={async () => {
+            const d = await window.api.openDirectory()
+            if (d) setBrigidAssetsPath(d)
+          }}
+        />
+      </Box>
+      <Link
+        component="button"
+        type="button"
+        variant="body2"
+        sx={{ mb: 4, display: 'inline-block' }}
+        onClick={async () => {
+          const suggested = await window.api.packSuggestedBrigidAssetsPath()
+          if (suggested) setBrigidAssetsPath(suggested)
+        }}
+      >
+        Use default location
+      </Link>
 
       <Divider sx={{ mb: 3 }} />
 

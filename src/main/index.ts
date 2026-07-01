@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
+import { loadPacks } from './assetPacks'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -52,7 +53,12 @@ export const ctx: HandlerContext = {
 // Hydrate ctx.settingsRoots from the persisted settings as soon as we boot
 // so the first IPC call from the renderer can already see active library /
 // pack / music dirs etc. as authorised paths.
-settingsManager.load().then((s) => applySettingsRoots(ctx, s))
+settingsManager.load().then((s) => {
+  applySettingsRoots(ctx, s)
+  // Scan installed .datf packs up front so the first map render can already
+  // resolve static_tiles / world_maps overrides.
+  void loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
+})
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

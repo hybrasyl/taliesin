@@ -8,6 +8,9 @@ export interface MapDirectory {
 
 export interface TaliesinSettings {
   clientPath?: string
+  /** Where installed Brigid .datf packs live; scanned to preview overrides in
+   *  the map/worldmap editors. Defaults suggested to %LOCALAPPDATA%\erisco\Brigid\assets. */
+  brigidAssetsPath?: string
   libraries: string[]
   activeLibrary: string | null
   mapDirectories: MapDirectory[]
@@ -45,6 +48,8 @@ function validate(data: unknown): boolean {
 function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
   return {
     clientPath: typeof data.clientPath === 'string' ? data.clientPath : undefined,
+    brigidAssetsPath:
+      typeof data.brigidAssetsPath === 'string' ? data.brigidAssetsPath : undefined,
     libraries: Array.isArray(data.libraries) ? data.libraries : [],
     activeLibrary: data.activeLibrary ?? null,
     mapDirectories: Array.isArray(data.mapDirectories)

@@ -7,6 +7,7 @@
  */
 
 import { DataArchive, EpfFile, Palette } from '@eriscorp/dalib-ts'
+import { resolvePackBitmap, coveredIdSet } from './packOverride'
 
 export const FIELD_NAMES = Array.from(
   { length: 11 },
@@ -20,6 +21,16 @@ export const FIELD_HEIGHT = 480
 
 const archiveCache = new Map<string, DataArchive>()
 const bitmapCache = new Map<string, ImageBitmap>()
+
+// Field names (lowercased) covered by an installed world_maps pack. Loaded once
+// on demand; reset by clearFieldCache when brigidAssetsPath changes.
+let worldCoverage: Set<string> | null = null
+async function getWorldCoverage(): Promise<Set<string>> {
+  if (!worldCoverage) {
+    worldCoverage = await coveredIdSet('world_maps', (id) => String(id).toLowerCase())
+  }
+  return worldCoverage
+}
 
 // ── Archive loading ───────────────────────────────────────────────────────────
 
@@ -45,6 +56,16 @@ export async function renderField(fieldName: string, clientPath: string): Promis
   const cacheKey = `${normPath}/${fieldName}`
   const cached = bitmapCache.get(cacheKey)
   if (cached) return cached
+
+  // Installed world_maps pack override wins over the legacy setoa.dat field art.
+  const coverage = await getWorldCoverage()
+  if (coverage.has(fieldName.toLowerCase())) {
+    const override = await resolvePackBitmap('world_maps', fieldName.toLowerCase())
+    if (override) {
+      bitmapCache.set(cacheKey, override)
+      return override
+    }
+  }
 
   const archive = await loadArchive(normPath)
 
@@ -85,8 +106,9 @@ export async function renderField(fieldName: string, clientPath: string): Promis
   return bitmap
 }
 
-/** Clear all caches (call when clientPath changes). */
+/** Clear all caches (call when clientPath or brigidAssetsPath changes). */
 export function clearFieldCache(): void {
   archiveCache.clear()
   bitmapCache.clear()
+  worldCoverage = null
 }
