@@ -100,6 +100,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "pack:save",
         "pack:scan",
         "pack:suggestedBrigidAssetsPath",
+        "pack:trackMeta",
         "palette:calibrationLoad",
         "palette:calibrationSave",
         "palette:delete",

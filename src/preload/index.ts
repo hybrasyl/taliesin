@@ -224,6 +224,11 @@ const api = {
   packSuggestedBrigidAssetsPath: (): Promise<string | null> =>
     ipcRenderer.invoke('pack:suggestedBrigidAssetsPath'),
   packReload: (): Promise<void> => ipcRenderer.invoke('pack:reload'),
+  packTrackMeta: (
+    subtype: string,
+    id: number | string
+  ): Promise<{ title: string | null; artist: string | null; album: string | null } | null> =>
+    ipcRenderer.invoke('pack:trackMeta', subtype, id),
 
   // Palettes & Duotone (stored under the active asset-pack working directory)
   paletteScan: (

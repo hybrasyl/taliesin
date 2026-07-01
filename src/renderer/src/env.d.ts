@@ -149,6 +149,10 @@ declare global {
     ) => Promise<{ bytes: Uint8Array; mime: string } | null>
     packSuggestedBrigidAssetsPath: () => Promise<string | null>
     packReload: () => Promise<void>
+    packTrackMeta: (
+      subtype: string,
+      id: number | string
+    ) => Promise<{ title: string | null; artist: string | null; album: string | null } | null>
     sfxList: (clientPath: string) => Promise<{ entryName: string; sizeBytes: number }[]>
     sfxReadEntry: (clientPath: string, entryName: string) => Promise<Buffer>
     sfxIndexLoad: (

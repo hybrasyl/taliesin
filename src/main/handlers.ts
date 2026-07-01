@@ -146,6 +146,28 @@ export async function reloadPacks(ctx: HandlerContext): Promise<void> {
   await loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
 }
 
+/**
+ * ID3/tag metadata (title / artist / album) for an installed pack audio track,
+ * or null if the pack doesn't cover it or the entry has no tags. Used by the
+ * music picker to label pack tracks. `artist` is the TPE1 "contributing artist".
+ */
+export async function packTrackMeta(
+  subtype: string,
+  id: number | string
+): Promise<{ title: string | null; artist: string | null; album: string | null } | null> {
+  const r = await resolveAssetBytes(subtype, id)
+  if (!r) return null
+  try {
+    const { parseBuffer } = await import('music-metadata')
+    const meta = await parseBuffer(r.bytes, { mimeType: r.mime }, { duration: false, skipCovers: true })
+    const { title, artist, album } = meta.common
+    if (!title && !artist && !album) return null
+    return { title: title ?? null, artist: artist ?? null, album: album ?? null }
+  } catch {
+    return null
+  }
+}
+
 export async function launchCompanion(ctx: HandlerContext, exePath: string): Promise<boolean> {
   // Whitelist: only the exe path explicitly configured in Settings may be
   // launched. spawn() bypasses the file-read root check (a process is much
@@ -1291,6 +1313,9 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   )
   ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
   ipcMain.handle('pack:reload', () => reloadPacks(ctx))
+  ipcMain.handle('pack:trackMeta', (_, subtype: string, id: number | string) =>
+    packTrackMeta(subtype, id)
+  )
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))

@@ -27,12 +27,24 @@ interface Props {
   onChange: (id: number) => void
 }
 
+type TrackMeta = { title: string | null; artist: string | null; album: string | null }
+
+// "Title (Artist - Album)" — omit any missing part; empty string if no tags.
+function formatMeta(m: TrackMeta | undefined): string {
+  if (!m) return ''
+  const suffix = [m.artist, m.album].filter(Boolean).join(' - ')
+  const base = m.title ?? ''
+  if (base && suffix) return `${base} (${suffix})`
+  return base || suffix
+}
+
 // Picker for a map's background music id — mirrors Creidhne's sound picker.
 // Lists the ids playable on this machine (client {id}.mus files, plus in
 // Hybrasyl mode any ids an installed music pack overrides) with per-row preview.
 const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, onChange }) => {
   const [clientIds, setClientIds] = useState<Set<number>>(new Set())
   const [packIds, setPackIds] = useState<Set<number>>(new Set())
+  const [metas, setMetas] = useState<Map<number, TrackMeta>>(new Map())
   const [mode, setMode] = useState<'vanilla' | 'hybrasyl'>('vanilla')
   const [search, setSearch] = useState('')
   const [playingId, setPlayingId] = useState<number | null>(null)
@@ -74,10 +86,23 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
         // Rescan installed packs so a .datf dropped in since launch is picked
         // up without a restart, then read the (possibly updated) coverage.
         await window.api.packReload()
-        const ids = await window.api.packListCoveredIds('music')
-        if (!cancelled) setPackIds(new Set(ids.map((x) => Number(x))))
+        const ids = (await window.api.packListCoveredIds('music')).map((x) => Number(x))
+        if (!cancelled) setPackIds(new Set(ids))
+        // ID3 title/artist/album for each pack track (curated, few) so rows can
+        // be labelled with the track name instead of a bare id.
+        const pairs = await Promise.all(
+          ids.map(async (id) => [id, await window.api.packTrackMeta('music', id)] as const)
+        )
+        if (!cancelled) {
+          const next = new Map<number, TrackMeta>()
+          for (const [id, meta] of pairs) if (meta) next.set(id, meta)
+          setMetas(next)
+        }
       } catch {
-        if (!cancelled) setPackIds(new Set())
+        if (!cancelled) {
+          setPackIds(new Set())
+          setMetas(new Map())
+        }
       }
     })()
     return () => {
@@ -192,6 +217,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
             {filtered.map((id) => {
               const isPlaying = playingId === id
               const fromPack = preferPack && packIds.has(id)
+              const title = formatMeta(metas.get(id))
               return (
                 <ListItemButton
                   key={id}
@@ -199,7 +225,10 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
                   onClick={() => onChange(id)}
                   sx={{ borderRadius: 1, gap: 1 }}
                 >
-                  <Typography sx={{ flex: 1, fontFamily: 'monospace' }}>{id}</Typography>
+                  <Typography sx={{ fontFamily: 'monospace', minWidth: 44 }}>{id}</Typography>
+                  <Typography variant="body2" noWrap sx={{ flex: 1, color: 'text.secondary' }}>
+                    {title}
+                  </Typography>
                   {fromPack && (
                     <Typography variant="caption" sx={{ color: 'primary.main' }}>
                       pack
