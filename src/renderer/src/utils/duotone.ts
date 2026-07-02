@@ -12,10 +12,23 @@ export interface Rgb {
   b: number
 }
 
+/** Matches a 6-digit #RRGGBB hex color. */
+export const HEX_RE = /^#[0-9A-Fa-f]{6}$/
+
 export function parseHex(hex: string): Rgb {
   const s = hex.startsWith('#') ? hex.slice(1) : hex
   const v = parseInt(s, 16)
   return { r: (v >> 16) & 0xff, g: (v >> 8) & 0xff, b: v & 0xff }
+}
+
+/** Format an r/g/b triple (0–255, clamped/rounded) as #RRGGBB. */
+export function rgbToHex(r: number, g: number, b: number): string {
+  const c = (n: number): string =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, '0')
+      .toUpperCase()
+  return `#${c(r)}${c(g)}${c(b)}`
 }
 
 export function luminance(r: number, g: number, b: number): number {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Box, Popover } from '@mui/material'
 import { HexColorPicker } from 'react-colorful'
+import { HEX_RE } from '../../utils/duotone'
 
 interface Props {
   value: string // hex "#RRGGBB"
@@ -8,8 +9,6 @@ interface Props {
   onChange: (next: string) => void
   size?: number
 }
-
-const HEX_RE = /^#[0-9A-Fa-f]{6}$/
 
 const ColorSwatchPicker: React.FC<Props> = ({
   value,

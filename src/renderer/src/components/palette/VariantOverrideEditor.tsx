@@ -13,7 +13,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { VariantDef } from '../../utils/paletteTypes'
-import { DEFAULT_VARIANTS } from '../../utils/variants'
+import { DEFAULT_VARIANTS, DEFAULT_DUOTONE_PARAMS, clampMidpoints } from '../../utils/variants'
 
 interface Props {
   variants: VariantDef[] | undefined
@@ -24,10 +24,7 @@ function blankVariant(index: number): VariantDef {
   return {
     id: `variant_${index + 1}`,
     label: `Variant ${index + 1}`,
-    darkFactor: 0.3,
-    lightFactor: 0.3,
-    midpointLow: 0.25,
-    midpointHigh: 0.75
+    ...DEFAULT_DUOTONE_PARAMS
   }
 }
 
@@ -49,8 +46,7 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
   }
   const setMidpoints = (i: number, value: number | number[]) => {
     if (!Array.isArray(value)) return
-    const [lo, hi] = value
-    updateAt(i, { midpointLow: Math.min(lo, hi - 0.05), midpointHigh: Math.max(hi, lo + 0.05) })
+    updateAt(i, clampMidpoints(value))
   }
 
   return (

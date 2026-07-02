@@ -1,6 +1,20 @@
 import { applyDuotone, luminance, PixelBuffer } from './duotone'
 import { DuotoneParams, PaletteEntry, VariantDef } from './paletteTypes'
 
+/** Default duotone parameters for a fresh custom variant / entry. */
+export const DEFAULT_DUOTONE_PARAMS: DuotoneParams = {
+  darkFactor: 0.3,
+  lightFactor: 0.3,
+  midpointLow: 0.25,
+  midpointHigh: 0.75
+}
+
+/** Clamp a [low, high] midpoint slider pair so they stay ≥ 0.05 apart. */
+export function clampMidpoints(value: number[]): { midpointLow: number; midpointHigh: number } {
+  const [lo, hi] = value
+  return { midpointLow: Math.min(lo, hi - 0.05), midpointHigh: Math.max(hi, lo + 0.05) }
+}
+
 export const DEFAULT_VARIANTS: VariantDef[] = [
   {
     id: 'simple',
