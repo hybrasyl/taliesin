@@ -44,7 +44,8 @@ function uniqueNamespaces(existing: PackAsset[]): string[] {
 export const uiSpriteOverridesKind: PackKind = {
   type: 'ui_sprite_overrides',
   label: 'UI Sprite Overrides',
-  description: 'Replaces specific frames inside legacy EPF/SPF files (e.g. setoa.dat, cious.dat). One pack can override many source files; frame index is 0-based.',
+  description:
+    'Replaces specific frames inside legacy EPF/SPF files (e.g. setoa.dat, cious.dat). One pack can override many source files; frame index is 0-based.',
   dimension: {
     label: 'any',
     validate: () => null
@@ -55,7 +56,9 @@ export const uiSpriteOverridesKind: PackKind = {
   nextAssetPath({ ctx, existingAssets }) {
     const namespace = String(ctx?.namespace ?? '').trim()
     if (!namespace) {
-      throw new Error('ui_sprite_overrides nextAssetPath requires ctx.namespace (the source filename)')
+      throw new Error(
+        'ui_sprite_overrides nextAssetPath requires ctx.namespace (the source filename)'
+      )
     }
     const padded = String(nextIdInNamespace(existingAssets, namespace)).padStart(4, '0')
     const path = `${namespace}/${padded}.png`
@@ -65,7 +68,8 @@ export const uiSpriteOverridesKind: PackKind = {
   customNamespacePrompt: {
     menuLabel: 'New source file…',
     dialogTitle: 'Add source file group',
-    dialogHelp: 'Filename of the legacy source the pack should override (e.g. mile.spf, nation.spf).'
+    dialogHelp:
+      'Filename of the legacy source the pack should override (e.g. mile.spf, nation.spf).'
   },
   Panel: UiSpriteSourcesPanel
 }

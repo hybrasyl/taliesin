@@ -72,10 +72,12 @@ describe('abilityIconsKind', () => {
       { filename: 'skill0002.png', sourcePath: 'b' }
     ]
     expect(
-      abilityIconsKind.nextAssetPath({ ctx: { namespace: 'skill' }, existingAssets: existing }).zipPath
+      abilityIconsKind.nextAssetPath({ ctx: { namespace: 'skill' }, existingAssets: existing })
+        .zipPath
     ).toBe('skill0003.png')
     expect(
-      abilityIconsKind.nextAssetPath({ ctx: { namespace: 'spell' }, existingAssets: existing }).zipPath
+      abilityIconsKind.nextAssetPath({ ctx: { namespace: 'spell' }, existingAssets: existing })
+        .zipPath
     ).toBe('spell0001.png')
   })
 
@@ -172,7 +174,9 @@ describe('itemIconsKind', () => {
 
   it('coversSchema accepts optional no_dye array', () => {
     expect(() => itemIconsKind.coversSchema.parse({ item_icons: {} })).not.toThrow()
-    expect(() => itemIconsKind.coversSchema.parse({ item_icons: { no_dye: [1, 5, 9] } })).not.toThrow()
+    expect(() =>
+      itemIconsKind.coversSchema.parse({ item_icons: { no_dye: [1, 5, 9] } })
+    ).not.toThrow()
     expect(() => itemIconsKind.coversSchema.parse({ item_icons: { no_dye: [-1] } })).toThrow()
   })
 
@@ -207,7 +211,8 @@ describe('uiSpriteOverridesKind', () => {
 
   it('nextAssetPath produces nested 0-based paths and increments per namespace', () => {
     expect(
-      uiSpriteOverridesKind.nextAssetPath({ ctx: { namespace: 'mile.spf' }, existingAssets: [] }).zipPath
+      uiSpriteOverridesKind.nextAssetPath({ ctx: { namespace: 'mile.spf' }, existingAssets: [] })
+        .zipPath
     ).toBe('mile.spf/0000.png')
 
     const existing: PackAsset[] = [
@@ -216,8 +221,10 @@ describe('uiSpriteOverridesKind', () => {
       { filename: 'nation.spf/0000.png', sourcePath: 'c' }
     ]
     expect(
-      uiSpriteOverridesKind.nextAssetPath({ ctx: { namespace: 'mile.spf' }, existingAssets: existing })
-        .zipPath
+      uiSpriteOverridesKind.nextAssetPath({
+        ctx: { namespace: 'mile.spf' },
+        existingAssets: existing
+      }).zipPath
     ).toBe('mile.spf/0002.png')
     expect(
       uiSpriteOverridesKind.nextAssetPath({
@@ -272,9 +279,9 @@ describe('musicKind', () => {
       { filename: 'music_0001.ogg', sourcePath: 'a' },
       { filename: 'music_0007.mp3', sourcePath: 'b' }
     ]
-    expect(musicKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'mp3' }).zipPath).toBe(
-      'music_0008.mp3'
-    )
+    expect(
+      musicKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'mp3' }).zipPath
+    ).toBe('music_0008.mp3')
     // unknown/absent source extension falls back to the recommended ogg
     expect(musicKind.nextAssetPath({ existingAssets: [], sourceExtension: 'aiff' }).zipPath).toBe(
       'music_0001.ogg'
@@ -299,9 +306,9 @@ describe('soundEffectsKind', () => {
 
   it('nextAssetPath increments id and defaults to wav', () => {
     const existing: PackAsset[] = [{ filename: 'sfx_0003.wav', sourcePath: 'a' }]
-    expect(soundEffectsKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'ogg' }).zipPath).toBe(
-      'sfx_0004.ogg'
-    )
+    expect(
+      soundEffectsKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'ogg' }).zipPath
+    ).toBe('sfx_0004.ogg')
     expect(soundEffectsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('sfx_0001.wav')
   })
 })
@@ -321,10 +328,12 @@ describe('worldMapsKind', () => {
   })
 
   it('nextAssetPath names the file after the field namespace', () => {
-    expect(worldMapsKind.nextAssetPath({ ctx: { namespace: 'field001' }, existingAssets: [] }).zipPath).toBe(
-      'field001.png'
+    expect(
+      worldMapsKind.nextAssetPath({ ctx: { namespace: 'field001' }, existingAssets: [] }).zipPath
+    ).toBe('field001.png')
+    expect(() => worldMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(
+      /requires ctx.namespace/
     )
-    expect(() => worldMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(/requires ctx.namespace/)
   })
 })
 
@@ -346,10 +355,12 @@ describe('staticTilesKind', () => {
       { filename: 'floor00002.png', sourcePath: 'b' }
     ]
     expect(
-      staticTilesKind.nextAssetPath({ ctx: { namespace: 'floor' }, existingAssets: existing }).zipPath
+      staticTilesKind.nextAssetPath({ ctx: { namespace: 'floor' }, existingAssets: existing })
+        .zipPath
     ).toBe('floor00003.png')
     expect(
-      staticTilesKind.nextAssetPath({ ctx: { namespace: 'wall' }, existingAssets: existing }).zipPath
+      staticTilesKind.nextAssetPath({ ctx: { namespace: 'wall' }, existingAssets: existing })
+        .zipPath
     ).toBe('wall00001.png')
   })
 
@@ -366,21 +377,31 @@ describe('staticTilesKind', () => {
 
 describe('creatureSpritesKind', () => {
   it('parseSlot reads the nested n/e master path with the creature id as slot id', () => {
-    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/n_001.png')).toEqual({
+    expect(
+      creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/n_001.png')
+    ).toEqual({
       namespace: 'n',
       id: 123
     })
-    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00001/stand/e_001.png')).toEqual({
+    expect(
+      creatureSpritesKind.parseSlot('creature_sprites/creature_00001/stand/e_001.png')
+    ).toEqual({
       namespace: 'e',
       id: 1
     })
     // backslash separators tolerated
-    expect(creatureSpritesKind.parseSlot('creature_sprites\\creature_00007\\stand\\n_001.png')).toEqual({
+    expect(
+      creatureSpritesKind.parseSlot('creature_sprites\\creature_00007\\stand\\n_001.png')
+    ).toEqual({
       namespace: 'n',
       id: 7
     })
-    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/walk/n_001.png')).toBeNull()
-    expect(creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/s_001.png')).toBeNull()
+    expect(
+      creatureSpritesKind.parseSlot('creature_sprites/creature_00123/walk/n_001.png')
+    ).toBeNull()
+    expect(
+      creatureSpritesKind.parseSlot('creature_sprites/creature_00123/stand/s_001.png')
+    ).toBeNull()
     expect(creatureSpritesKind.parseSlot('skill0001.png')).toBeNull()
   })
 
@@ -393,10 +414,12 @@ describe('creatureSpritesKind', () => {
       { filename: 'creature_sprites/creature_00004/stand/n_001.png', sourcePath: 'b' }
     ]
     expect(
-      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'n' }, existingAssets: existing }).zipPath
+      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'n' }, existingAssets: existing })
+        .zipPath
     ).toBe('creature_sprites/creature_00005/stand/n_001.png')
     expect(
-      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'e' }, existingAssets: existing }).zipPath
+      creatureSpritesKind.nextAssetPath({ ctx: { namespace: 'e' }, existingAssets: existing })
+        .zipPath
     ).toBe('creature_sprites/creature_00001/stand/e_001.png')
   })
 
@@ -416,9 +439,9 @@ describe('npcPortraitsKind', () => {
   })
 
   it('nextAssetPath names the file after the portrait key, requires ctx.namespace', () => {
-    expect(npcPortraitsKind.nextAssetPath({ ctx: { namespace: 'Gobalt' }, existingAssets: [] }).zipPath).toBe(
-      'Gobalt.png'
-    )
+    expect(
+      npcPortraitsKind.nextAssetPath({ ctx: { namespace: 'Gobalt' }, existingAssets: [] }).zipPath
+    ).toBe('Gobalt.png')
     expect(() => npcPortraitsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(
       /requires ctx.namespace/
     )

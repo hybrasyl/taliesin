@@ -115,9 +115,10 @@ const AssetPackPage: React.FC = () => {
     if (!datfPath) return
     try {
       const result = await window.api.packImport(datfPath, packDir)
-      const msg = result.warnings.length > 0
-        ? `Imported ${result.projectFilename} (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})`
-        : `Imported ${result.projectFilename}`
+      const msg =
+        result.warnings.length > 0
+          ? `Imported ${result.projectFilename} (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})`
+          : `Imported ${result.projectFilename}`
       showStatus(msg)
       await refresh()
       setSelected(result.projectFilename)

@@ -82,9 +82,8 @@ const AddGlyphDialog: React.FC<Props> = ({
 
           <Box>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Or pick a specific codepoint from a Unicode block. Filled slots are
-              already in the font; missing slots will be created (padding any
-              codepoints in between with blanks).
+              Or pick a specific codepoint from a Unicode block. Filled slots are already in the
+              font; missing slots will be created (padding any codepoints in between with blanks).
             </Typography>
             <TextField
               select
@@ -136,8 +135,7 @@ const BlockGrid: React.FC<BlockGridProps> = ({
   const cells = useMemo(() => {
     const out: { cp: number; filled: boolean; padCost: number }[] = []
     for (let cp = block.start; cp <= block.end; cp++) {
-      const filled =
-        glyphCount > 0 && cp >= startCodepoint && cp <= endCodepoint
+      const filled = glyphCount > 0 && cp >= startCodepoint && cp <= endCodepoint
       const padCost = !filled && cp > endCodepoint ? cp - (endCodepoint + 1) : 0
       out.push({ cp, filled, padCost })
     }

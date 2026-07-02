@@ -120,7 +120,12 @@ export async function loadSettings(ctx: HandlerContext) {
 }
 
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  const parsed = parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings) as TaliesinSettings
+  const parsed = parseOrLog(
+    ctx,
+    'settings:save',
+    taliesinSettingsSchema,
+    settings
+  ) as TaliesinSettings
   const prev = await ctx.settingsManager.load().catch(() => null)
   await ctx.settingsManager.save(parsed)
   // Refresh the allowed-root set so subsequent path-validating handlers
@@ -152,7 +157,10 @@ export function getUserDataPath(ctx: HandlerContext): string {
  */
 export async function reloadPacks(ctx: HandlerContext): Promise<void> {
   const s = await ctx.settingsManager.load()
-  await loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
+  await loadPacks({
+    brigidAssetsPath: s.brigidAssetsPath ?? null,
+    clientPath: s.clientPath ?? null
+  })
 }
 
 /**
@@ -168,7 +176,11 @@ export async function packTrackMeta(
   if (!r) return null
   try {
     const { parseBuffer } = await import('music-metadata')
-    const meta = await parseBuffer(r.bytes, { mimeType: r.mime }, { duration: false, skipCovers: true })
+    const meta = await parseBuffer(
+      r.bytes,
+      { mimeType: r.mime },
+      { duration: false, skipCovers: true }
+    )
     const { title, artist, album } = meta.common
     if (!title && !artist && !album) return null
     return { title: title ?? null, artist: artist ?? null, album: album ?? null }
@@ -1019,7 +1031,9 @@ export async function packImport(
   try {
     manifestJson = JSON.parse(manifestRaw)
   } catch (e) {
-    throw new Error(`_manifest.json is not valid JSON: ${e instanceof Error ? e.message : 'unknown'}`)
+    throw new Error(
+      `_manifest.json is not valid JSON: ${e instanceof Error ? e.message : 'unknown'}`
+    )
   }
   const manifest = parseOrLog(ctx, 'pack:import:manifest', packManifestSchema, manifestJson)
 
@@ -1048,7 +1062,11 @@ export async function packImport(
   // Zip-Slip (../escape.png and friends).
   const warnings: string[] = []
   const assetFilenames: string[] = []
-  for (const file of directory.files as { path: string; type: string; buffer: () => Promise<Buffer> }[]) {
+  for (const file of directory.files as {
+    path: string
+    type: string
+    buffer: () => Promise<Buffer>
+  }[]) {
     if (file.type !== 'File') continue
     if (file.path === '_manifest.json') continue
 

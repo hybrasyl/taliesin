@@ -465,10 +465,8 @@ export function isTilePassable(
   rightForeground: number,
   sotpTable: Uint8Array
 ): boolean {
-  const lfOk =
-    leftForeground <= 0 || ((sotpTable[leftForeground - 1] ?? 0) & 0x0f) === 0
-  const rfOk =
-    rightForeground <= 0 || ((sotpTable[rightForeground - 1] ?? 0) & 0x0f) === 0
+  const lfOk = leftForeground <= 0 || ((sotpTable[leftForeground - 1] ?? 0) & 0x0f) === 0
+  const rfOk = rightForeground <= 0 || ((sotpTable[rightForeground - 1] ?? 0) & 0x0f) === 0
   return lfOk && rfOk
 }
 

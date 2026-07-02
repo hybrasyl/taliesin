@@ -34,7 +34,11 @@ async function buildDatf(
   })
 }
 
-const manifest = (content_type: string, pack_id: string, priority: number): Record<string, unknown> => ({
+const manifest = (
+  content_type: string,
+  pack_id: string,
+  priority: number
+): Record<string, unknown> => ({
   schema_version: 1,
   pack_id,
   pack_version: '1.0.0',
@@ -52,7 +56,11 @@ describe('assetPacks handlers', () => {
       id: 1,
       key: 'music:1'
     })
-    expect(musicHandler.parseEntry('music_42.ogg')).toEqual({ subtype: 'music', id: 42, key: 'music:42' })
+    expect(musicHandler.parseEntry('music_42.ogg')).toEqual({
+      subtype: 'music',
+      id: 42,
+      key: 'music:42'
+    })
     expect(musicHandler.parseEntry('music_0001.png')).toBeNull()
     expect(musicHandler.parseEntry('sfx_0001.mp3')).toBeNull()
     expect(musicHandler.keyFor('music', 5)).toBe('music:5')
@@ -203,9 +211,11 @@ describe('assetPacks loading + resolution', () => {
     await buildDatf(join(dir, 'unknown.datf'), manifest('creature_sprites', 'c', 100), [
       { name: 'whatever.png', content: Buffer.from('x') }
     ])
-    await buildDatf(join(dir, 'badver.datf'), { ...manifest('static_tiles', 'v', 100), schema_version: 2 }, [
-      { name: 'floor00001.png', content: Buffer.from('x') }
-    ])
+    await buildDatf(
+      join(dir, 'badver.datf'),
+      { ...manifest('static_tiles', 'v', 100), schema_version: 2 },
+      [{ name: 'floor00001.png', content: Buffer.from('x') }]
+    )
     await loadPacks({ brigidAssetsPath: dir })
 
     expect(await listActivePacks()).toHaveLength(0)

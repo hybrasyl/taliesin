@@ -48,8 +48,7 @@ function validate(data: unknown): boolean {
 function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
   return {
     clientPath: typeof data.clientPath === 'string' ? data.clientPath : undefined,
-    brigidAssetsPath:
-      typeof data.brigidAssetsPath === 'string' ? data.brigidAssetsPath : undefined,
+    brigidAssetsPath: typeof data.brigidAssetsPath === 'string' ? data.brigidAssetsPath : undefined,
     libraries: Array.isArray(data.libraries) ? data.libraries : [],
     activeLibrary: data.activeLibrary ?? null,
     mapDirectories: Array.isArray(data.mapDirectories)
@@ -92,12 +91,7 @@ async function tryReadJson(filePath: string): Promise<Partial<TaliesinSettings> 
 // before falling back to unlink+rename. Lifted from creidhne's
 // settingsManager.js. Without this, atomic settings saves silently fail
 // under common Windows configurations.
-async function renameWithRetry(
-  src: string,
-  dest: string,
-  retries = 3,
-  delay = 50
-): Promise<void> {
+async function renameWithRetry(src: string, dest: string, retries = 3, delay = 50): Promise<void> {
   for (let i = 0; i < retries; i++) {
     try {
       await fs.rename(src, dest)

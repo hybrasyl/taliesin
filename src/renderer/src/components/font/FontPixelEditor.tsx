@@ -2,12 +2,7 @@ import React, { useCallback, useMemo } from 'react'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import RestoreIcon from '@mui/icons-material/Restore'
 import ClearIcon from '@mui/icons-material/Clear'
-import {
-  codepointLabel,
-  formatCodepoint,
-  getBlock,
-  OTHER_BLOCK
-} from '../../utils/unicodeBlocks'
+import { codepointLabel, formatCodepoint, getBlock, OTHER_BLOCK } from '../../utils/unicodeBlocks'
 
 const GLYPH_WIDTH = 8
 const GLYPH_HEIGHT = 12
@@ -102,12 +97,7 @@ const FontPixelEditor: React.FC<Props> = ({
         )}
       </Box>
       <Stack direction="row" spacing={1}>
-        <Button
-          size="small"
-          startIcon={<RestoreIcon />}
-          onClick={onReset}
-          disabled={resetDisabled}
-        >
+        <Button size="small" startIcon={<RestoreIcon />} onClick={onReset} disabled={resetDisabled}>
           Reset glyph
         </Button>
         <Button size="small" startIcon={<ClearIcon />} onClick={onClear}>

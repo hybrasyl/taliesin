@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  CANONICAL_DYE_HEX,
-  isCanonicalDye,
-  scanDyeUsage
-} from '../itemIconsDye'
+import { CANONICAL_DYE_HEX, isCanonicalDye, scanDyeUsage } from '../itemIconsDye'
 import type { PixelBuffer } from '../../utils/duotone'
 
 function buildBuffer(pixels: [number, number, number, number][]): PixelBuffer {

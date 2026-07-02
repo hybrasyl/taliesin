@@ -26,6 +26,7 @@ The codebase already has the building blocks we need; no new image/zip dependenc
 ## Critical files
 
 Existing:
+
 - `src/main/schemas/pack.ts` — covers schemas live here
 - `src/main/handlers.ts:776–880` — pack IPC
 - `src/renderer/src/pages/AssetPackPage.tsx` — list/select/create/delete + hosts editor
@@ -36,6 +37,7 @@ Existing:
 - `src/preload/index.ts`, `src/renderer/src/env.d.ts`, `src/renderer/src/__tests__/setup/mockApi.ts` — IPC surface declarations
 
 New:
+
 - `src/renderer/src/packKinds/` — registry + per-kind modules
 - `src/main/schemas/pack/coversAbilityIcons.ts`, `coversNationBadges.ts`, `coversLegendMarks.ts`, `coversItemIcons.ts`, `coversUiSpriteOverrides.ts`
 - `src/renderer/src/components/assetpack/ItemIconsPanel.tsx`
@@ -92,8 +94,8 @@ export type AssetMetaField =
 
 export interface PackKind {
   type: ContentType
-  label: string                     // 'Ability Icons (skill/spell)'
-  description: string               // shown in CreatePackDialog
+  label: string // 'Ability Icons (skill/spell)'
+  description: string // shown in CreatePackDialog
   dimension: DimensionRule
   defaultCovers(): Record<string, unknown>
   coversSchema: z.ZodType
@@ -170,13 +172,13 @@ export const packManifestSchema = z.object({
 
 Per-kind covers shapes (enforced renderer-side via `kind.coversSchema`):
 
-| Kind | Covers shape |
-|---|---|
-| `ability_icons` | `{ ability_icons: { dimensions: [32, 32] } }` |
-| `nation_badges` | `{ nation_badges: {} }` (strict) |
-| `legend_mark_icons` | `{ legend_mark_icons: {} }` (strict) |
-| `ui_sprite_overrides` | `{ ui_sprite_overrides: {} }` (strict) |
-| `item_icons` | `{ item_icons: { no_dye?: number[] } }` |
+| Kind                  | Covers shape                                  |
+| --------------------- | --------------------------------------------- |
+| `ability_icons`       | `{ ability_icons: { dimensions: [32, 32] } }` |
+| `nation_badges`       | `{ nation_badges: {} }` (strict)              |
+| `legend_mark_icons`   | `{ legend_mark_icons: {} }` (strict)          |
+| `ui_sprite_overrides` | `{ ui_sprite_overrides: {} }` (strict)        |
+| `item_icons`          | `{ item_icons: { no_dye?: number[] } }`       |
 
 `schema_version` is `z.literal(1)`. The manifest never carries `assets`, `assetMeta`, `createdAt`, `updatedAt`.
 
@@ -191,11 +193,13 @@ Per-kind covers shapes (enforced renderer-side via `kind.coversSchema`):
 No UI behavior change. The 2 existing content types route through the registry; new types defined but unused by UI yet.
 
 **New files:**
+
 - `src/renderer/src/packKinds/types.ts`, `index.ts`
 - `src/renderer/src/packKinds/abilityIcons.ts`, `nationBadges.ts`, `legendMarkIcons.ts`, `itemIcons.ts`, `uiSpriteOverrides.ts`
 - `src/renderer/src/packKinds/__tests__/packKinds.test.ts` — per-kind table tests for `parseSlot`, `nextAssetPath`, `dimension.validate`, `coversSchema`
 
 **Modified:**
+
 - `src/main/schemas/pack.ts` — `content_type` becomes `z.enum(...)`; `assetMeta` added; `schema_version` becomes `z.literal(1)`
 - `src/main/__tests__/schemas.test.ts` — update `validPackProject` to include the new shape; add tests for unknown content_type and assetMeta
 
@@ -208,11 +212,13 @@ No UI behavior change. The 2 existing content types route through the registry; 
 The dropdown lists all 5 types; create/save/compile use registry rules. `item_icons` and `ui_sprite_overrides` work end-to-end with generic add UX (specifics arrive in Phase 3).
 
 **Modified:**
+
 - `src/renderer/src/components/assetpack/CreatePackDialog.tsx` — replace hardcoded `CONTENT_TYPES` with `listKinds().map(k => ({ value: k.type, label: k.label }))`. Show `kind.description` and `kind.dimension.label` as helper text.
 - `src/renderer/src/pages/AssetPackPage.tsx` — drop `DEFAULT_COVERS`; call `getKind(contentType).defaultCovers()` in `handleCreate`. Tighten `PackProject.content_type` to `ContentType`.
 - `src/renderer/src/components/assetpack/PackEditor.tsx` — delete `slotIdFromFilename` and `nextSlotId`; route through `kind.parseSlot` and `kind.nextAssetPath`. "Add PNG" becomes a `SplitButton` when `kind.namespaces` returns >1 entry (skill/spell for `ability_icons`; existing source tokens + "+ new source" for `ui_sprite_overrides`). Slot column shows `namespace` + `id`.
 
 **Tests:**
+
 - Extend `PackEditor.test.tsx` with one describe-block per kind covering filename rule and 0/1-based first-id (`legend0000`, `item00001`, `mile.spf/0000.png`).
 - Extend `AssetPackPage.integration.test.tsx` to create a `legend_mark_icons` pack and verify covers payload.
 
@@ -254,6 +260,7 @@ Validation runs renderer-side via the existing `loadPixelBufferFromPath` ([src/r
 ### Phase 4 — `.datf` import (round-trip)
 
 **New IPC:**
+
 - `pack:import(datfPath, packDir, { force: boolean })` → `{ projectFilename: string; warnings: string[] }`.
   1. Validate `datfPath` ends in `.datf`, inside an allowed root.
   2. Open with `unzipper` ([package.json:44](package.json#L44), already a direct dep). Streaming matters because `ui_sprite_overrides` packs can have hundreds of frames across many source-file groups.
@@ -270,11 +277,13 @@ Validation runs renderer-side via the existing `loadPixelBufferFromPath` ([src/r
   8. Return filename + per-asset warnings.
 
 **Modified:**
+
 - `src/main/handlers.ts` — register `pack:import`. Reuse `parseOrLog`/`assertInside` patterns.
 - `src/preload/index.ts`, `src/renderer/src/env.d.ts`, `src/renderer/src/__tests__/setup/mockApi.ts` — declare `packImport`.
 - `src/renderer/src/pages/AssetPackPage.tsx` — toolbar button "Import .datf" next to "New Pack". Calls `openFile` with `.datf` filter, then `packImport`, then `refresh()` and select the new pack. Surface warnings via status (or small dialog if non-empty).
 
 **Tests (`src/main/__tests__/ipc.handlers.test.ts`):**
+
 - Build a tiny zip in-memory with stub manifest + `legend0000.png`/`legend0001.png`; assert project JSON shape and on-disk PNG paths.
 - Reject manifest with bogus `content_type`.
 - Reject zip entry named `../escape.png`.
@@ -291,9 +300,11 @@ Plus a renderer integration test: mock `packImport` resolved value, click Import
 ### Phase 5 — Polish + cross-cutting cleanup
 
 **Modified:**
+
 - `src/renderer/src/components/assetpack/PackEditor.tsx` — replace `<img src={'file://...'}>` (flaky on Windows + Electron file-protocol restrictions) with a Blob URL pattern: read bytes via existing `readFile`, `URL.createObjectURL(new Blob([bytes], {type:'image/png'}))`, revoke on unmount. Group `ui_sprite_overrides` table rows by namespace under collapsible headings.
 
 **Manual smoke (user-run):**
+
 1. **`ability_icons`**: New Pack → 32×32 PNG → "Add Skill Icon" yields `skill0001.png`; "Add Spell Icon" yields `spell0001.png`. Compile → Import. Namespaces and slot ids match.
 2. **`legend_mark_icons`**: New Pack → 20×20 PNG → first slot is `legend0000.png` (0-based). 21×20 accepted; 22×22 rejected.
 3. **`item_icons`**: New Pack → 16×16 PNG → `item00001.png` (5 digits). Mark "No dye" → save → `covers.item_icons.no_dye === [1]`. Swatch panel shows the 6 canonical hex values.
@@ -302,16 +313,16 @@ Plus a renderer integration test: mock `packImport` resolved value, click Import
 
 ## IPC contract (final state)
 
-| Channel | Args | Returns | Status |
-|---|---|---|---|
-| `pack:scan` | `dirPath` | `PackSummary[]` | existing |
-| `pack:load` | `filePath` | `PackProject` | existing |
-| `pack:save` | `filePath, project` | `void` | existing (schema tightened) |
-| `pack:delete` | `filePath` | `void` | existing |
-| `pack:addAsset` | `packDir, sourcePath, targetFilename` | `void` | existing (mkdir parent) |
-| `pack:removeAsset` | `packDir, filename` | `void` | existing |
-| `pack:compile` | `packDir, manifest, filenames, outputPath` | `void` | existing (schema tightened) |
-| `pack:import` | `datfPath, packDir, {force}` | `{projectFilename, warnings[]}` | **new (Phase 4)** |
+| Channel            | Args                                       | Returns                         | Status                      |
+| ------------------ | ------------------------------------------ | ------------------------------- | --------------------------- |
+| `pack:scan`        | `dirPath`                                  | `PackSummary[]`                 | existing                    |
+| `pack:load`        | `filePath`                                 | `PackProject`                   | existing                    |
+| `pack:save`        | `filePath, project`                        | `void`                          | existing (schema tightened) |
+| `pack:delete`      | `filePath`                                 | `void`                          | existing                    |
+| `pack:addAsset`    | `packDir, sourcePath, targetFilename`      | `void`                          | existing (mkdir parent)     |
+| `pack:removeAsset` | `packDir, filename`                        | `void`                          | existing                    |
+| `pack:compile`     | `packDir, manifest, filenames, outputPath` | `void`                          | existing (schema tightened) |
+| `pack:import`      | `datfPath, packDir, {force}`               | `{projectFilename, warnings[]}` | **new (Phase 4)**           |
 
 PNG dimension and pixel-level checks happen renderer-side via the existing `loadPixelBufferFromPath` — no IPC needed.
 

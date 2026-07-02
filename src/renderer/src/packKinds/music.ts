@@ -36,7 +36,8 @@ export const musicKind: PackKind = {
   parseSlot,
   nextAssetPath({ existingAssets, sourceExtension }: AddAssetOptions): AssetTargetPath {
     const id = nextId(existingAssets)
-    const ext = sourceExtension && AUDIO_EXTENSIONS.includes(sourceExtension) ? sourceExtension : 'ogg'
+    const ext =
+      sourceExtension && AUDIO_EXTENSIONS.includes(sourceExtension) ? sourceExtension : 'ogg'
     const filename = `music_${String(id).padStart(4, '0')}.${ext}`
     return { zipPath: filename, relPath: filename }
   }

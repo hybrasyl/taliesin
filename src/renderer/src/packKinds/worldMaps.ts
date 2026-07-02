@@ -40,7 +40,8 @@ export const worldMapsKind: PackKind = {
   customNamespacePrompt: {
     menuLabel: 'New field…',
     dialogTitle: 'Add world map field',
-    dialogHelp: 'The server ClientMap name for this field, used as the PNG filename (e.g. field001).',
+    dialogHelp:
+      'The server ClientMap name for this field, used as the PNG filename (e.g. field001).',
     inputLabel: 'Field name'
   }
 }

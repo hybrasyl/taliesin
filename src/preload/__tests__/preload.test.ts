@@ -7,7 +7,7 @@ import { join } from 'path'
 const PRELOAD = readFileSync(join(__dirname, '..', 'index.ts'), 'utf-8')
 const HANDLERS = readFileSync(join(__dirname, '..', '..', 'main', 'handlers.ts'), 'utf-8')
 
-const CHANNEL_RE = /['"]([\w:.\-]+)['"]/g
+const CHANNEL_RE = /['"]([\w:.-]+)['"]/g
 
 function extractChannels(source: string, callPattern: RegExp): Set<string> {
   const channels = new Set<string>()

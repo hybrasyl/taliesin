@@ -175,7 +175,7 @@ const FontEditorPage: React.FC = () => {
     markDirty()
   }, [markDirty, selectedIndex])
 
-  const selectedGlyph = selectedIndex !== null ? glyphs[selectedIndex] ?? null : null
+  const selectedGlyph = selectedIndex !== null ? (glyphs[selectedIndex] ?? null) : null
   const selectedCodepoint = selectedIndex !== null ? startCodepoint + selectedIndex : null
   const resetDisabled = useMemo(() => {
     if (selectedIndex === null || selectedIndex >= originalGlyphs.length) return true
@@ -246,11 +246,7 @@ const FontEditorPage: React.FC = () => {
         >
           <Tooltip title="Add a glyph (pick a Unicode block, see what's missing)">
             <span>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setAddDialogOpen(true)}
-              >
+              <Button size="small" startIcon={<AddIcon />} onClick={() => setAddDialogOpen(true)}>
                 Add glyph…
               </Button>
             </span>

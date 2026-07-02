@@ -77,10 +77,7 @@ const FontBlockView: React.FC<Props> = ({
   onSelect,
   onPadToCodepoint
 }) => {
-  const sections = useMemo(
-    () => buildSections(glyphs, startCodepoint),
-    [glyphs, startCodepoint]
-  )
+  const sections = useMemo(() => buildSections(glyphs, startCodepoint), [glyphs, startCodepoint])
 
   if (sections.length === 0) {
     return (

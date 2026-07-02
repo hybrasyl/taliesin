@@ -252,16 +252,12 @@ describe('packProjectSchema and packManifestSchema', () => {
       'ui_sprite_overrides',
       'item_icons'
     ]) {
-      expect(() =>
-        packProjectSchema.parse({ ...validPackProject, content_type: ct })
-      ).not.toThrow()
+      expect(() => packProjectSchema.parse({ ...validPackProject, content_type: ct })).not.toThrow()
     }
   })
 
   it('packProjectSchema rejects an unknown content_type', () => {
-    expect(() =>
-      packProjectSchema.parse({ ...validPackProject, content_type: 'tiles' })
-    ).toThrow()
+    expect(() => packProjectSchema.parse({ ...validPackProject, content_type: 'tiles' })).toThrow()
   })
 
   it('packProjectSchema accepts an optional assetMeta map', () => {

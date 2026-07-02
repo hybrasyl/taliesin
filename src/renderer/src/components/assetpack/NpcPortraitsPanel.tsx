@@ -6,7 +6,10 @@ import { portraitSizeOf, type NpcPortraitsCovers } from '../../packKinds/npcPort
 const NpcPortraitsPanel: React.FC<PackKindPanelProps> = ({ draft, onChange, kind }) => {
   const size = portraitSizeOf(draft.covers)
 
-  const portraitCount = draft.assets.reduce((n, asset) => (kind.parseSlot(asset.filename) ? n + 1 : n), 0)
+  const portraitCount = draft.assets.reduce(
+    (n, asset) => (kind.parseSlot(asset.filename) ? n + 1 : n),
+    0
+  )
 
   const setSize = (next: number): void => {
     if (!Number.isFinite(next) || next <= 0) return

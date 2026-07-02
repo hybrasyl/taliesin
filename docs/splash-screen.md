@@ -34,15 +34,15 @@ first (empty) frame, which would defeat the "no empty flash" goal.
 
 ## Touch points
 
-| File | Change |
-| --- | --- |
-| [`resources/splash.html`](../resources/splash.html) | Self-contained splash markup (inline CSS, no JS). References `./taliesin.png` (lives alongside it in `resources/`). |
-| [`src/main/splash.ts`](../src/main/splash.ts) | `createSplashWindow()` — frameless, transparent, always-on-top, `skipTaskbar` window that `loadFile`s `splash.html`. |
-| [`src/main/index.ts`](../src/main/index.ts) | Module-level `mainWindow` / `splashWindow` refs + `revealMainWindow()`; splash created before the main window in `whenReady`; the old `ready-to-show → show()` is removed; `ctx.onAppReady = revealMainWindow`; 15s safety timeout. |
-| [`src/main/handlers.ts`](../src/main/handlers.ts) | `HandlerContext.onAppReady?` field + `ipcMain.on('app:ready', () => ctx.onAppReady?.())`. |
-| [`src/preload/index.ts`](../src/preload/index.ts) | `appReady: () => ipcRenderer.send('app:ready')`. |
-| [`src/renderer/src/env.d.ts`](../src/renderer/src/env.d.ts) | `appReady: () => void` on `TaliesinAPI`. |
-| [`src/renderer/src/App.tsx`](../src/renderer/src/App.tsx) | Calls `window.api.appReady()` in the `loadSettings().then(...)` chain, right after `settingsLoaded.current = true`. |
+| File                                                        | Change                                                                                                                                                                                                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`resources/splash.html`](../resources/splash.html)         | Self-contained splash markup (inline CSS, no JS). References `./taliesin.png` (lives alongside it in `resources/`).                                                                                                                 |
+| [`src/main/splash.ts`](../src/main/splash.ts)               | `createSplashWindow()` — frameless, transparent, always-on-top, `skipTaskbar` window that `loadFile`s `splash.html`.                                                                                                                |
+| [`src/main/index.ts`](../src/main/index.ts)                 | Module-level `mainWindow` / `splashWindow` refs + `revealMainWindow()`; splash created before the main window in `whenReady`; the old `ready-to-show → show()` is removed; `ctx.onAppReady = revealMainWindow`; 15s safety timeout. |
+| [`src/main/handlers.ts`](../src/main/handlers.ts)           | `HandlerContext.onAppReady?` field + `ipcMain.on('app:ready', () => ctx.onAppReady?.())`.                                                                                                                                           |
+| [`src/preload/index.ts`](../src/preload/index.ts)           | `appReady: () => ipcRenderer.send('app:ready')`.                                                                                                                                                                                    |
+| [`src/renderer/src/env.d.ts`](../src/renderer/src/env.d.ts) | `appReady: () => void` on `TaliesinAPI`.                                                                                                                                                                                            |
+| [`src/renderer/src/App.tsx`](../src/renderer/src/App.tsx)   | Calls `window.api.appReady()` in the `loadSettings().then(...)` chain, right after `settingsLoaded.current = true`.                                                                                                                 |
 
 Tests: `appReady` is listed in the mock API channel set
 (`src/renderer/src/__tests__/setup/mockApi.ts`) and the preload channel-contract

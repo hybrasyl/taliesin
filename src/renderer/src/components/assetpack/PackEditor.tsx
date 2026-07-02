@@ -52,7 +52,10 @@ function withReducedCovers(draft: PackProject): PackProject {
 interface RenderRowsArgs {
   assets: PackAsset[]
   kind: ReturnType<typeof getKind>
-  metaFieldEntries: [string, NonNullable<ReturnType<NonNullable<ReturnType<typeof getKind>['assetMetaFields']>>>[string]][]
+  metaFieldEntries: [
+    string,
+    NonNullable<ReturnType<NonNullable<ReturnType<typeof getKind>['assetMetaFields']>>>[string]
+  ][]
   packDir: string
   meta: Record<string, Record<string, unknown>>
   onMetaFieldChange: (filename: string, fieldKey: string, value: unknown) => void
@@ -221,9 +224,9 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const addAssetInNamespace = useCallback(
     async (namespace: string | undefined) => {
       const extensions = kind.fileExtensions ?? ['png']
-      const filePath = (await window.api.openFile([
-        { name: kind.label, extensions }
-      ])) as string | null
+      const filePath = (await window.api.openFile([{ name: kind.label, extensions }])) as
+        | string
+        | null
       if (!filePath) return
 
       // Image kinds decode the picked PNG once (dimension validation + the

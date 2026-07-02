@@ -297,9 +297,7 @@ describe('createSettingsManager.save', () => {
     }
 
     errors.set(TMP, new Error('first save fails'))
-    await expect(
-      mgr.save({ ...base, libraries: ['first'] })
-    ).rejects.toThrow(/first save fails/)
+    await expect(mgr.save({ ...base, libraries: ['first'] })).rejects.toThrow(/first save fails/)
 
     // Clear the injected failure and try again — this would silently no-op
     // (resolve undefined without ever calling writeFile) under the old
