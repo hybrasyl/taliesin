@@ -1,40 +1,10 @@
 import type { WorldMapData, WorldMapPoint } from '../data/worldMapData'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function attr(el: Element, name: string, def = ''): string {
-  return el.getAttribute(name) ?? def
-}
-
-function childText(el: Element, tag: string): string {
-  return el.querySelector(`:scope > ${tag}`)?.textContent?.trim() ?? ''
-}
+import { escapeXml as esc, attr, childText, parseXmlDocument } from './xmlUtils'
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
 export function parseWorldMapXml(xml: string): WorldMapData {
-  const stripped = xml.replace(/\s+xmlns(?::\w+)?="[^"]*"/g, '')
-  const doc = new DOMParser().parseFromString(stripped, 'text/xml')
-  const root = doc.documentElement
-
-  // See parseMapXml: malformed XML yields a document whose documentElement IS
-  // the <parsererror>, which a descendant-only querySelector never finds.
-  if (
-    root.tagName === 'parsererror' ||
-    root.querySelector('parsererror') ||
-    doc.getElementsByTagName('parsererror').length > 0
-  ) {
-    const errEl = root.tagName === 'parsererror' ? root : doc.getElementsByTagName('parsererror')[0]
-    throw new Error(`XML parse error: ${errEl.textContent ?? ''}`)
-  }
+  const root = parseXmlDocument(xml).documentElement
 
   const points: WorldMapPoint[] = []
   for (const pointEl of root.querySelectorAll('Points > Point')) {
