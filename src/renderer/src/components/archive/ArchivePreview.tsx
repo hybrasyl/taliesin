@@ -705,8 +705,6 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to decode HEA')
     }
-    void archive
-    void entry
   }, [entry, archive])
 
   return (

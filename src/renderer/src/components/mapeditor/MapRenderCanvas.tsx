@@ -263,11 +263,10 @@ export default function MapRenderCanvas({
               }
             }
           }
-          const pptFinal = Math.max(2, Math.round(zoom * 10))
           coordState.current = {
             mode: 'schematic',
             scale: 1,
-            pixPerTile: pptFinal,
+            pixPerTile: ppt,
             originX: 0,
             originY: 0,
             canvasW: base.width,

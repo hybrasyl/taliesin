@@ -75,20 +75,12 @@ const ExportMapDialog: React.FC<Props> = ({
       canvas.height = h
 
       if (assets) {
-        if (transparent) {
-          // Don't fill black — leave transparent
-          const ctx = canvas.getContext('2d')!
-          ctx.clearRect(0, 0, w, h)
-        }
+        // NOTE: renderMap always paints a black background (mapRenderer clears +
+        // fills #000), so the PNG is opaque regardless of `transparent`. The old
+        // code rendered twice with a clearRect in between, which produced the
+        // identical black result at double the cost — render once. (`transparent`
+        // still affects the collision wireframe export below.)
         await renderMap(canvas, mapFile, assets, { scale: exportScale })
-
-        // If transparent, clear the black background renderMap drew
-        if (transparent) {
-          // Re-render without the black fill
-          const ctx = canvas.getContext('2d')!
-          ctx.clearRect(0, 0, w, h)
-          await renderMap(canvas, mapFile, assets, { scale: exportScale })
-        }
       }
 
       // Convert to PNG blob
