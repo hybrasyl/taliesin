@@ -1,6 +1,8 @@
 export type MapFlag = 'Snow' | 'Rain' | 'Dark' | 'NoMap' | 'Winter'
 export type CardinalDirection = 'North' | 'South' | 'East' | 'West'
-export type BoardType = 'Signpost' | 'MessageBoard'
+// Casing matches the authoritative Hybrasyl XSD enumeration (Common.xsd) and the
+// server (IsMessageboard) — 'Messageboard', not 'MessageBoard'.
+export type BoardType = 'Signpost' | 'Messageboard'
 
 export interface WarpRestrictions {
   level?: number
@@ -109,7 +111,7 @@ export const DEFAULT_MAP: MapData = {
 
 export const ALL_FLAGS: MapFlag[] = ['Snow', 'Rain', 'Dark', 'NoMap', 'Winter']
 export const ALL_DIRECTIONS: CardinalDirection[] = ['North', 'South', 'East', 'West']
-export const ALL_BOARD_TYPES: string[] = ['Signpost', 'Messageboard']
+export const ALL_BOARD_TYPES: BoardType[] = ['Signpost', 'Messageboard']
 
 /** Derive the canonical XML filename from map Id. */
 export function computeMapFilename(id: number): string {
