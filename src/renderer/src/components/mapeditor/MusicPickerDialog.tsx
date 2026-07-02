@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   TextField,
-  Box,
   Typography,
   IconButton,
   InputAdornment,
@@ -141,14 +140,18 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
           // media-src blob:, but blocks both fetch(data:) and <audio src=data:>).
           const res = await window.api.packResolveAsset('music', id)
           if (res) {
-            const objUrl = URL.createObjectURL(new Blob([res.bytes], { type: res.mime }))
+            const objUrl = URL.createObjectURL(
+              new Blob([new Uint8Array(res.bytes)], { type: res.mime })
+            )
             blobUrlRef.current = objUrl
             url = objUrl
           }
         } else if (clientIds.has(id) && clientPath) {
           const sep = clientPath.includes('\\') ? '\\' : '/'
           const buf = await window.api.readFile(`${clientPath}${sep}music${sep}${id}.mus`)
-          const objUrl = URL.createObjectURL(new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' }))
+          const objUrl = URL.createObjectURL(
+            new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
+          )
           blobUrlRef.current = objUrl
           url = objUrl
         }
@@ -249,7 +252,11 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
                         void play(id)
                       }}
                     >
-                      {isPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                      {isPlaying ? (
+                        <StopIcon fontSize="small" />
+                      ) : (
+                        <PlayArrowIcon fontSize="small" />
+                      )}
                     </IconButton>
                   </Tooltip>
                 </ListItemButton>
