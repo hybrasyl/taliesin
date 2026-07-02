@@ -121,6 +121,9 @@ export default function App(): React.ReactElement {
       if (typeof settings.musEncodeSampleRate === 'number')
         setMusEncodeSampleRate(settings.musEncodeSampleRate)
       settingsLoaded.current = true
+      // Settings are now in the Recoil atoms — tell main to reveal the window
+      // and dismiss the startup splash (first visible frame is already populated).
+      window.api.appReady()
     })
   }, [])
 

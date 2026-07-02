@@ -64,6 +64,7 @@ declare global {
     closeWindow: () => void
     getAppVersion: () => Promise<string>
     getUserDataPath: () => Promise<string>
+    appReady: () => void
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>
     launchCompanion: (exePath: string) => Promise<boolean>
