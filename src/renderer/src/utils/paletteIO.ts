@@ -1,16 +1,13 @@
 import { Palette, CalibrationFile } from './paletteTypes'
+import { filenameFromPath } from './format'
+// Re-exported for existing importers (batchPipeline, ColorizeView, tests).
+export { filenameFromPath }
 
 export interface PaletteSummary {
   filename: string
   id: string
   name: string
   entryCount: number
-}
-
-export function filenameFromPath(path: string): string {
-  const norm = path.replace(/\\/g, '/')
-  const slash = norm.lastIndexOf('/')
-  return slash >= 0 ? norm.slice(slash + 1) : norm
 }
 
 export function dirnameFromPath(path: string): string {

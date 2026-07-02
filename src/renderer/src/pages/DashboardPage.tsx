@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { filenameFromPath } from '../utils/format'
 import {
   Box,
   Typography,
@@ -264,7 +265,7 @@ const DashboardPage: React.FC = () => {
           <StatusCard
             icon={<GamepadIcon fontSize="small" />}
             label="Current Client"
-            primary={clientPath ? (clientPath.replace(/\\/g, '/').split('/').pop() ?? null) : null}
+            primary={clientPath ? filenameFromPath(clientPath) : null}
             secondary={clientPath}
             emptyHint="Click to open Settings"
             onClick={() => navigateTo('settings')}
@@ -274,7 +275,7 @@ const DashboardPage: React.FC = () => {
           <StatusCard
             icon={<Inventory2Icon fontSize="small" />}
             label="Asset Packs"
-            primary={packDir ? (packDir.replace(/\\/g, '/').split('/').pop() ?? null) : null}
+            primary={packDir ? filenameFromPath(packDir) : null}
             secondary={packDir}
             emptyHint="Click to open Settings"
             onClick={() => navigateTo(packDir ? 'assetpacks' : 'settings')}

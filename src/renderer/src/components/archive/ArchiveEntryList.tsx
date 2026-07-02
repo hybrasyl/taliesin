@@ -4,7 +4,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { DataArchiveEntry } from '@eriscorp/dalib-ts'
-import { formatBytes, classifyEntry } from '../../utils/archiveRenderer'
+import { classifyEntry } from '../../utils/archiveRenderer'
+import { formatBytes } from '../../utils/format'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

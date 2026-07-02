@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { formatBytes } from '../../utils/format'
 import {
   Box,
   Typography,
@@ -30,11 +31,6 @@ interface Props {
   playingFile: string | null
   isPlaying: boolean
   onPlay: (filePath: string, trackName: string) => void
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 const ClientMusicView: React.FC<Props> = ({

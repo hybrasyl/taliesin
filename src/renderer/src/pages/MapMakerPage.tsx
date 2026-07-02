@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react'
+import { filenameFromPath } from '../utils/format'
 import {
   Box,
   Typography,
@@ -117,7 +118,7 @@ function createTab(
 
 function tabLabel(tab: MapTab): string {
   if (tab.filePath) {
-    return tab.filePath.replace(/\\/g, '/').split('/').pop() ?? 'map'
+    return filenameFromPath(tab.filePath)
   }
   return tab.mapFile ? 'Untitled' : 'Empty'
 }
@@ -289,7 +290,7 @@ const MapMakerPage: React.FC = () => {
     if (!path) return
     const buf = await window.api.readFile(path)
     const bytes = new Uint8Array(buf)
-    const filename = path.replace(/\\/g, '/').split('/').pop() ?? 'map'
+    const filename = filenameFromPath(path)
     setDimPickerState({ open: true, filePath: path, filename, fileBuffer: bytes })
   }, [])
 

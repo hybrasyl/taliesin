@@ -40,11 +40,11 @@ import {
   classifyEntry,
   loadPaletteByName,
   getPaletteNames,
-  formatBytes,
   decodePcx,
   parseBikHeader,
   type RenderedEntry
 } from '../../utils/archiveRenderer'
+import { formatBytes } from '../../utils/format'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
