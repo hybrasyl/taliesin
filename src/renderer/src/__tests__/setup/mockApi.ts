@@ -20,6 +20,7 @@ export function createMockApi(): MockApi {
     // App
     'getAppVersion',
     'getUserDataPath',
+    'appReady',
     'launchCompanion',
     // Settings
     'loadSettings',
