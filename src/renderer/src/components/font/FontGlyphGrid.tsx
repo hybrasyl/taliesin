@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FontGlyphTile from './FontGlyphTile'
+import { GLYPH_GRID_SX } from './glyph'
 
 interface Props {
   glyphs: Uint8Array[]
@@ -19,14 +20,7 @@ const FontGlyphGrid: React.FC<Props> = ({
   onAppend
 }) => {
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))',
-        gap: 0.5,
-        p: 1
-      }}
-    >
+    <Box sx={GLYPH_GRID_SX}>
       {glyphs.map((g, i) => (
         <FontGlyphTile
           key={i}

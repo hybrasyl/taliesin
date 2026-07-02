@@ -23,9 +23,8 @@ import FontPixelEditor from '../components/font/FontPixelEditor'
 import AddGlyphDialog from '../components/font/AddGlyphDialog'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
+import { GLYPH_WIDTH, GLYPH_HEIGHT } from '../components/font/glyph'
 
-const GLYPH_WIDTH = 8
-const GLYPH_HEIGHT = 12
 const GLYPH_BYTES = GLYPH_HEIGHT // 1 byte per row at 8px wide
 
 type ViewMode = 'grid' | 'block'
