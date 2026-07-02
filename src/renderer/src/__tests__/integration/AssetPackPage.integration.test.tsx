@@ -68,11 +68,12 @@ beforeEach(async () => {
 })
 
 function withPackDir(): React.FC<{ children: React.ReactNode }> {
-  return ({ children }) => (
+  const PackDirProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(packDirState, PACK_DIR)}>
       {children}
     </RecoilRoot>
   )
+  return PackDirProvider
 }
 
 describe('AssetPackPage — round-trip integration', () => {
@@ -365,9 +366,9 @@ describe('AssetPackPage — round-trip integration', () => {
 
     // Asset lands at <packDir>/<pack_id>/mile.spf/0000.png
     await waitFor(() => {
-      expect(
-        fs.files.get(`${PACK_DIR}/uipack/mile.spf/0000.png`)?.toString('utf-8')
-      ).toBe('FRAMEDATA')
+      expect(fs.files.get(`${PACK_DIR}/uipack/mile.spf/0000.png`)?.toString('utf-8')).toBe(
+        'FRAMEDATA'
+      )
     })
     expect(await screen.findByText('mile.spf/0000.png')).toBeInTheDocument()
   })

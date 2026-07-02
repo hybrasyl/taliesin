@@ -54,7 +54,8 @@ export async function renderPrefabPreviewIso(
       if (!t || t.background <= 0) continue
       const bm = await getGroundBitmap(t.background, assets)
       if (signal?.cancelled) return
-      if (bm) offCtx.drawImage(bm, originX + (x - y) * HTILE_W - HTILE_W, originY + (x + y) * HALF_H)
+      if (bm)
+        offCtx.drawImage(bm, originX + (x - y) * HTILE_W - HTILE_W, originY + (x + y) * HALF_H)
     }
   }
 

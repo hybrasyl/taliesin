@@ -10,12 +10,12 @@ The Hybrasyl client uses `sotp.dat` (packed inside `ia.dat`) as a flat per-tile-
 
 The `sotp.dat` file is a flat byte array. Across 20,423 bytes only four distinct values appear in retail data:
 
-| Byte | Count | % | Meaning |
-|---|---|---|---|
-| `0x0f` | 15,782 | 77.3% | impassable, static |
-| `0x00` | 4,265  | 20.9% | passable, static |
+| Byte   | Count  | %     | Meaning                                                                        |
+| ------ | ------ | ----- | ------------------------------------------------------------------------------ |
+| `0x0f` | 15,782 | 77.3% | impassable, static                                                             |
+| `0x00` | 4,265  | 20.9% | passable, static                                                               |
 | `0x80` | 322    | 1.6%  | passable, **animated tile** (cycles frames — fountains, fires, candles, water) |
-| `0x8f` | 54     | 0.3%  | impassable, animated tile |
+| `0x8f` | 54     | 0.3%  | impassable, animated tile                                                      |
 
 Encoding rules confirmed against an in-game corpus of 14 known tile IDs (10 impassable / 4 passable, all matched 14/14):
 
@@ -33,6 +33,7 @@ There is no path to override SOTP without patching the legacy binary today, and 
 This plan introduces a new `.datf` content type, `tile_collision`, that ships sparse per-tile-ID overrides as JSON. The client merges the override map onto the in-memory SOTP table at load time, with multi-pack priority resolution. Taliesin authors the pack via a new pack-kind module that slots into the existing registry from the Phase 1–5 asset-pack-editor work.
 
 References:
+
 - Existing SOTP load and `isTilePassable`: `taliesin/src/renderer/src/utils/mapRenderer.ts`
 - Asset pack format: [asset-pack-format.md](./asset-pack-format.md)
 - Existing pack-kind registry in Taliesin: `taliesin/src/renderer/src/packKinds/index.ts`
@@ -126,7 +127,7 @@ Why this shape:
 - Single-property-per-tile (`staticType` as a scalar string, not `properties` as an array) is the simplest model and matches retail SOTP's "tile has at most one property" pattern. If multi-property tiles become real, that's a v3 conversation.
 - `staticType` strings are kept in a single shared list owned by the client team. The override format itself doesn't validate the names — authoring tools enumerate them from the client's exported list, but unknown names are passed through verbatim so future client additions don't require an editor update.
 
-What's *not* author-settable in v2:
+What's _not_ author-settable in v2:
 
 - The animated-tile bit (retail's `0x80`). Engine-derived from animation tables; preserved by the merge rule, never expressed in the JSON.
 
@@ -154,33 +155,30 @@ Slots into the existing registry. Adding it touches:
 
 Kind interface:
 
-| Field | Value |
-|---|---|
-| `type` | `'tile_collision'` |
-| `label` | `'Tile Collision (SOTP override)'` |
-| `description` | `'Override per-tile passability flags from sotp.dat. Sparse overlay merged onto the base SOTP table at client load.'` |
-| `dimension.label` | `'n/a'` |
-| `dimension.validate` | always returns `null` (no PNG dimension to check) |
-| `defaultCovers()` | `{ tile_collision: { tiles: {} } }` |
-| `coversSchema` | (see below) |
-| `parseSlot` | parses the single `overrides.json` filename → `{ namespace: 'overrides', id: 0 }` |
-| `nextAssetPath` | always returns `overrides.json` (single-file pack) |
-| `assetMetaFields` | `undefined` |
-| `namespaces` | `undefined` (no menu) |
-| `Panel` | `TileCollisionPanel` |
-| `disablesAssetTable` | `true` (new modularity hook — see below) |
-| `virtualAssets` | generates `overrides.json` from `covers.tile_collision.tiles` (new hook) |
-| `hydrateCoversFromAssets` | inverse — reads `overrides.json` from import (new hook) |
+| Field                     | Value                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `type`                    | `'tile_collision'`                                                                                                    |
+| `label`                   | `'Tile Collision (SOTP override)'`                                                                                    |
+| `description`             | `'Override per-tile passability flags from sotp.dat. Sparse overlay merged onto the base SOTP table at client load.'` |
+| `dimension.label`         | `'n/a'`                                                                                                               |
+| `dimension.validate`      | always returns `null` (no PNG dimension to check)                                                                     |
+| `defaultCovers()`         | `{ tile_collision: { tiles: {} } }`                                                                                   |
+| `coversSchema`            | (see below)                                                                                                           |
+| `parseSlot`               | parses the single `overrides.json` filename → `{ namespace: 'overrides', id: 0 }`                                     |
+| `nextAssetPath`           | always returns `overrides.json` (single-file pack)                                                                    |
+| `assetMetaFields`         | `undefined`                                                                                                           |
+| `namespaces`              | `undefined` (no menu)                                                                                                 |
+| `Panel`                   | `TileCollisionPanel`                                                                                                  |
+| `disablesAssetTable`      | `true` (new modularity hook — see below)                                                                              |
+| `virtualAssets`           | generates `overrides.json` from `covers.tile_collision.tiles` (new hook)                                              |
+| `hydrateCoversFromAssets` | inverse — reads `overrides.json` from import (new hook)                                                               |
 
 `coversSchema` for v1:
 
 ```ts
 z.object({
   tile_collision: z.object({
-    tiles: z.record(
-      z.string().regex(/^\d+$/),
-      z.enum(['passable', 'impassable'])
-    ).optional()
+    tiles: z.record(z.string().regex(/^\d+$/), z.enum(['passable', 'impassable'])).optional()
   })
 })
 ```
@@ -208,9 +206,7 @@ interface PackKind {
   /** Inverse of virtualAssets. After pack:import extracts the .datf into
    *  packDir, this hook reads any kind-owned files and returns the covers
    *  blob to merge into the imported PackProject. */
-  hydrateCoversFromAssets?(extracted: {
-    files: Record<string, string>
-  }): Record<string, unknown>
+  hydrateCoversFromAssets?(extracted: { files: Record<string, string> }): Record<string, unknown>
 }
 ```
 
@@ -241,11 +237,13 @@ All three are optional, so existing kinds stay untouched.
 ## Critical files to touch (Taliesin side)
 
 New:
+
 - `src/renderer/src/packKinds/tileCollision.ts`
 - `src/renderer/src/components/assetpack/TileCollisionPanel.tsx`
 - `src/renderer/src/packKinds/__tests__/tileCollision.test.ts`
 
 Modified:
+
 - `src/renderer/src/packKinds/types.ts` — add `disablesAssetTable?` and `virtualAssets?` and `hydrateCoversFromAssets?` to `PackKind`
 - `src/renderer/src/packKinds/index.ts` — register the kind
 - `src/main/schemas/pack.ts` — add `'tile_collision'` to the `content_type` enum

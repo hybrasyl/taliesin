@@ -30,7 +30,8 @@ function nextIdInNamespace(existing: PackAsset[], namespace: string): number {
 export const abilityIconsKind: PackKind = {
   type: 'ability_icons',
   label: 'Ability Icons (skill / spell)',
-  description: 'Replaces skill001/002/003.epf and spell001/002/003.epf. 32×32 PNGs, one per ability ID.',
+  description:
+    'Replaces skill001/002/003.epf and spell001/002/003.epf. 32×32 PNGs, one per ability ID.',
   dimension: {
     label: '32×32',
     validate(width, height) {

@@ -42,4 +42,14 @@ export function isKnownContentType(value: string): value is ContentType {
   return Object.prototype.hasOwnProperty.call(PACK_KINDS, value)
 }
 
-export type { ContentType, PackKind, PackProject, PackAsset, SlotIdentity, AssetTargetPath, DimensionRule, AssetMetaField, PackKindPanelProps } from './types'
+export type {
+  ContentType,
+  PackKind,
+  PackProject,
+  PackAsset,
+  SlotIdentity,
+  AssetTargetPath,
+  DimensionRule,
+  AssetMetaField,
+  PackKindPanelProps
+} from './types'

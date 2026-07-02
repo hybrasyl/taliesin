@@ -28,7 +28,8 @@ function nextId(existing: PackAsset[]): number {
 export const itemIconsKind: PackKind = {
   type: 'item_icons',
   label: 'Item Icons',
-  description: 'Replaces item001..054.epf in legend.dat. 5-digit 1-based IDs. Dyeable surfaces use 6 canonical purples; flag undyeable items with no_dye.',
+  description:
+    'Replaces item001..054.epf in legend.dat. 5-digit 1-based IDs. Dyeable surfaces use 6 canonical purples; flag undyeable items with no_dye.',
   dimension: {
     label: '16–32 × 16–32',
     validate(width, height) {
@@ -63,8 +64,6 @@ export const itemIconsKind: PackKind = {
       }
     }
     noDyeIds.sort((a, b) => a - b)
-    return noDyeIds.length > 0
-      ? { item_icons: { no_dye: noDyeIds } }
-      : { item_icons: {} }
+    return noDyeIds.length > 0 ? { item_icons: { no_dye: noDyeIds } } : { item_icons: {} }
   }
 }

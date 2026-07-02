@@ -45,9 +45,7 @@ const ItemIconsPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => {
         ))}
       </Box>
       <Typography variant="caption" color="text.secondary">
-        {noDyeIds.length === 0
-          ? 'No items flagged no_dye.'
-          : `no_dye: ${noDyeIds.join(', ')}`}
+        {noDyeIds.length === 0 ? 'No items flagged no_dye.' : `no_dye: ${noDyeIds.join(', ')}`}
       </Typography>
     </Box>
   )

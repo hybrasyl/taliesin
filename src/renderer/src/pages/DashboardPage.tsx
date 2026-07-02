@@ -134,7 +134,15 @@ interface StatusCardProps {
   footer?: React.ReactNode
 }
 
-function StatusCard({ icon, label, primary, secondary, emptyHint, onClick, footer }: StatusCardProps) {
+function StatusCard({
+  icon,
+  label,
+  primary,
+  secondary,
+  emptyHint,
+  onClick,
+  footer
+}: StatusCardProps) {
   const body = (
     <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
@@ -171,7 +179,10 @@ function StatusCard({ icon, label, primary, secondary, emptyHint, onClick, foote
             Not configured
           </Typography>
           {emptyHint && (
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.25 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: 'text.secondary', display: 'block', mt: 0.25 }}
+            >
               {emptyHint}
             </Typography>
           )}
@@ -228,7 +239,7 @@ const DashboardPage: React.FC = () => {
 
   const folderName = activeLibrary ? getFolderName(activeLibrary) : null
   const hasIndex = !!index?.builtAt
-  const builtAt = hasIndex ? new Date((index as any).builtAt) : null
+  const builtAt = index?.builtAt ? new Date(index.builtAt) : null
 
   return (
     <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
@@ -253,7 +264,7 @@ const DashboardPage: React.FC = () => {
           <StatusCard
             icon={<GamepadIcon fontSize="small" />}
             label="Current Client"
-            primary={clientPath ? clientPath.replace(/\\/g, '/').split('/').pop() ?? null : null}
+            primary={clientPath ? (clientPath.replace(/\\/g, '/').split('/').pop() ?? null) : null}
             secondary={clientPath}
             emptyHint="Click to open Settings"
             onClick={() => navigateTo('settings')}
@@ -263,7 +274,7 @@ const DashboardPage: React.FC = () => {
           <StatusCard
             icon={<Inventory2Icon fontSize="small" />}
             label="Asset Packs"
-            primary={packDir ? packDir.replace(/\\/g, '/').split('/').pop() ?? null : null}
+            primary={packDir ? (packDir.replace(/\\/g, '/').split('/').pop() ?? null) : null}
             secondary={packDir}
             emptyHint="Click to open Settings"
             onClick={() => navigateTo(packDir ? 'assetpacks' : 'settings')}
@@ -320,7 +331,7 @@ const DashboardPage: React.FC = () => {
       {hasIndex && (
         <Grid container spacing={1.5} sx={{ mb: 3 }}>
           {INDEX_TYPES.map(({ key, label, page, tooltip }) => {
-            const arr = (index as any)?.[key]
+            const arr = (index as unknown as Record<string, unknown[]>)?.[key]
             if (!arr) return null
             return (
               <Grid size={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={key}>

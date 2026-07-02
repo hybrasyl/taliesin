@@ -27,9 +27,7 @@ import {
   filenameFromPath,
   outputFilename
 } from './paletteIO'
-import {
-  loadMasterPixels as defaultLoadMasterPixels
-} from './grayscaleMaster'
+import { loadMasterPixels as defaultLoadMasterPixels } from './grayscaleMaster'
 import { pixelBufferToPngBytes } from './imageLoader'
 
 export interface BatchOptions {
@@ -149,11 +147,7 @@ export interface BatchDeps {
   writeBytes: (path: string, data: Uint8Array) => Promise<void>
   writeFile: (path: string, content: string) => Promise<void>
   ensureDir: (path: string) => Promise<void>
-  detect?: (
-    source: PixelBuffer,
-    entry: PaletteEntry,
-    variants: VariantDef[]
-  ) => AutoDetectResult
+  detect?: (source: PixelBuffer, entry: PaletteEntry, variants: VariantDef[]) => AutoDetectResult
 }
 
 const defaultDeps = (): BatchDeps => ({

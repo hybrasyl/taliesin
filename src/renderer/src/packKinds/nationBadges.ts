@@ -25,7 +25,8 @@ function nextId(existing: PackAsset[]): number {
 export const nationBadgesKind: PackKind = {
   type: 'nation_badges',
   label: 'Nation Badges',
-  description: 'Replaces _nui_nat.spf. One PNG per nation ID; sized however the legacy badge was drawn.',
+  description:
+    'Replaces _nui_nat.spf. One PNG per nation ID; sized however the legacy badge was drawn.',
   dimension: {
     label: 'any',
     validate: () => null

@@ -25,7 +25,7 @@ This plan supersedes the §3 work in the original scope doc, which has been arch
 - Calibration types + persistence: [src/renderer/src/utils/paletteTypes.ts](../../src/renderer/src/utils/paletteTypes.ts), ColorizeView lines 146–369
 - Color picker (hex + react-colorful wheel): [src/renderer/src/components/palette/ColorSwatchPicker.tsx](../../src/renderer/src/components/palette/ColorSwatchPicker.tsx)
 - Custom params dialog (sliders + clampBlack/clampWhite): [src/renderer/src/components/palette/CustomVariantDialog.tsx](../../src/renderer/src/components/palette/CustomVariantDialog.tsx)
-- Tests: [src/renderer/src/utils/__tests__/](../../src/renderer/src/utils/__tests__/) — duotone, variants, paletteIO
+- Tests: [src/renderer/src/utils/**tests**/](../../src/renderer/src/utils/__tests__/) — duotone, variants, paletteIO
 
 ### Phase 3 — Batch Processing ❌ Not started
 
@@ -60,11 +60,11 @@ Specifically missing:
 1. **Grayscale master pipeline.** ✅ commit `bc23b38`
    - [src/renderer/src/utils/grayscaleMaster.ts](../../src/renderer/src/utils/grayscaleMaster.ts) caches BT.601 grayscale of each source under `{packDir}/_masters/{basename}.png`. Mtime-based invalidation; regenerates when source mtime > master mtime, master is missing, or `force=true`.
    - Generic `fs:stat` IPC added in main; reuses existing `fs:writeBytes`/`fs:readFile` so no new schema needed (load-side returns null on stat failure).
-   - __Deferred-by-decision: ColorizeView swap.__ The plan called for ColorizeView to read through the master so single-icon and batch share one path. On reflection the master is purely a batch-side optimization (the duotone algorithm is luminance-only, so applying to the color source produces equivalent output). ColorizeView already works; touching it would only warm the master cache for free, which has no practical value since batch warms its own cache lazily. Skipped.
+   - **Deferred-by-decision: ColorizeView swap.** The plan called for ColorizeView to read through the master so single-icon and batch share one path. On reflection the master is purely a batch-side optimization (the duotone algorithm is luminance-only, so applying to the color source produces equivalent output). ColorizeView already works; touching it would only warm the master cache for free, which has no practical value since batch warms its own cache lazily. Skipped.
 
 2. **Batch pipeline.** ✅ commit `bbc6b30`
    - [src/renderer/src/utils/batchPipeline.ts](../../src/renderer/src/utils/batchPipeline.ts) — `runBatch(packDir, paletteId, sources, options, onProgress, deps?)` orchestrates the full flow.
-   - __Architectural revision__: no new `palette:batchColorize` IPC. The original plan put orchestration in the main process; in practice the renderer already has Canvas + access to `fs:writeBytes`/`fs:writeFile`/`fs:ensureDir`, so the pipeline drives the loop locally and reports progress via callback. Simpler, no IPC streaming-channel work needed, gives BatchView direct React-state control over progress UI.
+   - **Architectural revision**: no new `palette:batchColorize` IPC. The original plan put orchestration in the main process; in practice the renderer already has Canvas + access to `fs:writeBytes`/`fs:writeFile`/`fs:ensureDir`, so the pipeline drives the loop locally and reports progress via callback. Simpler, no IPC streaming-channel work needed, gives BatchView direct React-state control over progress UI.
    - Variant selection priority: `overrideVariantId` > saved calibration (when `useCalibration=true`) > auto-detect (when `autoDetect=true`) > balanced default.
    - Output naming: `{asset_id}_{palette_id}_{entry_id}.png`.
    - Per-pair errors collected as failures and reported in result without aborting the run.
@@ -74,7 +74,7 @@ Specifically missing:
    - Wired into [src/renderer/src/pages/PalettePage.tsx](../../src/renderer/src/pages/PalettePage.tsx) as the third tab.
 
 4. **Determinism guarantee.** ✅ in commit at end of branch
-   - Unit test in [src/renderer/src/utils/__tests__/batchPipeline.test.ts](../../src/renderer/src/utils/__tests__/batchPipeline.test.ts) — runs `runBatch` twice with a deterministic encoder stub and asserts byte-identical writes + identical manifest (modulo `ranAt`). Proves the orchestration layer is deterministic.
+   - Unit test in [src/renderer/src/utils/**tests**/batchPipeline.test.ts](../../src/renderer/src/utils/__tests__/batchPipeline.test.ts) — runs `runBatch` twice with a deterministic encoder stub and asserts byte-identical writes + identical manifest (modulo `ranAt`). Proves the orchestration layer is deterministic.
    - PNG byte-determinism beyond that point depends on Chromium's `canvas.toBlob('image/png')` being deterministic for identical pixel data. This holds in practice but cannot be unit-tested in jsdom; manual smoke test is `git diff` on the output folder after a re-run.
 
 ## Verification

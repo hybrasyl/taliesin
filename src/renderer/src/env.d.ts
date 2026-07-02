@@ -109,9 +109,7 @@ declare global {
     ) => Promise<{ exists: boolean; builtAt?: string; stale?: boolean }>
     indexDelete: (libraryRoot: string) => Promise<void>
     libraryResolve: (selectedPath: string) => Promise<string | null>
-    prefabList: (
-      libraryPath: string
-    ) => Promise<
+    prefabList: (libraryPath: string) => Promise<
       {
         filename: string
         name: string
@@ -164,9 +162,7 @@ declare global {
       data: Record<string, { name?: string; comment?: string }>
     ) => Promise<void>
     bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string) => Promise<string>
-    tileScanAnalyze: (
-      dirPaths: string[]
-    ) => Promise<{
+    tileScanAnalyze: (dirPaths: string[]) => Promise<{
       background: [number, number][]
       leftForeground: [number, number][]
       rightForeground: [number, number][]

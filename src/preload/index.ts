@@ -257,8 +257,8 @@ if (process.contextIsolated) {
   contextBridge.exposeInMainWorld('electron', electronAPI)
   contextBridge.exposeInMainWorld('api', api)
 } else {
-  // @ts-ignore
+  // @ts-ignore -- contextIsolation disabled: assign the bridge onto window
   window.electron = electronAPI
-  // @ts-ignore
+  // @ts-ignore -- contextIsolation disabled: assign the bridge onto window
   window.api = api
 }

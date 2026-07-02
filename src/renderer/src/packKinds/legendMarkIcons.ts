@@ -27,7 +27,8 @@ function nextId(existing: PackAsset[]): number {
 export const legendMarkIconsKind: PackKind = {
   type: 'legend_mark_icons',
   label: 'Legend Mark Icons',
-  description: 'Replaces legends.epf (palette 3 in national.dat). 0-based IDs match the wire-protocol byte. 20×20 or 21×20.',
+  description:
+    'Replaces legends.epf (palette 3 in national.dat). 0-based IDs match the wire-protocol byte. 20×20 or 21×20.',
   dimension: {
     label: '20×20 or 21×20',
     validate(width, height) {

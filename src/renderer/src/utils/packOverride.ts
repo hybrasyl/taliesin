@@ -17,7 +17,7 @@ export async function resolvePackBitmap(
   }
   if (!res) return null
   try {
-    return await createImageBitmap(new Blob([res.bytes], { type: res.mime }))
+    return await createImageBitmap(new Blob([new Uint8Array(res.bytes)], { type: res.mime }))
   } catch {
     return null
   }

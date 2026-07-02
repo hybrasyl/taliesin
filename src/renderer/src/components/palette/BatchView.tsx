@@ -192,9 +192,7 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
               control={
                 <Checkbox
                   checked={options.useCalibration}
-                  onChange={(e) =>
-                    setOptions((o) => ({ ...o, useCalibration: e.target.checked }))
-                  }
+                  onChange={(e) => setOptions((o) => ({ ...o, useCalibration: e.target.checked }))}
                   disabled={running}
                 />
               }
@@ -291,10 +289,14 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
               </Typography>
               <Typography variant="body2">
                 {result.manifest.entries.length} output
-                {result.manifest.entries.length === 1 ? '' : 's'} ·{' '}
-                {result.failures.length} failure{result.failures.length === 1 ? '' : 's'}
+                {result.manifest.entries.length === 1 ? '' : 's'} · {result.failures.length} failure
+                {result.failures.length === 1 ? '' : 's'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
                 Manifest: {result.manifestPath}
               </Typography>
               {result.failures.length > 0 && (

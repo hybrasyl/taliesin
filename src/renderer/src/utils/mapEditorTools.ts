@@ -81,8 +81,8 @@ export function floodFill(
 /** Returns all tile coordinates along a line from (x0,y0) to (x1,y1). */
 export function bresenhamLine(x0: number, y0: number, x1: number, y1: number): TileCoord[] {
   const coords: TileCoord[] = []
-  let dx = Math.abs(x1 - x0)
-  let dy = -Math.abs(y1 - y0)
+  const dx = Math.abs(x1 - x0)
+  const dy = -Math.abs(y1 - y0)
   const sx = x0 < x1 ? 1 : -1
   const sy = y0 < y1 ? 1 : -1
   let err = dx + dy

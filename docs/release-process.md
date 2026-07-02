@@ -114,7 +114,7 @@ Publishing the release fires `release.yml`:
 
 - Builds the app (`npm ci`, `npm run build`)
 - Packages the portable exe (`electron-builder --win portable
-  --publish never`)
+--publish never`)
 - Attaches `dist/*-portable.exe` to the release via
   `softprops/action-gh-release@v2`
 - Posts a Discord announcement to the channel configured in the

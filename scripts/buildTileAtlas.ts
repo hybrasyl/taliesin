@@ -203,7 +203,7 @@ async function scanMaps() {
 
 function clusterBackground(
   bgFreq: Map<number, number>,
-  bgAdj: Map<number, Map<number, number>>
+  _bgAdj: Map<number, Map<number, number>>
 ): BgFamily[] {
   console.log('\n  Clustering background tiles...')
 

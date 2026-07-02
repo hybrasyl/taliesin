@@ -112,6 +112,7 @@ const PrefabCatalogPage: React.FC = () => {
 
   const handleRename = useCallback(async () => {
     if (!activeLibrary || !selected || !loadedPrefab || !renameName.trim()) return
+    // eslint-disable-next-line no-control-regex -- strip control chars from filenames
     const newFilename = renameName.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') + '.json'
     const updated = {
       ...loadedPrefab,

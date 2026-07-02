@@ -302,6 +302,17 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     packCompile: (d, m, f, o) => handlers.packCompile(handlerCtx, d, m, f, o),
     packImport: (d, p, o) => handlers.packImport(handlerCtx, d, p, o),
 
+    // Installed-pack consumers read module-level pack state (loaded via
+    // loadPacks at boot), not handlerCtx, so the bridge stubs them with safe
+    // defaults — integration tests exercise page state machines, not installed
+    // pack resolution.
+    packListActive: async () => [],
+    packListCoveredIds: async () => [],
+    packResolveAsset: async () => null,
+    packSuggestedBrigidAssetsPath: async () => null,
+    packReload: async () => undefined,
+    packTrackMeta: async () => null,
+
     // Palettes
     paletteScan: (p) => handlers.paletteScan(handlerCtx, p),
     paletteLoad: (p) => handlers.paletteLoad(handlerCtx, p),

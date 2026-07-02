@@ -28,6 +28,7 @@ export interface PrefabSummary {
 
 /** Sanitize a prefab name for use as a filename. */
 export function sanitizePrefabName(name: string): string {
+  // eslint-disable-next-line no-control-regex -- strip control chars from filenames
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'untitled'
 }
 

@@ -153,7 +153,8 @@ const SUPPORTED_SCHEMA_VERSIONS = new Set([1])
 function validateManifest(
   raw: unknown
 ): { ok: true; manifest: PackManifest } | { ok: false; reason: string } {
-  if (raw == null || typeof raw !== 'object') return { ok: false, reason: 'manifest is not an object' }
+  if (raw == null || typeof raw !== 'object')
+    return { ok: false, reason: 'manifest is not an object' }
   const m = raw as Record<string, unknown>
   if (!SUPPORTED_SCHEMA_VERSIONS.has(m.schema_version as number)) {
     return { ok: false, reason: `unsupported schema_version ${String(m.schema_version)}` }
@@ -335,7 +336,9 @@ async function resolveEntry(
       const ext = (String(entry.path).split('.').pop() ?? '').toLowerCase()
       return { buffer, ext }
     } catch (err) {
-      console.warn(`[assetPacks] failed reading ${subtype}:${id} from ${pack.fileName}: ${(err as Error).message}`)
+      console.warn(
+        `[assetPacks] failed reading ${subtype}:${id} from ${pack.fileName}: ${(err as Error).message}`
+      )
     }
   }
   return null

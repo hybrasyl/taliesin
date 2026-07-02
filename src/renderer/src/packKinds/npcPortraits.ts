@@ -74,7 +74,8 @@ export const npcPortraitsKind: PackKind = {
   customNamespacePrompt: {
     menuLabel: 'New portrait…',
     dialogTitle: 'Add NPC portrait',
-    dialogHelp: "The NPC's Portrait value as the server publishes it (verbatim, e.g. Gobalt or inn.spf).",
+    dialogHelp:
+      "The NPC's Portrait value as the server publishes it (verbatim, e.g. Gobalt or inn.spf).",
     inputLabel: 'Portrait key'
   },
   Panel: NpcPortraitsPanel,

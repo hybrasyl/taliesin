@@ -142,10 +142,12 @@ describe('packImport — basics', () => {
     expect(project.pack_version).toBe('1.2.3')
     // assertInside returns platform-native paths; normalize before comparing.
     const norm = (p: string) => p.replace(/\\/g, '/')
-    expect(project.assets.map((a: { filename: string; sourcePath: string }) => ({
-      filename: a.filename,
-      sourcePath: norm(a.sourcePath)
-    }))).toEqual([
+    expect(
+      project.assets.map((a: { filename: string; sourcePath: string }) => ({
+        filename: a.filename,
+        sourcePath: norm(a.sourcePath)
+      }))
+    ).toEqual([
       { filename: 'skill0001.png', sourcePath: '/work/foo/skill0001.png' },
       { filename: 'spell0001.png', sourcePath: '/work/foo/spell0001.png' }
     ])

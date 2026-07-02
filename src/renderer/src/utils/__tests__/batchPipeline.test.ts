@@ -93,14 +93,7 @@ describe('selectVariant', () => {
       lastCalibrated: '2026-04-25T00:00:00Z'
     }
     const detect = vi.fn(ALWAYS_PICK_STRONG)
-    const result = selectVariant(
-      TINY,
-      ENTRY,
-      saved,
-      baseOptions,
-      DEFAULT_VARIANTS,
-      detect
-    )
+    const result = selectVariant(TINY, ENTRY, saved, baseOptions, DEFAULT_VARIANTS, detect)
     expect(result.calibrationSource).toBe('saved')
     expect(result.variant.id).toBe('subtle')
     expect(result.params).toEqual({
@@ -116,14 +109,7 @@ describe('selectVariant', () => {
 
   it('runs auto-detect when no saved calibration and autoDetect=true', () => {
     const detect = vi.fn(ALWAYS_PICK_STRONG)
-    const result = selectVariant(
-      TINY,
-      ENTRY,
-      undefined,
-      baseOptions,
-      DEFAULT_VARIANTS,
-      detect
-    )
+    const result = selectVariant(TINY, ENTRY, undefined, baseOptions, DEFAULT_VARIANTS, detect)
     expect(detect).toHaveBeenCalledOnce()
     expect(result.variant.id).toBe('strong')
     expect(result.calibrationSource).toBe('auto')
@@ -175,8 +161,22 @@ describe('selectVariant', () => {
 
   it('uses the first variant when no balanced exists in a custom variant set', () => {
     const customVariants: VariantDef[] = [
-      { id: 'first', label: 'First', darkFactor: 0, lightFactor: 0, midpointLow: 0.25, midpointHigh: 0.75 },
-      { id: 'second', label: 'Second', darkFactor: 0.5, lightFactor: 0.5, midpointLow: 0.25, midpointHigh: 0.75 }
+      {
+        id: 'first',
+        label: 'First',
+        darkFactor: 0,
+        lightFactor: 0,
+        midpointLow: 0.25,
+        midpointHigh: 0.75
+      },
+      {
+        id: 'second',
+        label: 'Second',
+        darkFactor: 0.5,
+        lightFactor: 0.5,
+        midpointLow: 0.25,
+        midpointHigh: 0.75
+      }
     ]
     const result = selectVariant(
       TINY,
@@ -415,9 +415,7 @@ describe('runBatch determinism', () => {
     return out
   }
 
-  function captureWrites(
-    writeBytes: ReturnType<typeof vi.fn>
-  ): Map<string, Uint8Array> {
+  function captureWrites(writeBytes: ReturnType<typeof vi.fn>): Map<string, Uint8Array> {
     const map = new Map<string, Uint8Array>()
     for (const [path, bytes] of writeBytes.mock.calls) {
       map.set(path as string, bytes as Uint8Array)
