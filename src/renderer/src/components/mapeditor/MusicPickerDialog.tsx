@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { parseFilename } from '../../hooks/useMusicLibrary'
+import { useAudioPreview } from '../../hooks/useAudioPreview'
 import {
   Dialog,
   DialogTitle,
@@ -47,22 +48,10 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
   const [metas, setMetas] = useState<Map<number, TrackMeta>>(new Map())
   const [mode, setMode] = useState<'vanilla' | 'hybrasyl'>('vanilla')
   const [search, setSearch] = useState('')
-  const [playingId, setPlayingId] = useState<number | null>(null)
-
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
+  const { isPlaying, toggle, stop } = useAudioPreview<number>()
 
   const packHasMusic = packIds.size > 0
   const preferPack = packHasMusic && mode === 'hybrasyl'
-
-  const stop = useCallback(() => {
-    audioRef.current?.pause()
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-    setPlayingId(null)
-  }, [])
 
   // Load available ids when the dialog opens.
   useEffect(() => {
@@ -110,11 +99,10 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
     }
   }, [open, clientPath])
 
-  // Stop playback whenever the dialog closes.
+  // Stop playback whenever the dialog closes (unmount handled by hook).
   useEffect(() => {
     if (!open) stop()
   }, [open, stop])
-  useEffect(() => stop, [stop])
 
   const ids = useMemo(() => {
     const merged = new Set(clientIds)
@@ -128,47 +116,22 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
   }, [ids, search])
 
   const play = useCallback(
-    async (id: number) => {
-      if (playingId === id) {
-        stop()
-        return
-      }
-      stop()
-      try {
-        let url: string | null = null
+    (id: number) =>
+      toggle(id, async () => {
         if (preferPack && packIds.has(id)) {
-          // Main returns raw bytes + MIME; wrap in a blob: URL (CSP allows
-          // media-src blob:, but blocks both fetch(data:) and <audio src=data:>).
+          // Main returns raw bytes + MIME; the hook wraps them in a blob: URL
+          // (CSP allows media-src blob:, but blocks <audio src=data:>).
           const res = await window.api.packResolveAsset('music', id)
-          if (res) {
-            const objUrl = URL.createObjectURL(
-              new Blob([new Uint8Array(res.bytes)], { type: res.mime })
-            )
-            blobUrlRef.current = objUrl
-            url = objUrl
-          }
-        } else if (clientIds.has(id) && clientPath) {
+          return res ? { bytes: res.bytes, mime: res.mime } : null
+        }
+        if (clientIds.has(id) && clientPath) {
           const sep = clientPath.includes('\\') ? '\\' : '/'
           const buf = await window.api.readFile(`${clientPath}${sep}music${sep}${id}.mus`)
-          const objUrl = URL.createObjectURL(
-            new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
-          )
-          blobUrlRef.current = objUrl
-          url = objUrl
+          return { bytes: buf, mime: 'audio/mpeg' }
         }
-        if (!url) return
-        if (!audioRef.current) audioRef.current = new Audio()
-        const audio = audioRef.current
-        audio.src = url
-        audio.onended = () => setPlayingId(null)
-        audio.onerror = () => setPlayingId(null)
-        await audio.play()
-        setPlayingId(id)
-      } catch {
-        setPlayingId(null)
-      }
-    },
-    [playingId, preferPack, packIds, clientIds, clientPath, stop]
+        return null
+      }),
+    [toggle, preferPack, packIds, clientIds, clientPath]
   )
 
   return (
@@ -224,7 +187,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
         ) : (
           <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
             {filtered.map((id) => {
-              const isPlaying = playingId === id
+              const rowPlaying = isPlaying(id)
               const fromPack = preferPack && packIds.has(id)
               // Only label the pack (Hybrasyl) row — vanilla plays the original
               // {id}.mus, whose tags may differ from the pack override's.
@@ -245,7 +208,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
                       pack
                     </Typography>
                   )}
-                  <Tooltip title={isPlaying ? 'Stop' : 'Preview'}>
+                  <Tooltip title={rowPlaying ? 'Stop' : 'Preview'}>
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -253,7 +216,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
                         void play(id)
                       }}
                     >
-                      {isPlaying ? (
+                      {rowPlaying ? (
                         <StopIcon fontSize="small" />
                       ) : (
                         <PlayArrowIcon fontSize="small" />

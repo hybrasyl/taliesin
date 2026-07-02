@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseFilename } from '../../hooks/useMusicLibrary'
+import { useAudioPreview } from '../../hooks/useAudioPreview'
 import { useRecoilValue } from 'recoil'
 import {
   Accordion,
@@ -429,11 +430,8 @@ export function MusicIdField({
 }) {
   const [text, setText] = useState(value != null ? String(value) : '')
   const [availableIds, setAvailableIds] = useState<Set<number>>(new Set())
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
+  const { playing, error, toggle, stop } = useAudioPreview('Failed to play music')
 
   useEffect(() => {
     setText(value != null ? String(value) : '')
@@ -465,16 +463,7 @@ export function MusicIdField({
     }
   }, [clientPath])
 
-  // Stop + revoke on unmount or when the selected music ID changes.
-  const stop = useCallback(() => {
-    audioRef.current?.pause()
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-    setPlaying(false)
-  }, [])
-  useEffect(() => stop, [stop])
+  // Stop playback when the selected music ID changes (unmount handled by hook).
   useEffect(() => {
     stop()
   }, [value, stop])
@@ -499,35 +488,16 @@ export function MusicIdField({
   const fileExists = value != null && availableIds.has(value)
   const playDisabled = !fileExists || !clientPath
 
-  const handleTogglePlay = useCallback(async () => {
-    if (playing) {
-      stop()
-      return
-    }
-    if (value == null || !clientPath) return
-    setError(null)
-    try {
-      const sep = clientPath.includes('\\') ? '\\' : '/'
-      const path = `${clientPath}${sep}music${sep}${value}.mus`
-      const buf = await window.api.readFile(path)
-      const blob = new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
-      const url = URL.createObjectURL(blob)
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = url
-      if (!audioRef.current) audioRef.current = new Audio()
-      audioRef.current.src = url
-      audioRef.current.onended = () => setPlaying(false)
-      audioRef.current.onerror = () => {
-        setPlaying(false)
-        setError('Playback failed')
-      }
-      await audioRef.current.play()
-      setPlaying(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to play music')
-      setPlaying(false)
-    }
-  }, [playing, value, clientPath, stop])
+  const handleTogglePlay = useCallback(
+    () =>
+      toggle(true, async () => {
+        if (value == null || !clientPath) return null
+        const sep = clientPath.includes('\\') ? '\\' : '/'
+        const buf = await window.api.readFile(`${clientPath}${sep}music${sep}${value}.mus`)
+        return { bytes: buf, mime: 'audio/mpeg' }
+      }),
+    [toggle, value, clientPath]
+  )
 
   const playTooltip = !clientPath
     ? 'Set a client path in Settings to preview music'
