@@ -7,17 +7,14 @@ import { packDirState, currentPageState } from '../recoil/atoms'
 import PaletteManagerView from '../components/palette/PaletteManagerView'
 import ColorizeView from '../components/palette/ColorizeView'
 import BatchView from '../components/palette/BatchView'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
 
 const PalettePage: React.FC = () => {
   const [packDir, setPackDir] = useRecoilState(packDirState)
   const setCurrentPage = useSetRecoilState(currentPageState)
   const [tab, setTab] = useState<'palettes' | 'colorize' | 'batch'>('palettes')
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
+  const [statusMessage, showStatus] = useTransientStatus()
 
   const handleSetDir = useCallback(async () => {
     const dir = await window.api.openDirectory()
@@ -66,11 +63,7 @@ const PalettePage: React.FC = () => {
         <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
           {packDir}
         </Typography>
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold' }}>
-            {statusMessage}
-          </Typography>
-        )}
+        <StatusMessage message={statusMessage} />
       </Box>
 
       <Tabs

@@ -21,6 +21,8 @@ import PackEditor from '../components/assetpack/PackEditor'
 import CreatePackDialog from '../components/assetpack/CreatePackDialog'
 import { getKind, isKnownContentType } from '../packKinds'
 import type { ContentType, PackProject } from '../packKinds'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
 
 interface PackSummary {
   filename: string
@@ -36,12 +38,7 @@ const AssetPackPage: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null)
   const [loadedPack, setLoadedPack] = useState<PackProject | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
+  const [statusMessage, showStatus] = useTransientStatus()
 
   // Scan packs
   const refresh = useCallback(async () => {
@@ -193,11 +190,7 @@ const AssetPackPage: React.FC = () => {
         <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
           {packDir}
         </Typography>
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold' }}>
-            {statusMessage}
-          </Typography>
-        )}
+        <StatusMessage message={statusMessage} />
         <Typography variant="caption" color="text.disabled">
           {packs.length} pack{packs.length !== 1 ? 's' : ''}
         </Typography>

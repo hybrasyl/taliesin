@@ -21,6 +21,8 @@ import FontGlyphGrid from '../components/font/FontGlyphGrid'
 import FontBlockView from '../components/font/FontBlockView'
 import FontPixelEditor from '../components/font/FontPixelEditor'
 import AddGlyphDialog from '../components/font/AddGlyphDialog'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
 
 const GLYPH_WIDTH = 8
 const GLYPH_HEIGHT = 12
@@ -52,7 +54,6 @@ const FontEditorPage: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [startCodepoint, setStartCodepoint] = useState<number>(0x21)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
 
@@ -67,10 +68,7 @@ const FontEditorPage: React.FC = () => {
     handleDialogCancel
   } = useUnsavedGuard('Font')
 
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
+  const [statusMessage, showStatus] = useTransientStatus()
 
   const loadFromPath = useCallback(
     async (filePath: string) => {
@@ -211,11 +209,7 @@ const FontEditorPage: React.FC = () => {
         <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
           {path ?? 'No file loaded'}
         </Typography>
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold' }}>
-            {statusMessage}
-          </Typography>
-        )}
+        <StatusMessage message={statusMessage} />
         {error && (
           <Typography variant="caption" color="error" sx={{ mr: 1 }}>
             {error}

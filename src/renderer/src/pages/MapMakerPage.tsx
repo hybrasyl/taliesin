@@ -1,5 +1,7 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
 import {
   Box,
   Typography,
@@ -236,8 +238,7 @@ const MapMakerPage: React.FC = () => {
   )
 
   // Status bar
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [statusMessage, showStatus] = useTransientStatus()
 
   // Hover
   const [hoverTile, setHoverTile] = useState<{ tx: number; ty: number } | null>(null)
@@ -260,12 +261,6 @@ const MapMakerPage: React.FC = () => {
 
   // Derived
   const selectedTileId = selectedTileIds[0] ?? 0
-
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current)
-    statusTimeoutRef.current = setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
 
   // ── New / Open / Save ──────────────────────────────────────────────────────
 
@@ -1238,11 +1233,7 @@ const MapMakerPage: React.FC = () => {
 
         {/* Status */}
         <Box sx={{ flexGrow: 1 }} />
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold', mr: 1 }}>
-            {statusMessage}
-          </Typography>
-        )}
+        <StatusMessage message={statusMessage} sx={{ mr: 1 }} />
         {pasteMode && (
           <Typography variant="caption" color="warning.main">
             PASTE MODE (click to place, Shift+click repeat, Esc cancel)
