@@ -7,7 +7,7 @@
  */
 
 import { DataArchive, EpfFile, Palette } from '@eriscorp/dalib-ts'
-import { resolvePackBitmap, coveredIdSet } from './packOverride'
+import { resolveWithPackOverride, coveredIdSet } from './packOverride'
 
 export const FIELD_NAMES = Array.from(
   { length: 11 },
@@ -54,56 +54,57 @@ async function loadArchive(clientPath: string): Promise<DataArchive> {
 export async function renderField(fieldName: string, clientPath: string): Promise<ImageBitmap> {
   const normPath = clientPath.replace(/\\/g, '/').replace(/\/+$/, '')
   const cacheKey = `${normPath}/${fieldName}`
-  const cached = bitmapCache.get(cacheKey)
-  if (cached) return cached
+  const fieldId = fieldName.toLowerCase()
 
   // Installed world_maps pack override wins over the legacy setoa.dat field art.
-  const coverage = await getWorldCoverage()
-  if (coverage.has(fieldName.toLowerCase())) {
-    const override = await resolvePackBitmap('world_maps', fieldName.toLowerCase())
-    if (override) {
-      bitmapCache.set(cacheKey, override)
-      return override
-    }
-  }
+  // renderLegacy throws on missing art so the canvas can show the error; a
+  // covered field never reaches it. Non-null because the legacy path only
+  // returns via throw or a bitmap.
+  const bitmap = await resolveWithPackOverride(
+    'world_maps',
+    fieldId,
+    await getWorldCoverage(),
+    bitmapCache,
+    cacheKey,
+    async () => {
+      const archive = await loadArchive(normPath)
 
-  const archive = await loadArchive(normPath)
+      // Each EPF pairs with a same-named .pal (field001.epf → field001.pal)
+      const palEntry = archive.get(`${fieldName}.pal`)
+      if (!palEntry) throw new Error(`${fieldName}.pal not found in setoa.dat`)
+      const palette = Palette.fromEntry(palEntry)
 
-  // Each EPF pairs with a same-named .pal (field001.epf → field001.pal)
-  const palEntry = archive.get(`${fieldName}.pal`)
-  if (!palEntry) throw new Error(`${fieldName}.pal not found in setoa.dat`)
-  const palette = Palette.fromEntry(palEntry)
+      const epf = EpfFile.fromArchive(fieldName, archive)
+      if (epf.frames.length === 0) throw new Error(`${fieldName}.epf has no frames`)
 
-  const epf = EpfFile.fromArchive(fieldName, archive)
-  if (epf.frames.length === 0) throw new Error(`${fieldName}.epf has no frames`)
+      const imageData = new ImageData(FIELD_WIDTH, FIELD_HEIGHT)
+      const d = imageData.data
 
-  const imageData = new ImageData(FIELD_WIDTH, FIELD_HEIGHT)
-  const d = imageData.data
+      for (const frame of epf.frames) {
+        const fw = frame.right - frame.left
+        const fh = frame.bottom - frame.top
 
-  for (const frame of epf.frames) {
-    const fw = frame.right - frame.left
-    const fh = frame.bottom - frame.top
-
-    for (let y = 0; y < fh; y++) {
-      for (let x = 0; x < fw; x++) {
-        const idx = frame.data[y * fw + x]
-        if (!idx) continue // palette index 0 = transparent
-        const color = palette.get(idx)
-        const dstX = frame.left + x
-        const dstY = frame.top + y
-        if (dstX < 0 || dstY < 0 || dstX >= FIELD_WIDTH || dstY >= FIELD_HEIGHT) continue
-        const dst = (dstY * FIELD_WIDTH + dstX) * 4
-        d[dst] = color.r
-        d[dst + 1] = color.g
-        d[dst + 2] = color.b
-        d[dst + 3] = 255
+        for (let y = 0; y < fh; y++) {
+          for (let x = 0; x < fw; x++) {
+            const idx = frame.data[y * fw + x]
+            if (!idx) continue // palette index 0 = transparent
+            const color = palette.get(idx)
+            const dstX = frame.left + x
+            const dstY = frame.top + y
+            if (dstX < 0 || dstY < 0 || dstX >= FIELD_WIDTH || dstY >= FIELD_HEIGHT) continue
+            const dst = (dstY * FIELD_WIDTH + dstX) * 4
+            d[dst] = color.r
+            d[dst + 1] = color.g
+            d[dst + 2] = color.b
+            d[dst + 3] = 255
+          }
+        }
       }
-    }
-  }
 
-  const bitmap = await createImageBitmap(imageData)
-  bitmapCache.set(cacheKey, bitmap)
-  return bitmap
+      return createImageBitmap(imageData)
+    }
+  )
+  return bitmap as ImageBitmap
 }
 
 /** Clear all caches (call when clientPath or brigidAssetsPath changes). */

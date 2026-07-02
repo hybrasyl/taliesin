@@ -16,7 +16,7 @@ import {
   MapFile,
   TileAnimationTable
 } from '@eriscorp/dalib-ts'
-import { resolvePackBitmap, coveredIdSet } from './packOverride'
+import { resolveWithPackOverride, coveredIdSet } from './packOverride'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -222,31 +222,25 @@ export async function getGroundBitmap(
 ): Promise<ImageBitmap | null> {
   if (tileIndex <= 0) return null
 
-  const cached = assets.groundBitmapCache.get(tileIndex)
-  if (cached) return cached
-
-  // Installed static_tiles pack override wins over legacy TILEA.BMP art. Gated
+  // Installed static_tiles pack override wins over legacy TILEA.BMP art; gated
   // on the coverage snapshot so uncovered tiles never pay an IPC round-trip.
-  if (assets.floorCoverage.has(tileIndex)) {
-    const override = await resolvePackBitmap('floor', tileIndex)
-    if (override) {
-      assets.groundBitmapCache.set(tileIndex, override)
-      return override
+  return resolveWithPackOverride(
+    'floor',
+    tileIndex,
+    assets.floorCoverage,
+    assets.groundBitmapCache,
+    tileIndex,
+    async () => {
+      if (tileIndex > assets.groundTileCount) return null
+      const start = (tileIndex - 1) * GROUND_TILE_BYTES
+      const pixels = assets.groundPixels.subarray(start, start + GROUND_TILE_BYTES)
+      const palNum = assets.groundPaletteTable.getPaletteNumber(tileIndex + 1)
+      const palette = assets.groundPalettes.get(palNum)
+      if (!palette) return null
+      const imgData = pixelsToImageData(pixels, palette, GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT)
+      return createImageBitmap(imgData)
     }
-  }
-
-  if (tileIndex > assets.groundTileCount) return null
-
-  const start = (tileIndex - 1) * GROUND_TILE_BYTES
-  const pixels = assets.groundPixels.subarray(start, start + GROUND_TILE_BYTES)
-  const palNum = assets.groundPaletteTable.getPaletteNumber(tileIndex + 1)
-  const palette = assets.groundPalettes.get(palNum)
-  if (!palette) return null
-
-  const imgData = pixelsToImageData(pixels, palette, GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT)
-  const bitmap = await createImageBitmap(imgData)
-  assets.groundBitmapCache.set(tileIndex, bitmap)
-  return bitmap
+  )
 }
 
 /** stc tiles 1-12 and 10001-10012 are special/empty in DA — skip them. */
@@ -260,31 +254,25 @@ export async function getStcBitmap(
 ): Promise<ImageBitmap | null> {
   if (!isValidStcIndex(tileIndex)) return null
 
-  const cached = assets.stcBitmapCache.get(tileIndex)
-  if (cached) return cached
-
   // Installed static_tiles pack override wins over legacy stc*.hpf art.
-  if (assets.wallCoverage.has(tileIndex)) {
-    const override = await resolvePackBitmap('wall', tileIndex)
-    if (override) {
-      assets.stcBitmapCache.set(tileIndex, override)
-      return override
+  return resolveWithPackOverride(
+    'wall',
+    tileIndex,
+    assets.wallCoverage,
+    assets.stcBitmapCache,
+    tileIndex,
+    async () => {
+      const entryName = `stc${String(tileIndex).padStart(5, '0')}.hpf`
+      const entry = assets.iaArchive.get(entryName)
+      if (!entry) return null
+      const hpf = HpfFile.fromEntry(entry)
+      const palNum = assets.stcPaletteTable.getPaletteNumber(tileIndex + 1)
+      const palette = assets.stcPalettes.get(palNum)
+      if (!palette) return null
+      const imgData = pixelsToImageData(hpf.data, palette, hpf.pixelWidth, hpf.pixelHeight)
+      return createImageBitmap(imgData)
     }
-  }
-
-  const entryName = `stc${String(tileIndex).padStart(5, '0')}.hpf`
-  const entry = assets.iaArchive.get(entryName)
-  if (!entry) return null
-
-  const hpf = HpfFile.fromEntry(entry)
-  const palNum = assets.stcPaletteTable.getPaletteNumber(tileIndex + 1)
-  const palette = assets.stcPalettes.get(palNum)
-  if (!palette) return null
-
-  const imgData = pixelsToImageData(hpf.data, palette, hpf.pixelWidth, hpf.pixelHeight)
-  const bitmap = await createImageBitmap(imgData)
-  assets.stcBitmapCache.set(tileIndex, bitmap)
-  return bitmap
+  )
 }
 
 // ── Map render ────────────────────────────────────────────────────────────────

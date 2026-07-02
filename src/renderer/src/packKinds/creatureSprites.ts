@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { AddAssetOptions, AssetTargetPath, PackAsset, PackKind, SlotIdentity } from './types'
+import type { AddAssetOptions, AssetTargetPath, PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 
 // Matches the Brigid client's CreaturePack contract (phase 1, static): a single
 // "stand" frame per direction-pair master at
@@ -20,15 +21,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   return { namespace: m[2].toLowerCase(), id: parseInt(m[1], 10) }
 }
 
-function nextIdInNamespace(existing: PackAsset[], namespace: string): number {
-  let max = 0
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.namespace === namespace && slot.id > max) max = slot.id
-  }
-  return max + 1
-}
-
 export const creatureSpritesKind: PackKind = {
   type: 'creature_sprites',
   label: 'Creature Sprites (static)',
@@ -43,7 +35,10 @@ export const creatureSpritesKind: PackKind = {
   parseSlot,
   nextAssetPath({ ctx, existingAssets }: AddAssetOptions): AssetTargetPath {
     const dir = ctx?.namespace === 'e' ? 'e' : 'n'
-    const padded = String(nextIdInNamespace(existingAssets, dir)).padStart(5, '0')
+    const padded = String(nextSlotId(existingAssets, parseSlot, { namespace: dir })).padStart(
+      5,
+      '0'
+    )
     const path = `creature_sprites/creature_${padded}/stand/${dir}_001.png`
     return { zipPath: path, relPath: path }
   },

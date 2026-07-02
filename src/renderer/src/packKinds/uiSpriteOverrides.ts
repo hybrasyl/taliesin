@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { PackAsset, PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 import UiSpriteSourcesPanel from '../components/assetpack/UiSpriteSourcesPanel'
 
 // ui_sprite_overrides nest a 4-digit frame index inside a folder named after
@@ -15,16 +16,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   const m = UI_SPRITE_RE.exec(relPath)
   if (!m) return null
   return { namespace: m[1], id: parseInt(m[2], 10) }
-}
-
-function nextIdInNamespace(existing: PackAsset[], namespace: string): number {
-  let max = -1
-  const nsLower = namespace.toLowerCase()
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.namespace.toLowerCase() === nsLower && slot.id > max) max = slot.id
-  }
-  return max + 1
 }
 
 function uniqueNamespaces(existing: PackAsset[]): string[] {
@@ -60,7 +51,9 @@ export const uiSpriteOverridesKind: PackKind = {
         'ui_sprite_overrides nextAssetPath requires ctx.namespace (the source filename)'
       )
     }
-    const padded = String(nextIdInNamespace(existingAssets, namespace)).padStart(4, '0')
+    const padded = String(
+      nextSlotId(existingAssets, parseSlot, { namespace, caseInsensitive: true, firstId: 0 })
+    ).padStart(4, '0')
     const path = `${namespace}/${padded}.png`
     return { zipPath: path, relPath: path }
   },

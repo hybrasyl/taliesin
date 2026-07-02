@@ -23,6 +23,41 @@ export async function resolvePackBitmap(
   }
 }
 
+/**
+ * Bitmap resolution with the shared pack-override → legacy-fallback → cache
+ * pattern used by every renderer (map floor/wall, world-map fields):
+ *   1. return the cached bitmap if present;
+ *   2. if `id` is in the coverage set, try the installed-pack override;
+ *   3. otherwise (or if the override fails) render the legacy `.dat` art.
+ * The resolved bitmap is cached under `cacheKey`. `renderLegacy` returning null
+ * means "no art" (not cached); a throw propagates (used by renderField to show
+ * an error). `id` (coverage/pack key) is separate from `cacheKey` because the
+ * world-map cache keys by client-path while covering/resolving by field name.
+ */
+export async function resolveWithPackOverride<I extends number | string, K>(
+  subtype: string,
+  id: I,
+  coverage: ReadonlySet<I>,
+  cache: Map<K, ImageBitmap>,
+  cacheKey: K,
+  renderLegacy: () => Promise<ImageBitmap | null>
+): Promise<ImageBitmap | null> {
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  if (coverage.has(id)) {
+    const override = await resolvePackBitmap(subtype, id)
+    if (override) {
+      cache.set(cacheKey, override)
+      return override
+    }
+  }
+
+  const bitmap = await renderLegacy()
+  if (bitmap) cache.set(cacheKey, bitmap)
+  return bitmap
+}
+
 /** IDs a pack covers for a subtype, as a Set. [] on any failure (packs off/tests). */
 export async function coveredIdSet<T extends number | string>(
   subtype: string,

@@ -11,45 +11,12 @@ import type {
   MapSpawnGroup,
   CardinalDirection
 } from '../data/mapData'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function attr(el: Element, name: string, def = ''): string {
-  return el.getAttribute(name) ?? def
-}
-
-function childText(el: Element, tag: string): string {
-  // Use :scope > to restrict to direct children only (avoids picking up nested elements)
-  return el.querySelector(`:scope > ${tag}`)?.textContent?.trim() ?? ''
-}
+import { escapeXml as esc, attr, childText, parseXmlDocument } from './xmlUtils'
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
 export function parseMapXml(xml: string): MapData {
-  // Strip namespace declarations so querySelectorAll works reliably on all elements
-  const stripped = xml.replace(/\s+xmlns(?::\w+)?="[^"]*"/g, '')
-  const doc = new DOMParser().parseFromString(stripped, 'text/xml')
-  const root = doc.documentElement
-
-  // When XML is malformed, browsers (Chromium + jsdom) return a document whose
-  // documentElement IS the <parsererror> — `root.querySelector('parsererror')`
-  // alone misses that case because it only searches descendants.
-  if (
-    root.tagName === 'parsererror' ||
-    root.querySelector('parsererror') ||
-    doc.getElementsByTagName('parsererror').length > 0
-  ) {
-    const errEl = root.tagName === 'parsererror' ? root : doc.getElementsByTagName('parsererror')[0]
-    throw new Error(`XML parse error: ${errEl.textContent ?? ''}`)
-  }
+  const root = parseXmlDocument(xml).documentElement
 
   // Flags — space/comma separated text inside <Flags>
   const flagsText = childText(root, 'Flags')
