@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { PackAsset, PackKind, SlotIdentity } from './types'
+import type { PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 
 const SKILL_RE = /^skill(\d{4})\.png$/i
 const SPELL_RE = /^spell(\d{4})\.png$/i
@@ -16,15 +17,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   const spell = SPELL_RE.exec(relPath)
   if (spell) return { namespace: 'spell', id: parseInt(spell[1], 10) }
   return null
-}
-
-function nextIdInNamespace(existing: PackAsset[], namespace: string): number {
-  let max = 0
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.namespace === namespace && slot.id > max) max = slot.id
-  }
-  return max + 1
 }
 
 export const abilityIconsKind: PackKind = {
@@ -44,7 +36,7 @@ export const abilityIconsKind: PackKind = {
   parseSlot,
   nextAssetPath({ ctx, existingAssets }) {
     const ns = (ctx?.namespace === 'spell' ? 'spell' : 'skill') as 'skill' | 'spell'
-    const id = nextIdInNamespace(existingAssets, ns)
+    const id = nextSlotId(existingAssets, parseSlot, { namespace: ns })
     const padded = String(id).padStart(4, '0')
     const filename = `${ns}${padded}.png`
     return { zipPath: filename, relPath: filename }

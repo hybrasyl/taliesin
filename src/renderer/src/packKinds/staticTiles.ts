@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { AddAssetOptions, AssetTargetPath, PackAsset, PackKind, SlotIdentity } from './types'
+import type { AddAssetOptions, AssetTargetPath, PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 
 // Matches the Brigid client's StaticTilePack contract: floor{tileId:D5}.png and
 // wall{tileId:D5}.png at the zip root. tileId is the value stored directly in
@@ -21,15 +22,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   return null
 }
 
-function nextIdInNamespace(existing: PackAsset[], namespace: string): number {
-  let max = 0
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.namespace === namespace && slot.id > max) max = slot.id
-  }
-  return max + 1
-}
-
 export const staticTilesKind: PackKind = {
   type: 'static_tiles',
   label: 'Static Tiles (floor / wall)',
@@ -44,7 +36,7 @@ export const staticTilesKind: PackKind = {
   parseSlot,
   nextAssetPath({ ctx, existingAssets }: AddAssetOptions): AssetTargetPath {
     const ns = ctx?.namespace === 'wall' ? 'wall' : 'floor'
-    const padded = String(nextIdInNamespace(existingAssets, ns)).padStart(5, '0')
+    const padded = String(nextSlotId(existingAssets, parseSlot, { namespace: ns })).padStart(5, '0')
     const filename = `${ns}${padded}.png`
     return { zipPath: filename, relPath: filename }
   },

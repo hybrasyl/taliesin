@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { PackAsset, PackKind, PackProject, SlotIdentity } from './types'
+import type { PackKind, PackProject, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 import ItemIconsPanel from '../components/assetpack/ItemIconsPanel'
 
 const ITEM_RE = /^item(\d{5})\.png$/i
@@ -14,15 +15,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   const m = ITEM_RE.exec(relPath)
   if (!m) return null
   return { namespace: 'item', id: parseInt(m[1], 10) }
-}
-
-function nextId(existing: PackAsset[]): number {
-  let max = 0
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.id > max) max = slot.id
-  }
-  return max + 1
 }
 
 export const itemIconsKind: PackKind = {
@@ -42,7 +34,7 @@ export const itemIconsKind: PackKind = {
   coversSchema,
   parseSlot,
   nextAssetPath({ existingAssets }) {
-    const padded = String(nextId(existingAssets)).padStart(5, '0')
+    const padded = String(nextSlotId(existingAssets, parseSlot)).padStart(5, '0')
     const filename = `item${padded}.png`
     return { zipPath: filename, relPath: filename }
   },

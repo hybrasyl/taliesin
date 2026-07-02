@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { PackAsset, PackKind, SlotIdentity } from './types'
+import type { PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 
 const LEGEND_RE = /^legend(\d{4})\.png$/i
 
@@ -11,17 +12,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   const m = LEGEND_RE.exec(relPath)
   if (!m) return null
   return { namespace: 'legend', id: parseInt(m[1], 10) }
-}
-
-// Legend mark IDs are 0-based — the raw byte from the wire protocol — so the
-// first slot in an empty pack is `legend0000.png`, not legend0001.
-function nextId(existing: PackAsset[]): number {
-  let max = -1
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.id > max) max = slot.id
-  }
-  return max + 1
 }
 
 export const legendMarkIconsKind: PackKind = {
@@ -41,7 +31,9 @@ export const legendMarkIconsKind: PackKind = {
   coversSchema,
   parseSlot,
   nextAssetPath({ existingAssets }) {
-    const padded = String(nextId(existingAssets)).padStart(4, '0')
+    // Legend mark IDs are 0-based — the raw wire-protocol byte — so the first
+    // slot in an empty pack is legend0000.png.
+    const padded = String(nextSlotId(existingAssets, parseSlot, { firstId: 0 })).padStart(4, '0')
     const filename = `legend${padded}.png`
     return { zipPath: filename, relPath: filename }
   }

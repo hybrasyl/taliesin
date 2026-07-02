@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { AddAssetOptions, AssetTargetPath, PackAsset, PackKind, SlotIdentity } from './types'
+import type { AddAssetOptions, AssetTargetPath, PackKind, SlotIdentity } from './types'
+import { nextSlotId } from './helpers'
 
 // Matches the Brigid client's SfxPack contract: sfx_{id}.{ext} at the zip root,
 // id is the integer SoundArgs.Sound (matches legacy legend.dat {id}.mp3 numbering).
@@ -16,15 +17,6 @@ function parseSlot(relPath: string): SlotIdentity | null {
   return { namespace: 'sfx', id: parseInt(m[1], 10) }
 }
 
-function nextId(existing: PackAsset[]): number {
-  let max = 0
-  for (const a of existing) {
-    const slot = parseSlot(a.filename)
-    if (slot && slot.id > max) max = slot.id
-  }
-  return max + 1
-}
-
 export const soundEffectsKind: PackKind = {
   type: 'sound_effects',
   label: 'Sound Effects',
@@ -35,7 +27,7 @@ export const soundEffectsKind: PackKind = {
   coversSchema,
   parseSlot,
   nextAssetPath({ existingAssets, sourceExtension }: AddAssetOptions): AssetTargetPath {
-    const id = nextId(existingAssets)
+    const id = nextSlotId(existingAssets, parseSlot)
     const ext =
       sourceExtension && AUDIO_EXTENSIONS.includes(sourceExtension) ? sourceExtension : 'wav'
     const filename = `sfx_${String(id).padStart(4, '0')}.${ext}`
