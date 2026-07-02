@@ -113,8 +113,12 @@ export const ALL_FLAGS: MapFlag[] = ['Snow', 'Rain', 'Dark', 'NoMap', 'Winter']
 export const ALL_DIRECTIONS: CardinalDirection[] = ['North', 'South', 'East', 'West']
 export const ALL_BOARD_TYPES: BoardType[] = ['Signpost', 'Messageboard']
 
+/** lod/hyb filename prefix from map id — the single source of the 30000 rule. */
+export function xmlPrefix(id: number): 'lod' | 'hyb' {
+  return id >= 30000 ? 'hyb' : 'lod'
+}
+
 /** Derive the canonical XML filename from map Id. */
 export function computeMapFilename(id: number): string {
-  const padded = String(id).padStart(5, '0')
-  return id >= 30000 ? `hyb${padded}.xml` : `lod${padded}.xml`
+  return `${xmlPrefix(id)}${String(id).padStart(5, '0')}.xml`
 }

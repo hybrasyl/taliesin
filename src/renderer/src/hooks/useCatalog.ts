@@ -213,10 +213,9 @@ export function useCatalog(dirPath: string | null) {
 
 // ── Export helpers ────────────────────────────────────────────────────────────
 
-/** Derive lod/hyb prefix from map number. */
-export function xmlPrefix(mapNumber: number): 'lod' | 'hyb' {
-  return mapNumber >= 30000 ? 'hyb' : 'lod'
-}
+// xmlPrefix (the lod/hyb 30000 rule) lives in data/mapData; re-exported here for
+// existing importers (MapExportDialog, tests).
+export { xmlPrefix } from '../data/mapData'
 
 /**
  * Derive world name from library path (world/xml/).

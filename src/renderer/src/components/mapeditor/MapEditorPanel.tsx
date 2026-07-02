@@ -66,6 +66,7 @@ import {
   ALL_FLAGS,
   ALL_SPAWN_FLAGS,
   computeMapFilename,
+  xmlPrefix,
   DEFAULT_MAP,
   type CardinalDirection,
   type MapData,
@@ -624,10 +625,7 @@ function MapFieldsTab({
   const [dimBuffer, setDimBuffer] = useState<Uint8Array | null>(null)
   const [loadingDim, setLoadingDim] = useState(false)
 
-  const dimBinName =
-    data.id >= 30000
-      ? `hyb${String(data.id).padStart(5, '0')}.map`
-      : `lod${String(data.id).padStart(5, '0')}.map`
+  const dimBinName = `${xmlPrefix(data.id)}${String(data.id).padStart(5, '0')}.map`
 
   const handleOpenDimPicker = async () => {
     if (!mapDirectory || !data.id) return

@@ -109,21 +109,29 @@ export function bresenhamLine(x0: number, y0: number, x1: number, y1: number): T
 
 // ── Shape Generation ─────────────────────────────────────────────────────────
 
+/** Accumulator that de-dupes tile coords by "tx,ty" as they're pushed. */
+function makeCoordSet(): { coords: TileCoord[]; add: (tx: number, ty: number) => void } {
+  const coords: TileCoord[] = []
+  const seen = new Set<string>()
+  return {
+    coords,
+    add: (tx, ty) => {
+      const k = `${tx},${ty}`
+      if (!seen.has(k)) {
+        seen.add(k)
+        coords.push({ tx, ty })
+      }
+    }
+  }
+}
+
 /** Returns tile coordinates for a rectangle outline. */
 export function rectOutline(x0: number, y0: number, x1: number, y1: number): TileCoord[] {
   const minX = Math.min(x0, x1)
   const maxX = Math.max(x0, x1)
   const minY = Math.min(y0, y1)
   const maxY = Math.max(y0, y1)
-  const coords: TileCoord[] = []
-  const seen = new Set<string>()
-  const add = (tx: number, ty: number) => {
-    const k = `${tx},${ty}`
-    if (!seen.has(k)) {
-      seen.add(k)
-      coords.push({ tx, ty })
-    }
-  }
+  const { coords, add } = makeCoordSet()
 
   for (let x = minX; x <= maxX; x++) {
     add(x, minY)
@@ -159,15 +167,7 @@ export function circleOutline(x0: number, y0: number, x1: number, y1: number): T
   const ry = Math.abs(y1 - y0) / 2
   if (rx < 0.5 && ry < 0.5) return [{ tx: Math.round(cx), ty: Math.round(cy) }]
 
-  const coords: TileCoord[] = []
-  const seen = new Set<string>()
-  const add = (tx: number, ty: number) => {
-    const k = `${tx},${ty}`
-    if (!seen.has(k)) {
-      seen.add(k)
-      coords.push({ tx, ty })
-    }
-  }
+  const { coords, add } = makeCoordSet()
 
   // Sample the ellipse with enough resolution
   const steps = Math.max(40, Math.ceil(Math.max(rx, ry) * 4))
