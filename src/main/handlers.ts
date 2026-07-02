@@ -55,6 +55,11 @@ export interface HandlerContext {
   settingsRoots: Set<string>
   /** Paths blessed this session via OS dialog selections (one-shot user consent). */
   blessedRoots: Set<string>
+  /**
+   * Called once when the renderer signals `app:ready` (settings hydrated).
+   * Wired up in index.ts to reveal the main window + tear down the splash.
+   */
+  onAppReady?: () => void
 }
 
 /**
@@ -1311,6 +1316,12 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   })
   ipcMain.on('close-window', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.close()
+  })
+
+  // Renderer signals it has hydrated (settings loaded) → reveal main window and
+  // dismiss the splash. Handled in index.ts, which owns the window refs.
+  ipcMain.on('app:ready', () => {
+    ctx.onAppReady?.()
   })
 
   // Settings / app

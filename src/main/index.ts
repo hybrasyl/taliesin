@@ -5,6 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { loadPacks } from './assetPacks'
+import { createSplashWindow } from './splash'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -60,8 +61,26 @@ settingsManager.load().then((s) => {
   void loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
 })
 
+// Startup splash: shown immediately at boot, torn down once the renderer signals
+// `app:ready` (settings hydrated) — see revealMainWindow() and the whenReady
+// block below. A safety timeout backstops a renderer that never signals.
+let mainWindow: BrowserWindow | null = null
+let splashWindow: BrowserWindow | null = null
+let mainWindowRevealed = false
+
+function revealMainWindow(): void {
+  if (mainWindowRevealed) return
+  mainWindowRevealed = true
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show()
+    mainWindow.focus()
+  }
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.destroy()
+  splashWindow = null
+}
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
@@ -75,29 +94,34 @@ function createWindow(): void {
       sandbox: false
     }
   })
+  mainWindow = win
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
-  mainWindow.on('maximize', () => {
-    const { workArea } = screen.getDisplayMatching(mainWindow.getBounds())
-    mainWindow.setBounds(workArea)
+  win.on('maximize', () => {
+    const { workArea } = screen.getDisplayMatching(win.getBounds())
+    win.setBounds(workArea)
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html')).catch((err) => {
+    win.loadFile(join(__dirname, '../renderer/index.html')).catch((err) => {
       console.error('Failed to load file:', err)
     })
   }
 }
+
+// Reveal the main window (and dismiss the splash) once the renderer reports it
+// has hydrated its settings — see the `app:ready` IPC handler in handlers.ts.
+ctx.onAppReady = revealMainWindow
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.hybrasyl.taliesin')
@@ -106,10 +130,22 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Splash first so the user sees branded feedback instantly, then the (hidden)
+  // main window loads behind it. The splash is torn down on `app:ready`.
+  splashWindow = createSplashWindow()
   createWindow()
 
+  // Safety backstop: if the renderer errors before signalling `app:ready`, force
+  // the window visible so the app can never be left permanently invisible.
+  setTimeout(revealMainWindow, 15000)
+
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindowRevealed = false
+      splashWindow = createSplashWindow()
+      createWindow()
+      setTimeout(revealMainWindow, 15000)
+    }
   })
 })
 
