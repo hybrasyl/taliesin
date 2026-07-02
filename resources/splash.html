@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Taliesin</title>
+    <style>
+      /* Splash is shown in a frameless, transparent BrowserWindow before the
+         renderer bundle loads. It is intentionally self-contained (no JS, no
+         build step, no external CSS) so it paints instantly and ports to
+         Creidhne by copying this file + swapping the logo/title. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        -webkit-user-select: none;
+        cursor: default;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+      .card {
+        box-sizing: border-box;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 28px;
+        border-radius: 14px;
+        /* Deep-navy Hybrasyl palette (matches the app's default theme). */
+        background: radial-gradient(circle at 50% 35%, #16294a 0%, #0d182f 70%, #0a1223 100%);
+        border: 1px solid rgba(77, 132, 209, 0.35);
+        box-shadow:
+          0 12px 40px rgba(0, 0, 0, 0.55),
+          inset 0 0 0 1px rgba(240, 230, 204, 0.04);
+        color: #f0e6cc;
+      }
+      .logo {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+      }
+      .title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: #f0e6cc;
+      }
+      .subtitle {
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        color: #a8b8c4;
+        margin-top: -8px;
+      }
+      .spinner {
+        width: 22px;
+        height: 22px;
+        margin-top: 4px;
+        border: 2px solid rgba(168, 184, 196, 0.25);
+        border-top-color: #3a9e90;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img class="logo" src="./taliesin.png" alt="" />
+      <div class="title">TALIESIN</div>
+      <div class="subtitle">Loading…</div>
+      <div class="spinner"></div>
+    </div>
+  </body>
+</html>
