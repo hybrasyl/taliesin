@@ -8,6 +8,7 @@ import {
   TextField,
   Box
 } from '@mui/material'
+import { clampMapDim } from './mapDim'
 
 interface Props {
   open: boolean
@@ -38,7 +39,7 @@ const NewMapDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             size="small"
             fullWidth
             value={width}
-            onChange={(e) => setWidth(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setWidth(clampMapDim(e.target.value))}
             inputProps={{ min: 1, max: 512 }}
           />
           <TextField
@@ -47,7 +48,7 @@ const NewMapDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             size="small"
             fullWidth
             value={height}
-            onChange={(e) => setHeight(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setHeight(clampMapDim(e.target.value))}
             inputProps={{ min: 1, max: 512 }}
           />
         </Box>
