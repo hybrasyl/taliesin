@@ -9,8 +9,6 @@ import {
   ListItemButton,
   ListItemText
 } from '@mui/material'
-import FolderOpenIcon from '@mui/icons-material/FolderOpen'
-import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -21,6 +19,10 @@ import PackEditor from '../components/assetpack/PackEditor'
 import CreatePackDialog from '../components/assetpack/CreatePackDialog'
 import { getKind, isKnownContentType } from '../packKinds'
 import type { ContentType, PackProject } from '../packKinds'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
+import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
+import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
 
 interface PackSummary {
   filename: string
@@ -36,12 +38,7 @@ const AssetPackPage: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null)
   const [loadedPack, setLoadedPack] = useState<PackProject | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
+  const [statusMessage, showStatus] = useTransientStatus()
 
   // Scan packs
   const refresh = useCallback(async () => {
@@ -153,51 +150,18 @@ const AssetPackPage: React.FC = () => {
 
   if (!packDir) {
     return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h5" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
-          Asset Pack Manager
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Set a working directory in Settings to manage .datf asset packs.
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<SettingsIcon />}
-          onClick={() => setCurrentPage('settings')}
-        >
-          Open Settings
-        </Button>
-      </Box>
+      <EmptyStateSettings
+        title="Asset Pack Manager"
+        description="Set a working directory in Settings to manage .datf asset packs."
+        onOpenSettings={() => setCurrentPage('settings')}
+      />
     )
   }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Toolbar */}
-      <Box
-        sx={{
-          px: 2,
-          py: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider'
-        }}
-      >
-        <Tooltip title="Change working directory">
-          <IconButton size="small" onClick={handleSetDir}>
-            <FolderOpenIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
-          {packDir}
-        </Typography>
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold' }}>
-            {statusMessage}
-          </Typography>
-        )}
+      <WorkingDirToolbar dir={packDir} onChangeDir={handleSetDir}>
+        <StatusMessage message={statusMessage} />
         <Typography variant="caption" color="text.disabled">
           {packs.length} pack{packs.length !== 1 ? 's' : ''}
         </Typography>
@@ -206,7 +170,7 @@ const AssetPackPage: React.FC = () => {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-      </Box>
+      </WorkingDirToolbar>
 
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

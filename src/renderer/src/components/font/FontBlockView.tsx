@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import FontGlyphTile from './FontGlyphTile'
+import { GLYPH_GRID_SX } from './glyph'
 import { OTHER_BLOCK, UNICODE_BLOCKS, UnicodeBlock } from '../../utils/unicodeBlocks'
 
 interface Props {
@@ -96,14 +97,7 @@ const FontBlockView: React.FC<Props> = ({
             <Typography variant="overline" sx={{ pl: 1, color: 'text.secondary' }}>
               {block.name} · {filledCount} glyph{filledCount === 1 ? '' : 's'}
             </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))',
-                gap: 0.5,
-                p: 1
-              }}
-            >
+            <Box sx={GLYPH_GRID_SX}>
               {slots.map((slot) =>
                 slot.kind === 'filled' ? (
                   <FontGlyphTile

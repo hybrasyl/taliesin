@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Typography, Tooltip } from '@mui/material'
 import type { PackKindPanelProps } from '../../packKinds'
 import { CANONICAL_DYE_HEX } from '../../packKinds/itemIconsDye'
+import { PanelContainer } from './PanelContainer'
 
 const ItemIconsPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => {
   const noDyeIds: number[] = []
@@ -15,20 +16,7 @@ const ItemIconsPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => {
   noDyeIds.sort((a, b) => a - b)
 
   return (
-    <Box
-      sx={{
-        px: 2,
-        py: 1.5,
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1
-      }}
-    >
-      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-        Dye palette (paint dyeable surfaces with these only)
-      </Typography>
+    <PanelContainer title="Dye palette (paint dyeable surfaces with these only)">
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         {CANONICAL_DYE_HEX.map((hex) => (
           <Tooltip key={hex} title={hex}>
@@ -47,7 +35,7 @@ const ItemIconsPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => {
       <Typography variant="caption" color="text.secondary">
         {noDyeIds.length === 0 ? 'No items flagged no_dye.' : `no_dye: ${noDyeIds.join(', ')}`}
       </Typography>
-    </Box>
+    </PanelContainer>
   )
 }
 

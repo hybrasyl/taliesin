@@ -10,6 +10,7 @@ import {
   Typography
 } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import { clampMapDim } from './mapDim'
 
 interface Props {
   open: boolean
@@ -65,7 +66,7 @@ const ResizeMapDialog: React.FC<Props> = ({
             size="small"
             fullWidth
             value={width}
-            onChange={(e) => setWidth(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setWidth(clampMapDim(e.target.value))}
             inputProps={{ min: 1, max: 512 }}
           />
           <TextField
@@ -74,7 +75,7 @@ const ResizeMapDialog: React.FC<Props> = ({
             size="small"
             fullWidth
             value={height}
-            onChange={(e) => setHeight(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setHeight(clampMapDim(e.target.value))}
             inputProps={{ min: 1, max: 512 }}
           />
         </Box>

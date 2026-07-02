@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { PixelBuffer } from '../duotone'
 import {
   DEFAULT_VARIANTS,
+  DEFAULT_DUOTONE_PARAMS,
+  clampMidpoints,
   autoDetectBest,
   luminanceHistogram,
   scoreVariant,
@@ -52,6 +54,26 @@ describe('DEFAULT_VARIANTS', () => {
       expect(v.midpointHigh).toBeLessThanOrEqual(1)
       expect(v.midpointLow).toBeLessThan(v.midpointHigh)
     }
+  })
+})
+
+describe('DEFAULT_DUOTONE_PARAMS', () => {
+  it('is a valid param set with low < high', () => {
+    expect(DEFAULT_DUOTONE_PARAMS.darkFactor).toBe(0.3)
+    expect(DEFAULT_DUOTONE_PARAMS.lightFactor).toBe(0.3)
+    expect(DEFAULT_DUOTONE_PARAMS.midpointLow).toBeLessThan(DEFAULT_DUOTONE_PARAMS.midpointHigh)
+  })
+})
+
+describe('clampMidpoints', () => {
+  it('passes through a well-separated pair', () => {
+    expect(clampMidpoints([0.2, 0.8])).toEqual({ midpointLow: 0.2, midpointHigh: 0.8 })
+  })
+  it('enforces a ≥0.05 gap when the handles cross or touch', () => {
+    expect(clampMidpoints([0.5, 0.5])).toEqual({ midpointLow: 0.45, midpointHigh: 0.55 })
+    const crossed = clampMidpoints([0.6, 0.55])
+    expect(crossed.midpointLow).toBeCloseTo(0.5, 6)
+    expect(crossed.midpointHigh).toBeCloseTo(0.65, 6)
   })
 })
 

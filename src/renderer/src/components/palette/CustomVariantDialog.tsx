@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import { DuotoneParams, PaletteEntry } from '../../utils/paletteTypes'
 import { PixelBuffer } from '../../utils/duotone'
+import { DEFAULT_DUOTONE_PARAMS as DEFAULT, clampMidpoints } from '../../utils/variants'
 import DuotonePreview from './DuotonePreview'
 
 interface Props {
@@ -24,13 +25,6 @@ interface Props {
   frame?: PixelBuffer | null
   onClose: () => void
   onApply: (params: DuotoneParams) => void
-}
-
-const DEFAULT: DuotoneParams = {
-  darkFactor: 0.3,
-  lightFactor: 0.3,
-  midpointLow: 0.25,
-  midpointHigh: 0.75
 }
 
 const CustomVariantDialog: React.FC<Props> = ({
@@ -52,8 +46,7 @@ const CustomVariantDialog: React.FC<Props> = ({
 
   const handleMidpoints = (_: Event, value: number | number[]) => {
     if (!Array.isArray(value)) return
-    const [lo, hi] = value
-    update({ midpointLow: Math.min(lo, hi - 0.05), midpointHigh: Math.max(hi, lo + 0.05) })
+    update(clampMidpoints(value))
   }
 
   return (

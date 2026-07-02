@@ -18,6 +18,19 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import { MapFile } from '@eriscorp/dalib-ts'
 import { loadMapAssets, renderMap } from '../../utils/mapRenderer'
 
+/** Paint a small red error message onto the preview canvas. */
+function drawCanvasError(canvas: HTMLCanvasElement, msg: string): void {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  canvas.width = 200
+  canvas.height = 40
+  ctx.fillStyle = '#333'
+  ctx.fillRect(0, 0, 200, 40)
+  ctx.fillStyle = '#f44'
+  ctx.font = '11px monospace'
+  ctx.fillText(msg, 8, 24)
+}
+
 interface DimPair {
   width: number
   height: number
@@ -162,16 +175,7 @@ const DimensionPickerDialog: React.FC<Props> = ({
             if (!signal.cancelled) {
               setRendering(false)
               setRenderStatus(null)
-              const ctx = canvas.getContext('2d')
-              if (ctx) {
-                canvas.width = 200
-                canvas.height = 40
-                ctx.fillStyle = '#333'
-                ctx.fillRect(0, 0, 200, 40)
-                ctx.fillStyle = '#f44'
-                ctx.font = '11px monospace'
-                ctx.fillText(e instanceof Error ? e.message : 'Render error', 8, 24)
-              }
+              drawCanvasError(canvas, e instanceof Error ? e.message : 'Render error')
             }
           }
         })()
@@ -182,16 +186,7 @@ const DimensionPickerDialog: React.FC<Props> = ({
           const map = MapFile.fromBuffer(fileBuffer, selected.width, selected.height)
           renderSchematic(canvas, map)
         } catch {
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            canvas.width = 200
-            canvas.height = 40
-            ctx.fillStyle = '#333'
-            ctx.fillRect(0, 0, 200, 40)
-            ctx.fillStyle = '#f44'
-            ctx.font = '11px monospace'
-            ctx.fillText('Parse error', 8, 24)
-          }
+          drawCanvasError(canvas, 'Parse error')
         }
       }
     },

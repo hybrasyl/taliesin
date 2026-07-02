@@ -387,12 +387,3 @@ export function parseBikHeader(buffer: Uint8Array): BikInfo | null {
   const fps = frameRateDivisor > 0 ? frameRateDividend / frameRateDivisor : 0
   return { version, width, height, frameCount, fps, audioTrackCount }
 }
-
-/**
- * Format bytes for display.
- */
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}

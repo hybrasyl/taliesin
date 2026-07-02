@@ -5,7 +5,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import { PaletteEntry } from '../../utils/paletteTypes'
-import { PixelBuffer, parseHex } from '../../utils/duotone'
+import { PixelBuffer, parseHex, HEX_RE, rgbToHex } from '../../utils/duotone'
 import DuotonePreview from './DuotonePreview'
 import ColorSwatchPicker from './ColorSwatchPicker'
 
@@ -16,21 +16,10 @@ interface Props {
   onDelete: () => void
 }
 
-const HEX_RE = /^#[0-9A-Fa-f]{6}$/
-
 function normalizeHex(v: string): string {
   if (!v) return v
   const s = v.startsWith('#') ? v : `#${v}`
   return s.toUpperCase()
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) =>
-    Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16)
-      .padStart(2, '0')
-      .toUpperCase()
-  return `#${c(r)}${c(g)}${c(b)}`
 }
 
 function darkerShadowHex(shadowHex: string, darkFactor: number): string {

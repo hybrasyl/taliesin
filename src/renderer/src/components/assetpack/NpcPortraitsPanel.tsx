@@ -1,7 +1,8 @@
 import React from 'react'
-import { Box, Typography, TextField } from '@mui/material'
+import { Typography, TextField } from '@mui/material'
 import type { PackKindPanelProps } from '../../packKinds'
 import { portraitSizeOf, type NpcPortraitsCovers } from '../../packKinds/npcPortraits'
+import { PanelContainer } from './PanelContainer'
 
 const NpcPortraitsPanel: React.FC<PackKindPanelProps> = ({ draft, onChange, kind }) => {
   const size = portraitSizeOf(draft.covers)
@@ -24,20 +25,7 @@ const NpcPortraitsPanel: React.FC<PackKindPanelProps> = ({ draft, onChange, kind
   }
 
   return (
-    <Box
-      sx={{
-        px: 2,
-        py: 1.5,
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1
-      }}
-    >
-      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-        Portrait size (square)
-      </Typography>
+    <PanelContainer title="Portrait size (square)">
       <TextField
         type="number"
         size="small"
@@ -53,7 +41,7 @@ const NpcPortraitsPanel: React.FC<PackKindPanelProps> = ({ draft, onChange, kind
           ? 'No portraits yet — use Add PNG → New portrait… to add one keyed by its Portrait value.'
           : `${portraitCount} portrait${portraitCount === 1 ? '' : 's'} · ${size}×${size}`}
       </Typography>
-    </Box>
+    </PanelContainer>
   )
 }
 

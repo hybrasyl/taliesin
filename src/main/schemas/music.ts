@@ -42,11 +42,7 @@ export const musicPackArraySchema = z.array(musicPackSchema)
  * MusicPack snapshot through. The deploy code validates each track's
  * sourceFile path separately via assertInside.
  */
-export const deployPackSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  tracks: z.array(musicPackTrackSchema),
+export const deployPackSchema = musicPackSchema.extend({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 })

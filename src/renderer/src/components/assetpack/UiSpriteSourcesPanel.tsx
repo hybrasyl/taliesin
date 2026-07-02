@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Box, Typography, Chip } from '@mui/material'
 import type { PackKindPanelProps } from '../../packKinds'
+import { PanelContainer } from './PanelContainer'
 
 const UiSpriteSourcesPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => {
   const groups = useMemo(() => {
@@ -14,20 +15,7 @@ const UiSpriteSourcesPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => 
   }, [draft.assets, kind])
 
   return (
-    <Box
-      sx={{
-        px: 2,
-        py: 1.5,
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1
-      }}
-    >
-      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-        Source-file groups
-      </Typography>
+    <PanelContainer title="Source-file groups">
       {groups.length === 0 ? (
         <Typography variant="caption" color="text.secondary">
           No source-file groups yet — use Add PNG → New source file… to create one.
@@ -39,7 +27,7 @@ const UiSpriteSourcesPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => 
           ))}
         </Box>
       )}
-    </Box>
+    </PanelContainer>
   )
 }
 

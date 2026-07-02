@@ -166,26 +166,18 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
 
       {/* Legend */}
       <Box sx={{ px: 1, py: 0.25, display: 'flex', gap: 1.5, bgcolor: 'background.default' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, bgcolor: 'rgba(220,50,50,0.8)', borderRadius: '2px' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-            Impassable
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box
-            sx={{ width: 8, height: 8, bgcolor: 'rgba(100,150,255,0.4)', borderRadius: '2px' }}
-          />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-            Objects
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, bgcolor: 'rgba(60,60,80,0.5)', borderRadius: '2px' }} />
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-            Ground
-          </Typography>
-        </Box>
+        {[
+          { color: 'rgba(220,50,50,0.8)', label: 'Impassable' },
+          { color: 'rgba(100,150,255,0.4)', label: 'Objects' },
+          { color: 'rgba(60,60,80,0.5)', label: 'Ground' }
+        ].map(({ color, label }) => (
+          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 8, height: 8, bgcolor: color, borderRadius: '2px' }} />
+            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+              {label}
+            </Typography>
+          </Box>
+        ))}
       </Box>
     </Box>
   )

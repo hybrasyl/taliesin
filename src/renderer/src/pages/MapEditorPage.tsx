@@ -315,6 +315,45 @@ function FileListPanel({
   const filteredActive = filtered(files)
   const filteredArchived = filtered(archivedFiles)
 
+  // Active + archived rows are identical except archived ones are muted.
+  const renderFileRow = (f: FileEntry, muted = false): React.ReactElement => {
+    const italicClip = {
+      display: 'block',
+      fontStyle: 'italic',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      ...(muted && { color: 'text.disabled' })
+    }
+    return (
+      <ListItem key={f.path} disablePadding>
+        <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+          <ListItemText
+            primary={f.name.replace(/\.xml$/i, '')}
+            secondary={
+              <>
+                {f.mapName && (
+                  <Box component="span" sx={italicClip}>
+                    {f.mapName}
+                  </Box>
+                )}
+                {f.mapId !== undefined && (
+                  <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
+                )}
+              </>
+            }
+            primaryTypographyProps={{
+              noWrap: true,
+              variant: 'body2',
+              ...(muted && { color: 'text.secondary' })
+            }}
+            secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
+          />
+        </ListItemButton>
+      </ListItem>
+    )
+  }
+
   return (
     <Box
       sx={{
@@ -375,50 +414,7 @@ function FileListPanel({
         ) : (
           <>
             <List dense disablePadding>
-              {filteredActive.map((f) => (
-                <ListItem key={f.path} disablePadding>
-                  <ListItemButton
-                    selected={selectedFile?.path === f.path}
-                    onClick={() => onSelect(f)}
-                  >
-                    <ListItemText
-                      primary={f.name.replace(/\.xml$/i, '')}
-                      secondary={
-                        <>
-                          {f.mapName && (
-                            <Box
-                              component="span"
-                              sx={{
-                                display: 'block',
-                                fontStyle: 'italic',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {f.mapName}
-                            </Box>
-                          )}
-                          {f.mapId !== undefined && (
-                            <Box
-                              component="span"
-                              sx={{
-                                display: 'block',
-                                fontStyle: 'italic',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >{`lod${f.mapId}`}</Box>
-                          )}
-                        </>
-                      }
-                      primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
-                      secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+              {filteredActive.map((f) => renderFileRow(f))}
             </List>
             {showArchived && filteredArchived.length > 0 && (
               <>
@@ -431,56 +427,7 @@ function FileListPanel({
                   Archived
                 </Typography>
                 <List dense disablePadding>
-                  {filteredArchived.map((f) => (
-                    <ListItem key={f.path} disablePadding>
-                      <ListItemButton
-                        selected={selectedFile?.path === f.path}
-                        onClick={() => onSelect(f)}
-                      >
-                        <ListItemText
-                          primary={f.name.replace(/\.xml$/i, '')}
-                          secondary={
-                            <>
-                              {f.mapName && (
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    display: 'block',
-                                    fontStyle: 'italic',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    color: 'text.disabled'
-                                  }}
-                                >
-                                  {f.mapName}
-                                </Box>
-                              )}
-                              {f.mapId !== undefined && (
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    display: 'block',
-                                    fontStyle: 'italic',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    color: 'text.disabled'
-                                  }}
-                                >{`lod${f.mapId}`}</Box>
-                              )}
-                            </>
-                          }
-                          primaryTypographyProps={{
-                            noWrap: true,
-                            variant: 'body2',
-                            color: 'text.secondary'
-                          }}
-                          secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
+                  {filteredArchived.map((f) => renderFileRow(f, true))}
                 </List>
               </>
             )}

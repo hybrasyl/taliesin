@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { parseFilename } from '../../hooks/useMusicLibrary'
 import {
   Dialog,
   DialogTitle,
@@ -73,8 +74,8 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
         if (!cancelled) {
           const ids = new Set<number>()
           for (const e of entries) {
-            const m = e.filename.match(/^(\d+)\.mus$/i)
-            if (m) ids.add(parseInt(m[1], 10))
+            const id = parseFilename(e.filename)
+            if (id !== null) ids.add(id)
           }
           setClientIds(ids)
         }

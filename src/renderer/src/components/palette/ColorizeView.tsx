@@ -29,8 +29,6 @@ import {
   SourceCalibration
 } from '../../utils/paletteTypes'
 import {
-  PaletteSummary,
-  scanPalettes,
   loadPalette,
   loadCalibrations,
   saveCalibrations,
@@ -41,6 +39,7 @@ import {
   dirnameFromPath,
   outputFilename
 } from '../../utils/paletteIO'
+import { usePalettesOnActive } from './usePalettesOnActive'
 import { applyDuotone, PixelBuffer } from '../../utils/duotone'
 import { DEFAULT_VARIANTS, variantToParams, autoDetectBest } from '../../utils/variants'
 import {
@@ -66,7 +65,7 @@ interface EntrySelection {
 const TILE_SIZE = 64
 
 const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
-  const [summaries, setSummaries] = useState<PaletteSummary[]>([])
+  const summaries = usePalettesOnActive(packDir, active)
   const [paletteId, setPaletteId] = useRecoilState(activePaletteIdState)
   const [palette, setPalette] = useState<Palette | null>(null)
   const [sourcePath, setSourcePath] = useRecoilState(activeColorizeSourceState)
@@ -103,13 +102,10 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const variants = useMemo(() => palette?.variants ?? DEFAULT_VARIANTS, [palette])
   const sourceFilename = sourcePath ? filenameFromPath(sourcePath) : null
 
-  // Re-scan palettes + frames whenever the tab becomes active so newly-created
-  // palettes in the Palettes tab show up in the dropdown without remounting.
+  // Re-scan frames whenever the tab becomes active (palettes handled by
+  // usePalettesOnActive above).
   useEffect(() => {
     if (!active) return
-    scanPalettes(packDir)
-      .then(setSummaries)
-      .catch(() => setSummaries([]))
     scanFrames(packDir)
       .then((list) => {
         setFrameOptions(list)

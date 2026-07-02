@@ -55,7 +55,6 @@ const renderer = vi.hoisted(() => ({
   classifyEntry: vi.fn(),
   loadPaletteByName: vi.fn(),
   getPaletteNames: vi.fn(() => [] as string[]),
-  formatBytes: vi.fn((n: number) => `${n} bytes`),
   decodePcx: vi.fn() as unknown as ReturnType<typeof vi.fn>,
   parseBikHeader: vi.fn() as unknown as ReturnType<typeof vi.fn>
 }))
@@ -95,7 +94,6 @@ beforeEach(() => {
   api = installMockApi()
   vi.clearAllMocks()
   renderer.classifyEntry.mockReturnValue('hex')
-  renderer.formatBytes.mockImplementation((n: number) => `${n} bytes`)
   renderer.getPaletteNames.mockReturnValue([])
   renderer.renderEntry.mockReturnValue(null)
   renderer.renderPaletteGrid.mockReturnValue({
@@ -117,7 +115,7 @@ describe('ArchivePreview header', () => {
       />
     )
     expect(screen.getByText('readme.txt')).toBeInTheDocument()
-    expect(screen.getByText(/100 bytes/)).toBeInTheDocument()
+    expect(screen.getByText(/100 B/)).toBeInTheDocument()
     expect(screen.getByText(/text/)).toBeInTheDocument()
   })
 

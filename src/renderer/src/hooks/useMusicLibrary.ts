@@ -52,23 +52,11 @@ export function cleanupMeta(meta: MusicMeta): { meta: MusicMeta; changed: boolea
   const promptTrim = meta.prompt?.trim() || undefined
   const rawTags = normalizeTags(meta.tags)
   const wasNested = (meta.tags as unknown[] | undefined)?.some((t) => Array.isArray(t)) ?? false
-  const keptTags: string[] = []
-  const overflowTags: string[] = []
-  for (const t of rawTags) {
-    if (t.length > MAX_TAG_LENGTH) overflowTags.push(t)
-    else keptTags.push(t)
-  }
-  let description: string | undefined = meta.description?.trim() || undefined
-  for (const t of overflowTags) {
-    const tt = t.trim()
-    if (!tt) continue
-    if (tt === promptTrim) continue
-    if (description?.includes(tt)) continue
-    description = description ? `${description}\n${tt}` : tt
-  }
-  if (description && promptTrim && description.trim() === promptTrim) {
-    description = undefined
-  }
+  const { keptTags, description } = splitAndFoldTags(
+    rawTags,
+    promptTrim,
+    meta.description?.trim() || undefined
+  )
   const changed =
     wasNested ||
     keptTags.length !== rawTags.length ||
@@ -114,10 +102,52 @@ export function countEntriesWithLongTags(metadata: MusicMetaData): number {
   return n
 }
 
-function parseFilename(filename: string): number | null {
+/** Numeric music id from an `N.mus` filename (any path), or null. */
+export function parseFilename(filename: string): number | null {
   const basename = filename.replace(/^.*[\\/]/, '')
   const m = basename.match(/^(\d+)\.mus$/i)
   return m ? parseInt(m[1], 10) : null
+}
+
+/** Map a MusicMeta into the editor-draft shape (empty-string/array defaults). */
+function metaToDraft(m: MusicMeta): MusicMeta {
+  return {
+    name: m.name ?? '',
+    notes: m.notes ?? '',
+    description: m.description ?? '',
+    tags: m.tags ?? []
+  }
+}
+
+/**
+ * Split tags into kept (≤ MAX_TAG_LENGTH) and overflow, folding each overflow tag
+ * into `description` unless it's blank, equals the prompt, or is already present.
+ * If description ends up identical to the prompt, it's cleared. Shared by
+ * cleanupMeta and mergeEnriched, which differ only in the initial description.
+ */
+function splitAndFoldTags(
+  rawTags: string[],
+  promptTrim: string | undefined,
+  initialDescription: string | undefined
+): { keptTags: string[]; description: string | undefined } {
+  const keptTags: string[] = []
+  const overflowTags: string[] = []
+  for (const t of rawTags) {
+    if (t.length > MAX_TAG_LENGTH) overflowTags.push(t)
+    else keptTags.push(t)
+  }
+  let description = initialDescription
+  for (const t of overflowTags) {
+    const tt = t.trim()
+    if (!tt) continue
+    if (tt === promptTrim) continue
+    if (description?.includes(tt)) continue
+    description = description ? `${description}\n${tt}` : tt
+  }
+  if (description && promptTrim && description.trim() === promptTrim) {
+    description = undefined
+  }
+  return { keptTags, description }
 }
 
 function mergeEntries(scanned: MusicScanEntry[]): MusicEntry[] {
@@ -163,24 +193,11 @@ function mergeEnriched(existing: MusicMeta | undefined, fresh: MusicMeta): Music
   const existingTags = normalizeTags(e.tags)
   const freshTags = normalizeTags(fresh.tags)
   const rawTags = existingTags.length > 0 ? existingTags : freshTags
-  const keptTags: string[] = []
-  const overflowTags: string[] = []
-  for (const t of rawTags) {
-    if (t.length > MAX_TAG_LENGTH) overflowTags.push(t)
-    else keptTags.push(t)
-  }
-
-  let description: string | undefined = e.description?.trim() || fresh.description
-  for (const t of overflowTags) {
-    const tt = t.trim()
-    if (!tt) continue
-    if (tt === promptTrim) continue
-    if (description?.includes(tt)) continue
-    description = description ? `${description}\n${tt}` : tt
-  }
-  if (description && promptTrim && description.trim() === promptTrim) {
-    description = undefined
-  }
+  const { keptTags, description } = splitAndFoldTags(
+    rawTags,
+    promptTrim,
+    e.description?.trim() || fresh.description
+  )
 
   return {
     ...e,
@@ -241,26 +258,6 @@ export function useMusicLibrary(dirPath: string | null) {
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
 
-  // Auto-scan when dirPath is set or changes — NO tag enrichment
-  useEffect(() => {
-    if (!dirPath) {
-      setEntries([])
-      setMetadata({})
-      setSelectedFilename(null)
-      return
-    }
-    setScanning(true)
-    Promise.all([
-      window.api.musicScan(dirPath),
-      window.api.musicMetadataLoad(dirPath).then((r) => r as MusicMetaData)
-    ])
-      .then(([scanned, existingMeta]) => {
-        setMetadata(existingMeta)
-        setEntries(mergeEntries(scanned))
-      })
-      .finally(() => setScanning(false))
-  }, [dirPath])
-
   const scan = useCallback(async () => {
     if (!dirPath) return
     setScanning(true)
@@ -276,6 +273,17 @@ export function useMusicLibrary(dirPath: string | null) {
     }
   }, [dirPath])
 
+  // Auto-scan when dirPath is set or changes — NO tag enrichment
+  useEffect(() => {
+    if (!dirPath) {
+      setEntries([])
+      setMetadata({})
+      setSelectedFilename(null)
+      return
+    }
+    void scan()
+  }, [dirPath, scan])
+
   // Lazy enrichment: read tags for a single file on selection if it has no name
   const select = useCallback(
     async (filename: string | null) => {
@@ -287,12 +295,7 @@ export function useMusicLibrary(dirPath: string | null) {
       }
 
       const existing = metadataRef.current[filename] ?? {}
-      setDraft({
-        name: existing.name ?? '',
-        notes: existing.notes ?? '',
-        description: existing.description ?? '',
-        tags: existing.tags ?? []
-      })
+      setDraft(metaToDraft(existing))
 
       // Auto-read tags if missing name or audio properties
       if (needsEnrichment(existing) && dirPath) {
@@ -302,12 +305,7 @@ export function useMusicLibrary(dirPath: string | null) {
           const newMeta = { ...metadataRef.current, [filename]: merged }
           setMetadata(newMeta)
           metadataRef.current = newMeta
-          setDraft({
-            name: merged.name ?? '',
-            notes: merged.notes ?? '',
-            description: merged.description ?? '',
-            tags: merged.tags ?? []
-          })
+          setDraft(metaToDraft(merged))
           // Persist so we don't re-read next time
           await window.api.musicMetadataSave(dirPath, newMeta)
         }
@@ -355,12 +353,7 @@ export function useMusicLibrary(dirPath: string | null) {
         const sel = selectedFilenameRef.current
         if (sel && updated[sel] && !dirtyRef.current) {
           const m = updated[sel]
-          setDraft({
-            name: m.name ?? '',
-            notes: m.notes ?? '',
-            description: m.description ?? '',
-            tags: m.tags ?? []
-          })
+          setDraft(metaToDraft(m))
         }
       }
       setEnrichProgress(null)
@@ -422,12 +415,7 @@ export function useMusicLibrary(dirPath: string | null) {
     // Refresh the draft if the selected track was touched
     if (selectedFilename && updated[selectedFilename]) {
       const m = updated[selectedFilename]
-      setDraft({
-        name: m.name ?? '',
-        notes: m.notes ?? '',
-        description: m.description ?? '',
-        tags: m.tags ?? []
-      })
+      setDraft(metaToDraft(m))
       setDirty(false)
     }
     return movedCount

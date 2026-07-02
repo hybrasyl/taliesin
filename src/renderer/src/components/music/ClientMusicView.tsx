@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react'
+import { formatBytes } from '../../utils/format'
+import { parseFilename } from '../../hooks/useMusicLibrary'
 import {
   Box,
   Typography,
@@ -32,11 +34,6 @@ interface Props {
   onPlay: (filePath: string, trackName: string) => void
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 const ClientMusicView: React.FC<Props> = ({
   clientPath,
   mapDetails,
@@ -68,10 +65,8 @@ const ClientMusicView: React.FC<Props> = ({
       const raw = await window.api.musicClientScan(clientPath)
       const parsed: ClientEntry[] = raw
         .map((e) => {
-          const m = e.filename.match(/^(\d+)\.mus$/i)
-          return m
-            ? { filename: e.filename, sizeBytes: e.sizeBytes, musicId: parseInt(m[1], 10) }
-            : null
+          const musicId = parseFilename(e.filename)
+          return musicId !== null ? { filename: e.filename, sizeBytes: e.sizeBytes, musicId } : null
         })
         .filter((e): e is ClientEntry => e !== null)
         .sort((a, b) => a.musicId - b.musicId)

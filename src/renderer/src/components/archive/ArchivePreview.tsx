@@ -40,11 +40,11 @@ import {
   classifyEntry,
   loadPaletteByName,
   getPaletteNames,
-  formatBytes,
   decodePcx,
   parseBikHeader,
   type RenderedEntry
 } from '../../utils/archiveRenderer'
+import { formatBytes } from '../../utils/format'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -705,8 +705,6 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to decode HEA')
     }
-    void archive
-    void entry
   }, [entry, archive])
 
   return (

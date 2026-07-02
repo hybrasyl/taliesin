@@ -193,11 +193,7 @@ function ItemsGroup({
                       </IconButton>
                     )}
                     <IconButton size="small" onClick={item.onRemove} sx={{ p: 0.25 }}>
-                      {item.isOrphan ? (
-                        <DeleteIcon sx={{ fontSize: 13 }} />
-                      ) : (
-                        <DeleteIcon sx={{ fontSize: 13 }} />
-                      )}
+                      <DeleteIcon sx={{ fontSize: 13 }} />
                     </IconButton>
                   </Box>
                 }

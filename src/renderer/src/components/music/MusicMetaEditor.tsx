@@ -13,6 +13,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { MAX_TAG_LENGTH, formatDuration, type MusicEntry } from '../../hooks/useMusicLibrary'
+import { formatBytes } from '../../utils/format'
 
 interface Props {
   entry: MusicEntry | null
@@ -26,12 +27,6 @@ interface Props {
   onPlay: () => void
   onRemove: () => void
   isPlaying: boolean
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatChannels(n: number | undefined): string | null {

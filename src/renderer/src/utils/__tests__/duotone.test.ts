@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseHex,
+  rgbToHex,
+  HEX_RE,
   luminance,
   mapLuminance,
   applyDuotone,
@@ -52,6 +54,35 @@ describe('parseHex', () => {
   it('handles black and white', () => {
     expect(parseHex('#000000')).toEqual({ r: 0, g: 0, b: 0 })
     expect(parseHex('#FFFFFF')).toEqual({ r: 255, g: 255, b: 255 })
+  })
+})
+
+describe('rgbToHex', () => {
+  it('formats an exact triple as uppercase #RRGGBB', () => {
+    expect(rgbToHex(0x7a, 0x1a, 0x00)).toBe('#7A1A00')
+    expect(rgbToHex(255, 138, 61)).toBe('#FF8A3D')
+  })
+  it('rounds fractional channels', () => {
+    expect(rgbToHex(0.4, 0.6, 254.5)).toBe('#0001FF')
+  })
+  it('clamps out-of-range channels to 00–FF', () => {
+    expect(rgbToHex(-20, 300, 128)).toBe('#00FF80')
+  })
+  it('round-trips with parseHex', () => {
+    const { r, g, b } = parseHex('#123ABC')
+    expect(rgbToHex(r, g, b)).toBe('#123ABC')
+  })
+})
+
+describe('HEX_RE', () => {
+  it('matches a 6-digit #RRGGBB color', () => {
+    expect(HEX_RE.test('#FF8A3D')).toBe(true)
+    expect(HEX_RE.test('#00ff80')).toBe(true)
+  })
+  it('rejects missing #, wrong length, or non-hex', () => {
+    expect(HEX_RE.test('FF8A3D')).toBe(false)
+    expect(HEX_RE.test('#FFF')).toBe(false)
+    expect(HEX_RE.test('#GG0000')).toBe(false)
   })
 })
 

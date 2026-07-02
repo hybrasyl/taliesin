@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { parseFilename } from '../../hooks/useMusicLibrary'
 import { useRecoilValue } from 'recoil'
 import {
   Accordion,
@@ -65,6 +66,7 @@ import {
   ALL_FLAGS,
   ALL_SPAWN_FLAGS,
   computeMapFilename,
+  xmlPrefix,
   DEFAULT_MAP,
   type CardinalDirection,
   type MapData,
@@ -456,8 +458,8 @@ export function MusicIdField({
         if (cancelled) return
         const ids = new Set<number>()
         for (const e of entries) {
-          const m = e.filename.match(/^(\d+)\.mus$/i)
-          if (m) ids.add(parseInt(m[1], 10))
+          const id = parseFilename(e.filename)
+          if (id !== null) ids.add(id)
         }
         setAvailableIds(ids)
       })
@@ -623,10 +625,7 @@ function MapFieldsTab({
   const [dimBuffer, setDimBuffer] = useState<Uint8Array | null>(null)
   const [loadingDim, setLoadingDim] = useState(false)
 
-  const dimBinName =
-    data.id >= 30000
-      ? `hyb${String(data.id).padStart(5, '0')}.map`
-      : `lod${String(data.id).padStart(5, '0')}.map`
+  const dimBinName = `${xmlPrefix(data.id)}${String(data.id).padStart(5, '0')}.map`
 
   const handleOpenDimPicker = async () => {
     if (!mapDirectory || !data.id) return
@@ -1019,13 +1018,17 @@ function MapPlacementTab({
 
   const zoom = ZOOM_LEVELS[zoomIdx]
 
-  // Build flat marker list for MapRenderCanvas
-  const markers: MapMarker[] = [
-    ...data.warps.map((w, i): MapMarker => ({ kind: 'warp', index: i, x: w.x, y: w.y })),
-    ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
-    ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
-    ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
-  ]
+  // Build flat marker list for MapRenderCanvas. Memoized so the array identity is
+  // stable across renders — it's a dep of the canvas's tile-iterating overlay effect.
+  const markers: MapMarker[] = useMemo(
+    () => [
+      ...data.warps.map((w, i): MapMarker => ({ kind: 'warp', index: i, x: w.x, y: w.y })),
+      ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
+      ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
+      ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
+    ],
+    [data.warps, data.npcs, data.signs, data.reactors]
+  )
 
   const handleTileClick = (tx: number, ty: number) => {
     if (placeMode === 'none') return

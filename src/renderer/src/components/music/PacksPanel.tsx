@@ -81,6 +81,8 @@ const PacksPanel: React.FC<Props> = ({
 
   // Tracks already in selected pack
   const usedFiles = new Set(selectedPack?.tracks.map((t) => t.sourceFile) ?? [])
+  // Library tracks not yet in the selected pack (computed once; used thrice below).
+  const availableLibraryEntries = libraryEntries.filter((e) => !usedFiles.has(e.filename))
 
   // Next suggested music ID
   const maxId = selectedPack?.tracks.reduce((m, t) => Math.max(m, t.musicId), 0) ?? 0
@@ -333,22 +335,18 @@ const PacksPanel: React.FC<Props> = ({
               <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
                 Add track from library:
               </Typography>
-              {libraryEntries
-                .filter((e) => !usedFiles.has(e.filename))
-                .slice(0, 6)
-                .map((e) => (
-                  <Chip
-                    key={e.filename}
-                    label={metadata[e.filename]?.name || e.filename}
-                    size="small"
-                    variant="outlined"
-                    onClick={() => onAddTrack(selectedPack.id, e.filename, nextId)}
-                  />
-                ))}
-              {libraryEntries.filter((e) => !usedFiles.has(e.filename)).length > 6 && (
+              {availableLibraryEntries.slice(0, 6).map((e) => (
+                <Chip
+                  key={e.filename}
+                  label={metadata[e.filename]?.name || e.filename}
+                  size="small"
+                  variant="outlined"
+                  onClick={() => onAddTrack(selectedPack.id, e.filename, nextId)}
+                />
+              ))}
+              {availableLibraryEntries.length > 6 && (
                 <Typography variant="caption" color="text.secondary">
-                  +{libraryEntries.filter((e) => !usedFiles.has(e.filename)).length - 6} more
-                  (select in Library tab)
+                  +{availableLibraryEntries.length - 6} more (select in Library tab)
                 </Typography>
               )}
             </Box>

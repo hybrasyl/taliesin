@@ -1,4 +1,7 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
+import { filenameFromPath } from '../utils/format'
+import { useTransientStatus } from '../hooks/useTransientStatus'
+import { StatusMessage } from '../components/shared/StatusMessage'
 import {
   Box,
   Typography,
@@ -117,7 +120,7 @@ function createTab(
 
 function tabLabel(tab: MapTab): string {
   if (tab.filePath) {
-    return tab.filePath.replace(/\\/g, '/').split('/').pop() ?? 'map'
+    return filenameFromPath(tab.filePath)
   }
   return tab.mapFile ? 'Untitled' : 'Empty'
 }
@@ -235,8 +238,7 @@ const MapMakerPage: React.FC = () => {
   )
 
   // Status bar
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [statusMessage, showStatus] = useTransientStatus()
 
   // Hover
   const [hoverTile, setHoverTile] = useState<{ tx: number; ty: number } | null>(null)
@@ -259,12 +261,6 @@ const MapMakerPage: React.FC = () => {
 
   // Derived
   const selectedTileId = selectedTileIds[0] ?? 0
-
-  const showStatus = useCallback((msg: string) => {
-    setStatusMessage(msg)
-    if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current)
-    statusTimeoutRef.current = setTimeout(() => setStatusMessage(null), 2500)
-  }, [])
 
   // ── New / Open / Save ──────────────────────────────────────────────────────
 
@@ -289,7 +285,7 @@ const MapMakerPage: React.FC = () => {
     if (!path) return
     const buf = await window.api.readFile(path)
     const bytes = new Uint8Array(buf)
-    const filename = path.replace(/\\/g, '/').split('/').pop() ?? 'map'
+    const filename = filenameFromPath(path)
     setDimPickerState({ open: true, filePath: path, filename, fileBuffer: bytes })
   }, [])
 
@@ -1237,11 +1233,7 @@ const MapMakerPage: React.FC = () => {
 
         {/* Status */}
         <Box sx={{ flexGrow: 1 }} />
-        {statusMessage && (
-          <Typography variant="caption" sx={{ color: 'success.light', fontWeight: 'bold', mr: 1 }}>
-            {statusMessage}
-          </Typography>
-        )}
+        <StatusMessage message={statusMessage} sx={{ mr: 1 }} />
         {pasteMode && (
           <Typography variant="caption" color="warning.main">
             PASTE MODE (click to place, Shift+click repeat, Esc cancel)

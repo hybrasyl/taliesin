@@ -36,8 +36,8 @@ jobs:
       - name: Lint
         run: npm run lint:check
 
-      - name: Test
-        run: npm test
+      - name: Test + coverage gate
+        run: npm run test:coverage
 
   build-windows:
     runs-on: windows-latest

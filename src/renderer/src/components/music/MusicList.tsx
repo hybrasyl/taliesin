@@ -13,6 +13,7 @@ import SyncIcon from '@mui/icons-material/Sync'
 import AddIcon from '@mui/icons-material/Add'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { formatDuration, type MusicEntry } from '../../hooks/useMusicLibrary'
+import { formatBytes } from '../../utils/format'
 
 interface Props {
   entries: MusicEntry[]
@@ -22,12 +23,6 @@ interface Props {
   onSelect: (filename: string) => void
   onScan: () => void
   onImport: () => void
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function extOf(filename: string): string {

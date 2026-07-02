@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { codepointLabel, formatCodepoint } from '../../utils/unicodeBlocks'
+import { GLYPH_WIDTH, GLYPH_HEIGHT, decodeGlyphBits } from './glyph'
 
-const GLYPH_WIDTH = 8
-const GLYPH_HEIGHT = 12
 const SCALE = 3
 
 export type FontGlyphTileVariant = 'filled' | 'placeholder'
@@ -39,10 +38,10 @@ const FontGlyphTile: React.FC<Props> = ({
     ctx.fillRect(0, 0, GLYPH_WIDTH, GLYPH_HEIGHT)
     const img = ctx.getImageData(0, 0, GLYPH_WIDTH, GLYPH_HEIGHT)
     const data = img.data
+    const bits = decodeGlyphBits(glyph)
     for (let y = 0; y < GLYPH_HEIGHT; y++) {
-      const row = glyph[y]
       for (let x = 0; x < GLYPH_WIDTH; x++) {
-        if (((row >> (7 - x)) & 1) === 0) continue
+        if (!bits[y][x]) continue
         const off = (y * GLYPH_WIDTH + x) * 4
         data[off] = 255
         data[off + 1] = 255

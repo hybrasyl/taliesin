@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { formatBytes } from '../utils/format'
 import {
   Box,
   Typography,
@@ -31,11 +32,6 @@ interface SfxMeta {
 }
 
 type SfxIndex = Record<string, SfxMeta>
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  return `${(bytes / 1024).toFixed(1)} KB`
-}
 
 function sfxId(entryName: string): number | null {
   const m = entryName.match(/(\d+)\.mp3$/i)

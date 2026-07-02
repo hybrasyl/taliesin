@@ -3,9 +3,8 @@ import { Box, Button, Stack, Typography } from '@mui/material'
 import RestoreIcon from '@mui/icons-material/Restore'
 import ClearIcon from '@mui/icons-material/Clear'
 import { codepointLabel, formatCodepoint, getBlock, OTHER_BLOCK } from '../../utils/unicodeBlocks'
+import { GLYPH_WIDTH, GLYPH_HEIGHT, decodeGlyphBits } from './glyph'
 
-const GLYPH_WIDTH = 8
-const GLYPH_HEIGHT = 12
 const CELL = 36
 
 interface Props {
@@ -27,19 +26,7 @@ const FontPixelEditor: React.FC<Props> = ({
   onClear,
   resetDisabled
 }) => {
-  const cells = useMemo(() => {
-    if (!glyph) return null
-    const out: boolean[][] = []
-    for (let y = 0; y < GLYPH_HEIGHT; y++) {
-      const row: boolean[] = []
-      const byte = glyph[y]
-      for (let x = 0; x < GLYPH_WIDTH; x++) {
-        row.push(((byte >> (7 - x)) & 1) === 1)
-      }
-      out.push(row)
-    }
-    return out
-  }, [glyph])
+  const cells = useMemo(() => (glyph ? decodeGlyphBits(glyph) : null), [glyph])
 
   const handleCell = useCallback(
     (x: number, y: number) => () => onPixelToggle(x, y),
