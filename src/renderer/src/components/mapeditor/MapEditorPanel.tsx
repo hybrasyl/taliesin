@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { parseFilename } from '../../hooks/useMusicLibrary'
 import { useRecoilValue } from 'recoil'
 import {
   Accordion,
@@ -456,8 +457,8 @@ export function MusicIdField({
         if (cancelled) return
         const ids = new Set<number>()
         for (const e of entries) {
-          const m = e.filename.match(/^(\d+)\.mus$/i)
-          if (m) ids.add(parseInt(m[1], 10))
+          const id = parseFilename(e.filename)
+          if (id !== null) ids.add(id)
         }
         setAvailableIds(ids)
       })
