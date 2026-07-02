@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import { useRecoilValue } from 'recoil'
 import { useUnsavedGuard } from '../useUnsavedGuard'
+import { dirtyEditorState } from '../../recoil/atoms'
 import { makeRecoilWrapper } from '../../__tests__/setup/recoilWrapper'
 import { installMockApi } from '../../__tests__/setup/mockApi'
 
@@ -141,6 +143,36 @@ describe('useUnsavedGuard', () => {
       })
     )
     expect(ran).toBe(true)
+  })
+
+  it('publishes an onSave on dirtyEditorState that proxies to saveRef', async () => {
+    const { result } = renderHook(
+      () => ({ guard: useUnsavedGuard('Map'), dirty: useRecoilValue(dirtyEditorState) }),
+      { wrapper }
+    )
+    let saved = 0
+    result.current.guard.saveRef.current = async () => {
+      saved++
+    }
+    act(() => result.current.guard.markDirty())
+    // The global unsaved-changes dialog invokes the atom's onSave (not the
+    // hook's handleDialogSave); it must delegate to the current saveRef.
+    expect(result.current.dirty?.label).toBe('Map')
+    await act(async () => {
+      await result.current.dirty!.onSave()
+    })
+    expect(saved).toBe(1)
+  })
+
+  it('atom onSave is a no-op when no saveRef is set', async () => {
+    const { result } = renderHook(
+      () => ({ guard: useUnsavedGuard('Map'), dirty: useRecoilValue(dirtyEditorState) }),
+      { wrapper }
+    )
+    act(() => result.current.guard.markDirty())
+    await act(async () => {
+      await expect(result.current.dirty!.onSave()).resolves.toBeUndefined()
+    })
   })
 
   it('updates Recoil dirtyEditorState with the supplied label', async () => {

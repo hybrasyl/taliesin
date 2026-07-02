@@ -162,6 +162,80 @@ describe('createSettingsManager.load', () => {
     warn.mockRestore()
   })
 
+  it('preserves every optional field when present (withDefaults truthy branches)', async () => {
+    files.set(
+      PRIMARY,
+      JSON.stringify({
+        clientPath: '/client',
+        brigidAssetsPath: '/brigid/assets',
+        libraries: ['libA'],
+        activeLibrary: 'libA',
+        mapDirectories: [{ path: '/maps', name: 'Maps' }],
+        activeMapDirectory: '/maps',
+        theme: 'hybrasyl',
+        lastOpenedArchive: '/arc/setoa.dat',
+        musicLibraryPath: '/music/lib',
+        musicWorkingDirs: ['/music/a', 42, '/music/b'], // 42 filtered out
+        activeMusicWorkingDir: '/music/a',
+        ffmpegPath: '/bin/ffmpeg',
+        musEncodeKbps: 128,
+        musEncodeSampleRate: 48000,
+        packDir: '/packs',
+        companionPath: '/companion'
+      })
+    )
+    const s = await createSettingsManager(USER_DATA).load()
+    expect(s.clientPath).toBe('/client')
+    expect(s.brigidAssetsPath).toBe('/brigid/assets')
+    expect(s.activeLibrary).toBe('libA')
+    expect(s.activeMapDirectory).toBe('/maps')
+    expect(s.theme).toBe('hybrasyl')
+    expect(s.lastOpenedArchive).toBe('/arc/setoa.dat')
+    expect(s.musicLibraryPath).toBe('/music/lib')
+    expect(s.musicWorkingDirs).toEqual(['/music/a', '/music/b']) // non-string dropped
+    expect(s.activeMusicWorkingDir).toBe('/music/a')
+    expect(s.ffmpegPath).toBe('/bin/ffmpeg')
+    expect(s.musEncodeKbps).toBe(128)
+    expect(s.musEncodeSampleRate).toBe(48000)
+    expect(s.packDir).toBe('/packs')
+    expect(s.companionPath).toBe('/companion')
+  })
+
+  it('coerces wrong-typed optional fields to undefined/defaults (withDefaults falsy branches)', async () => {
+    files.set(
+      PRIMARY,
+      JSON.stringify({
+        clientPath: 123, // wrong type → undefined
+        brigidAssetsPath: false,
+        libraries: [],
+        mapDirectories: [],
+        theme: 99,
+        lastOpenedArchive: {},
+        musicLibraryPath: [],
+        musicWorkingDirs: 'not-an-array', // → []
+        activeMusicWorkingDir: 5,
+        ffmpegPath: null,
+        musEncodeKbps: 'fast', // → 64
+        musEncodeSampleRate: null, // → 22050
+        packDir: 0,
+        companionPath: true
+      })
+    )
+    const s = await createSettingsManager(USER_DATA).load()
+    expect(s.clientPath).toBeUndefined()
+    expect(s.brigidAssetsPath).toBeUndefined()
+    expect(s.theme).toBeUndefined()
+    expect(s.lastOpenedArchive).toBeUndefined()
+    expect(s.musicLibraryPath).toBeUndefined()
+    expect(s.musicWorkingDirs).toEqual([])
+    expect(s.activeMusicWorkingDir).toBeUndefined()
+    expect(s.ffmpegPath).toBeUndefined()
+    expect(s.musEncodeKbps).toBe(64)
+    expect(s.musEncodeSampleRate).toBe(22050)
+    expect(s.packDir).toBeUndefined()
+    expect(s.companionPath).toBeUndefined()
+  })
+
   it('drops malformed entries inside mapDirectories arrays', async () => {
     files.set(
       PRIMARY,
