@@ -20,7 +20,8 @@ import {
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { Palette } from '../../utils/paletteTypes'
-import { PaletteSummary, scanPalettes, loadPalette } from '../../utils/paletteIO'
+import { loadPalette } from '../../utils/paletteIO'
+import { usePalettesOnActive } from './usePalettesOnActive'
 import { DEFAULT_VARIANTS } from '../../utils/variants'
 import {
   runBatch,
@@ -37,7 +38,7 @@ interface Props {
 }
 
 const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
-  const [summaries, setSummaries] = useState<PaletteSummary[]>([])
+  const summaries = usePalettesOnActive(packDir, active)
   const [paletteId, setPaletteId] = useState<string>('')
   const [palette, setPalette] = useState<Palette | null>(null)
   const [sourceDir, setSourceDir] = useState<string | null>(null)
@@ -53,15 +54,6 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const [result, setResult] = useState<BatchResult | null>(null)
 
   const variants = useMemo(() => palette?.variants ?? DEFAULT_VARIANTS, [palette])
-
-  // Re-scan palettes whenever the tab becomes active so newly-created palettes
-  // in the Palettes tab show up without remounting.
-  useEffect(() => {
-    if (!active) return
-    scanPalettes(packDir)
-      .then(setSummaries)
-      .catch(() => setSummaries([]))
-  }, [active, packDir])
 
   useEffect(() => {
     let cancelled = false
