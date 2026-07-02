@@ -10,6 +10,7 @@
 
 import { promises as fs } from 'fs'
 import { join } from 'path'
+import type { BgFamily, WallFamily, TileAtlas } from '../src/renderer/src/utils/tileThemeTypes'
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -24,33 +25,6 @@ const OUTPUT_PATH = join(__dirname, '..', 'src', 'renderer', 'src', 'data', 'til
 const RANGE_GAP_THRESHOLD = 3 // max gap between consecutive IDs in a range cluster
 const MIN_FAMILY_SIZE = 3 // families smaller than this become "unclustered"
 const MAX_BG_ADJACENCY_NEIGHBORS = 50 // cap neighbors per tile in output to control file size
-
-// ── Types ───────────────────────────────────────────────────────────────────
-
-interface BgFamily {
-  id: string
-  tiles: number[]
-  totalFrequency: number
-  topTiles: number[]
-}
-
-interface WallFamily {
-  id: string
-  pairs: [number, number][]
-  totalFrequency: number
-  commonGrounds: number[]
-}
-
-interface TileAtlas {
-  scannedAt: string
-  fileCount: number
-  tileCount: number
-  skippedFiles: number
-  bgFamilies: BgFamily[]
-  wallFamilies: WallFamily[]
-  bgAdjacency: Record<string, Record<string, number>>
-  bgFrequency: Record<string, number>
-}
 
 // ── Dimension resolution ────────────────────────────────────────────────────
 
