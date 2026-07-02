@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseFilename } from '../../hooks/useMusicLibrary'
 import { useRecoilValue } from 'recoil'
 import {
@@ -1018,13 +1018,17 @@ function MapPlacementTab({
 
   const zoom = ZOOM_LEVELS[zoomIdx]
 
-  // Build flat marker list for MapRenderCanvas
-  const markers: MapMarker[] = [
-    ...data.warps.map((w, i): MapMarker => ({ kind: 'warp', index: i, x: w.x, y: w.y })),
-    ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
-    ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
-    ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
-  ]
+  // Build flat marker list for MapRenderCanvas. Memoized so the array identity is
+  // stable across renders — it's a dep of the canvas's tile-iterating overlay effect.
+  const markers: MapMarker[] = useMemo(
+    () => [
+      ...data.warps.map((w, i): MapMarker => ({ kind: 'warp', index: i, x: w.x, y: w.y })),
+      ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
+      ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
+      ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
+    ],
+    [data.warps, data.npcs, data.signs, data.reactors]
+  )
 
   const handleTileClick = (tx: number, ty: number) => {
     if (placeMode === 'none') return
