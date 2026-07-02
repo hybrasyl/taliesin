@@ -27,6 +27,7 @@ import {
   suggestedBrigidAssetsPath
 } from './assetPacks'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
+import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
 import { parseOrLog } from './schemaLog'
 import {
   taliesinSettingsSchema,
@@ -330,12 +331,7 @@ export async function catalogLoad(
   dirPath: string
 ): Promise<Record<string, unknown>> {
   const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
-  const p = getCatalogPath(safeDir)
-  try {
-    return JSON.parse(await fs.readFile(p, 'utf-8'))
-  } catch {
-    return {}
-  }
+  return readJsonOr<Record<string, unknown>>(getCatalogPath(safeDir), {})
 }
 
 export async function catalogSave(
@@ -345,9 +341,7 @@ export async function catalogSave(
 ): Promise<void> {
   const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
   const parsed = parseOrLog(ctx, 'catalog:save', catalogDataSchema, data)
-  const p = getCatalogPath(safeDir)
-  await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(getCatalogPath(safeDir), parsed)
 }
 
 export async function catalogScan(
@@ -463,12 +457,7 @@ export async function musicMetadataLoad(
   dirPath: string
 ): Promise<Record<string, unknown>> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
-  const p = join(safe, 'music-library.json')
-  try {
-    return JSON.parse(await fs.readFile(p, 'utf-8'))
-  } catch {
-    return {}
-  }
+  return readJsonOr<Record<string, unknown>>(join(safe, 'music-library.json'), {})
 }
 
 export async function musicMetadataSave(
@@ -478,19 +467,12 @@ export async function musicMetadataSave(
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
   const parsed = parseOrLog(ctx, 'music:metadata:save', musicMetaDataSchema, data)
-  const p = join(safe, 'music-library.json')
-  await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(join(safe, 'music-library.json'), parsed)
 }
 
 export async function musicPacksLoad(ctx: HandlerContext, dirPath: string): Promise<unknown> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
-  const p = join(safe, 'music-packs.json')
-  try {
-    return JSON.parse(await fs.readFile(p, 'utf-8'))
-  } catch {
-    return []
-  }
+  return readJsonOr<unknown>(join(safe, 'music-packs.json'), [])
 }
 
 export async function musicPacksSave(
@@ -500,9 +482,7 @@ export async function musicPacksSave(
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
   const parsed = parseOrLog(ctx, 'music:packs:save', musicPackArraySchema, packs)
-  const p = join(safe, 'music-packs.json')
-  await fs.mkdir(dirname(p), { recursive: true })
-  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(join(safe, 'music-packs.json'), parsed)
 }
 
 interface DeployTrack {
@@ -673,12 +653,7 @@ export async function sfxIndexLoad(
   activeLibrary: string
 ): Promise<Record<string, unknown>> {
   const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
-  const p = join(safe, '..', 'sfx-index.json')
-  try {
-    return JSON.parse(await fs.readFile(p, 'utf-8'))
-  } catch {
-    return {}
-  }
+  return readJsonOr<Record<string, unknown>>(join(safe, '..', 'sfx-index.json'), {})
 }
 
 export async function sfxIndexSave(
@@ -688,8 +663,7 @@ export async function sfxIndexSave(
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
   const parsed = parseOrLog(ctx, 'sfx:index:save', sfxIndexSchema, data)
-  const p = join(safe, '..', 'sfx-index.json')
-  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(join(safe, '..', 'sfx-index.json'), parsed)
 }
 
 // ── BIK video conversion ─────────────────────────────────────────────────────
@@ -782,38 +756,27 @@ function prefabDir(libraryPath: string): string {
 
 export async function prefabList(ctx: HandlerContext, libraryPath: string) {
   const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
-  const dir = prefabDir(safeLib)
-  try {
-    await fs.mkdir(dir, { recursive: true })
-    const entries = await fs.readdir(dir, { withFileTypes: true })
-    const summaries: {
-      filename: string
-      name: string
-      width: number
-      height: number
-      createdAt: string
-      updatedAt: string
-    }[] = []
-    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
-      try {
-        const raw = await fs.readFile(join(dir, e.name), 'utf-8')
-        const data = JSON.parse(raw)
-        summaries.push({
-          filename: e.name,
-          name: data.name ?? e.name.replace(/\.json$/, ''),
-          width: data.width ?? 0,
-          height: data.height ?? 0,
-          createdAt: data.createdAt ?? '',
-          updatedAt: data.updatedAt ?? ''
-        })
-      } catch {
-        /* skip malformed */
+  return scanJsonDir(
+    prefabDir(safeLib),
+    (raw, filename) => {
+      const data = raw as {
+        name?: string
+        width?: number
+        height?: number
+        createdAt?: string
+        updatedAt?: string
       }
-    }
-    return summaries
-  } catch {
-    return []
-  }
+      return {
+        filename,
+        name: data.name ?? filename.replace(/\.json$/, ''),
+        width: data.width ?? 0,
+        height: data.height ?? 0,
+        createdAt: data.createdAt ?? '',
+        updatedAt: data.updatedAt ?? ''
+      }
+    },
+    { ensure: true }
+  )
 }
 
 export async function prefabLoad(ctx: HandlerContext, libraryPath: string, filename: string) {
@@ -862,25 +825,15 @@ export async function packScan(
   ctx: HandlerContext,
   dirPath: string
 ): Promise<Record<string, unknown>[]> {
-  try {
-    const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
-    const entries = await fs.readdir(safe, { withFileTypes: true })
-    const packs: Record<string, unknown>[] = []
-    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
-      try {
-        const raw = await fs.readFile(join(safe, e.name), 'utf-8')
-        const data = JSON.parse(raw)
-        if (data.pack_id && data.content_type) {
-          packs.push({ filename: e.name, ...data })
-        }
-      } catch {
-        /* skip malformed */
-      }
+  // Thunk so an out-of-root path fails soft to [] (see scanJsonDir).
+  return scanJsonDir(
+    () => assertInsideAnyRoot(allRoots(ctx), dirPath),
+    (raw, filename) => {
+      const data = raw as Record<string, unknown>
+      if (data.pack_id && data.content_type) return { filename, ...data }
+      return null
     }
-    return packs
-  } catch {
-    return []
-  }
+  )
 }
 
 export async function packLoad(ctx: HandlerContext, filePath: string) {
@@ -894,8 +847,7 @@ export async function packSave(
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
   const parsed = parseOrLog(ctx, 'pack:save', packProjectSchema, data)
-  await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(safe, parsed)
 }
 
 export async function packDelete(ctx: HandlerContext, filePath: string): Promise<void> {
@@ -1116,31 +1068,23 @@ const palettesSubdir = (packDir: string) => join(packDir, '_palettes')
 const calibrationsSubdir = (packDir: string) => join(packDir, '_calibrations')
 
 export async function paletteScan(ctx: HandlerContext, packDir: string) {
-  try {
-    const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-    const dir = palettesSubdir(safePack)
-    const entries = await fs.readdir(dir, { withFileTypes: true })
-    const palettes: { filename: string; id: string; name: string; entryCount: number }[] = []
-    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
-      try {
-        const raw = await fs.readFile(join(dir, e.name), 'utf-8')
-        const data = JSON.parse(raw)
-        if (data.id && Array.isArray(data.entries)) {
-          palettes.push({
-            filename: e.name,
-            id: data.id,
-            name: data.name ?? data.id,
-            entryCount: data.entries.length
-          })
+  // Thunk so an out-of-root path fails soft to [] (see scanJsonDir).
+  const palettes = await scanJsonDir(
+    () => palettesSubdir(assertInsideAnyRoot(allRoots(ctx), packDir)),
+    (raw, filename) => {
+      const data = raw as { id?: string; name?: string; entries?: unknown[] }
+      if (data.id && Array.isArray(data.entries)) {
+        return {
+          filename,
+          id: data.id,
+          name: data.name ?? data.id,
+          entryCount: data.entries.length
         }
-      } catch {
-        /* skip malformed */
       }
+      return null
     }
-    return palettes.sort((a, b) => a.id.localeCompare(b.id))
-  } catch {
-    return []
-  }
+  )
+  return palettes.sort((a, b) => a.id.localeCompare(b.id))
 }
 
 export async function paletteLoad(ctx: HandlerContext, filePath: string) {
@@ -1154,8 +1098,7 @@ export async function paletteSave(
 ): Promise<void> {
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
   const parsed = parseOrLog(ctx, 'palette:save', paletteSchema, data)
-  await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(safe, parsed)
 }
 
 export async function paletteDelete(ctx: HandlerContext, filePath: string): Promise<void> {
@@ -1172,12 +1115,10 @@ export async function paletteCalibrationLoad(
   paletteId: string
 ): Promise<Record<string, unknown>> {
   const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-  const path = assertInside(calibrationsSubdir(safePack), `${paletteId}.json`)
-  try {
-    return JSON.parse(await fs.readFile(path, 'utf-8'))
-  } catch {
-    return {}
-  }
+  return readJsonOr<Record<string, unknown>>(
+    assertInside(calibrationsSubdir(safePack), `${paletteId}.json`),
+    {}
+  )
 }
 
 export async function paletteCalibrationSave(
@@ -1188,10 +1129,7 @@ export async function paletteCalibrationSave(
 ): Promise<void> {
   const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
   const parsed = parseOrLog(ctx, 'palette:calibrationSave', calibrationFileSchema, data)
-  const dir = calibrationsSubdir(safePack)
-  const path = assertInside(dir, `${paletteId}.json`)
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(assertInside(calibrationsSubdir(safePack), `${paletteId}.json`), parsed)
 }
 
 export async function frameScan(ctx: HandlerContext, packDir: string): Promise<string[]> {
@@ -1263,24 +1201,14 @@ export async function tileScanAnalyze(ctx: HandlerContext, dirPaths: string[]) {
 // ── Themes ──────────────────────────────────────────────────────────────────
 
 export async function themeList(ctx: HandlerContext) {
-  const themeDir = join(ctx.settingsPath, 'themes')
-  try {
-    await fs.mkdir(themeDir, { recursive: true })
-    const entries = await fs.readdir(themeDir, { withFileTypes: true })
-    const summaries: { filename: string; name: string }[] = []
-    for (const e of entries.filter((e) => e.isFile() && e.name.endsWith('.json'))) {
-      try {
-        const raw = await fs.readFile(join(themeDir, e.name), 'utf-8')
-        const data = JSON.parse(raw)
-        summaries.push({ filename: e.name, name: data.name ?? e.name.replace(/\.json$/, '') })
-      } catch {
-        /* skip malformed */
-      }
-    }
-    return summaries
-  } catch {
-    return []
-  }
+  return scanJsonDir(
+    join(ctx.settingsPath, 'themes'),
+    (raw, filename) => {
+      const data = raw as { name?: string }
+      return { filename, name: data.name ?? filename.replace(/\.json$/, '') }
+    },
+    { ensure: true }
+  )
 }
 
 export async function themeLoad(ctx: HandlerContext, filename: string) {
@@ -1294,10 +1222,7 @@ export async function themeSave(
   data: unknown
 ): Promise<void> {
   const parsed = parseOrLog(ctx, 'theme:save', tileThemeSchema, data)
-  const themeDir = join(ctx.settingsPath, 'themes')
-  const p = assertInside(themeDir, filename)
-  await fs.mkdir(themeDir, { recursive: true })
-  await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
+  await writeJsonFile(assertInside(join(ctx.settingsPath, 'themes'), filename), parsed)
 }
 
 export async function themeDelete(ctx: HandlerContext, filename: string): Promise<void> {
