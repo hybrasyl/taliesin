@@ -7,6 +7,11 @@ separately and are excluded here. 38 adversarially-verified findings._
 **By category:** duplication 26, styling 5, efficiency 4, dead-code 2, simplification 1.
 **By severity:** medium 20, low 17, high 1.
 
+**Status:** all 38 findings resolved. The first 35 landed in the 2.6.0 efficiency
+sweep; the three deferred follow-ups — **#3** (`useAudioPreview`), **#5** (shared
+`ItemsGroup`), **#7** (shared `drawDiamond`) — landed afterward, each
+behavior-preserving with added unit/render coverage.
+
 ---
 
 ## Cross-cutting (patterns spanning files/domains)

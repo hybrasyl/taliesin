@@ -130,10 +130,12 @@ export default defineConfig({
           statements: 39
         },
         'src/renderer/src/components/mapmaker/MapEditorCanvas.tsx': {
-          lines: 38,
+          // drawDiamond moved out to mapRenderer.ts (now unit-tested there),
+          // so this file's ratios shifted down slightly — floors track reality.
+          lines: 37,
           branches: 25,
-          functions: 33,
-          statements: 35
+          functions: 32,
+          statements: 34
         }
       }
     },
