@@ -1,5 +1,42 @@
-import { describe, it, expect } from 'vitest'
-import { lruTouch, lruGet, _assetCacheSize, clearAllCaches } from '../mapRenderer'
+import { describe, it, expect, vi } from 'vitest'
+import { lruTouch, lruGet, _assetCacheSize, clearAllCaches, drawDiamond } from '../mapRenderer'
+
+describe('drawDiamond', () => {
+  function mockCtx() {
+    return {
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn()
+    } as unknown as CanvasRenderingContext2D
+  }
+
+  it('traces the four diamond corners at scale 1 (HTILE_W=28, half-height 14)', () => {
+    const ctx = mockCtx()
+    drawDiamond(ctx, 100, 50, 1)
+    expect(ctx.beginPath).toHaveBeenCalledOnce()
+    expect(ctx.moveTo).toHaveBeenCalledWith(100, 36) // top: cy - hv
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 128, 50) // right: cx + hw
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(2, 100, 64) // bottom: cy + hv
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(3, 72, 50) // left: cx - hw
+    expect(ctx.closePath).toHaveBeenCalledOnce()
+  })
+
+  it('scales the diamond half-extents by the scale factor', () => {
+    const ctx = mockCtx()
+    drawDiamond(ctx, 0, 0, 0.5) // hw = 14, hv = 7
+    expect(ctx.moveTo).toHaveBeenCalledWith(0, -7)
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 14, 0)
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(2, 0, 7)
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(3, -14, 0)
+  })
+
+  it('defaults scale to 1', () => {
+    const ctx = mockCtx()
+    drawDiamond(ctx, 0, 0)
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 28, 0)
+  })
+})
 
 describe('lruTouch', () => {
   it('inserts a new key', () => {

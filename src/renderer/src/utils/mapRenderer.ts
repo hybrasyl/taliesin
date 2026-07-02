@@ -378,6 +378,27 @@ export const ISO_VTILE_STEP = HTILE_W / 2
 export const ISO_FOREGROUND_PAD = FOREGROUND_PAD
 
 /**
+ * Trace an isometric tile diamond centered at (cx, cy) into the current path.
+ * Does not stroke or fill — the caller sets the style and calls fill()/stroke().
+ * Shared by every mapmaker canvas that paints the passability/grid overlay.
+ */
+export function drawDiamond(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale = 1
+): void {
+  const hw = HTILE_W * scale
+  const hv = (HTILE_W / 2) * scale
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - hv)
+  ctx.lineTo(cx + hw, cy)
+  ctx.lineTo(cx, cy + hv)
+  ctx.lineTo(cx - hw, cy)
+  ctx.closePath()
+}
+
+/**
  * Rendered canvas size for an isometric map at the given scale factor.
  * Mirrors the size calculation in renderMap.
  */
