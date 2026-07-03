@@ -18,6 +18,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { getKind } from '../packKinds'
@@ -30,6 +31,7 @@ import { createEmptyLayout, UI_NAME_RE, type UiPanelLayout } from '../uiforge/ty
 import { parsePanelXml, serializePanelXml } from '../uiforge/panelXml'
 import { aggregateVariablesUsed } from '../uiforge/variableCatalog'
 import ForgePanel from '../components/uiforge/ForgePanel'
+import PrefabImportDialog from '../components/uiforge/PrefabImportDialog'
 
 interface PackSummary {
   filename: string
@@ -60,6 +62,7 @@ const UiForgePage: React.FC = () => {
   const [newPackId, setNewPackId] = useState('')
   const [newPanelOpen, setNewPanelOpen] = useState(false)
   const [newPanelId, setNewPanelId] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
   const [statusMessage, showStatus] = useTransientStatus()
 
   const refresh = useCallback(async () => {
@@ -202,6 +205,23 @@ const UiForgePage: React.FC = () => {
     showStatus(`Created panel: ${panelId}`)
   }, [project, projectAssetsDir, newPanelId, panelIds, saveProject, showStatus])
 
+  /** After PrefabImportDialog writes the XML + art, register the new assets and
+   *  open the drafted panel on the canvas. */
+  const handleImported = useCallback(
+    async (panelId: string, filenames: string[]) => {
+      if (!project || !projectAssetsDir) return
+      const existing = new Set(project.assets.map((a) => a.filename))
+      const added = filenames
+        .filter((f) => !existing.has(f))
+        .map((f) => ({ filename: f, sourcePath: `${projectAssetsDir}/${f}` }))
+      await saveProject({ ...project, assets: [...project.assets, ...added] })
+      setImportOpen(false)
+      setSelectedPanel(panelId)
+      showStatus(`Imported panel: ${panelId}`)
+    },
+    [project, projectAssetsDir, saveProject, showStatus]
+  )
+
   const handleDeletePanel = useCallback(
     async (panelId: string) => {
       if (!project || !projectAssetsDir) return
@@ -317,14 +337,26 @@ const UiForgePage: React.FC = () => {
                           </Tooltip>
                         </ListItemButton>
                       ))}
-                      <Button
-                        size="small"
-                        startIcon={<AddIcon />}
-                        onClick={() => setNewPanelOpen(true)}
-                        sx={{ ml: 1, my: 0.5 }}
+                      <Box
+                        sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
                       >
-                        New Panel
-                      </Button>
+                        <Button
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={() => setNewPanelOpen(true)}
+                          sx={{ ml: 1, my: 0.5 }}
+                        >
+                          New Panel
+                        </Button>
+                        <Button
+                          size="small"
+                          startIcon={<FileDownloadIcon />}
+                          onClick={() => setImportOpen(true)}
+                          sx={{ ml: 1, mb: 0.5 }}
+                        >
+                          Import Prefab
+                        </Button>
+                      </Box>
                     </Box>
                   )}
                 </React.Fragment>
@@ -425,6 +457,17 @@ const UiForgePage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Import legacy prefab dialog */}
+      {projectAssetsDir && (
+        <PrefabImportDialog
+          open={importOpen}
+          projectAssetsDir={projectAssetsDir}
+          existingPanelIds={panelIds}
+          onClose={() => setImportOpen(false)}
+          onImported={handleImported}
+        />
+      )}
     </Box>
   )
 }
