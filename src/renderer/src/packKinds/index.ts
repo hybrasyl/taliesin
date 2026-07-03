@@ -10,6 +10,7 @@ import { worldMapsKind } from './worldMaps'
 import { npcPortraitsKind } from './npcPortraits'
 import { staticTilesKind } from './staticTiles'
 import { creatureSpritesKind } from './creatureSprites'
+import { uiPanelsKind } from './uiPanels'
 
 // To add a new content type:
 //   1. Create src/renderer/src/packKinds/<kind>.ts exporting a PackKind.
@@ -27,7 +28,8 @@ export const PACK_KINDS: Record<ContentType, PackKind> = {
   world_maps: worldMapsKind,
   npc_portraits: npcPortraitsKind,
   static_tiles: staticTilesKind,
-  creature_sprites: creatureSpritesKind
+  creature_sprites: creatureSpritesKind,
+  ui_panels: uiPanelsKind
 }
 
 export function getKind(type: ContentType): PackKind {

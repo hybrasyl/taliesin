@@ -14,7 +14,8 @@ import {
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs,
-  GiAnvil
+  GiAnvil,
+  GiBlacksmith
 } from 'react-icons/gi'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useSettingsStore } from '../store/settingsStore'
@@ -126,6 +127,11 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Asset Pack Manager">
         <IconButton sx={sx('assetpacks')} onClick={nav('assetpacks')}>
           <GiCardboardBox />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="UI Layout Forge">
+        <IconButton sx={sx('uiforge')} onClick={nav('uiforge')}>
+          <GiBlacksmith />
         </IconButton>
       </Tooltip>
       <Tooltip title="Palettes & Duotone">

@@ -371,7 +371,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     setCompiling(true)
     try {
       const manifest = {
-        schema_version: 1,
+        schema_version: kind.manifestSchemaVersion ?? 1,
         pack_id: reduced.pack_id,
         pack_version: reduced.pack_version,
         content_type: reduced.content_type,
@@ -386,7 +386,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     } finally {
       setCompiling(false)
     }
-  }, [draft, packDir, packFilePath, onStatus])
+  }, [draft, kind, packDir, packFilePath, onStatus])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>

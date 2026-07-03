@@ -295,16 +295,21 @@ describe('packProjectSchema and packManifestSchema', () => {
     ).toThrow()
   })
 
-  it('packManifestSchema rejects schema_version other than 1', () => {
+  it('packManifestSchema pins schema_version per content_type (v2 only for ui_panels)', () => {
+    const base = { pack_id: 'x', pack_version: '1.0.0', priority: 0, covers: {} }
+    // v1 kinds reject v2 and anything else
     expect(() =>
-      packManifestSchema.parse({
-        schema_version: 2,
-        pack_id: 'x',
-        pack_version: '1.0.0',
-        content_type: 'ability_icons',
-        priority: 0,
-        covers: {}
-      })
+      packManifestSchema.parse({ ...base, schema_version: 2, content_type: 'ability_icons' })
+    ).toThrow()
+    expect(() =>
+      packManifestSchema.parse({ ...base, schema_version: 3, content_type: 'ability_icons' })
+    ).toThrow()
+    // ui_panels requires v2, rejects v1
+    expect(() =>
+      packManifestSchema.parse({ ...base, schema_version: 2, content_type: 'ui_panels' })
+    ).not.toThrow()
+    expect(() =>
+      packManifestSchema.parse({ ...base, schema_version: 1, content_type: 'ui_panels' })
     ).toThrow()
   })
 })
