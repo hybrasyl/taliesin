@@ -12,7 +12,7 @@
 // load also previews here.
 
 import { promises as fs } from 'fs'
-import { join } from 'path'
+import { dirname, join, resolve } from 'path'
 
 // unzipper ships no types; we import it dynamically (as elsewhere in main) and
 // describe only the surface we use. `.buffer()` reads a single entry's bytes.
@@ -148,7 +148,11 @@ const HANDLERS = new Map<string, PackHandler>([
 
 // ── Manifest validation (lenient, matches Brigid) ─────────────────────────────
 
-const SUPPORTED_SCHEMA_VERSIONS = new Set([1])
+// v1 for the classic content types; v2 for ui_panels (XML layouts). Both are
+// accepted here so a v2 pack is browsable by the UI Layout Forge art picker
+// and isn't spuriously rejected — even though only handler-backed content types
+// (static_tiles / world_maps / music) participate in override resolution.
+const SUPPORTED_SCHEMA_VERSIONS = new Set([1, 2])
 
 function validateManifest(
   raw: unknown
@@ -373,6 +377,104 @@ export async function resolveAssetBytes(
 export function suggestedBrigidAssetsPath(): string | null {
   const localAppData = process.env.LOCALAPPDATA
   return localAppData ? join(localAppData, 'erisco', 'Brigid', 'assets') : null
+}
+
+// ── Browsable image entries (separate from override resolution) ────────────────
+
+/**
+ * A PNG entry inside an installed pack, addressable for the art picker. This
+ * list is deliberately independent of the handler-based override path
+ * (`state.packs`), which drops handler-less content types like `ui_panels` —
+ * the picker wants to browse art in EVERY installed pack.
+ */
+export interface PackImageEntry {
+  /** Absolute path to the .datf on disk. */
+  packFile: string
+  packFileName: string
+  packId: string
+  contentType: string
+  schemaVersion: number
+  /** Path of the PNG within the zip. */
+  entryPath: string
+}
+
+/** Read + validate a pack's manifest from an open zip directory, or null. */
+async function readManifest(directory: ZipDirectory): Promise<PackManifest | null> {
+  const entry = directory.files.find((f) => f.path === '_manifest.json')
+  if (!entry) return null
+  try {
+    const raw = JSON.parse((await entry.buffer()).toString('utf8'))
+    const v = validateManifest(raw)
+    return v.ok ? v.manifest : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Every *.png entry across all installed packs in the configured sources,
+ * regardless of content type. Scans the source dirs fresh so a pack dropped in
+ * since launch appears. Used by the UI Layout Forge art picker's "installed
+ * packs" tab.
+ */
+export async function listImageEntries(): Promise<PackImageEntry[]> {
+  await pendingLoad
+  const results: PackImageEntry[] = []
+  for (const dir of state.sources) {
+    let files: string[]
+    try {
+      files = await fs.readdir(dir)
+    } catch {
+      continue
+    }
+    for (const f of files.filter((n) => n.toLowerCase().endsWith('.datf'))) {
+      const packFile = join(dir, f)
+      const directory = await openZip(packFile)
+      if (!directory) continue
+      const manifest = await readManifest(directory)
+      if (!manifest) continue
+      for (const e of directory.files) {
+        if (e.type && e.type !== 'File') continue
+        if (!e.path.toLowerCase().endsWith('.png')) continue
+        results.push({
+          packFile,
+          packFileName: f,
+          packId: manifest.pack_id,
+          contentType: manifest.content_type,
+          schemaVersion: manifest.schema_version,
+          entryPath: e.path
+        })
+      }
+    }
+  }
+  return results
+}
+
+/**
+ * Raw bytes of one entry from a browsable pack, or null. `packFile` must be a
+ * .datf directly inside one of the configured source dirs — this guards against
+ * a renderer asking to read an arbitrary path through this channel.
+ */
+export async function readPackEntry(
+  packFile: string,
+  entryPath: string
+): Promise<Uint8Array | null> {
+  await pendingLoad
+  if (!packFile.toLowerCase().endsWith('.datf')) return null
+  const parent = resolve(dirname(packFile))
+  if (!state.sources.some((s) => resolve(s) === parent)) return null
+  const directory = await openZip(packFile)
+  if (!directory) return null
+  const entry = directory.files.find((e) => e.path === entryPath)
+  if (!entry) return null
+  try {
+    return new Uint8Array(await entry.buffer())
+  } catch (err) {
+    console.warn(
+      `[assetPacks] failed reading ${entryPath} from ${packFile}: ${(err as Error).message}`
+    )
+    return null
+  }
 }
 
 /** Test hook — reset module state between tests. */

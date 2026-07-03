@@ -23,6 +23,8 @@ import {
   loadPacks,
   listActivePacks,
   listCoveredIds,
+  listImageEntries,
+  readPackEntry,
   resolveAssetBytes,
   suggestedBrigidAssetsPath
 } from './assetPacks'
@@ -1273,6 +1275,10 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
 
   // Installed .datf pack consumption (static_tiles / world_maps overrides).
   ipcMain.handle('pack:listActive', () => listActivePacks())
+  ipcMain.handle('pack:listImageEntries', () => listImageEntries())
+  ipcMain.handle('pack:readEntry', (_, packFile: string, entryPath: string) =>
+    readPackEntry(packFile, entryPath)
+  )
   ipcMain.handle('pack:listCoveredIds', (_, subtype: string) => listCoveredIds(subtype))
   ipcMain.handle('pack:resolveAsset', (_, subtype: string, id: number | string) =>
     resolveAssetBytes(subtype, id)

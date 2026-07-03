@@ -34,6 +34,7 @@ import LayoutCanvas, { type ForgeZoom } from './LayoutCanvas'
 import VariantTabs from './VariantTabs'
 import ControlPalette from './ControlPalette'
 import PropertyPanel from './PropertyPanel'
+import ArtPickerDialog, { type ArtTarget } from './ArtPickerDialog'
 
 export interface ForgePanelProps {
   project: PackProject
@@ -119,6 +120,10 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
   const [selectedControl, setSelectedControl] = useState<string | null>(null)
   const [armedKind, setArmedKind] = useState<UiControlKind | null>(null)
   const [hoverCursor, setHoverCursor] = useState('default')
+  const [artRefresh, setArtRefresh] = useState(0)
+  const [pendingArt, setPendingArt] = useState<{ target: ArtTarget; isBackground: boolean } | null>(
+    null
+  )
   const dragRef = useRef<DragState | null>(null)
 
   const layoutPath = `${projectAssetsDir}/${panelId}.xml`
@@ -202,7 +207,8 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
       cancelled = true
       if (url) URL.revokeObjectURL(url)
     }
-  }, [variant?.background, projectAssetsDir])
+    // artRefresh forces a reload when a same-named background is replaced.
+  }, [variant?.background, projectAssetsDir, artRefresh])
 
   // ── History-aware mutators ────────────────────────────────────────────────────
   const commit = useCallback(
@@ -290,6 +296,57 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
       if (layout) commit({ ...layout, anchor })
     },
     [layout, commit]
+  )
+
+  // ── Art attachment ─────────────────────────────────────────────────────────────
+  const assetNames = useMemo(() => new Set(project.assets.map((a) => a.filename)), [project.assets])
+
+  const setActiveBackground = useCallback(
+    (filename: string | undefined) => {
+      if (!layout || !variant) return
+      commit({
+        ...layout,
+        variants: layout.variants.map((v) =>
+          v.name === variant.name ? { ...v, background: filename } : v
+        )
+      })
+    },
+    [layout, variant, commit]
+  )
+
+  const handlePickArt = useCallback((target: ArtTarget, isBackground: boolean) => {
+    setPendingArt({ target, isBackground })
+  }, [])
+
+  // The dialog has already written projectAssetsDir/filename by now; record the
+  // asset and (for backgrounds) point the variant at it.
+  const handleArtApplied = useCallback(
+    async (filename: string) => {
+      if (!project.assets.some((a) => a.filename === filename)) {
+        await onProjectChange({
+          ...project,
+          assets: [...project.assets, { filename, sourcePath: `${projectAssetsDir}/${filename}` }]
+        })
+      }
+      if (pendingArt?.isBackground) setActiveBackground(filename)
+      setArtRefresh((n) => n + 1)
+    },
+    [project, projectAssetsDir, onProjectChange, pendingArt, setActiveBackground]
+  )
+
+  const handleRemoveArt = useCallback(
+    async (filename: string, isBackground: boolean) => {
+      await window.api.packRemoveAsset(projectAssetsDir, filename)
+      if (project.assets.some((a) => a.filename === filename)) {
+        await onProjectChange({
+          ...project,
+          assets: project.assets.filter((a) => a.filename !== filename)
+        })
+      }
+      if (isBackground) setActiveBackground(undefined)
+      setArtRefresh((n) => n + 1)
+    },
+    [projectAssetsDir, project, onProjectChange, setActiveBackground]
   )
 
   // ── Canvas pointer interactions ────────────────────────────────────────────────
@@ -594,11 +651,25 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
           layout={layout}
           variant={variant}
           selected={selected}
+          panelId={layout.id}
+          projectAssetsDir={projectAssetsDir}
+          assetNames={assetNames}
+          artRefresh={artRefresh}
           onControlChange={handleControlChange}
           onDeleteControl={handleDeleteControl}
           onAnchorChange={handleAnchorChange}
+          onPickArt={handlePickArt}
+          onRemoveArt={handleRemoveArt}
         />
       </Box>
+
+      <ArtPickerDialog
+        open={!!pendingArt}
+        target={pendingArt?.target ?? null}
+        projectAssetsDir={projectAssetsDir}
+        onClose={() => setPendingArt(null)}
+        onApplied={handleArtApplied}
+      />
 
       <UnsavedChangesDialog
         open={dialogOpen}

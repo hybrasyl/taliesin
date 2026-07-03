@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Button, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  Divider,
+  IconButton,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography
+} from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import {
   UI_CONTROL_KINDS,
@@ -11,14 +20,24 @@ import {
   type UiRect,
   type UiVariant
 } from '../../uiforge/types'
+import { artStatesForKind, backgroundFilename, controlArtFilename } from '../../uiforge/artNaming'
+import type { ArtTarget } from './ArtPickerDialog'
 
 interface PropertyPanelProps {
   layout: UiPanelLayout
   variant: UiVariant
   selected: UiControl | null
+  panelId: string
+  projectAssetsDir: string
+  /** Convention filenames present in the pack (drives thumbnail vs. empty slot). */
+  assetNames: Set<string>
+  /** Bumped after an art write so thumbnails re-read a replaced file. */
+  artRefresh: number
   onControlChange: (name: string, next: UiControl) => void
   onDeleteControl: (name: string) => void
   onAnchorChange: (anchor: UiRect) => void
+  onPickArt: (target: ArtTarget, isBackground: boolean) => void
+  onRemoveArt: (filename: string, isBackground: boolean) => void
 }
 
 /** A small integer field that commits on change (blank/NaN is ignored). */
@@ -45,14 +64,63 @@ const IntField: React.FC<{
   />
 )
 
+/** PNG thumbnail loaded from the pack dir via readFile (avoids file:// taint). */
+const AssetThumb: React.FC<{ dir: string; filename: string; refresh: number; size?: number }> = ({
+  dir,
+  filename,
+  refresh,
+  size = 40
+}) => {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let u: string | null = null
+    let cancelled = false
+    ;(async () => {
+      try {
+        const buf = await window.api.readFile(`${dir}/${filename}`)
+        if (cancelled) return
+        u = URL.createObjectURL(new Blob([new Uint8Array(buf)], { type: 'image/png' }))
+        setUrl(u)
+      } catch {
+        // not on disk yet
+      }
+    })()
+    return () => {
+      cancelled = true
+      if (u) URL.revokeObjectURL(u)
+    }
+  }, [dir, filename, refresh])
+  const boxSx = { width: size, height: size, flexShrink: 0 }
+  if (!url) return <Box sx={{ ...boxSx, border: '1px dashed', borderColor: 'divider' }} />
+  return (
+    <Box
+      component="img"
+      src={url}
+      sx={{
+        ...boxSx,
+        objectFit: 'contain',
+        imageRendering: 'pixelated',
+        border: '1px solid',
+        borderColor: 'divider'
+      }}
+    />
+  )
+}
+
 /** Right rail: properties of the selected control, or panel/variant props. */
 const PropertyPanel: React.FC<PropertyPanelProps> = ({
   layout,
   variant,
   selected,
+  panelId,
+  projectAssetsDir,
+  assetNames,
+  artRefresh,
   onControlChange,
   onDeleteControl,
-  onAnchorChange
+  onAnchorChange,
+  onPickArt,
+  onRemoveArt
 }) => {
   // Name is edited locally and committed on blur/Enter (regex + uniqueness).
   const [nameDraft, setNameDraft] = useState('')
@@ -77,6 +145,8 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
     if (!selected) return
     onControlChange(selected.name, { ...selected, rect: { ...selected.rect, ...p } })
   }
+
+  const artStates = selected ? artStatesForKind(selected.kind) : []
 
   return (
     <Box
@@ -183,9 +253,44 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
             />
           )}
 
-          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-            Art &amp; bindings arrive in later milestones.
-          </Typography>
+          {artStates.length > 0 && (
+            <>
+              <Divider textAlign="left">
+                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                  Art
+                </Typography>
+              </Divider>
+              {artStates.map((stateName) => {
+                const fn = controlArtFilename(panelId, selected.name, stateName)
+                const has = assetNames.has(fn)
+                return (
+                  <Box key={stateName} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AssetThumb dir={projectAssetsDir} filename={fn} refresh={artRefresh} />
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {stateName}
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={() =>
+                        onPickArt({ filename: fn, label: `${selected.name} · ${stateName}` }, false)
+                      }
+                    >
+                      {has ? 'Replace' : 'Set'}
+                    </Button>
+                    {has && (
+                      <IconButton
+                        size="small"
+                        onClick={() => onRemoveArt(fn, false)}
+                        aria-label={`remove ${stateName} art`}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+                )
+              })}
+            </>
+          )}
 
           <Button
             size="small"
@@ -219,14 +324,46 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
           </Box>
           <Divider />
           <Typography variant="subtitle2">Variant · {variant.name}</Typography>
-          <TextField
-            label="Background PNG"
-            size="small"
-            fullWidth
-            value={variant.background ?? ''}
-            disabled
-            helperText="Set via the Art picker (M5)"
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {variant.background ? (
+              <AssetThumb
+                dir={projectAssetsDir}
+                filename={variant.background}
+                refresh={artRefresh}
+                size={48}
+              />
+            ) : (
+              <Box sx={{ width: 48, height: 48, border: '1px dashed', borderColor: 'divider' }} />
+            )}
+            <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>
+              {variant.background ?? 'no background'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              onClick={() =>
+                onPickArt(
+                  {
+                    filename: backgroundFilename(panelId, variant.name),
+                    label: `background · ${variant.name}`
+                  },
+                  true
+                )
+              }
+            >
+              {variant.background ? 'Replace…' : 'Set background…'}
+            </Button>
+            {variant.background && (
+              <Button
+                size="small"
+                color="error"
+                onClick={() => onRemoveArt(variant.background!, true)}
+              >
+                Remove
+              </Button>
+            )}
+          </Box>
           <Typography variant="caption" sx={{ color: 'text.disabled' }}>
             Select a control to edit it, or arm a tool and click the canvas to add one.
           </Typography>

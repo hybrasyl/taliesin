@@ -217,6 +217,18 @@ const api = {
   // Installed .datf pack consumption (static_tiles / world_maps overrides used
   // by the map + worldmap renderers).
   packListActive: (): Promise<unknown[]> => ipcRenderer.invoke('pack:listActive'),
+  packListImageEntries: (): Promise<
+    {
+      packFile: string
+      packFileName: string
+      packId: string
+      contentType: string
+      schemaVersion: number
+      entryPath: string
+    }[]
+  > => ipcRenderer.invoke('pack:listImageEntries'),
+  packReadEntry: (packFile: string, entryPath: string): Promise<Uint8Array | null> =>
+    ipcRenderer.invoke('pack:readEntry', packFile, entryPath),
   packListCoveredIds: (subtype: string): Promise<(number | string)[]> =>
     ipcRenderer.invoke('pack:listCoveredIds', subtype),
   packResolveAsset: (
