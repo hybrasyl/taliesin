@@ -23,7 +23,8 @@ import {
 import { artStatesForKind, backgroundFilename, controlArtFilename } from '../../uiforge/artNaming'
 import type { ArtTarget } from './ArtPickerDialog'
 import type { UiBinding } from '../../uiforge/types'
-import BindingEditor from './BindingEditor'
+import type { CustomVariableMap } from '../../uiforge/variableCatalog'
+import BindingEditor, { type SpecPrefill } from './BindingEditor'
 
 interface PropertyPanelProps {
   layout: UiPanelLayout
@@ -35,11 +36,15 @@ interface PropertyPanelProps {
   assetNames: Set<string>
   /** Bumped after an art write so thumbnails re-read a replaced file. */
   artRefresh: number
+  /** Custom (spec'd) variables known to the project. */
+  customVars?: CustomVariableMap
   onControlChange: (name: string, next: UiControl) => void
   onDeleteControl: (name: string) => void
   onAnchorChange: (anchor: UiRect) => void
   onPickArt: (target: ArtTarget, isBackground: boolean) => void
   onRemoveArt: (filename: string, isBackground: boolean) => void
+  /** Open the design-spec dialog for an unknown bound variable. */
+  onWriteSpec: (prefill: SpecPrefill, control: UiControl) => void
 }
 
 /** A small integer field that commits on change (blank/NaN is ignored). */
@@ -118,11 +123,13 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
   projectAssetsDir,
   assetNames,
   artRefresh,
+  customVars,
   onControlChange,
   onDeleteControl,
   onAnchorChange,
   onPickArt,
-  onRemoveArt
+  onRemoveArt,
+  onWriteSpec
 }) => {
   // Name is edited locally and committed on blur/Enter (regex + uniqueness).
   const [nameDraft, setNameDraft] = useState('')
@@ -296,7 +303,9 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 
           <BindingEditor
             control={selected}
+            customVars={customVars}
             onChange={(binding: UiBinding | undefined) => patch({ binding })}
+            onWriteSpec={(prefill) => onWriteSpec(prefill, selected)}
           />
 
           <Button

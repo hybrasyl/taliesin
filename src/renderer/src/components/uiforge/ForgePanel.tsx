@@ -29,12 +29,22 @@ import {
   type DragMode
 } from '../../uiforge/canvasGeometry'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
+import { normalizeVariablePath, type CustomVariableMap } from '../../uiforge/variableCatalog'
+import {
+  buildSpecMarkdown,
+  specRelPath,
+  type CustomVariableSpec,
+  type SpecOption
+} from '../../uiforge/specTemplate'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import LayoutCanvas, { type ForgeZoom } from './LayoutCanvas'
 import VariantTabs from './VariantTabs'
 import ControlPalette from './ControlPalette'
 import PropertyPanel from './PropertyPanel'
 import ArtPickerDialog, { type ArtTarget } from './ArtPickerDialog'
+import SpecDialog, { type SpecDialogInitial } from './SpecDialog'
+import type { SpecPrefill } from './BindingEditor'
+import type { UiVariableType } from '../../uiforge/variableCatalog'
 
 export interface ForgePanelProps {
   project: PackProject
@@ -124,6 +134,7 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
   const [pendingArt, setPendingArt] = useState<{ target: ArtTarget; isBackground: boolean } | null>(
     null
   )
+  const [specPrefill, setSpecPrefill] = useState<SpecDialogInitial | null>(null)
   const dragRef = useRef<DragState | null>(null)
 
   const layoutPath = `${projectAssetsDir}/${panelId}.xml`
@@ -296,6 +307,66 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
       if (layout) commit({ ...layout, anchor })
     },
     [layout, commit]
+  )
+
+  // ── Custom (spec'd) variables ────────────────────────────────────────────────
+  // Declared via design specs, persisted in assetMeta keyed by `specs/<slug>.md`.
+  const customVars = useMemo<CustomVariableMap>(() => {
+    const m = new Map<string, UiVariableType>()
+    for (const [key, meta] of Object.entries(project.assetMeta ?? {})) {
+      if (!key.startsWith('specs/')) continue
+      const p = typeof meta.path === 'string' ? meta.path : null
+      const t = meta.type as UiVariableType | undefined
+      if (p && t) m.set(normalizeVariablePath(p), t)
+    }
+    return m
+  }, [project.assetMeta])
+
+  const specSlugs = useMemo(
+    () =>
+      Object.keys(project.assetMeta ?? {})
+        .filter((k) => k.startsWith('specs/'))
+        .map((k) => k.replace(/^specs\//, '').replace(/\.md$/, '')),
+    [project.assetMeta]
+  )
+
+  const handleWriteSpec = useCallback(
+    (prefill: SpecPrefill, control: UiControl) => {
+      const container = `${layout?.id ?? panelId} / ${variant?.name ?? ''} / ${control.name} (${control.kind})`
+      const existing = (project.assetMeta ?? {})[specRelPath(prefill.path)] as
+        | Record<string, unknown>
+        | undefined
+      setSpecPrefill({
+        path: prefill.path,
+        type: (existing?.type as UiVariableType) ?? prefill.suggestedType ?? 'int',
+        container,
+        frequency: existing?.frequency as string | undefined,
+        justification: existing?.justification as string | undefined,
+        recommended: existing?.recommended as SpecOption | undefined
+      })
+    },
+    [layout?.id, panelId, variant?.name, project.assetMeta]
+  )
+
+  const handleSpecSubmit = useCallback(
+    async (spec: CustomVariableSpec) => {
+      const rel = specRelPath(spec.path)
+      await window.api.writeFile(`${projectAssetsDir}/${rel}`, buildSpecMarkdown(spec))
+      const meta = { ...(project.assetMeta ?? {}) }
+      meta[rel] = {
+        status: 'proposed',
+        path: spec.path,
+        type: spec.type,
+        ...(spec.container ? { container: spec.container } : {}),
+        frequency: spec.frequency,
+        justification: spec.justification,
+        ...(spec.recommended ? { recommended: spec.recommended } : {})
+      }
+      await onProjectChange({ ...project, assetMeta: meta })
+      setSpecPrefill(null)
+      onStatus(`Wrote design spec: ${rel}`)
+    },
+    [project, projectAssetsDir, onProjectChange, onStatus]
   )
 
   // ── Art attachment ─────────────────────────────────────────────────────────────
@@ -657,11 +728,13 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
           projectAssetsDir={projectAssetsDir}
           assetNames={assetNames}
           artRefresh={artRefresh}
+          customVars={customVars}
           onControlChange={handleControlChange}
           onDeleteControl={handleDeleteControl}
           onAnchorChange={handleAnchorChange}
           onPickArt={handlePickArt}
           onRemoveArt={handleRemoveArt}
+          onWriteSpec={handleWriteSpec}
         />
       </Box>
 
@@ -671,6 +744,14 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
         projectAssetsDir={projectAssetsDir}
         onClose={() => setPendingArt(null)}
         onApplied={handleArtApplied}
+      />
+
+      <SpecDialog
+        open={!!specPrefill}
+        initial={specPrefill}
+        existingSlugs={specSlugs}
+        onClose={() => setSpecPrefill(null)}
+        onSubmit={handleSpecSubmit}
       />
 
       <UnsavedChangesDialog

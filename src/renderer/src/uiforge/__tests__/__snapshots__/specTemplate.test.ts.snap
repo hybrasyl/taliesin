@@ -1,0 +1,64 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildSpecMarkdown > renders a deterministic, self-consistent spec 1`] = `
+"# Design spec: \`player.ext.critdmg\`
+
+**Status:** proposed
+**Type:** \`float\`
+**Used by:** extstats / compact / critdmg_label (label)
+**Update frequency:** on stat recalculation
+
+## Definition
+
+Extended crit-damage percentage shown in the stats panel.
+
+This variable is referenced by a \`ui_panels\` layout binding but is not yet exposed by the hybrasyl server. Until it ships, Brigid treats the binding as unbound and the control renders static (see docs/ui-panel-layout-format.md).
+
+## Server implementation options
+
+File paths below are relative to \`e:\\Dark Ages Dev\\Repos\\server\\hybrasyl\`.
+
+### Option A — new StatUpdateFlags bit on 0x08
+
+Add the value to the primary stat update packet (0x08) behind a new flag.
+
+- \`Internals\\Enums\\StatUpdateFlags.cs\` — add a new \`[Flags]\` bit.
+- \`Objects\\StatInfo.cs\` — add the backing property for \`player.ext.critdmg\`.
+- \`Objects\\User.cs\` → \`UpdateAttributes()\` — write the field when the new flag is set.
+- \`Networking\\ServerPackets\\\` — serialize the field in the 0x08 packet builder.
+
+### Option B — append f32 to the 0xFF ExtendedStats packet
+
+Extend the existing 0xFF extended-stats block with a trailing \`float\`. Best fit for derived/float combat stats that already travel on 0xFF.
+
+- \`Objects\\StatInfo.cs\` — add the backing property for \`player.ext.critdmg\`.
+- \`Objects\\User.cs\` → \`UpdateAttributes()\` — include the field in the 0xFF path.
+- \`Networking\\ServerPackets\\\` — append the \`f32\` to the ExtendedStats writer.
+
+### Option C — new opcode + ServerPacket class
+
+Introduce a dedicated opcode. Warranted only when the value has its own cadence or grouping that does not belong on 0x08 / 0xFF.
+
+- \`Internals\\Enums\\\` — register the new opcode.
+- \`Networking\\ServerPackets\\\` — add a new \`ServerPacket\` subclass.
+- \`Objects\\User.cs\` — emit the packet at the appropriate trigger.
+
+**Recommended:** Option B — append f32 to the 0xFF ExtendedStats packet
+
+## Wire format
+
+- Payload: \`f32\` (little-endian), appended to the chosen packet body.
+
+## Client / Brigid expectations
+
+- \`WorldState\` gains a \`float\` property that mirrors \`player.ext.critdmg\`, updated when the packet arrives.
+- Raise the matching \`Changed\` event on update so bound controls refresh.
+- On the layout side, a bound \`label\`/\`progressbar\` renders the numeric value (with optional \`format\`).
+
+## Binding usage
+
+\`\`\`xml
+<label name="my_label" rect="0,0,80,14" bind="player.ext.critdmg" format="{value:0.0}"/>
+\`\`\`
+"
+`;

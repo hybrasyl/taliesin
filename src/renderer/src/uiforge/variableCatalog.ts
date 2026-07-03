@@ -249,19 +249,32 @@ export function isNumericType(type: UiVariableType): boolean {
   return type === 'int' || type === 'float'
 }
 
-export type PathIssue = 'unknown' | 'index-error' | 'type-mismatch'
+export type PathIssue = 'unknown' | 'index-error' | 'type-mismatch' | 'proposed'
+
+/** A path→type map of custom variables declared via design specs (known to the
+ *  project but not the built-in catalog). Keys are template-normalized. */
+export type CustomVariableMap = ReadonlyMap<string, UiVariableType>
 
 /**
  * Validate a bound path against an optional allowed-type set. Returns null when
- * the path is valid (or intentionally unknown-but-allowed is the caller's call).
- * `unknown` = not in catalog; `index-error` = bad/missing index; `type-mismatch`
- * = resolves but to a type outside `allowed`.
+ * the path is valid. `unknown` = not in catalog or custom vars; `index-error` =
+ * bad/missing index; `type-mismatch` = resolves but to a type outside `allowed`;
+ * `proposed` = not in the catalog but declared as a custom (spec'd) variable —
+ * known-with-warning, still emitted (renders static until the server exposes it).
  */
-export function validatePath(path: string, allowed?: readonly UiVariableType[]): PathIssue | null {
+export function validatePath(
+  path: string,
+  allowed?: readonly UiVariableType[],
+  custom?: CustomVariableMap
+): PathIssue | null {
   const trimmed = path.trim()
   if (!trimmed) return null
   const res = resolveVariable(trimmed)
-  if (!res) return 'unknown'
+  if (!res) {
+    const customType = custom?.get(normalizeVariablePath(trimmed))
+    if (customType) return allowed && !allowed.includes(customType) ? 'type-mismatch' : 'proposed'
+    return 'unknown'
+  }
   if (res.indexError) return 'index-error'
   if (allowed && !allowed.includes(res.def.type)) return 'type-mismatch'
   return null

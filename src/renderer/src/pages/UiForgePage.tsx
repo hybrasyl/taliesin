@@ -19,6 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { getKind } from '../packKinds'
@@ -104,6 +105,15 @@ const UiForgePage: React.FC = () => {
   const panelIds = useMemo(() => (project ? panelIdsOf(project) : []), [project])
   const projectFilePath = packDir && selected ? `${packDir}/${selected}` : null
   const projectAssetsDir = packDir && project ? `${packDir}/${project.pack_id}` : null
+
+  /** Design specs registered in assetMeta under `specs/<slug>.md` (never compiled). */
+  const specEntries = useMemo(() => {
+    const meta = project?.assetMeta ?? {}
+    return Object.entries(meta)
+      .filter(([k]) => k.startsWith('specs/'))
+      .map(([rel, m]) => ({ rel, path: String(m.path ?? rel), type: String(m.type ?? '') }))
+      .sort((a, b) => a.path.localeCompare(b.path))
+  }, [project])
 
   const handleSetDir = useCallback(async () => {
     const dir = await window.api.openDirectory()
@@ -243,6 +253,20 @@ const UiForgePage: React.FC = () => {
     [project, projectAssetsDir, selectedPanel, saveProject, showStatus]
   )
 
+  const handleDeleteSpec = useCallback(
+    async (rel: string) => {
+      if (!project || !projectAssetsDir) return
+      await window.api.deleteFile(`${projectAssetsDir}/${rel}`).catch(() => {
+        // File may already be gone — still drop the registration.
+      })
+      const meta = { ...(project.assetMeta ?? {}) }
+      delete meta[rel]
+      await saveProject({ ...project, assetMeta: meta })
+      showStatus(`Deleted spec: ${rel}`)
+    },
+    [project, projectAssetsDir, saveProject, showStatus]
+  )
+
   if (!packDir) {
     return (
       <EmptyStateSettings
@@ -357,6 +381,49 @@ const UiForgePage: React.FC = () => {
                           Import Prefab
                         </Button>
                       </Box>
+
+                      {specEntries.length > 0 && (
+                        <Box sx={{ mt: 0.5 }}>
+                          <Typography
+                            variant="overline"
+                            sx={{ pl: 1, color: 'text.disabled', display: 'block' }}
+                          >
+                            Design specs
+                          </Typography>
+                          {specEntries.map((s) => (
+                            <ListItemButton
+                              key={s.rel}
+                              dense
+                              disableRipple
+                              sx={{ py: 0.25, cursor: 'default' }}
+                            >
+                              <DescriptionOutlinedIcon
+                                sx={{ fontSize: 14, mr: 1, color: 'text.disabled' }}
+                              />
+                              <ListItemText
+                                primary={s.path}
+                                secondary={`${s.type} · proposed`}
+                                slotProps={{
+                                  primary: { variant: 'caption', noWrap: true },
+                                  secondary: { variant: 'caption' }
+                                }}
+                              />
+                              <Tooltip title="Delete spec">
+                                <IconButton
+                                  size="small"
+                                  edge="end"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteSpec(s.rel)
+                                  }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </ListItemButton>
+                          ))}
+                        </Box>
+                      )}
                     </Box>
                   )}
                 </React.Fragment>

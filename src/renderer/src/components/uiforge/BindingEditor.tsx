@@ -1,19 +1,31 @@
 import React, { useMemo } from 'react'
-import { Autocomplete, Box, Chip, Divider, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, Chip, Divider, TextField, Typography } from '@mui/material'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import {
   NUMERIC_TYPES,
   VARIABLE_CATALOG,
   normalizeVariablePath,
   resolveVariable,
   validatePath,
+  type CustomVariableMap,
   type UiVariableType
 } from '../../uiforge/variableCatalog'
 import { renderFormat, sampleForPath, formatUsesMax } from '../../uiforge/formatPreview'
 import { BINDABLE_KINDS, type UiBinding, type UiControl } from '../../uiforge/types'
 
+/** Prefill handed to the design-spec dialog when binding an unknown variable. */
+export interface SpecPrefill {
+  path: string
+  suggestedType?: UiVariableType
+}
+
 interface BindingEditorProps {
   control: UiControl
   onChange: (binding: UiBinding | undefined) => void
+  /** Custom (spec'd) variables known to the project — resolve as `proposed`. */
+  customVars?: CustomVariableMap
+  /** Open the design-spec dialog to declare an unknown variable. */
+  onWriteSpec?: (prefill: SpecPrefill) => void
 }
 
 const OPTION_PATHS = VARIABLE_CATALOG.map((d) => d.path)
@@ -40,7 +52,8 @@ function patchBinding(
 const ISSUE_TEXT: Record<string, string> = {
   unknown: 'Not in catalog — binds anyway (renders static until server exposes it)',
   'index-error': 'Index out of range or missing — use a literal 1-based index',
-  'type-mismatch': 'Type not compatible with this control'
+  'type-mismatch': 'Type not compatible with this control',
+  proposed: 'Proposed variable — design spec written, pending server support'
 }
 
 /** A single path field: catalog-backed Autocomplete + a validation chip. */
@@ -49,9 +62,11 @@ const PathField: React.FC<{
   value: string | undefined
   allowed?: readonly UiVariableType[]
   helper?: string
+  customVars?: CustomVariableMap
   onCommit: (v: string) => void
-}> = ({ label, value, allowed, helper, onCommit }) => {
-  const issue = validatePath(value ?? '', allowed)
+  onWriteSpec?: (prefill: SpecPrefill) => void
+}> = ({ label, value, allowed, helper, customVars, onCommit, onWriteSpec }) => {
+  const issue = validatePath(value ?? '', allowed, customVars)
   const filterOptions = useMemo(
     () =>
       (opts: string[], state: { inputValue: string }): string[] => {
@@ -91,13 +106,27 @@ const PathField: React.FC<{
         renderInput={(params) => <TextField {...params} label={label} helperText={helper} />}
       />
       {issue && (
-        <Chip
-          size="small"
-          label={ISSUE_TEXT[issue]}
-          color={issue === 'unknown' ? 'warning' : 'error'}
-          variant="outlined"
-          sx={{ mt: 0.5, height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.25 } }}
-        />
+        <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <Chip
+            size="small"
+            label={ISSUE_TEXT[issue]}
+            color={issue === 'proposed' ? 'info' : issue === 'unknown' ? 'warning' : 'error'}
+            variant="outlined"
+            sx={{ height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.25 } }}
+          />
+          {issue === 'unknown' && onWriteSpec && (
+            <Button
+              size="small"
+              startIcon={<EditNoteIcon />}
+              onClick={() =>
+                onWriteSpec({ path: (value ?? '').trim(), suggestedType: allowed?.[0] })
+              }
+              sx={{ flexShrink: 0 }}
+            >
+              Write design spec…
+            </Button>
+          )}
+        </Box>
       )}
     </Box>
   )
@@ -108,7 +137,12 @@ const PathField: React.FC<{
  * paths, a format template with a live preview. Buttons never bind (actions stay
  * C#-owned) so this renders nothing for them.
  */
-const BindingEditor: React.FC<BindingEditorProps> = ({ control, onChange }) => {
+const BindingEditor: React.FC<BindingEditorProps> = ({
+  control,
+  onChange,
+  customVars,
+  onWriteSpec
+}) => {
   const binding = control.binding
   const preview = useMemo(() => {
     const fmt = binding?.format
@@ -151,7 +185,9 @@ const BindingEditor: React.FC<BindingEditorProps> = ({ control, onChange }) => {
           label="Bind"
           value={binding?.path}
           allowed={bindAllowed}
+          customVars={customVars}
           onCommit={(v) => set('path', v)}
+          onWriteSpec={onWriteSpec}
         />
       )}
       {hasMax && (
@@ -159,14 +195,18 @@ const BindingEditor: React.FC<BindingEditorProps> = ({ control, onChange }) => {
           label="Bind max"
           value={binding?.maxPath}
           allowed={maxAllowed}
+          customVars={customVars}
           onCommit={(v) => set('maxPath', v)}
+          onWriteSpec={onWriteSpec}
         />
       )}
       <PathField
         label="Bind visible (bool)"
         value={binding?.visiblePath}
         allowed={visibleAllowed}
+        customVars={customVars}
         onCommit={(v) => set('visiblePath', v)}
+        onWriteSpec={onWriteSpec}
       />
 
       {hasFormat && (
