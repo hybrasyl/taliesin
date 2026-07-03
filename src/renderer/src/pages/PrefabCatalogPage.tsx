@@ -17,15 +17,14 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
-import { useRecoilValue } from 'recoil'
-import { activeLibraryState, clientPathState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 import type { PrefabSummary, Prefab } from '../utils/prefabTypes'
 import { loadMapAssets, type MapAssets } from '../utils/mapRenderer'
 import { renderPrefabPreviewIso, renderPrefabPreviewFlat } from '../utils/prefabPreview'
 
 const PrefabCatalogPage: React.FC = () => {
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const clientPath = useRecoilValue(clientPathState)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   const [prefabs, setPrefabs] = useState<PrefabSummary[]>([])
   const [filter, setFilter] = useState('')

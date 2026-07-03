@@ -20,14 +20,8 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import HistoryIcon from '@mui/icons-material/History'
 import GamepadIcon from '@mui/icons-material/Gamepad'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
-import { useRecoilValue, useSetRecoilState } from 'recoil'
-import {
-  clientPathState,
-  activeLibraryState,
-  currentPageState,
-  packDirState,
-  type Page
-} from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
+import { useUiStore, type Page } from '../store/uiStore'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 
 // Index stat definitions — mirrors Creidhne pattern
@@ -207,10 +201,10 @@ function StatusCard({
 }
 
 const DashboardPage: React.FC = () => {
-  const clientPath = useRecoilValue(clientPathState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const packDir = useRecoilValue(packDirState)
-  const setCurrentPage = useSetRecoilState(currentPageState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const packDir = useSettingsStore((s) => s.packDir)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const { index, loading: indexLoading, building, build } = useWorldIndex()
 
   const [recentPages, setRecentPages] = useState<Page[]>([])

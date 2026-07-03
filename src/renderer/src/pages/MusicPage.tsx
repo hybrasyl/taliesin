@@ -1,16 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { Box, Tabs, Tab, Typography, Button, Alert, LinearProgress } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
-import { useRecoilState, useRecoilValue } from 'recoil'
-import {
-  musicLibraryPathState,
-  musicWorkingDirsState,
-  activeMusicWorkingDirState,
-  clientPathState,
-  ffmpegPathState,
-  musEncodeKbpsState,
-  musEncodeSampleRateState
-} from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 import {
   useMusicLibrary,
   countEntriesWithLongTags,
@@ -27,13 +18,14 @@ import ClientMusicView from '../components/music/ClientMusicView'
 const MusicPage: React.FC = () => {
   const [tab, setTab] = useState(0)
 
-  const [musicLibraryPath, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
-  const musicWorkingDirs = useRecoilValue(musicWorkingDirsState)
-  const activeMusicWorkingDir = useRecoilValue(activeMusicWorkingDirState)
-  const clientPath = useRecoilValue(clientPathState)
-  const ffmpegPath = useRecoilValue(ffmpegPathState)
-  const musEncodeKbps = useRecoilValue(musEncodeKbpsState)
-  const musEncodeSampleRate = useRecoilValue(musEncodeSampleRateState)
+  const musicLibraryPath = useSettingsStore((s) => s.musicLibraryPath)
+  const setMusicLibraryPath = useSettingsStore((s) => s.setMusicLibraryPath)
+  const musicWorkingDirs = useSettingsStore((s) => s.musicWorkingDirs)
+  const activeMusicWorkingDir = useSettingsStore((s) => s.activeMusicWorkingDir)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
+  const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
+  const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
   // World index for map cross-reference (reads activeLibraryState internally)
   const { index: worldIndex } = useWorldIndex()
 

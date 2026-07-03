@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useRecoilValue } from 'recoil'
-import { activeLibraryState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 
 export function useWorldIndex() {
-  const activeLibrary = useRecoilValue(activeLibraryState)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const [index, setIndex] = useState<WorldIndex | null>(null)
   const [loading, setLoading] = useState(false)
   const [building, setBuilding] = useState(false)

@@ -18,8 +18,7 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import SaveIcon from '@mui/icons-material/Save'
-import { useRecoilValue } from 'recoil'
-import { clientPathState, activeLibraryState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 
 interface SfxEntry {
   entryName: string
@@ -39,8 +38,8 @@ function sfxId(entryName: string): number | null {
 }
 
 const SfxPage: React.FC = () => {
-  const clientPath = useRecoilValue(clientPathState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
 
   const [entries, setEntries] = useState<SfxEntry[]>([])
   const [loading, setLoading] = useState(false)

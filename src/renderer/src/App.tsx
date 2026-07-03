@@ -1,27 +1,7 @@
 import React, { useEffect, useCallback, useRef } from 'react'
 import { ThemeProvider, CssBaseline } from '@mui/material'
-import { useRecoilState, useRecoilValue } from 'recoil'
-import {
-  themeState,
-  currentPageState,
-  clientPathState,
-  brigidAssetsPathState,
-  librariesState,
-  activeLibraryState,
-  mapDirectoriesState,
-  activeMapDirectoryState,
-  musicLibraryPathState,
-  musicWorkingDirsState,
-  activeMusicWorkingDirState,
-  ffmpegPathState,
-  packDirState,
-  companionPathState,
-  musEncodeKbpsState,
-  musEncodeSampleRateState,
-  dirtyEditorState,
-  ThemeName,
-  type MapDirectory
-} from './recoil/atoms'
+import { useSettingsStore, type ThemeName } from './store/settingsStore'
+import { useUiStore } from './store/uiStore'
 import { clearAllCaches } from './utils/mapRenderer'
 import { clearFieldCache } from './utils/worldMapRenderer'
 import { hybrasylTheme, chadulTheme, danaanTheme, grinnealTheme } from './themes'
@@ -61,23 +41,12 @@ const scrollbarColors: Record<ThemeName, { thumb: string; thumbHover: string; tr
 }
 
 export default function App(): React.ReactElement {
-  const [theme, setTheme] = useRecoilState(themeState)
-  const [, setClientPath] = useRecoilState(clientPathState)
-  const [, setBrigidAssetsPath] = useRecoilState(brigidAssetsPathState)
-  const [, setLibraries] = useRecoilState(librariesState)
-  const [, setActiveLibrary] = useRecoilState(activeLibraryState)
-  const [, setMapDirectories] = useRecoilState(mapDirectoriesState)
-  const [, setActiveMapDirectory] = useRecoilState(activeMapDirectoryState)
-  const [, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
-  const [, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
-  const [, setActiveMusicWorkingDir] = useRecoilState(activeMusicWorkingDirState)
-  const [, setFfmpegPath] = useRecoilState(ffmpegPathState)
-  const [, setPackDir] = useRecoilState(packDirState)
-  const [, setCompanionPath] = useRecoilState(companionPathState)
-  const [, setMusEncodeKbps] = useRecoilState(musEncodeKbpsState)
-  const [, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
-  const [, setCurrentPage] = useRecoilState(currentPageState)
-  const [dirtyEditor, setDirtyEditor] = useRecoilState(dirtyEditorState)
+  const theme = useSettingsStore((s) => s.theme)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
+  const dirtyEditor = useUiStore((s) => s.dirtyEditor)
+  const setDirtyEditor = useUiStore((s) => s.setDirtyEditor)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   const [navDialogOpen, setNavDialogOpen] = React.useState(false)
   const [pendingPage, setPendingPage] = React.useState<string | null>(null)
@@ -93,92 +62,20 @@ export default function App(): React.ReactElement {
     root.style.setProperty('--scrollbar-track', colors.track)
   }, [theme])
 
-  // Load settings on mount
+  // Hydrate the settings store from disk on mount, then reveal the window.
+  // The store owns persistence (a debounced subscribe pushes changes back), so
+  // App no longer wires save-on-change effects.
   useEffect(() => {
-    window.api.loadSettings().then((s) => {
-      const settings = s as Record<string, unknown>
-      if (typeof settings.theme === 'string' && settings.theme in themes)
-        setTheme(settings.theme as ThemeName)
-      if (typeof settings.clientPath === 'string') setClientPath(settings.clientPath)
-      if (typeof settings.brigidAssetsPath === 'string')
-        setBrigidAssetsPath(settings.brigidAssetsPath)
-      if (Array.isArray(settings.libraries)) setLibraries(settings.libraries as string[])
-      if (typeof settings.activeLibrary === 'string') setActiveLibrary(settings.activeLibrary)
-      if (Array.isArray(settings.mapDirectories))
-        setMapDirectories(settings.mapDirectories as MapDirectory[])
-      if (typeof settings.activeMapDirectory === 'string')
-        setActiveMapDirectory(settings.activeMapDirectory)
-      if (typeof settings.musicLibraryPath === 'string')
-        setMusicLibraryPath(settings.musicLibraryPath)
-      if (Array.isArray(settings.musicWorkingDirs))
-        setMusicWorkingDirs(settings.musicWorkingDirs as string[])
-      if (typeof settings.activeMusicWorkingDir === 'string')
-        setActiveMusicWorkingDir(settings.activeMusicWorkingDir)
-      if (typeof settings.ffmpegPath === 'string') setFfmpegPath(settings.ffmpegPath)
-      if (typeof settings.packDir === 'string') setPackDir(settings.packDir)
-      if (typeof settings.companionPath === 'string') setCompanionPath(settings.companionPath)
-      if (typeof settings.musEncodeKbps === 'number') setMusEncodeKbps(settings.musEncodeKbps)
-      if (typeof settings.musEncodeSampleRate === 'number')
-        setMusEncodeSampleRate(settings.musEncodeSampleRate)
-      settingsLoaded.current = true
-      // Settings are now in the Recoil atoms — tell main to reveal the window
-      // and dismiss the startup splash (first visible frame is already populated).
-      window.api.appReady()
-    })
+    useSettingsStore
+      .getState()
+      .hydrate()
+      .finally(() => {
+        settingsLoaded.current = true
+        // Settings are now in the store — tell main to reveal the window and
+        // dismiss the startup splash (first visible frame is already populated).
+        window.api.appReady()
+      })
   }, [])
-
-  // Persist settings when they change
-  const clientPath = useRecoilValue(clientPathState)
-  const brigidAssetsPath = useRecoilValue(brigidAssetsPathState)
-  const libraries = useRecoilValue(librariesState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const mapDirectories = useRecoilValue(mapDirectoriesState)
-  const activeMapDirectory = useRecoilValue(activeMapDirectoryState)
-  const musicLibraryPath = useRecoilValue(musicLibraryPathState)
-  const musicWorkingDirs = useRecoilValue(musicWorkingDirsState)
-  const activeMusicWorkingDir = useRecoilValue(activeMusicWorkingDirState)
-  const ffmpegPath = useRecoilValue(ffmpegPathState)
-  const packDir = useRecoilValue(packDirState)
-  const companionPath = useRecoilValue(companionPathState)
-  const musEncodeKbps = useRecoilValue(musEncodeKbpsState)
-  const musEncodeSampleRate = useRecoilValue(musEncodeSampleRateState)
-
-  useEffect(() => {
-    if (!settingsLoaded.current) return
-    window.api.saveSettings({
-      theme,
-      clientPath,
-      brigidAssetsPath,
-      libraries,
-      activeLibrary,
-      mapDirectories,
-      activeMapDirectory,
-      musicLibraryPath,
-      musicWorkingDirs,
-      activeMusicWorkingDir,
-      ffmpegPath,
-      packDir,
-      companionPath,
-      musEncodeKbps,
-      musEncodeSampleRate
-    })
-  }, [
-    theme,
-    clientPath,
-    brigidAssetsPath,
-    libraries,
-    activeLibrary,
-    mapDirectories,
-    activeMapDirectory,
-    musicLibraryPath,
-    musicWorkingDirs,
-    activeMusicWorkingDir,
-    ffmpegPath,
-    packDir,
-    companionPath,
-    musEncodeKbps,
-    musEncodeSampleRate
-  ])
 
   // When the pack sources change, drop cached tile/field bitmaps so the map +
   // worldmap editors re-resolve against the newly installed packs on next render.

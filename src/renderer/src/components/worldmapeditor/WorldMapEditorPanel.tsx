@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useRecoilValue } from 'recoil'
 import {
   Alert,
   Box,
@@ -27,7 +26,7 @@ import { ItemsGroup } from '../shared/ItemsGroup'
 import WarpDialog from '../shared/WarpDialog'
 import ClientMapSelect from './ClientMapSelect'
 import WorldMapCanvas from './WorldMapCanvas'
-import { clientPathState } from '../../recoil/atoms'
+import { useSettingsStore } from '../../store/settingsStore'
 import { clearFieldCache } from '../../utils/worldMapRenderer'
 import {
   computeWorldMapFilename,
@@ -195,7 +194,7 @@ export default function WorldMapEditorPanel({
   onLinkToReference,
   saveRef
 }: Props) {
-  const clientPath = useRecoilValue(clientPathState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   const prevClientPath = useRef(clientPath)
   useEffect(() => {

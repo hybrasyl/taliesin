@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { Box, Tabs, Tab } from '@mui/material'
-import { useRecoilState, useSetRecoilState } from 'recoil'
-import { packDirState, currentPageState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
+import { useUiStore } from '../store/uiStore'
 import PaletteManagerView from '../components/palette/PaletteManagerView'
 import ColorizeView from '../components/palette/ColorizeView'
 import BatchView from '../components/palette/BatchView'
@@ -11,8 +11,9 @@ import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
 
 const PalettePage: React.FC = () => {
-  const [packDir, setPackDir] = useRecoilState(packDirState)
-  const setCurrentPage = useSetRecoilState(currentPageState)
+  const packDir = useSettingsStore((s) => s.packDir)
+  const setPackDir = useSettingsStore((s) => s.setPackDir)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const [tab, setTab] = useState<'palettes' | 'colorize' | 'batch'>('palettes')
   const [statusMessage, showStatus] = useTransientStatus()
 

@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useRecoilValue } from 'recoil'
 import { useUnsavedGuard } from '../useUnsavedGuard'
-import { dirtyEditorState } from '../../recoil/atoms'
-import { makeRecoilWrapper } from '../../__tests__/setup/recoilWrapper'
+import { useUiStore } from '../../store/uiStore'
+import { StoreWrapper, resetStores } from '../../__tests__/setup/storeWrapper'
 import { installMockApi } from '../../__tests__/setup/mockApi'
 
-const wrapper = makeRecoilWrapper()
+const wrapper = StoreWrapper
 
 beforeEach(() => {
   installMockApi()
+  resetStores()
 })
 
 describe('useUnsavedGuard', () => {
@@ -147,7 +147,7 @@ describe('useUnsavedGuard', () => {
 
   it('publishes an onSave on dirtyEditorState that proxies to saveRef', async () => {
     const { result } = renderHook(
-      () => ({ guard: useUnsavedGuard('Map'), dirty: useRecoilValue(dirtyEditorState) }),
+      () => ({ guard: useUnsavedGuard('Map'), dirty: useUiStore((s) => s.dirtyEditor) }),
       { wrapper }
     )
     let saved = 0
@@ -166,7 +166,7 @@ describe('useUnsavedGuard', () => {
 
   it('atom onSave is a no-op when no saveRef is set', async () => {
     const { result } = renderHook(
-      () => ({ guard: useUnsavedGuard('Map'), dirty: useRecoilValue(dirtyEditorState) }),
+      () => ({ guard: useUnsavedGuard('Map'), dirty: useUiStore((s) => s.dirtyEditor) }),
       { wrapper }
     )
     act(() => result.current.guard.markDirty())
@@ -183,7 +183,7 @@ describe('useUnsavedGuard', () => {
     }
 
     const { result } = renderHook(() => Capture({ label: 'WorldMap' }), {
-      wrapper: makeRecoilWrapper()
+      wrapper: StoreWrapper
     })
     act(() => result.current.markDirty())
     // Indirectly verify label propagation by triggering a save flow:

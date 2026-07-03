@@ -13,8 +13,8 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ArchiveIcon from '@mui/icons-material/Archive'
-import { useRecoilState, useSetRecoilState } from 'recoil'
-import { packDirState, currentPageState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
+import { useUiStore } from '../store/uiStore'
 import PackEditor from '../components/assetpack/PackEditor'
 import CreatePackDialog from '../components/assetpack/CreatePackDialog'
 import { getKind, isKnownContentType } from '../packKinds'
@@ -33,7 +33,8 @@ interface PackSummary {
 }
 
 const AssetPackPage: React.FC = () => {
-  const [packDir, setPackDir] = useRecoilState(packDirState)
+  const packDir = useSettingsStore((s) => s.packDir)
+  const setPackDir = useSettingsStore((s) => s.setPackDir)
   const [packs, setPacks] = useState<PackSummary[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [loadedPack, setLoadedPack] = useState<PackProject | null>(null)
@@ -146,7 +147,7 @@ const AssetPackPage: React.FC = () => {
   // Derive pack assets directory
   const packAssetsDir = loadedPack && packDir ? `${packDir}/${loadedPack.pack_id}` : null
 
-  const setCurrentPage = useSetRecoilState(currentPageState)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   if (!packDir) {
     return (

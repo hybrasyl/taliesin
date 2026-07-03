@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRecoilValue } from 'recoil'
 import {
   Alert,
   Box,
@@ -25,7 +24,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import SearchIcon from '@mui/icons-material/Search'
-import { activeLibraryState, mapFilesDirectoryState, clientPathState } from '../recoil/atoms'
+import { useSettingsStore, useMapFilesDirectory } from '../store/settingsStore'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -441,9 +440,9 @@ function FileListPanel({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MapEditorPage() {
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const activeMapDirectory = useRecoilValue(mapFilesDirectoryState)
-  const clientPath = useRecoilValue(clientPathState)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const activeMapDirectory = useMapFilesDirectory()
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   const [files, setFiles] = useState<FileEntry[]>([])
   const [archivedFiles, setArchivedFiles] = useState<FileEntry[]>([])

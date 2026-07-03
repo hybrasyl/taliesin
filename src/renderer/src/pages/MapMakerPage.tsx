@@ -45,8 +45,7 @@ import MapIcon from '@mui/icons-material/Map'
 import ExtensionIcon from '@mui/icons-material/Extension'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CloseIcon from '@mui/icons-material/Close'
-import { useRecoilValue } from 'recoil'
-import { clientPathState, activeLibraryState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 import { MapFile, type MapTile } from '@eriscorp/dalib-ts'
 import TilePicker, { type TileLayer } from '../components/mapmaker/TilePicker'
 import MapEditorCanvas, {
@@ -128,8 +127,8 @@ function tabLabel(tab: MapTab): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 const MapMakerPage: React.FC = () => {
-  const clientPath = useRecoilValue(clientPathState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
 
   // ── Tab state ──────────────────────────────────────────────────────────────
 

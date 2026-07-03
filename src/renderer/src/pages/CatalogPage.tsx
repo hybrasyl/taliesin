@@ -3,13 +3,8 @@ import { Box, Typography, Button, CircularProgress, Tooltip, Chip } from '@mui/m
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SettingsIcon from '@mui/icons-material/Settings'
 import FileUploadIcon from '@mui/icons-material/FileUpload'
-import { useRecoilState, useRecoilValue } from 'recoil'
-import {
-  activeMapDirectoryState,
-  activeLibraryState,
-  clientPathState,
-  currentPageState
-} from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
+import { useUiStore } from '../store/uiStore'
 import { useCatalog, worldName } from '../hooks/useCatalog'
 import MapCatalogList from '../components/catalog/MapCatalogList'
 import MapCatalogEditor from '../components/catalog/MapCatalogEditor'
@@ -18,10 +13,10 @@ import MapExportDialog from '../components/catalog/MapExportDialog'
 const LIST_WIDTH = 280
 
 const CatalogPage: React.FC = () => {
-  const activeMapDir = useRecoilValue(activeMapDirectoryState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
-  const clientPath = useRecoilValue(clientPathState)
-  const [, setCurrentPage] = useRecoilState(currentPageState)
+  const activeMapDir = useSettingsStore((s) => s.activeMapDirectory)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   const {
     entries,

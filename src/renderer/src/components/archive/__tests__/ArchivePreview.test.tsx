@@ -60,10 +60,9 @@ const renderer = vi.hoisted(() => ({
 }))
 vi.mock('../../../utils/archiveRenderer', () => renderer)
 
-import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import ArchivePreview from '../ArchivePreview'
 import { installMockApi, type MockApi } from '../../../__tests__/setup/mockApi'
-import { ffmpegPathState } from '../../../recoil/atoms'
+import { seedSettings, resetStores } from '../../../__tests__/setup/storeWrapper'
 
 interface FakeEntry {
   entryName: string
@@ -93,6 +92,7 @@ let api: MockApi
 beforeEach(() => {
   api = installMockApi()
   vi.clearAllMocks()
+  resetStores()
   renderer.classifyEntry.mockReturnValue('hex')
   renderer.getPaletteNames.mockReturnValue([])
   renderer.renderEntry.mockReturnValue(null)
@@ -283,11 +283,8 @@ describe('Export as PNG', () => {
 // ── BIK preview ───────────────────────────────────────────────────────────────
 
 function renderWithRecoil(ui: React.ReactElement, ffmpegPath: string | null = '/usr/bin/ffmpeg') {
-  return render(
-    <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(ffmpegPathState, ffmpegPath)}>
-      {ui}
-    </RecoilRoot>
-  )
+  seedSettings({ ffmpegPath })
+  return render(ui)
 }
 
 describe('BikPreview', () => {

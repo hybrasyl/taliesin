@@ -13,8 +13,7 @@ import {
   type SelectChangeEvent
 } from '@mui/material'
 import MovieIcon from '@mui/icons-material/Movie'
-import { useRecoilValue } from 'recoil'
-import { ffmpegPathState } from '../../recoil/atoms'
+import { useSettingsStore } from '../../store/settingsStore'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -889,7 +888,7 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   entry,
   archive
 }) => {
-  const ffmpegPath = useRecoilValue(ffmpegPathState)
+  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const videoRef = useRef<HTMLVideoElement>(null)
   const blobUrlRef = useRef<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'converting' | 'ready' | 'error'>('idle')

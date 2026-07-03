@@ -16,8 +16,7 @@ import {
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveIcon from '@mui/icons-material/Save'
-import { useRecoilState } from 'recoil'
-import { activePaletteIdState, activeColorizeSourceState } from '../../recoil/atoms'
+import { useUiStore } from '../../store/uiStore'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import {
@@ -66,9 +65,11 @@ const TILE_SIZE = 64
 
 const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   const summaries = usePalettesOnActive(packDir, active)
-  const [paletteId, setPaletteId] = useRecoilState(activePaletteIdState)
+  const paletteId = useUiStore((s) => s.activePaletteId)
+  const setPaletteId = useUiStore((s) => s.setActivePaletteId)
   const [palette, setPalette] = useState<Palette | null>(null)
-  const [sourcePath, setSourcePath] = useRecoilState(activeColorizeSourceState)
+  const sourcePath = useUiStore((s) => s.activeColorizeSource)
+  const setSourcePath = useUiStore((s) => s.setActiveColorizeSource)
   const [sourceBuf, setSourceBuf] = useState<PixelBuffer | null>(null)
   const [selections, setSelections] = useState<Record<string, EntrySelection>>({})
   const [autoBest, setAutoBest] = useState<Record<string, string>>({})

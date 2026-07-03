@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useRecoilValue } from 'recoil'
 import {
   Autocomplete,
   Box,
@@ -28,7 +27,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import MapRenderCanvas from '../mapeditor/MapRenderCanvas'
 import type { MapMarker } from '../mapeditor/MapRenderCanvas'
-import { mapFilesDirectoryState, clientPathState } from '../../recoil/atoms'
+import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { useWorldIndex } from '../../hooks/useWorldIndex'
 import type { MapWarp } from '../../data/mapData'
 
@@ -92,8 +91,8 @@ export default function WarpDialog({
   pointDisplayName,
   onPointDisplayNameChange
 }: WarpDialogProps) {
-  const clientPath = useRecoilValue(clientPathState)
-  const mapDirectory = useRecoilValue(mapFilesDirectoryState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const mapDirectory = useMapFilesDirectory()
   const { index } = useWorldIndex()
   const mapDetails = index?.mapDetails ?? []
 

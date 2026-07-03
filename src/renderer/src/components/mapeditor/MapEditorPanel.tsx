@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseFilename } from '../../hooks/useMusicLibrary'
 import { useAudioPreview } from '../../hooks/useAudioPreview'
-import { useRecoilValue } from 'recoil'
 import {
   Accordion,
   AccordionDetails,
@@ -54,7 +53,7 @@ import { ItemsGroup } from '../shared/ItemsGroup'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
-import { mapFilesDirectoryState, clientPathState } from '../../recoil/atoms'
+import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import {
   ALL_BOARD_TYPES,
   ALL_DIRECTIONS,
@@ -569,8 +568,8 @@ function MapFieldsTab({
   spawnGroupNames: string[]
   onChange: (patch: Partial<MapData> | ((prev: MapData) => MapData)) => void
 }) {
-  const mapDirectory = useRecoilValue(mapFilesDirectoryState)
-  const clientPath = useRecoilValue(clientPathState)
+  const mapDirectory = useMapFilesDirectory()
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   const set = <K extends keyof MapData>(key: K, value: MapData[K]) =>
     onChange({ [key]: value } as Partial<MapData>)
@@ -969,8 +968,8 @@ function MapPlacementTab({
   onChange: (patch: Partial<MapData> | ((prev: MapData) => MapData)) => void
 }) {
   // Access rendering assets from atoms — same as CatalogPage
-  const clientPath = useRecoilValue(clientPathState)
-  const mapDirectory = useRecoilValue(mapFilesDirectoryState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const mapDirectory = useMapFilesDirectory()
 
   const [zoomIdx, setZoomIdx] = useState(1)
   const [placeMode, setPlaceMode] = useState<PlaceMode>('none')
