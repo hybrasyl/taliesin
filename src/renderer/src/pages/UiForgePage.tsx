@@ -19,6 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
@@ -253,6 +254,35 @@ const UiForgePage: React.FC = () => {
     [project, projectAssetsDir, selectedPanel, saveProject, showStatus]
   )
 
+  /** Compile the selected pack to a v2 `.datf`. Reflects on-disk state: the
+   *  panel XML + convention-named PNGs listed in `assets` (specs live in
+   *  assetMeta, never in `assets`, so they are excluded automatically). covers
+   *  (panel_ids + variables_used) is kept fresh by saveProject on every edit. */
+  const handleCompile = useCallback(async () => {
+    if (!packDir || !project) return
+    const kind = getKind('ui_panels')
+    const outputPath = await window.api.saveFile(
+      [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
+      `${project.pack_id}.datf`
+    )
+    if (!outputPath) return
+    const manifest = {
+      schema_version: kind.manifestSchemaVersion ?? 1,
+      pack_id: project.pack_id,
+      pack_version: project.pack_version,
+      content_type: project.content_type,
+      priority: project.priority,
+      covers: project.covers
+    }
+    const filenames = project.assets.map((a) => a.filename)
+    try {
+      await window.api.packCompile(packDir, manifest, filenames, outputPath)
+      showStatus(`Compiled ${project.pack_id}.datf (${filenames.length} files)`)
+    } catch (err) {
+      showStatus(`Compile failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }, [packDir, project, showStatus])
+
   const handleDeleteSpec = useCallback(
     async (rel: string) => {
       if (!project || !projectAssetsDir) return
@@ -431,7 +461,26 @@ const UiForgePage: React.FC = () => {
             </List>
           </Box>
           {selected && (
-            <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Box
+              sx={{
+                p: 1,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.5
+              }}
+            >
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Inventory2OutlinedIcon />}
+                onClick={handleCompile}
+                disabled={!project}
+                fullWidth
+              >
+                Compile .datf
+              </Button>
               <Button
                 size="small"
                 color="error"

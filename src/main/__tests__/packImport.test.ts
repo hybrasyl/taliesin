@@ -220,6 +220,59 @@ describe('packImport — basics', () => {
     })
   })
 
+  it('round-trips a ui_panels schema_version-2 pack (XML + art, covers preserved)', async () => {
+    const fs = memfs
+    const panelXml =
+      '<?xml version="1.0" encoding="utf-8"?>\n' +
+      '<panel id="extstats" layout-version="1">\n' +
+      '  <anchor rect="0,0,160,100"/>\n' +
+      '  <variant name="compact" background="extstats_bg.png">\n' +
+      '    <label name="hp_text" rect="10,10,60,14" bind="player.hp" bind-max="player.maxhp"/>\n' +
+      '  </variant>\n' +
+      '</panel>\n'
+    const datfBytes = await buildDatfBytes(
+      {
+        schema_version: 2,
+        pack_id: 'hybui-extstats',
+        pack_version: '0.1.0',
+        content_type: 'ui_panels',
+        priority: 100,
+        covers: {
+          ui_panels: {
+            panel_ids: ['extstats'],
+            variables_used: ['player.hp', 'player.maxhp']
+          }
+        }
+      },
+      {
+        'extstats.xml': panelXml,
+        'extstats_bg.png': 'BG'
+      }
+    )
+    fs.files.set('/out/hybui-extstats.datf', datfBytes)
+
+    const result = await packImport(ctx, '/out/hybui-extstats.datf', '/work')
+
+    expect(result.projectFilename).toBe('hybui-extstats.json')
+    expect(result.warnings).toEqual([])
+
+    const project = JSON.parse(fs.files.get('/work/hybui-extstats.json')!.toString('utf-8'))
+    expect(project.content_type).toBe('ui_panels')
+    // schema_version is a manifest-only field; the project schema does not carry it.
+    expect(project.covers.ui_panels.panel_ids).toEqual(['extstats'])
+    expect(project.covers.ui_panels.variables_used).toEqual(['player.hp', 'player.maxhp'])
+    // ui_panels carries no per-asset metadata (specs are never packed).
+    expect(project.assetMeta).toBeUndefined()
+    expect(project.assets.map((a: { filename: string }) => a.filename).sort()).toEqual([
+      'extstats.xml',
+      'extstats_bg.png'
+    ])
+
+    // Layout XML + background extracted verbatim.
+    expect(fs.files.get('/work/hybui-extstats/extstats.xml')?.toString('utf-8')).toBe(panelXml)
+    expect(fs.files.get('/work/hybui-extstats/extstats_bg.png')?.toString('utf-8')).toBe('BG')
+  })
+
   it('refuses to overwrite an existing project unless force is true', async () => {
     const fs = memfs
     const datfBytes = await buildDatfBytes(
