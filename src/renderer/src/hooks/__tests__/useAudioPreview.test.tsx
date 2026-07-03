@@ -16,8 +16,8 @@ beforeEach(() => {
   play = vi.fn().mockResolvedValue(undefined)
   pause = vi.fn()
   vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
-  HTMLMediaElement.prototype.play = play
-  HTMLMediaElement.prototype.pause = pause
+  HTMLMediaElement.prototype.play = play as unknown as HTMLMediaElement['play']
+  HTMLMediaElement.prototype.pause = pause as unknown as HTMLMediaElement['pause']
 })
 
 afterEach(() => {
