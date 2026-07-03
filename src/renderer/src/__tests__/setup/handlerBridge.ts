@@ -307,6 +307,8 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // defaults — integration tests exercise page state machines, not installed
     // pack resolution.
     packListActive: async () => [],
+    packListImageEntries: async () => [],
+    packReadEntry: async () => null,
     packListCoveredIds: async () => [],
     packResolveAsset: async () => null,
     packSuggestedBrigidAssetsPath: async () => null,

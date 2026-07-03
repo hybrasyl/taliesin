@@ -13,6 +13,7 @@ export type ContentType =
   | 'npc_portraits'
   | 'static_tiles'
   | 'creature_sprites'
+  | 'ui_panels'
 
 export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'ability_icons',
@@ -25,7 +26,8 @@ export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'world_maps',
   'npc_portraits',
   'static_tiles',
-  'creature_sprites'
+  'creature_sprites',
+  'ui_panels'
 ] as const
 
 export interface PackAsset {
@@ -98,6 +100,10 @@ export interface PackKind {
   label: string
   /** One-line description shown under the dropdown when this kind is picked. */
   description: string
+  /** _manifest.json schema_version this kind compiles with. Defaults to 1.
+   *  ui_panels is the first v2 kind (XML layout files are a new client
+   *  capability; v1-only clients skip v2 packs). */
+  manifestSchemaVersion?: number
   /** Pixel-dimension rule for image kinds. Omitted by non-image kinds (audio),
    *  for which there is no width/height to validate — the add flow skips the
    *  image decode entirely when this is absent. */

@@ -7,6 +7,8 @@ import {
   loadPacks,
   listActivePacks,
   listCoveredIds,
+  listImageEntries,
+  readPackEntry,
   resolveAsset,
   resolveAssetBytes,
   suggestedBrigidAssetsPath,
@@ -211,15 +213,58 @@ describe('assetPacks loading + resolution', () => {
     await buildDatf(join(dir, 'unknown.datf'), manifest('creature_sprites', 'c', 100), [
       { name: 'whatever.png', content: Buffer.from('x') }
     ])
+    // schema_version 3 is beyond what this consumer supports ({1, 2}).
     await buildDatf(
       join(dir, 'badver.datf'),
-      { ...manifest('static_tiles', 'v', 100), schema_version: 2 },
+      { ...manifest('static_tiles', 'v', 100), schema_version: 3 },
       [{ name: 'floor00001.png', content: Buffer.from('x') }]
     )
     await loadPacks({ brigidAssetsPath: dir })
 
     expect(await listActivePacks()).toHaveLength(0)
     expect(await resolveAsset('floor', 1)).toBeNull()
+  })
+
+  it('listImageEntries browses PNGs across all packs, including handler-less v2', async () => {
+    // A handler-backed v1 pack and a handler-less v2 ui_panels pack.
+    await buildDatf(join(dir, 'tiles.datf'), manifest('static_tiles', 'tiles', 100), [
+      { name: 'floor00001.png', content: Buffer.from('x') }
+    ])
+    await buildDatf(
+      join(dir, 'ui.datf'),
+      { ...manifest('ui_panels', 'hybui-extstats', 100), schema_version: 2 },
+      [
+        { name: 'extstats.xml', content: Buffer.from('<panel/>') },
+        { name: 'extstats_bg.png', content: Buffer.from('BG') }
+      ]
+    )
+    await loadPacks({ brigidAssetsPath: dir })
+
+    const entries = await listImageEntries()
+    // Both PNGs are listed; the .xml is not.
+    expect(entries.map((e) => e.entryPath).sort()).toEqual(['extstats_bg.png', 'floor00001.png'])
+    const ui = entries.find((e) => e.entryPath === 'extstats_bg.png')!
+    expect(ui.contentType).toBe('ui_panels')
+    expect(ui.schemaVersion).toBe(2)
+    expect(ui.packId).toBe('hybui-extstats')
+  })
+
+  it('readPackEntry returns entry bytes, guarding paths outside the sources', async () => {
+    await buildDatf(
+      join(dir, 'ui.datf'),
+      { ...manifest('ui_panels', 'hybui-extstats', 100), schema_version: 2 },
+      [{ name: 'extstats_bg.png', content: Buffer.from('BACKGROUND') }]
+    )
+    await loadPacks({ brigidAssetsPath: dir })
+
+    const bytes = await readPackEntry(join(dir, 'ui.datf'), 'extstats_bg.png')
+    expect(Buffer.from(bytes!).toString()).toBe('BACKGROUND')
+    // Missing entry → null.
+    expect(await readPackEntry(join(dir, 'ui.datf'), 'nope.png')).toBeNull()
+    // A .datf outside any configured source dir is refused.
+    expect(await readPackEntry(join(tmpdir(), 'elsewhere.datf'), 'extstats_bg.png')).toBeNull()
+    // Non-.datf path is refused.
+    expect(await readPackEntry(join(dir, 'ui.txt'), 'extstats_bg.png')).toBeNull()
   })
 
   it('missing/empty source directory is a clean no-op', async () => {

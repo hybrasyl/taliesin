@@ -16,6 +16,16 @@ declare global {
     sizeBytes: number
   }
 
+  /** A browsable PNG entry inside an installed .datf pack (art picker). */
+  interface PackImageEntry {
+    packFile: string
+    packFileName: string
+    packId: string
+    contentType: string
+    schemaVersion: number
+    entryPath: string
+  }
+
   interface MusicMeta {
     name?: string
     notes?: string
@@ -68,7 +78,10 @@ declare global {
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>
     launchCompanion: (exePath: string) => Promise<boolean>
-    openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
+    openFile: (
+      filters?: { name: string; extensions: string[] }[],
+      defaultPath?: string
+    ) => Promise<string | null>
     openDirectory: () => Promise<string | null>
     saveFile: (
       filters?: { name: string; extensions: string[] }[],
@@ -141,6 +154,8 @@ declare global {
       options?: { force?: boolean }
     ) => Promise<{ projectFilename: string; warnings: string[] }>
     packListActive: () => Promise<unknown[]>
+    packListImageEntries: () => Promise<PackImageEntry[]>
+    packReadEntry: (packFile: string, entryPath: string) => Promise<Uint8Array | null>
     packListCoveredIds: (subtype: string) => Promise<(number | string)[]>
     packResolveAsset: (
       subtype: string,

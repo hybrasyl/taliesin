@@ -88,6 +88,8 @@ export function createMockApi(): MockApi {
     'packCompile',
     'packImport',
     'packListActive',
+    'packListImageEntries',
+    'packReadEntry',
     'packListCoveredIds',
     'packResolveAsset',
     'packSuggestedBrigidAssetsPath',

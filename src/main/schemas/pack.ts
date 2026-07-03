@@ -19,7 +19,8 @@ const contentTypeSchema = z.enum([
   'world_maps',
   'npc_portraits',
   'static_tiles',
-  'creature_sprites'
+  'creature_sprites',
+  'ui_panels'
 ])
 
 // Per-kind covers schemas live with their kind modules in
@@ -60,10 +61,23 @@ export const packProjectSchema = z.object({
  * client parses. Stays in sync with the manifest object literal built in
  * PackEditor.tsx's handleCompile.
  */
-export const packManifestSchema = z.object({
-  schema_version: z.literal(1),
-  ...baseFields
-})
+export const packManifestSchema = z
+  .object({
+    // v2 exists for ui_panels (XML layout files are a new client capability);
+    // all other content types stay v1 so older clients keep accepting them.
+    schema_version: z.union([z.literal(1), z.literal(2)]),
+    ...baseFields
+  })
+  .superRefine((m, ctx) => {
+    const required = m.content_type === 'ui_panels' ? 2 : 1
+    if (m.schema_version !== required) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['schema_version'],
+        message: `content_type ${m.content_type} requires schema_version ${required}`
+      })
+    }
+  })
 
 /** Schema for the `assetFilenames` argument of `pack:compile`. */
 export const packCompileFilenamesSchema = z.array(z.string())

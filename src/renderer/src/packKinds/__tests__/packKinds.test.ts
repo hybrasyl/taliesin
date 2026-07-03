@@ -10,11 +10,12 @@ import { worldMapsKind } from '../worldMaps'
 import { npcPortraitsKind } from '../npcPortraits'
 import { staticTilesKind } from '../staticTiles'
 import { creatureSpritesKind } from '../creatureSprites'
+import { uiPanelsKind } from '../uiPanels'
 import { getKind, listKinds, isKnownContentType, PACK_KINDS } from '../index'
 import type { PackAsset, PackProject } from '../types'
 
 describe('PACK_KINDS registry', () => {
-  it('has all 11 known content types', () => {
+  it('has all 12 known content types', () => {
     expect(Object.keys(PACK_KINDS).sort()).toEqual([
       'ability_icons',
       'creature_sprites',
@@ -25,15 +26,16 @@ describe('PACK_KINDS registry', () => {
       'npc_portraits',
       'sound_effects',
       'static_tiles',
+      'ui_panels',
       'ui_sprite_overrides',
       'world_maps'
     ])
   })
 
   it('listKinds returns each kind once', () => {
-    expect(listKinds()).toHaveLength(11)
+    expect(listKinds()).toHaveLength(12)
     const types = new Set(listKinds().map((k) => k.type))
-    expect(types.size).toBe(11)
+    expect(types.size).toBe(12)
   })
 
   it('getKind returns the matching kind', () => {
@@ -482,5 +484,47 @@ describe('npcPortraitsKind', () => {
         portraits: { Gobalt: 'Gobalt.png', 'inn.spf': 'inn.spf.png' }
       }
     })
+  })
+})
+
+describe('uiPanelsKind', () => {
+  it('compiles with manifest schema_version 2', () => {
+    expect(uiPanelsKind.manifestSchemaVersion).toBe(2)
+  })
+
+  it('parseSlot classifies layouts, backgrounds, control art, and ignores specs', () => {
+    expect(uiPanelsKind.parseSlot('extstats.xml')).toEqual({ namespace: 'layout', id: 0 })
+    expect(uiPanelsKind.parseSlot('extstats_bg.png')).toEqual({ namespace: 'background', id: 0 })
+    expect(uiPanelsKind.parseSlot('extstats_expanded_bg.png')).toEqual({
+      namespace: 'background',
+      id: 0
+    })
+    expect(uiPanelsKind.parseSlot('extstats_expand_btn_normal.png')).toEqual({
+      namespace: 'art',
+      id: 0
+    })
+    expect(uiPanelsKind.parseSlot('specs/player-comboscore.md')).toBeNull()
+    expect(uiPanelsKind.parseSlot('README.txt')).toBeNull()
+  })
+
+  it('reduceCoversFromMeta derives panel_ids from xml assets, preserving variables_used', () => {
+    const draft = {
+      covers: { ui_panels: { panel_ids: ['stale'], variables_used: ['player.hp'] } },
+      assets: [
+        { filename: 'inventory.xml', sourcePath: 'a' },
+        { filename: 'extstats.xml', sourcePath: 'b' },
+        { filename: 'extstats_bg.png', sourcePath: 'c' }
+      ]
+    } as unknown as PackProject
+    expect(uiPanelsKind.reduceCoversFromMeta?.(draft)).toEqual({
+      ui_panels: { panel_ids: ['extstats', 'inventory'], variables_used: ['player.hp'] }
+    })
+  })
+
+  it('nextAssetPath uses the prompted filename stem', () => {
+    expect(
+      uiPanelsKind.nextAssetPath({ ctx: { namespace: 'extstats_bg' }, existingAssets: [] })
+    ).toEqual({ zipPath: 'extstats_bg.png', relPath: 'extstats_bg.png' })
+    expect(() => uiPanelsKind.nextAssetPath({ existingAssets: [] })).toThrow()
   })
 })

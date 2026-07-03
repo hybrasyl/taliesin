@@ -149,12 +149,14 @@ export default defineConfig({
             'src/main/**/__tests__/**/*.test.ts',
             'src/preload/**/__tests__/**/*.test.ts',
             'src/renderer/src/utils/__tests__/**/*.test.ts',
-            'src/renderer/src/packKinds/__tests__/**/*.test.ts'
+            'src/renderer/src/packKinds/__tests__/**/*.test.ts',
+            'src/renderer/src/uiforge/__tests__/**/*.test.ts'
           ],
-          // mapXml/worldMapXml use DOMParser → jsdom project picks them up instead.
+          // mapXml/worldMapXml/panelXml use DOMParser → jsdom project picks them up instead.
           exclude: [
             'src/renderer/src/utils/__tests__/mapXml.test.ts',
-            'src/renderer/src/utils/__tests__/worldMapXml.test.ts'
+            'src/renderer/src/utils/__tests__/worldMapXml.test.ts',
+            'src/renderer/src/uiforge/__tests__/panelXml.test.ts'
           ]
         }
       },
@@ -166,6 +168,7 @@ export default defineConfig({
           include: [
             'src/renderer/src/utils/__tests__/mapXml.test.ts',
             'src/renderer/src/utils/__tests__/worldMapXml.test.ts',
+            'src/renderer/src/uiforge/__tests__/panelXml.test.ts',
             'src/renderer/src/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/hooks/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/store/__tests__/**/*.test.{ts,tsx}',

@@ -64,8 +64,8 @@ const api = {
     ipcRenderer.invoke('app:launchCompanion', exePath),
 
   // Dialogs
-  openFile: (filters?: Electron.FileFilter[]): Promise<string | null> =>
-    ipcRenderer.invoke('dialog:openFile', filters),
+  openFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:openFile', filters, defaultPath),
   openDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:openDirectory'),
   saveFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:saveFile', filters, defaultPath),
@@ -217,6 +217,18 @@ const api = {
   // Installed .datf pack consumption (static_tiles / world_maps overrides used
   // by the map + worldmap renderers).
   packListActive: (): Promise<unknown[]> => ipcRenderer.invoke('pack:listActive'),
+  packListImageEntries: (): Promise<
+    {
+      packFile: string
+      packFileName: string
+      packId: string
+      contentType: string
+      schemaVersion: number
+      entryPath: string
+    }[]
+  > => ipcRenderer.invoke('pack:listImageEntries'),
+  packReadEntry: (packFile: string, entryPath: string): Promise<Uint8Array | null> =>
+    ipcRenderer.invoke('pack:readEntry', packFile, entryPath),
   packListCoveredIds: (subtype: string): Promise<(number | string)[]> =>
     ipcRenderer.invoke('pack:listCoveredIds', subtype),
   packResolveAsset: (
