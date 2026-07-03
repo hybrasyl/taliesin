@@ -132,7 +132,13 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
     <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
       <Stack spacing={3} sx={{ maxWidth: 720 }}>
         {/* Source folder */}
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: 'center'
+          }}
+        >
           <Tooltip title="Pick source folder">
             <IconButton onClick={handlePickSourceDir} disabled={running}>
               <FolderOpenIcon />
@@ -143,7 +149,12 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
               {sourceDir ?? 'No source folder selected'}
             </Typography>
             {sourceDir && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
                 {sources.length} PNG{sources.length === 1 ? '' : 's'}
               </Typography>
             )}
@@ -233,7 +244,13 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
         </Paper>
 
         {/* Run + progress */}
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: 'center'
+          }}
+        >
           <Button
             variant="contained"
             startIcon={<PlayArrowIcon />}
@@ -242,11 +259,21 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           >
             Run Batch
           </Button>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Output → {colorizedDir(packDir)}
           </Typography>
           {totalPairs > 0 && !running && !result && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {totalPairs} pair{totalPairs === 1 ? '' : 's'} queued
             </Typography>
           )}
@@ -259,7 +286,14 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
               value={progressPct}
               sx={{ height: 8, borderRadius: 1 }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                mt: 0.5,
+                display: 'block'
+              }}
+            >
               {progress
                 ? `${progress.index} / ${progress.total} — ${
                     progress.status === 'rendering'
@@ -286,8 +320,11 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
               </Typography>
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, display: 'block' }}
+                sx={{
+                  color: 'text.secondary',
+                  mt: 0.5,
+                  display: 'block'
+                }}
               >
                 Manifest: {result.manifestPath}
               </Typography>
@@ -308,7 +345,12 @@ const BatchView: React.FC<Props> = ({ packDir, active, onStatus }) => {
                       </Typography>
                     ))}
                     {result.failures.length > 10 && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary'
+                        }}
+                      >
                         … and {result.failures.length - 10} more
                       </Typography>
                     )}

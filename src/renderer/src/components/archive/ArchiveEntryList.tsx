@@ -147,7 +147,12 @@ const ArchiveEntryList: React.FC<Props> = ({
                 <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
                   {item.ext}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   ({item.count})
                 </Typography>
               </Box>
@@ -182,7 +187,14 @@ const ArchiveEntryList: React.FC<Props> = ({
               <Typography variant="body2" noWrap sx={{ flex: 1, fontSize: '0.82rem' }}>
                 {entry.entryName}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, ml: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  flexShrink: 0,
+                  ml: 1
+                }}
+              >
                 {formatBytes(entry.fileSize)}
               </Typography>
             </Box>

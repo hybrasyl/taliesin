@@ -139,7 +139,14 @@ const MapExportDialog: React.FC<Props> = ({
 
         {/* Prefix selection */}
         <Box>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              mb: 0.5
+            }}
+          >
             XML prefix
           </Typography>
           <ToggleButtonGroup
@@ -164,7 +171,7 @@ const MapExportDialog: React.FC<Props> = ({
             setMapNumberStr(e.target.value)
             setError(null)
           }}
-          inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+          slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
           sx={{ width: 160 }}
           error={!validNumber && mapNumberStr !== ''}
           helperText={
@@ -183,7 +190,14 @@ const MapExportDialog: React.FC<Props> = ({
               borderColor: 'divider'
             }}
           >
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                mb: 0.5
+              }}
+            >
               Destination
             </Typography>
             <DestRow label="Map file" path={mapfilePath!} isDupe={mapDupe} checking={checking} />
@@ -203,7 +217,6 @@ const MapExportDialog: React.FC<Props> = ({
 
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} disabled={exporting}>
           Cancel
@@ -235,7 +248,13 @@ function DestRow({
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ minWidth: 56 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          minWidth: 56
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="caption" sx={{ wordBreak: 'break-all', flex: 1 }}>
@@ -244,7 +263,12 @@ function DestRow({
       {checking ? (
         <CircularProgress size={10} />
       ) : isDupe ? (
-        <Typography variant="caption" color="warning.main">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'warning.main'
+          }}
+        >
           exists
         </Typography>
       ) : null}

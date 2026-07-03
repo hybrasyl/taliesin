@@ -63,13 +63,19 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
           }}
         />
       </Box>
-
       {/* Count */}
-      <Typography variant="caption" color="text.secondary" sx={{ px: 1.5, py: 0.5, flexShrink: 0 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          px: 1.5,
+          py: 0.5,
+          flexShrink: 0
+        }}
+      >
         {filtered.length} {filtered.length === 1 ? 'map' : 'maps'}
         {search && entries.length !== filtered.length && ` of ${entries.length}`}
       </Typography>
-
       {/* Virtualized list */}
       <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -118,13 +124,26 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
                     )}
                   </Box>
                   {entry.name && (
-                    <Typography variant="caption" noWrap color="text.secondary" display="block">
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      sx={{
+                        color: 'text.secondary',
+                        display: 'block'
+                      }}
+                    >
                       {entry.name}
                     </Typography>
                   )}
                 </Box>
                 {entry.width != null && entry.height != null && (
-                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      flexShrink: 0
+                    }}
+                  >
                     {entry.width}×{entry.height}
                   </Typography>
                 )}

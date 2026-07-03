@@ -191,7 +191,11 @@ const SfxPage: React.FC = () => {
         <Typography variant="h5" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
           Sound Effects Browser
         </Typography>
-        <Typography color="text.secondary">
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           No Dark Ages client path configured. Set it in Settings.
         </Typography>
       </Box>
@@ -202,7 +206,13 @@ const SfxPage: React.FC = () => {
     return (
       <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <CircularProgress size={20} />
-        <Typography color="text.secondary">Loading legend.dat…</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
+          Loading legend.dat…
+        </Typography>
       </Box>
     )
   }
@@ -231,7 +241,13 @@ const SfxPage: React.FC = () => {
           borderColor: 'divider'
         }}
       >
-        <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            flexShrink: 0
+          }}
+        >
           {filtered.length} / {entries.length} entries
         </Typography>
         <TextField
@@ -242,12 +258,18 @@ const SfxPage: React.FC = () => {
           sx={{ width: 260 }}
         />
         {playingEntry && (
-          <Typography variant="caption" color="secondary.light" noWrap sx={{ flex: 1 }}>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: 'secondary.light',
+              flex: 1
+            }}
+          >
             Playing: {index[playingEntry]?.name || playingEntry}
           </Typography>
         )}
       </Box>
-
       {/* Body: list + detail */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: list */}
@@ -292,7 +314,12 @@ const SfxPage: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary'
+                        }}
+                      >
                         {id ?? '—'}
                       </Typography>
                     </TableCell>
@@ -300,7 +327,12 @@ const SfxPage: React.FC = () => {
                       {meta?.name ? (
                         <>
                           <Typography variant="body2">{meta.name}</Typography>
-                          <Typography variant="caption" color="text.disabled">
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'text.disabled'
+                            }}
+                          >
                             {e.entryName}
                           </Typography>
                         </>
@@ -309,7 +341,12 @@ const SfxPage: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary'
+                        }}
+                      >
                         {formatBytes(e.sizeBytes)}
                       </Typography>
                     </TableCell>
@@ -333,24 +370,45 @@ const SfxPage: React.FC = () => {
         >
           {!selectedEntry ? (
             <Box sx={{ p: 3 }}>
-              <Typography variant="body2" color="text.disabled">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.disabled'
+                }}
+              >
                 Select an entry to annotate it.
               </Typography>
             </Box>
           ) : (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
               <Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   {selectedEntry.entryName}
                 </Typography>
-                <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.disabled',
+                    display: 'block'
+                  }}
+                >
                   ID: {sfxId(selectedEntry.entryName) ?? '—'} ·{' '}
                   {formatBytes(selectedEntry.sizeBytes)}
                 </Typography>
               </Box>
 
               {!activeLibrary && (
-                <Typography variant="caption" color="text.disabled">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.disabled'
+                  }}
+                >
                   No library configured — annotations cannot be saved.
                 </Typography>
               )}

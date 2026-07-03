@@ -159,7 +159,12 @@ const PacksPanel: React.FC<Props> = ({
             <ListItem>
               <ListItemText
                 primary={
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary'
+                    }}
+                  >
                     No packs yet
                   </Typography>
                 }
@@ -176,19 +181,26 @@ const PacksPanel: React.FC<Props> = ({
               <ListItemText
                 primary={pack.name}
                 secondary={`${pack.tracks.length} track${pack.tracks.length !== 1 ? 's' : ''}`}
-                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2', noWrap: true },
+                  secondary: { variant: 'caption' }
+                }}
               />
             </ListItemButton>
           ))}
         </List>
       </Box>
-
       {/* Right: pack editor */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {!selectedPack ? (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography color="text.secondary">Select or create a pack</Typography>
+            <Typography
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
+              Select or create a pack
+            </Typography>
           </Box>
         ) : (
           <>
@@ -292,7 +304,13 @@ const PacksPanel: React.FC<Props> = ({
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" noWrap color="text.secondary">
+                          <Typography
+                            variant="body2"
+                            noWrap
+                            sx={{
+                              color: 'text.secondary'
+                            }}
+                          >
                             {meta?.name ?? ''}
                           </Typography>
                         </TableCell>
@@ -311,7 +329,12 @@ const PacksPanel: React.FC<Props> = ({
                   {selectedPack.tracks.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={5} align="center">
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary'
+                          }}
+                        >
                           No tracks. Select a track in the Library tab and use "Add to Pack".
                         </Typography>
                       </TableCell>
@@ -332,7 +355,13 @@ const PacksPanel: React.FC<Props> = ({
                 flexWrap: 'wrap'
               }}
             >
-              <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  width: '100%'
+                }}
+              >
                 Add track from library:
               </Typography>
               {availableLibraryEntries.slice(0, 6).map((e) => (
@@ -345,7 +374,12 @@ const PacksPanel: React.FC<Props> = ({
                 />
               ))}
               {availableLibraryEntries.length > 6 && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   +{availableLibraryEntries.length - 6} more (select in Library tab)
                 </Typography>
               )}
@@ -353,7 +387,6 @@ const PacksPanel: React.FC<Props> = ({
           </>
         )}
       </Box>
-
       {/* Create pack dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>New Pack</DialogTitle>
@@ -377,7 +410,6 @@ const PacksPanel: React.FC<Props> = ({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Rename dialog */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Rename Pack</DialogTitle>
@@ -401,7 +433,6 @@ const PacksPanel: React.FC<Props> = ({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Deploy dialog */}
       <Dialog
         open={deployOpen}
@@ -413,7 +444,12 @@ const PacksPanel: React.FC<Props> = ({
         <DialogContent
           sx={{ pt: '12px !important', display: 'flex', flexDirection: 'column', gap: 2 }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             The destination directory will be <strong>fully cleared</strong> before deploying. All{' '}
             {selectedPack?.tracks.length} track{selectedPack?.tracks.length !== 1 ? 's' : ''} will
             be written as <code>N.mus</code> files.

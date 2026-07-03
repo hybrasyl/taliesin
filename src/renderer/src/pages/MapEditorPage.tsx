@@ -188,17 +188,25 @@ function NewMapDialog({
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  )
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    )
+                  }
                 }}
                 sx={{ mt: 1, mb: 1 }}
               />
               {filtered.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    py: 1
+                  }}
+                >
                   {entries.length === 0
                     ? 'All map binaries are already assigned to active XML files, or no binaries were found.'
                     : 'No matches.'}
@@ -242,8 +250,10 @@ function NewMapDialog({
                         <ListItemText
                           primary={entry.name}
                           secondary={`Map ID: ${entry.id}`}
-                          primaryTypographyProps={{ fontFamily: 'monospace', variant: 'body2' }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
+                          slotProps={{
+                            primary: { variant: 'body2', sx: { fontFamily: 'monospace' } },
+                            secondary: { variant: 'caption' }
+                          }}
                         />
                         {loadingBin && selectedBin === entry.name && (
                           <CircularProgress size={16} sx={{ ml: 1 }} />
@@ -260,7 +270,6 @@ function NewMapDialog({
           <Button onClick={onCancel}>Cancel</Button>
         </DialogActions>
       </Dialog>
-
       {dimBuffer && selectedBin && (
         <DimensionPickerDialog
           open={dimPickerOpen}
@@ -341,12 +350,15 @@ function FileListPanel({
                 )}
               </>
             }
-            primaryTypographyProps={{
-              noWrap: true,
-              variant: 'body2',
-              ...(muted && { color: 'text.secondary' })
+            slotProps={{
+              primary: {
+                noWrap: true,
+                variant: 'body2',
+                ...(muted && { color: 'text.secondary' })
+              },
+
+              secondary: { component: 'div', variant: 'caption' }
             }}
-            secondaryTypographyProps={{ component: 'div', variant: 'caption' }}
           />
         </ListItemButton>
       </ListItem>
@@ -391,23 +403,37 @@ function FileListPanel({
           placeholder="Filter..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            )
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              )
+            }
           }}
         />
       </Box>
       <Divider />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {files.length === 0 && !showArchived ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              p: 2
+            }}
+          >
             No map XMLs found. Check that a library is set in Settings.
           </Typography>
         ) : filteredActive.length === 0 && (!showArchived || filteredArchived.length === 0) ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              p: 2
+            }}
+          >
             No matches.
           </Typography>
         ) : (
@@ -420,8 +446,12 @@ function FileListPanel({
                 <Divider sx={{ my: 0.5 }} />
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ px: 1.5, py: 0.5, display: 'block' }}
+                  sx={{
+                    color: 'text.secondary',
+                    px: 1.5,
+                    py: 0.5,
+                    display: 'block'
+                  }}
                 >
                   Archived
                 </Typography>
@@ -707,7 +737,6 @@ export default function MapEditorPage() {
         showArchived={showArchived}
         onToggleArchived={handleToggleArchived}
       />
-
       <Box sx={{ flex: 1, p: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {loadError ? (
           <Alert severity="error">
@@ -739,13 +768,17 @@ export default function MapEditorPage() {
           <Box
             sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}
           >
-            <Typography variant="body1" color="text.secondary">
+            <Typography
+              variant="body1"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Select a map or create a new one.
             </Typography>
           </Box>
         )}
       </Box>
-
       <NewMapDialog
         open={newDialogOpen}
         activeMapDirectory={activeMapDirectory}
@@ -754,7 +787,6 @@ export default function MapEditorPage() {
         onConfirm={handleNewConfirm}
         onCancel={() => setNewDialogOpen(false)}
       />
-
       <Snackbar
         open={!!snackbar}
         autoHideDuration={6000}

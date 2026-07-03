@@ -27,7 +27,14 @@ export const WorkingDirToolbar: React.FC<{
         <FolderOpenIcon fontSize="small" />
       </IconButton>
     </Tooltip>
-    <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
+    <Typography
+      variant="caption"
+      noWrap
+      sx={{
+        color: 'text.secondary',
+        flex: 1
+      }}
+    >
       {dir}
     </Typography>
     {children}

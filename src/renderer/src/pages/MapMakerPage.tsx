@@ -1097,7 +1097,13 @@ const MapMakerPage: React.FC = () => {
         <Divider orientation="vertical" flexItem />
 
         {/* Zoom */}
-        <Typography variant="caption" color="text.primary" sx={{ minWidth: 35 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.primary',
+            minWidth: 35
+          }}
+        >
           {Math.round(zoom * 100)}%
         </Typography>
         <Slider
@@ -1234,12 +1240,23 @@ const MapMakerPage: React.FC = () => {
         <Box sx={{ flexGrow: 1 }} />
         <StatusMessage message={statusMessage} sx={{ mr: 1 }} />
         {pasteMode && (
-          <Typography variant="caption" color="warning.main">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'warning.main'
+            }}
+          >
             PASTE MODE (click to place, Shift+click repeat, Esc cancel)
           </Typography>
         )}
         {fileName && (
-          <Typography variant="caption" color="text.secondary" noWrap>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {fileName}
             {dirty ? ' *' : ''} {mapFile ? `(${mapFile.width}×${mapFile.height})` : ''}
           </Typography>
@@ -1251,26 +1268,38 @@ const MapMakerPage: React.FC = () => {
             return (
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                sx={{
+                  color: 'text.secondary',
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem'
+                }}
               >
-                ({hoverTile.tx}, {hoverTile.ty}) · bg:{t.background} lf:{t.leftForeground} rf:
+                ({hoverTile.tx}, {hoverTile.ty}) · bg:{t.background}lf:{t.leftForeground}rf:
                 {t.rightForeground}
               </Typography>
             )
           })()}
         {selectedTileIds.length > 1 && (
-          <Typography variant="caption" color="text.disabled">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.disabled'
+            }}
+          >
             {selectedTileIds.length} tiles selected
           </Typography>
         )}
         {selectedTileIds.length === 1 && selectedTileId > 0 && (
-          <Typography variant="caption" color="text.disabled">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.disabled'
+            }}
+          >
             brush: {selectedTileId}
           </Typography>
         )}
       </Box>
-
       {/* Tab Bar */}
       {tabs.length > 0 && (
         <Box
@@ -1337,7 +1366,6 @@ const MapMakerPage: React.FC = () => {
           </Tabs>
         </Box>
       )}
-
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
         {/* Left: tile picker */}
@@ -1403,7 +1431,12 @@ const MapMakerPage: React.FC = () => {
         ) : (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography color="text.secondary" gutterBottom>
+              <Typography
+                gutterBottom
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
                 Create a new map or open an existing one.
               </Typography>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
@@ -1449,7 +1482,6 @@ const MapMakerPage: React.FC = () => {
           </Box>
         )}
       </Box>
-
       {/* Tab map floating popup */}
       {showTabMap && mapFile && (
         <TabMapPopup
@@ -1458,7 +1490,6 @@ const MapMakerPage: React.FC = () => {
           onClose={() => setShowTabMap(false)}
         />
       )}
-
       {/* Dialogs */}
       <NewMapDialog
         open={newMapOpen}
@@ -1517,7 +1548,6 @@ const MapMakerPage: React.FC = () => {
         onClose={() => setGenerateOpen(false)}
         onGenerate={handleGenerateMap}
       />
-
       {/* Close tab confirmation dialog */}
       <Dialog open={!!closingTabId} onClose={() => setClosingTabId(null)}>
         <DialogTitle>Unsaved Changes</DialogTitle>

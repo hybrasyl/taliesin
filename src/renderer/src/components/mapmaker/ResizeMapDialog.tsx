@@ -52,10 +52,23 @@ const ResizeMapDialog: React.FC<Props> = ({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Resize Map</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1
+          }}
+        >
           Current: {currentWidth} × {currentHeight}
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            mb: 2,
+            display: 'block'
+          }}
+        >
           Tiles are anchored to the top-left corner. Growing adds empty tiles to the bottom and
           right edges. Shrinking removes tiles from the bottom and right.
         </Typography>
@@ -67,7 +80,7 @@ const ResizeMapDialog: React.FC<Props> = ({
             fullWidth
             value={width}
             onChange={(e) => setWidth(clampMapDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
           />
           <TextField
             label="Height"
@@ -76,7 +89,7 @@ const ResizeMapDialog: React.FC<Props> = ({
             fullWidth
             value={height}
             onChange={(e) => setHeight(clampMapDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
           />
         </Box>
         {shrinking && (

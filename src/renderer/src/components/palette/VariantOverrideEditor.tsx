@@ -51,11 +51,24 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
 
   return (
     <Box sx={{ p: 1.5 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 1
+        }}
+      >
         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
           Variants
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            flex: 1
+          }}
+        >
           {customizing
             ? `${variants!.length} custom variant${variants!.length === 1 ? '' : 's'} for this palette`
             : `Using ${DEFAULT_VARIANTS.length} default variants`}
@@ -75,7 +88,6 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
           </Button>
         )}
       </Stack>
-
       {customizing && (
         <>
           {variants!.map((v, i) => (
@@ -108,7 +120,12 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
               />
               <Box sx={{ flex: 1, display: 'flex', gap: 2, minWidth: 360 }}>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary'
+                    }}
+                  >
                     Dark: {v.darkFactor.toFixed(2)}
                   </Typography>
                   <Slider
@@ -121,7 +138,12 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
                   />
                 </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary'
+                    }}
+                  >
                     Light: {v.lightFactor.toFixed(2)}
                   </Typography>
                   <Slider
@@ -134,7 +156,12 @@ const VariantOverrideEditor: React.FC<Props> = ({ variants, onChange }) => {
                   />
                 </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary'
+                    }}
+                  >
                     Mids: {v.midpointLow.toFixed(2)}–{v.midpointHigh.toFixed(2)}
                   </Typography>
                   <Slider

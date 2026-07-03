@@ -92,8 +92,12 @@ export function ItemsGroup({
         {items.length === 0 ? (
           <Typography
             variant="caption"
-            color="text.disabled"
-            sx={{ px: 2, py: 0.5, display: 'block' }}
+            sx={{
+              color: 'text.disabled',
+              px: 2,
+              py: 0.5,
+              display: 'block'
+            }}
           >
             None placed
           </Typography>
@@ -131,9 +135,11 @@ export function ItemsGroup({
                         )}
                         <Typography
                           variant="caption"
-                          fontFamily="monospace"
                           noWrap
-                          sx={{ color: item.isOrphan ? 'warning.main' : undefined }}
+                          sx={{
+                            fontFamily: 'monospace',
+                            color: item.isOrphan ? 'warning.main' : undefined
+                          }}
                         >
                           {item.label}
                         </Typography>

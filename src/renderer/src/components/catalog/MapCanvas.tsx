@@ -115,7 +115,12 @@ const MapCanvas: React.FC<Props> = ({ fileBuffer, width, height, clientPath }) =
   if (!fileBuffer) {
     return (
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           No map file loaded.
         </Typography>
       </Box>
@@ -125,7 +130,12 @@ const MapCanvas: React.FC<Props> = ({ fileBuffer, width, height, clientPath }) =
   if (width == null || height == null) {
     return (
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Enter Width and Height above to preview the map.
         </Typography>
       </Box>
@@ -146,7 +156,12 @@ const MapCanvas: React.FC<Props> = ({ fileBuffer, width, height, clientPath }) =
       {(progress || status) && (
         <Box sx={{ px: 2, py: 0.5, display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           {progress && <CircularProgress size={14} />}
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {status}
           </Typography>
           {progress && <LinearProgress sx={{ flex: 1 }} />}
@@ -161,7 +176,12 @@ const MapCanvas: React.FC<Props> = ({ fileBuffer, width, height, clientPath }) =
       )}
       {!clientPath && (
         <Box sx={{ px: 2, py: 0.5, flexShrink: 0 }}>
-          <Typography variant="caption" color="text.disabled">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.disabled'
+            }}
+          >
             Schematic view — set DA Client path in Settings for full rendering.
           </Typography>
         </Box>

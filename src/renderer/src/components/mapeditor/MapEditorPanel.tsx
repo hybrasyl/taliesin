@@ -122,7 +122,13 @@ function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel 
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
         {initial ? 'Edit NPC' : 'Place NPC'}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            ml: 1
+          }}
+        >
           ({tileX}, {tileY})
         </Typography>
       </DialogTitle>
@@ -236,7 +242,13 @@ function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDi
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
         {initial ? 'Edit Sign' : 'Place Sign'}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            ml: 1
+          }}
+        >
           ({tileX}, {tileY})
         </Typography>
       </DialogTitle>
@@ -365,7 +377,13 @@ function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: Rea
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
         {initial ? 'Edit Reactor' : 'Place Reactor'}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            ml: 1
+          }}
+        >
           ({tileX}, {tileY})
         </Typography>
       </DialogTitle>
@@ -517,7 +535,7 @@ export function MusicIdField({
         sx={{ width: 100 }}
         value={text}
         placeholder="None"
-        inputProps={{ min: 1, max: 256 }}
+        slotProps={{ htmlInput: { min: 1, max: 256 } }}
         onChange={(e) => handleTextChange(e.target.value)}
         error={!!error}
         helperText={error ?? undefined}
@@ -770,7 +788,6 @@ function MapFieldsTab({
           onChange={(e) => set('description', e.target.value || undefined)}
         />
       </Paper>
-
       {/* Flags — accordion so they don't take up constant vertical space */}
       <Accordion disableGutters variant="outlined" sx={{ mb: 1, '&:before': { display: 'none' } }}>
         <AccordionSummary
@@ -784,7 +801,13 @@ function MapFieldsTab({
             Flags
           </Typography>
           {data.flags.length > 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                mr: 1
+              }}
+            >
               {data.flags.join(', ')}
             </Typography>
           )}
@@ -807,7 +830,6 @@ function MapFieldsTab({
           </FormGroup>
         </AccordionDetails>
       </Accordion>
-
       {/* SpawnGroup — accordion; Add button seeds one spawn entry immediately */}
       <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
         <AccordionSummary
@@ -836,7 +858,12 @@ function MapFieldsTab({
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 1 }}>
           {!data.spawnGroup ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               No spawn group configured.
             </Typography>
           ) : (
@@ -862,7 +889,7 @@ function MapFieldsTab({
                       baseLevel: Math.max(1, Math.min(99, parseInt(e.target.value, 10) || 1))
                     })
                   }
-                  inputProps={{ min: 1, max: 99 }}
+                  slotProps={{ htmlInput: { min: 1, max: 99 } }}
                   helperText="1 – 99"
                 />
               </Box>
@@ -913,9 +940,7 @@ function MapFieldsTab({
           )}
         </AccordionDetails>
       </Accordion>
-
       <Box sx={{ pb: 4 }} />
-
       {/* Dimension picker dialog */}
       {dimBuffer && (
         <DimensionPickerDialog
@@ -1114,11 +1139,22 @@ function MapPlacementTab({
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', gap: 1 }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           {data.x}×{data.y}
         </Typography>
         {!clientPath && (
-          <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.disabled',
+              fontStyle: 'italic'
+            }}
+          >
             (schematic — set Client path in Settings for full render)
           </Typography>
         )}
@@ -1179,7 +1215,12 @@ function MapPlacementTab({
           </IconButton>
         </Tooltip>
         <Divider orientation="vertical" flexItem />
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Place:
         </Typography>
         {(
@@ -1208,8 +1249,8 @@ function MapPlacementTab({
         <Box sx={{ ml: 'auto' }}>
           <Typography
             variant="caption"
-            color="text.secondary"
             sx={{
+              color: 'text.secondary',
               fontFamily: 'monospace',
               minWidth: 72,
               display: 'inline-block',
@@ -1221,7 +1262,6 @@ function MapPlacementTab({
         </Box>
       </Box>
       <Divider />
-
       {/* Main area: canvas + items panel */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 1 }}>
         {/* Rendered map canvas */}
@@ -1386,7 +1426,6 @@ function MapPlacementTab({
           </Box>
         </Box>
       </Box>
-
       {/* Dialogs */}
       {dialogState?.kind === 'npc' && (
         <NpcDialog

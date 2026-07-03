@@ -1037,7 +1037,6 @@ const MapEditorCanvas: React.FC<Props> = ({
           onContextMenu={handleContextMenu}
         />
       </Box>
-
       {/* Context menu */}
       <Menu
         open={contextMenu !== null}
@@ -1053,7 +1052,13 @@ const MapEditorCanvas: React.FC<Props> = ({
               <ContentCutIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Cut</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                ml: 2
+              }}
+            >
               Ctrl+X
             </Typography>
           </MenuItem>,
@@ -1062,7 +1067,13 @@ const MapEditorCanvas: React.FC<Props> = ({
               <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Copy</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                ml: 2
+              }}
+            >
               Ctrl+C
             </Typography>
           </MenuItem>,
@@ -1071,7 +1082,13 @@ const MapEditorCanvas: React.FC<Props> = ({
               <DeleteForeverIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Delete</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                ml: 2
+              }}
+            >
               Del
             </Typography>
           </MenuItem>,
@@ -1089,7 +1106,13 @@ const MapEditorCanvas: React.FC<Props> = ({
               <ContentPasteIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Paste</ListItemText>
-            <Typography variant="caption" color="text.disabled" sx={{ ml: 2 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                ml: 2
+              }}
+            >
               Ctrl+V
             </Typography>
           </MenuItem>

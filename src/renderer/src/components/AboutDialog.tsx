@@ -31,7 +31,13 @@ const AboutDialog: React.FC<Props> = ({ open, onClose }) => {
         About Taliesin
       </DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography
+          variant="body2"
+          gutterBottom
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Version {version}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>

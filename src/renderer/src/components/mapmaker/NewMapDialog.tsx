@@ -40,7 +40,7 @@ const NewMapDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             fullWidth
             value={width}
             onChange={(e) => setWidth(clampMapDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
           />
           <TextField
             label="Height"
@@ -49,7 +49,7 @@ const NewMapDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             fullWidth
             value={height}
             onChange={(e) => setHeight(clampMapDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
           />
         </Box>
       </DialogContent>

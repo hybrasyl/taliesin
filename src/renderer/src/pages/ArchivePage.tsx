@@ -216,10 +216,22 @@ const ArchivePage: React.FC = () => {
         {archiveName && (
           <>
             <Divider orientation="vertical" flexItem />
-            <Typography variant="body2" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                color: 'text.secondary',
+                flexShrink: 0
+              }}
+            >
               {archiveName}
             </Typography>
-            <Typography variant="caption" color="text.disabled">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled'
+              }}
+            >
               {entries.length} entries
             </Typography>
             <Tooltip title="Extract All to Directory">
@@ -237,7 +249,6 @@ const ArchivePage: React.FC = () => {
           </>
         )}
       </Box>
-
       {/* Search bar */}
       {archive && (
         <Box sx={{ px: 2, py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -250,7 +261,6 @@ const ArchivePage: React.FC = () => {
           />
         </Box>
       )}
-
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {loading && (
@@ -264,7 +274,13 @@ const ArchivePage: React.FC = () => {
             }}
           >
             <CircularProgress size={20} />
-            <Typography color="text.secondary">Loading archive…</Typography>
+            <Typography
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
+              Loading archive…
+            </Typography>
           </Box>
         )}
 
@@ -276,7 +292,11 @@ const ArchivePage: React.FC = () => {
 
         {!loading && !error && !archive && (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography color="text.secondary">
+            <Typography
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {clientPath
                 ? 'Open a .dat archive or pick one from the client archives dropdown.'
                 : 'Open a .dat archive to browse its contents. Set a client path in Settings to pick from your client folder.'}
@@ -320,7 +340,13 @@ const ArchivePage: React.FC = () => {
                     justifyContent: 'center'
                   }}
                 >
-                  <Typography color="text.disabled">Select an entry to preview.</Typography>
+                  <Typography
+                    sx={{
+                      color: 'text.disabled'
+                    }}
+                  >
+                    Select an entry to preview.
+                  </Typography>
                 </Box>
               )}
             </Box>

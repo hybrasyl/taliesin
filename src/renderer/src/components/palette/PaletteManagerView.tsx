@@ -279,15 +279,16 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
                 <ListItemText
                   primary={s.name}
                   secondary={`${s.entryCount} entr${s.entryCount === 1 ? 'y' : 'ies'}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption' }
+                  }}
                 />
               </ListItemButton>
             ))}
           </List>
         </Box>
       </Box>
-
       {/* Right: editor */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {!draft ? (
@@ -300,7 +301,11 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
               height: '100%'
             }}
           >
-            <Typography color="text.disabled">
+            <Typography
+              sx={{
+                color: 'text.disabled'
+              }}
+            >
               Select a palette to edit, or create a new one.
             </Typography>
           </Box>
@@ -407,14 +412,12 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
           </>
         )}
       </Box>
-
       <CreatePaletteDialog
         open={createOpen}
         existingIds={existingIds}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
       />
-
       <UnsavedChangesDialog
         open={dialogOpen}
         onSave={handleDialogSave}

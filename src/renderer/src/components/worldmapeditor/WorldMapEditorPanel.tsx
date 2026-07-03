@@ -134,8 +134,12 @@ function ExcludedGroup({ items }: { items: ExcludedRow[] }) {
         {items.length === 0 ? (
           <Typography
             variant="caption"
-            color="text.disabled"
-            sx={{ px: 2, py: 0.5, display: 'block' }}
+            sx={{
+              color: 'text.disabled',
+              px: 2,
+              py: 0.5,
+              display: 'block'
+            }}
           >
             None excluded
           </Typography>
@@ -156,11 +160,13 @@ function ExcludedGroup({ items }: { items: ExcludedRow[] }) {
                 <ListItemButton sx={{ py: 0.25, pr: 5 }} disabled>
                   <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{
-                      variant: 'caption',
-                      noWrap: true,
-                      fontFamily: 'monospace',
-                      color: 'text.disabled'
+                    slotProps={{
+                      primary: {
+                        variant: 'caption',
+                        noWrap: true,
+                        color: 'text.disabled',
+                        sx: { fontFamily: 'monospace' }
+                      }
                     }}
                   />
                 </ListItemButton>
@@ -373,7 +379,6 @@ export default function WorldMapEditorPanel({
         onArchive={onMoveToTemplates}
         onUnarchive={onMoveToActive}
       />
-
       {/* Reference set badge */}
       {isReferenceSet && (
         <Chip
@@ -385,7 +390,6 @@ export default function WorldMapEditorPanel({
           sx={{ alignSelf: 'flex-start', mb: 1 }}
         />
       )}
-
       {/* Orphan warning */}
       {isDerived && orphanKeys.size > 0 && (
         <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
@@ -393,7 +397,6 @@ export default function WorldMapEditorPanel({
           next sync.
         </Alert>
       )}
-
       {/* Top fields row */}
       <Box
         sx={{
@@ -410,7 +413,7 @@ export default function WorldMapEditorPanel({
           label="Name"
           value={data.name}
           onChange={(e) => updateData('name', e.target.value)}
-          inputProps={{ spellCheck: false }}
+          slotProps={{ htmlInput: { spellCheck: false } }}
           sx={{ width: 240 }}
         />
         <ClientMapSelect
@@ -419,9 +422,7 @@ export default function WorldMapEditorPanel({
           clientPath={clientPath}
         />
       </Box>
-
       <Divider sx={{ mb: 1, flexShrink: 0 }} />
-
       {/* Toolbar */}
       <Box
         sx={{
@@ -454,7 +455,12 @@ export default function WorldMapEditorPanel({
           </>
         ) : (
           <>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Place:
             </Typography>
             <Chip
@@ -486,7 +492,6 @@ export default function WorldMapEditorPanel({
         )}
       </Box>
       <Divider sx={{ mb: 1, flexShrink: 0 }} />
-
       {/* Main area: canvas + items panel */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 1 }}>
         <WorldMapCanvas
@@ -554,7 +559,6 @@ export default function WorldMapEditorPanel({
           </Box>
         </Box>
       </Box>
-
       {/* Point dialog */}
       {dialogState && (
         <WarpDialog

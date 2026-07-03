@@ -87,7 +87,6 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
         }}
         size={72}
       />
-
       <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
         <Stack direction="row" spacing={1}>
           <TextField
@@ -113,8 +112,20 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           />
         </Stack>
 
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: 'center'
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center'
+            }}
+          >
             <ColorSwatchPicker
               value={entry.shadowColor}
               fallback="#000000"
@@ -136,7 +147,13 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
             </IconButton>
           </Tooltip>
 
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center'
+            }}
+          >
             <ColorSwatchPicker
               value={entry.highlightColor}
               fallback="#FFFFFF"
@@ -153,7 +170,14 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           </Stack>
 
           <Box sx={{ flex: 1, display: 'flex', gap: 2, minWidth: 260 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: 'center',
+                flex: 1
+              }}
+            >
               <Tooltip title={`Darker shadow: ${darkerShadow}`}>
                 <Box
                   sx={{
@@ -189,7 +213,12 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
                 />
               </Tooltip>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   Dark factor: {darkFactor.toFixed(2)}
                 </Typography>
                 <Slider
@@ -202,7 +231,14 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
                 />
               </Box>
             </Stack>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: 'center',
+                flex: 1
+              }}
+            >
               <Tooltip title={`Lighter highlight: ${lighterHighlight}`}>
                 <Box
                   sx={{
@@ -238,7 +274,12 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
                 />
               </Tooltip>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   Light factor: {lightFactor.toFixed(2)}
                 </Typography>
                 <Slider
@@ -254,7 +295,6 @@ const PaletteEntryEditor: React.FC<Props> = ({ entry, preview, onChange, onDelet
           </Box>
         </Stack>
       </Stack>
-
       <Tooltip title="Delete entry">
         <IconButton size="small" onClick={onDelete}>
           <DeleteIcon fontSize="small" />

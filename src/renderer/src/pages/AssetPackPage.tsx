@@ -163,7 +163,12 @@ const AssetPackPage: React.FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <WorkingDirToolbar dir={packDir} onChangeDir={handleSetDir}>
         <StatusMessage message={statusMessage} />
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.disabled'
+          }}
+        >
           {packs.length} pack{packs.length !== 1 ? 's' : ''}
         </Typography>
         <Tooltip title="Refresh">
@@ -172,7 +177,6 @@ const AssetPackPage: React.FC = () => {
           </IconButton>
         </Tooltip>
       </WorkingDirToolbar>
-
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: pack list */}
@@ -216,8 +220,10 @@ const AssetPackPage: React.FC = () => {
                   <ListItemText
                     primary={p.pack_id}
                     secondary={`${p.content_type} · v${p.pack_version}`}
-                    primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
+                    slotProps={{
+                      primary: { variant: 'body2', noWrap: true },
+                      secondary: { variant: 'caption' }
+                    }}
                   />
                 </ListItemButton>
               ))}
@@ -258,14 +264,17 @@ const AssetPackPage: React.FC = () => {
                 height: '100%'
               }}
             >
-              <Typography color="text.disabled">
+              <Typography
+                sx={{
+                  color: 'text.disabled'
+                }}
+              >
                 Select a pack to edit, or create a new one.
               </Typography>
             </Box>
           )}
         </Box>
       </Box>
-
       {/* Dialogs */}
       <CreatePackDialog
         open={createOpen}

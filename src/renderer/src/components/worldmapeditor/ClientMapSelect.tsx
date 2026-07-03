@@ -125,14 +125,18 @@ export default function ClientMapSelect({ value, onChange, clientPath, disabled 
         <Select value={value} label="Client Map" onChange={handleChange}>
           {FIELD_NAMES.map((name) => (
             <MenuItem key={name} value={name}>
-              <Typography variant="body2" fontFamily="monospace">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: 'monospace'
+                }}
+              >
                 {name}
               </Typography>
             </MenuItem>
           ))}
         </Select>
       </FormControl>
-
       {value && (
         <Tooltip
           title={noClientPath ? 'Set a client path in Settings to preview field images' : ''}

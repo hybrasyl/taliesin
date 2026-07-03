@@ -33,10 +33,17 @@ const NpcPortraitsPanel: React.FC<PackKindPanelProps> = ({ draft, onChange, kind
         onChange={(e) => setSize(Number(e.target.value))}
         label="Size (px)"
         helperText="Every portrait must be exactly this square size, or the client ignores it."
-        inputProps={{ min: 1, step: 1, 'aria-label': 'Portrait square size in pixels' }}
+        slotProps={{
+          htmlInput: { min: 1, step: 1, 'aria-label': 'Portrait square size in pixels' }
+        }}
         sx={{ maxWidth: 220 }}
       />
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary'
+        }}
+      >
         {portraitCount === 0
           ? 'No portraits yet — use Add PNG → New portrait… to add one keyed by its Portrait value.'
           : `${portraitCount} portrait${portraitCount === 1 ? '' : 's'} · ${size}×${size}`}

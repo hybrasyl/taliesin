@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { classifyEntry, decodePcx, parseBikHeader } from '../archiveRenderer'
 
 // classifyEntry only inspects entry.entryName, so a stub is enough.
-const stub = (entryName: string) => ({ entryName }) as Parameters<typeof classifyEntry>[0]
+const stub = (entryName: string) =>
+  ({
+    entryName
+  }) as Parameters<typeof classifyEntry>[0]
 
 describe('classifyEntry', () => {
   const cases: [string, ReturnType<typeof classifyEntry>][] = [
