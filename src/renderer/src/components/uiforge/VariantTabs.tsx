@@ -83,7 +83,14 @@ const VariantTabs: React.FC<VariantTabsProps> = ({ layout, activeVariant, onSele
     (!UI_NAME_RE.test(nameValue.trim()) || names.includes(nameValue.trim()))
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        borderBottom: '1px solid',
+        borderColor: 'divider'
+      }}
+    >
       <Tabs
         value={activeVariant}
         onChange={(_, v) => onSelect(v)}
@@ -135,7 +142,11 @@ const VariantTabs: React.FC<VariantTabsProps> = ({ layout, activeVariant, onSele
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogMode(null)}>Cancel</Button>
-          <Button variant="contained" disabled={!nameValue.trim() || nameError} onClick={confirmDialog}>
+          <Button
+            variant="contained"
+            disabled={!nameValue.trim() || nameError}
+            onClick={confirmDialog}
+          >
             {dialogMode === 'rename' ? 'Rename' : 'Create'}
           </Button>
         </DialogActions>
