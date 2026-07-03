@@ -26,8 +26,9 @@ import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
-import { createEmptyLayout, UI_NAME_RE } from '../uiforge/types'
-import { serializePanelXml } from '../uiforge/panelXml'
+import { createEmptyLayout, UI_NAME_RE, type UiPanelLayout } from '../uiforge/types'
+import { parsePanelXml, serializePanelXml } from '../uiforge/panelXml'
+import { aggregateVariablesUsed } from '../uiforge/variableCatalog'
 import ForgePanel from '../components/uiforge/ForgePanel'
 
 interface PackSummary {
@@ -138,20 +139,42 @@ const UiForgePage: React.FC = () => {
     refresh()
   }, [packDir, selected, refresh, showStatus])
 
-  /** Persist a project mutation (asset list / covers changes). */
+  /** Persist a project mutation (asset list / covers changes). variables_used is
+   *  derived by parsing every panel XML on disk (panel_ids comes from the kind
+   *  reducer); both are informational manifest fields. */
   const saveProject = useCallback(
     async (updated: PackProject) => {
-      if (!projectFilePath) return
+      if (!projectFilePath || !packDir) return
       const kind = getKind('ui_panels')
+      const reduced = (kind.reduceCoversFromMeta?.(updated) ?? updated.covers) as Record<
+        string,
+        Record<string, unknown>
+      >
+
+      const assetsDir = `${packDir}/${updated.pack_id}`
+      const layouts: UiPanelLayout[] = []
+      for (const id of panelIdsOf(updated)) {
+        try {
+          const buf = await window.api.readFile(`${assetsDir}/${id}.xml`)
+          layouts.push(parsePanelXml(new TextDecoder().decode(buf)))
+        } catch {
+          // Unreadable/unparsable layout — omit from the derived cover.
+        }
+      }
+      const variablesUsed = aggregateVariablesUsed(layouts)
+      const uiPanels = { ...(reduced.ui_panels ?? {}) }
+      if (variablesUsed.length) uiPanels.variables_used = variablesUsed
+      else delete uiPanels.variables_used
+
       const withCovers: PackProject = {
         ...updated,
-        covers: kind.reduceCoversFromMeta?.(updated) ?? updated.covers,
+        covers: { ...reduced, ui_panels: uiPanels },
         updatedAt: new Date().toISOString()
       }
       await window.api.packSave(projectFilePath, withCovers)
       setProject(withCovers)
     },
-    [projectFilePath]
+    [projectFilePath, packDir]
   )
 
   const handleCreatePanel = useCallback(async () => {

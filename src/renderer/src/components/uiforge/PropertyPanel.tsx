@@ -22,6 +22,8 @@ import {
 } from '../../uiforge/types'
 import { artStatesForKind, backgroundFilename, controlArtFilename } from '../../uiforge/artNaming'
 import type { ArtTarget } from './ArtPickerDialog'
+import type { UiBinding } from '../../uiforge/types'
+import BindingEditor from './BindingEditor'
 
 interface PropertyPanelProps {
   layout: UiPanelLayout
@@ -291,6 +293,11 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
               })}
             </>
           )}
+
+          <BindingEditor
+            control={selected}
+            onChange={(binding: UiBinding | undefined) => patch({ binding })}
+          />
 
           <Button
             size="small"
