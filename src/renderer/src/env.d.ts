@@ -78,7 +78,10 @@ declare global {
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>
     launchCompanion: (exePath: string) => Promise<boolean>
-    openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
+    openFile: (
+      filters?: { name: string; extensions: string[] }[],
+      defaultPath?: string
+    ) => Promise<string | null>
     openDirectory: () => Promise<string | null>
     saveFile: (
       filters?: { name: string; extensions: string[] }[],

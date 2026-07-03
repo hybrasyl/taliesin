@@ -28,6 +28,7 @@ import {
 } from '@eriscorp/dalib-ts'
 import { getPaletteNames, loadPaletteByName, renderEntry } from '../../utils/archiveRenderer'
 import { exportFrameAsPng } from '../../uiforge/artExport'
+import { useSettingsStore } from '../../store/settingsStore'
 
 /** What the picked art becomes: a convention filename + a human label. */
 export interface ArtTarget {
@@ -101,6 +102,9 @@ const ArtPickerDialog: React.FC<ArtPickerDialogProps> = ({
   const [tab, setTab] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Legacy prefabs live in the DA client dir (setoa.dat / cious.dat) — default
+  // the archive picker there when the client path is configured.
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   // Tab 0 — PNG file
   const [pngPath, setPngPath] = useState<string | null>(null)
@@ -226,7 +230,10 @@ const ArtPickerDialog: React.FC<ArtPickerDialogProps> = ({
 
   // ── Tab 2: legacy .dat ─────────────────────────────────────────────────────
   const chooseDat = useCallback(async () => {
-    const p = await window.api.openFile([{ name: 'DA Archive', extensions: ['dat'] }])
+    const p = await window.api.openFile(
+      [{ name: 'DA Archive', extensions: ['dat'] }],
+      clientPath ?? undefined
+    )
     if (!p) return
     setBusy(true)
     setError(null)
@@ -246,7 +253,7 @@ const ArtPickerDialog: React.FC<ArtPickerDialogProps> = ({
     } finally {
       setBusy(false)
     }
-  }, [])
+  }, [clientPath])
 
   const datImageEntries = useMemo(
     () => (archive?.entries ?? []).filter((e) => LEGACY_EXTS.includes(entryExt(e.entryName))),

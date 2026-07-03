@@ -633,9 +633,11 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
         onChange={changeLayoutFromTabs}
       />
 
-      {/* Body: palette | canvas | properties */}
+      {/* Tool strip spans the full width above the workspace */}
+      <ControlPalette armedKind={armedKind} onArm={setArmedKind} />
+
+      {/* Body: canvas | properties */}
       <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <ControlPalette armedKind={armedKind} onArm={setArmedKind} />
         <LayoutCanvas
           layout={layout}
           variant={variant}

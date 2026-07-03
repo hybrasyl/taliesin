@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { Box, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import NearMeIcon from '@mui/icons-material/NearMe'
 import { UI_CONTROL_KINDS, type UiControlKind } from '../../uiforge/types'
 import { KIND_COLORS } from './LayoutCanvas'
@@ -18,40 +18,32 @@ const KIND_LABEL: Record<UiControlKind, string> = {
   progressbar: 'Progress'
 }
 
-/** Left rail: the select tool plus click-to-arm control-placement buttons. */
+/** Horizontal tool strip: the select tool plus click-to-arm placement buttons. */
 const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKind, onArm }) => {
   return (
     <Box
       sx={{
-        width: 96,
-        flexShrink: 0,
-        borderRight: '1px solid',
-        borderColor: 'divider',
-        p: 1,
         display: 'flex',
-        flexDirection: 'column',
-        gap: 1
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 0.75,
+        borderBottom: '1px solid',
+        borderColor: 'divider'
       }}
     >
-      <Typography variant="overline" sx={{ color: 'text.disabled', lineHeight: 1.4 }}>
+      <Typography variant="overline" sx={{ color: 'text.disabled', lineHeight: 1 }}>
         Tools
       </Typography>
       <ToggleButtonGroup
-        orientation="vertical"
         exclusive
         size="small"
         value={armedKind ?? 'select'}
         onChange={(_, v) => onArm(v === 'select' || v == null ? null : (v as UiControlKind))}
-        sx={{
-          '& .MuiToggleButton-root': {
-            justifyContent: 'flex-start',
-            textTransform: 'none',
-            py: 0.5
-          }
-        }}
+        sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.25, py: 0.4 } }}
       >
         <ToggleButton value="select" aria-label="select tool">
-          <NearMeIcon fontSize="small" sx={{ mr: 1 }} />
+          <NearMeIcon fontSize="small" sx={{ mr: 0.75 }} />
           Select
         </ToggleButton>
         {UI_CONTROL_KINDS.map((kind) => (
@@ -61,7 +53,7 @@ const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKind, onArm }) => 
               sx={{
                 width: 10,
                 height: 10,
-                mr: 1,
+                mr: 0.75,
                 borderRadius: '2px',
                 bgcolor: KIND_COLORS[kind],
                 flexShrink: 0
@@ -71,11 +63,11 @@ const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKind, onArm }) => 
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <Tooltip title="Pick a control, then click on the canvas to place it. Esc cancels.">
-        <Typography variant="caption" sx={{ color: 'text.disabled', mt: 'auto' }}>
-          {armedKind ? `Click to place ${KIND_LABEL[armedKind].toLowerCase()}` : 'Select & edit'}
-        </Typography>
-      </Tooltip>
+      <Typography variant="caption" sx={{ color: 'text.disabled', ml: 'auto' }}>
+        {armedKind
+          ? `Click the canvas to place ${KIND_LABEL[armedKind].toLowerCase()} · Esc cancels`
+          : 'Select & edit'}
+      </Typography>
     </Box>
   )
 }

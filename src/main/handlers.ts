@@ -1295,15 +1295,19 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A
   // handlers without a separate "set active" round-trip.
-  ipcMain.handle('dialog:openFile', async (_, filters?: Electron.FileFilter[]) => {
-    const r = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      filters: filters ?? [{ name: 'All Files', extensions: ['*'] }]
-    })
-    const picked = r.filePaths[0] ?? null
-    blessRoot(ctx, picked)
-    return picked
-  })
+  ipcMain.handle(
+    'dialog:openFile',
+    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
+      const r = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+        ...(defaultPath ? { defaultPath } : {})
+      })
+      const picked = r.filePaths[0] ?? null
+      blessRoot(ctx, picked)
+      return picked
+    }
+  )
   ipcMain.handle('dialog:openDirectory', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     const picked = r.filePaths[0] ?? null
