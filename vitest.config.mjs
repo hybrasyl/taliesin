@@ -44,7 +44,7 @@ export default defineConfig({
           functions: 40,
           statements: 53
         },
-        'src/main/settingsManager.ts': { lines: 98, branches: 70, functions: 90, statements: 90 },
+        'src/main/settingsManager.ts': { lines: 98, branches: 92, functions: 93, statements: 95 },
         'src/renderer/src/utils/duotone.ts': {
           lines: 100,
           branches: 80,
@@ -106,10 +106,10 @@ export default defineConfig({
           statements: 90
         },
         'src/renderer/src/hooks/useUnsavedGuard.ts': {
-          lines: 97,
+          lines: 100,
           branches: 100,
-          functions: 85,
-          statements: 95
+          functions: 100,
+          statements: 100
         },
         'src/renderer/src/hooks/useWorldIndex.ts': {
           lines: 94,
@@ -130,10 +130,12 @@ export default defineConfig({
           statements: 39
         },
         'src/renderer/src/components/mapmaker/MapEditorCanvas.tsx': {
-          lines: 38,
+          // drawDiamond moved out to mapRenderer.ts (now unit-tested there),
+          // so this file's ratios shifted down slightly — floors track reality.
+          lines: 37,
           branches: 25,
-          functions: 33,
-          statements: 35
+          functions: 32,
+          statements: 34
         }
       }
     },

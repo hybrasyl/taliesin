@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseFilename } from '../../hooks/useMusicLibrary'
+import { useAudioPreview } from '../../hooks/useAudioPreview'
 import { useRecoilValue } from 'recoil'
 import {
   Accordion,
@@ -12,7 +13,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -23,10 +23,6 @@ import {
   FormGroup,
   IconButton,
   InputLabel,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -40,8 +36,6 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import ClearIcon from '@mui/icons-material/Clear'
 import DeleteIcon from '@mui/icons-material/Delete'
-import EditIcon from '@mui/icons-material/Edit'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
@@ -56,6 +50,7 @@ import GridOnIcon from '@mui/icons-material/GridOn'
 import EditorHeader from '../shared/EditorHeader'
 import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
+import { ItemsGroup } from '../shared/ItemsGroup'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
@@ -435,11 +430,8 @@ export function MusicIdField({
 }) {
   const [text, setText] = useState(value != null ? String(value) : '')
   const [availableIds, setAvailableIds] = useState<Set<number>>(new Set())
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
+  const { playing, error, toggle, stop } = useAudioPreview('Failed to play music')
 
   useEffect(() => {
     setText(value != null ? String(value) : '')
@@ -471,16 +463,7 @@ export function MusicIdField({
     }
   }, [clientPath])
 
-  // Stop + revoke on unmount or when the selected music ID changes.
-  const stop = useCallback(() => {
-    audioRef.current?.pause()
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-    setPlaying(false)
-  }, [])
-  useEffect(() => stop, [stop])
+  // Stop playback when the selected music ID changes (unmount handled by hook).
   useEffect(() => {
     stop()
   }, [value, stop])
@@ -505,35 +488,16 @@ export function MusicIdField({
   const fileExists = value != null && availableIds.has(value)
   const playDisabled = !fileExists || !clientPath
 
-  const handleTogglePlay = useCallback(async () => {
-    if (playing) {
-      stop()
-      return
-    }
-    if (value == null || !clientPath) return
-    setError(null)
-    try {
-      const sep = clientPath.includes('\\') ? '\\' : '/'
-      const path = `${clientPath}${sep}music${sep}${value}.mus`
-      const buf = await window.api.readFile(path)
-      const blob = new Blob([new Uint8Array(buf)], { type: 'audio/mpeg' })
-      const url = URL.createObjectURL(blob)
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = url
-      if (!audioRef.current) audioRef.current = new Audio()
-      audioRef.current.src = url
-      audioRef.current.onended = () => setPlaying(false)
-      audioRef.current.onerror = () => {
-        setPlaying(false)
-        setError('Playback failed')
-      }
-      await audioRef.current.play()
-      setPlaying(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to play music')
-      setPlaying(false)
-    }
-  }, [playing, value, clientPath, stop])
+  const handleTogglePlay = useCallback(
+    () =>
+      toggle(true, async () => {
+        if (value == null || !clientPath) return null
+        const sep = clientPath.includes('\\') ? '\\' : '/'
+        const buf = await window.api.readFile(`${clientPath}${sep}music${sep}${value}.mus`)
+        return { bytes: buf, mime: 'audio/mpeg' }
+      }),
+    [toggle, value, clientPath]
+  )
 
   const playTooltip = !clientPath
     ? 'Set a client path in Settings to preview music'
@@ -1480,113 +1444,6 @@ function MapPlacementTab({
         />
       )}
     </Box>
-  )
-}
-
-// ── Items group (right panel list) ────────────────────────────────────────────
-
-interface ItemRow {
-  key: number
-  label: string
-  selected: boolean
-  onSelect: () => void
-  onEdit: () => void
-  onRemove: () => void
-}
-
-function ItemsGroup({
-  label,
-  color,
-  count,
-  items,
-  onAdd
-}: {
-  label: string
-  color: string
-  count: number
-  items: ItemRow[]
-  onAdd: () => void
-}) {
-  const [open, setOpen] = useState(true)
-  return (
-    <>
-      <Box
-        sx={{
-          px: 1.5,
-          py: 0.75,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          cursor: 'pointer',
-          bgcolor: 'action.hover'
-        }}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
-        <Typography variant="caption" sx={{ flex: 1, fontWeight: 600 }}>
-          {label}
-        </Typography>
-        <Chip label={count} size="small" sx={{ height: 16, fontSize: 10 }} />
-        <Tooltip title={`Place ${label.slice(0, -1)}`}>
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation()
-              onAdd()
-            }}
-            sx={{ p: 0.25 }}
-          >
-            <AddIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-        </Tooltip>
-        {open ? <ExpandLessIcon sx={{ fontSize: 14 }} /> : <ExpandMoreIcon sx={{ fontSize: 14 }} />}
-      </Box>
-      <Collapse in={open}>
-        {items.length === 0 ? (
-          <Typography
-            variant="caption"
-            color="text.disabled"
-            sx={{ px: 2, py: 0.5, display: 'block' }}
-          >
-            None placed
-          </Typography>
-        ) : (
-          <List dense disablePadding>
-            {items.map((item) => (
-              <ListItem
-                key={item.key}
-                disablePadding
-                secondaryAction={
-                  <Box sx={{ display: 'flex' }}>
-                    <IconButton size="small" onClick={item.onEdit} sx={{ p: 0.25 }}>
-                      <EditIcon sx={{ fontSize: 13 }} />
-                    </IconButton>
-                    <IconButton size="small" onClick={item.onRemove} sx={{ p: 0.25 }}>
-                      <DeleteIcon sx={{ fontSize: 13 }} />
-                    </IconButton>
-                  </Box>
-                }
-              >
-                <ListItemButton
-                  selected={item.selected}
-                  onClick={item.onSelect}
-                  sx={{ py: 0.25, pr: 7 }}
-                >
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      variant: 'caption',
-                      noWrap: true,
-                      fontFamily: 'monospace'
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Collapse>
-    </>
   )
 }
 

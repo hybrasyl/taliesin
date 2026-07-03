@@ -19,8 +19,8 @@ import {
   isoCanvasSize,
   tileToScreen,
   isTilePassable,
+  drawDiamond,
   ISO_HTILE_W,
-  ISO_VTILE_STEP,
   type MapAssets
 } from '../../utils/mapRenderer'
 
@@ -114,15 +114,8 @@ const ExportMapDialog: React.FC<Props> = ({
           for (let tx = 0; tx < mapFile.width; tx++) {
             const tile = mapFile.getTile(tx, ty)
             const { x: cx, y: cy } = tileToScreen(tx, ty, originX, originY, exportScale)
-            const hw = ISO_HTILE_W * exportScale
-            const hv = ISO_VTILE_STEP * exportScale
 
-            ctx.beginPath()
-            ctx.moveTo(cx, cy - hv)
-            ctx.lineTo(cx + hw, cy)
-            ctx.lineTo(cx, cy + hv)
-            ctx.lineTo(cx - hw, cy)
-            ctx.closePath()
+            drawDiamond(ctx, cx, cy, exportScale)
 
             if (!isTilePassable(tile.leftForeground, tile.rightForeground, sotp)) {
               ctx.fillStyle = 'rgba(220,50,50,0.6)'

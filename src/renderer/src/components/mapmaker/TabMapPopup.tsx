@@ -7,8 +7,8 @@ import {
   isTilePassable,
   tileToScreen,
   isoCanvasSize,
+  drawDiamond,
   ISO_HTILE_W,
-  ISO_VTILE_STEP,
   ISO_FOREGROUND_PAD,
   type MapAssets
 } from '../../utils/mapRenderer'
@@ -60,8 +60,6 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
     ctx.fillRect(0, 0, cw, ch)
 
     const sotp = assets?.sotpTable
-    const hw = ISO_HTILE_W * previewScale
-    const hv = ISO_VTILE_STEP * previewScale
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -74,13 +72,7 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
 
         const { x: cx, y: cy } = tileToScreen(x, y, originX, originY, previewScale)
 
-        // Draw diamond
-        ctx.beginPath()
-        ctx.moveTo(cx, cy - hv)
-        ctx.lineTo(cx + hw, cy)
-        ctx.lineTo(cx, cy + hv)
-        ctx.lineTo(cx - hw, cy)
-        ctx.closePath()
+        drawDiamond(ctx, cx, cy, previewScale)
 
         if (hasFg && !passable) {
           ctx.fillStyle = 'rgba(220,50,50,0.8)'

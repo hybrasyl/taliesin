@@ -45,6 +45,7 @@ import {
   type RenderedEntry
 } from '../../utils/archiveRenderer'
 import { formatBytes } from '../../utils/format'
+import { useAudioPreview } from '../../hooks/useAudioPreview'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -392,59 +393,24 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
   entry,
   archive
 }) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { playing, error, toggle, stop } = useAudioPreview()
 
+  // Reset playback on entry change (unmount handled by the hook).
   useEffect(() => {
-    return () => {
-      audioRef.current?.pause()
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-    }
-  }, [])
+    stop()
+  }, [entry, stop])
 
-  // Reset on entry change
-  useEffect(() => {
-    audioRef.current?.pause()
-    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-    blobUrlRef.current = null
-    setPlaying(false)
-    setError(null)
-  }, [entry])
-
-  const handleToggle = useCallback(async () => {
-    if (playing) {
-      audioRef.current?.pause()
-      setPlaying(false)
-      return
-    }
-
-    setError(null)
-    try {
-      const buf = archive.getEntryBuffer(entry)
-      const extension = entry.entryName.toLowerCase().slice(entry.entryName.lastIndexOf('.'))
-      const mime =
-        extension === '.wav' ? 'audio/wav' : extension === '.ogg' ? 'audio/ogg' : 'audio/mpeg'
-      const blob = new Blob([new Uint8Array(buf)], { type: mime })
-      const url = URL.createObjectURL(blob)
-
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = url
-
-      if (!audioRef.current) audioRef.current = new Audio()
-      audioRef.current.src = url
-      audioRef.current.onended = () => setPlaying(false)
-      audioRef.current.onerror = () => {
-        setPlaying(false)
-        setError('Playback failed')
-      }
-      await audioRef.current.play()
-      setPlaying(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to play audio')
-    }
-  }, [entry, archive, playing])
+  const handleToggle = useCallback(
+    () =>
+      toggle(true, async () => {
+        const buf = archive.getEntryBuffer(entry)
+        const extension = entry.entryName.toLowerCase().slice(entry.entryName.lastIndexOf('.'))
+        const mime =
+          extension === '.wav' ? 'audio/wav' : extension === '.ogg' ? 'audio/ogg' : 'audio/mpeg'
+        return { bytes: buf, mime }
+      }),
+    [toggle, entry, archive]
+  )
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 4 }}>

@@ -30,6 +30,7 @@ import {
   tileToScreen,
   screenToTileCoords,
   isTilePassable,
+  drawDiamond,
   ISO_HTILE_W,
   ISO_VTILE_STEP,
   ISO_FOREGROUND_PAD,
@@ -1161,17 +1162,6 @@ const MapEditorCanvas: React.FC<Props> = ({
 }
 
 // ── Drawing helpers ──────────────────────────────────────────────────────────
-
-function drawDiamond(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) {
-  const hw = HTILE_W * scale
-  const hv = HALF_H * scale
-  ctx.beginPath()
-  ctx.moveTo(cx, cy - hv)
-  ctx.lineTo(cx + hw, cy)
-  ctx.lineTo(cx, cy + hv)
-  ctx.lineTo(cx - hw, cy)
-  ctx.closePath()
-}
 
 function drawEmptyGrid(
   ctx: CanvasRenderingContext2D,
