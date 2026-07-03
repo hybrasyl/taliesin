@@ -71,7 +71,13 @@ const AddGlyphDialog: React.FC<Props> = ({
       <DialogContent dividers>
         <Stack spacing={2}>
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography
+              variant="body2"
+              gutterBottom
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Quick append a single blank glyph at the next codepoint
               {glyphCount > 0 ? ` (${formatCodepoint(nextCodepoint)})` : ''}.
             </Typography>
@@ -81,7 +87,13 @@ const AddGlyphDialog: React.FC<Props> = ({
           </Box>
 
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography
+              variant="body2"
+              gutterBottom
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Or pick a specific codepoint from a Unicode block. Filled slots are already in the
               font; missing slots will be created (padding any codepoints in between with blanks).
             </Typography>

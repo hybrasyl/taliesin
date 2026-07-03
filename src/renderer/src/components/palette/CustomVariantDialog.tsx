@@ -65,7 +65,12 @@ const CustomVariantDialog: React.FC<Props> = ({
           </Box>
 
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Dark factor: {params.darkFactor.toFixed(2)}
             </Typography>
             <Slider
@@ -78,7 +83,12 @@ const CustomVariantDialog: React.FC<Props> = ({
             />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Light factor: {params.lightFactor.toFixed(2)}
             </Typography>
             <Slider
@@ -91,7 +101,12 @@ const CustomVariantDialog: React.FC<Props> = ({
             />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Midpoints: {params.midpointLow.toFixed(2)} – {params.midpointHigh.toFixed(2)}
             </Typography>
             <Slider

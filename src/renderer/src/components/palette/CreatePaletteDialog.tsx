@@ -69,7 +69,13 @@ const CreatePaletteDialog: React.FC<Props> = ({ open, existingIds, onClose, onCr
             </Select>
           </FormControl>
           {presetMeta && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                mt: -1
+              }}
+            >
               {presetMeta.description}
             </Typography>
           )}

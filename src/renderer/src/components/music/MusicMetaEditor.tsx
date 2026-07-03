@@ -11,7 +11,7 @@ import {
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import { MAX_TAG_LENGTH, formatDuration, type MusicEntry } from '../../hooks/useMusicLibrary'
 import { formatBytes } from '../../utils/format'
 
@@ -37,7 +37,12 @@ function formatChannels(n: number | undefined): string | null {
 }
 
 const InfoChip: React.FC<{ label: React.ReactNode }> = ({ label }) => (
-  <Typography variant="caption" color="text.secondary">
+  <Typography
+    variant="caption"
+    sx={{
+      color: 'text.secondary'
+    }}
+  >
     {label}
   </Typography>
 )
@@ -76,7 +81,13 @@ const MusicMetaEditor: React.FC<Props> = ({
   if (!entry) {
     return (
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography color="text.secondary">Select a track to edit</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
+          Select a track to edit
+        </Typography>
       </Box>
     )
   }
@@ -129,9 +140,7 @@ const MusicMetaEditor: React.FC<Props> = ({
           </IconButton>
         </Tooltip>
       </Box>
-
       <Divider />
-
       {/* Audio properties */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, rowGap: 0.5 }}>
         {durationStr && (
@@ -179,7 +188,6 @@ const MusicMetaEditor: React.FC<Props> = ({
           />
         )}
       </Box>
-
       {/* Name */}
       <TextField
         label="Name"
@@ -189,7 +197,6 @@ const MusicMetaEditor: React.FC<Props> = ({
         onChange={(e) => onUpdate({ name: e.target.value })}
         placeholder="Human-readable title"
       />
-
       {/* Notes */}
       <TextField
         label="Notes"
@@ -201,7 +208,6 @@ const MusicMetaEditor: React.FC<Props> = ({
         onChange={(e) => onUpdate({ notes: e.target.value })}
         placeholder="Optional notes about this track"
       />
-
       {/* Description */}
       <TextField
         label="Description"
@@ -213,7 +219,6 @@ const MusicMetaEditor: React.FC<Props> = ({
         onChange={(e) => onUpdate({ description: e.target.value })}
         placeholder="Longer prose about the track (auto-filled from genre tag on import)"
       />
-
       {/* Prompt — read-only, only when file has a TXXX:PROMPT frame */}
       {meta?.prompt && (
         <TextField
@@ -227,10 +232,16 @@ const MusicMetaEditor: React.FC<Props> = ({
           helperText="From ID3 TXXX:PROMPT frame"
         />
       )}
-
       {/* Tags */}
       <Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            mb: 0.5,
+            display: 'block'
+          }}
+        >
           Tags
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
@@ -259,12 +270,18 @@ const MusicMetaEditor: React.FC<Props> = ({
           </IconButton>
         </Box>
       </Box>
-
       {/* Map cross-reference */}
       {usedByMaps.length > 0 && (
         <Box>
           <Divider sx={{ mb: 1.5 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              mb: 0.5,
+              display: 'block'
+            }}
+          >
             Used by {usedByMaps.length} map{usedByMaps.length !== 1 ? 's' : ''}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -274,9 +291,7 @@ const MusicMetaEditor: React.FC<Props> = ({
           </Box>
         </Box>
       )}
-
       <Box sx={{ flex: 1 }} />
-
       {dirty && (
         <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>
           Save Changes

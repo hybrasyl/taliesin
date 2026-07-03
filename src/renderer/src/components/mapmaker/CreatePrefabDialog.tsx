@@ -44,7 +44,13 @@ const CreatePrefabDialog: React.FC<Props> = ({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Create Prefab from Selection</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 2
+          }}
+        >
           Selection: {selectionWidth} × {selectionHeight} tiles
         </Typography>
         <TextField
@@ -63,7 +69,13 @@ const CreatePrefabDialog: React.FC<Props> = ({
           control={<Checkbox checked={includeGround} onChange={(_, v) => setIncludeGround(v)} />}
           label="Include ground tiles"
         />
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.disabled',
+            display: 'block'
+          }}
+        >
           Empty cells (tile ID 0) won't overwrite existing tiles when stamping. Tiles will be
           trimmed to the occupied bounding box.
         </Typography>

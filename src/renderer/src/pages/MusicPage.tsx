@@ -122,7 +122,13 @@ const MusicPage: React.FC = () => {
         <Typography variant="h5" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
           Music Manager
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 3
+          }}
+        >
           Configure a music library directory to get started. This is where your source audio files
           (.mp3, .ogg, .mus) are stored.
         </Typography>
@@ -147,13 +153,14 @@ const MusicPage: React.FC = () => {
         value={tab}
         onChange={(_, v) => setTab(v)}
         sx={{ borderBottom: '1px solid', borderColor: 'divider', minHeight: 40 }}
-        TabIndicatorProps={{ style: { height: 2 } }}
+        slotProps={{
+          indicator: { style: { height: 2 } }
+        }}
       >
         <Tab label="Library" sx={{ minHeight: 40, py: 0 }} />
         <Tab label="Packs" sx={{ minHeight: 40, py: 0 }} />
         <Tab label="Client View" sx={{ minHeight: 40, py: 0 }} />
       </Tabs>
-
       {/* Tab content */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Library Tab */}
@@ -172,7 +179,13 @@ const MusicPage: React.FC = () => {
                   borderColor: 'divider'
                 }}
               >
-                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    flexShrink: 0
+                  }}
+                >
                   Reading tags: {lib.enrichProgress.done} / {lib.enrichProgress.total}
                 </Typography>
                 <LinearProgress
@@ -200,7 +213,12 @@ const MusicPage: React.FC = () => {
                       flexWrap: 'wrap'
                     }}
                   >
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary'
+                      }}
+                    >
                       {unenriched > 0
                         ? `${unenriched} of ${lib.entries.length} tracks need enrichment`
                         : `${lib.entries.length} tracks`}
@@ -358,7 +376,6 @@ const MusicPage: React.FC = () => {
           </Box>
         )}
       </Box>
-
       {/* Persistent player bar */}
       <MusicPlayer
         filePath={playingFile}

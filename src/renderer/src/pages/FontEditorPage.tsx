@@ -205,7 +205,14 @@ const FontEditorPage: React.FC = () => {
             <FolderOpenIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{
+            color: 'text.secondary',
+            flex: 1
+          }}
+        >
           {path ?? 'No file loaded'}
         </Typography>
         <StatusMessage message={statusMessage} />
@@ -224,7 +231,6 @@ const FontEditorPage: React.FC = () => {
           Save
         </Button>
       </Box>
-
       {path && (
         <Box
           sx={{
@@ -273,12 +279,16 @@ const FontEditorPage: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {glyphs.length} glyph{glyphs.length === 1 ? '' : 's'}
           </Typography>
         </Box>
       )}
-
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Box
           sx={{
@@ -290,7 +300,13 @@ const FontEditorPage: React.FC = () => {
         >
           {!path ? (
             <Stack sx={{ p: 4, alignItems: 'center', gap: 2 }}>
-              <Typography color="text.secondary">No font loaded.</Typography>
+              <Typography
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
+                No font loaded.
+              </Typography>
               <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleOpen}>
                 Open .fnt
               </Button>
@@ -325,7 +341,6 @@ const FontEditorPage: React.FC = () => {
           />
         </Box>
       </Box>
-
       <UnsavedChangesDialog
         open={dialogOpen}
         label="Font"
@@ -333,7 +348,6 @@ const FontEditorPage: React.FC = () => {
         onDiscard={handleDialogDiscard}
         onCancel={handleDialogCancel}
       />
-
       <AddGlyphDialog
         open={addDialogOpen}
         startCodepoint={startCodepoint}

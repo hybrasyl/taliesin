@@ -83,7 +83,12 @@ function renderRows(args: RenderRowsArgs): React.ReactElement[] {
           </Typography>
         </TableCell>
         <TableCell>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {slot ? `${slot.namespace} ${slot.id}` : '—'}
           </Typography>
         </TableCell>
@@ -95,7 +100,7 @@ function renderRows(args: RenderRowsArgs): React.ReactElement[] {
                   size="small"
                   checked={assetMeta[key] === true}
                   onChange={(e) => onMetaFieldChange(asset.filename, key, e.target.checked)}
-                  inputProps={{ 'aria-label': `${def.label} for ${asset.filename}` }}
+                  slotProps={{ input: { 'aria-label': `${def.label} for ${asset.filename}` } }}
                 />
               </Tooltip>
             )}
@@ -160,7 +165,12 @@ function renderRows(args: RenderRowsArgs): React.ReactElement[] {
           <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
             {ns}
           </Typography>{' '}
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             ({list.length})
           </Typography>
         </TableCell>
@@ -172,7 +182,13 @@ function renderRows(args: RenderRowsArgs): React.ReactElement[] {
     rows.push(
       <TableRow key="__group__orphans" sx={{ '& > td': { backgroundColor: 'action.hover' } }}>
         <TableCell colSpan={colSpan}>
-          <Typography variant="caption" sx={{ fontWeight: 'bold' }} color="warning.main">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'warning.main',
+              fontWeight: 'bold'
+            }}
+          >
             unparseable filenames
           </Typography>
         </TableCell>
@@ -411,7 +427,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           {compiling ? 'Compiling...' : 'Compile .datf'}
         </Button>
       </Box>
-
       {/* Manifest fields */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
@@ -438,13 +453,17 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           onChange={(e) => updateField('priority', parseInt(e.target.value) || 100)}
           sx={{ width: 100 }}
         />
-        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            alignSelf: 'center'
+          }}
+        >
           Type: {draft.content_type}
         </Typography>
       </Box>
-
       <Divider />
-
       {/* Asset table */}
       <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="body2" sx={{ flex: 1 }}>
@@ -473,7 +492,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           )}
         </Menu>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'auto', px: 1 }}>
         <Table size="small" stickyHeader>
           <TableHead>
@@ -502,7 +520,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           </TableBody>
         </Table>
       </Box>
-
       {/* Kind-specific panel (item-icon dye reference, ui sprite source groups, etc.) */}
       {kind.Panel && (
         <kind.Panel
@@ -514,7 +531,6 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           }}
         />
       )}
-
       {/* Custom-namespace dialog (opt-in via kind.customNamespacePrompt) */}
       {kind.customNamespacePrompt && (
         <Dialog

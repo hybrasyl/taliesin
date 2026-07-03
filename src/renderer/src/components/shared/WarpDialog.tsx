@@ -201,7 +201,13 @@ export default function WarpDialog({
           : isWorldMapPoint
             ? 'Place Point'
             : 'Place Warp'}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            ml: 1
+          }}
+        >
           ({tileX}, {tileY})
         </Typography>
       </DialogTitle>
@@ -217,7 +223,7 @@ export default function WarpDialog({
               value={pointDisplayName ?? ''}
               onChange={(e) => onPointDisplayNameChange(e.target.value)}
               helperText="Label shown on the world map"
-              inputProps={{ spellCheck: false }}
+              slotProps={{ htmlInput: { spellCheck: false } }}
             />
           )}
 
@@ -274,7 +280,13 @@ export default function WarpDialog({
                       bgcolor: 'action.hover'
                     }}
                   >
-                    <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                        flex: 1
+                      }}
+                    >
                       Click map to set arrival tile
                     </Typography>
                     <Tooltip title="Zoom out">
@@ -419,7 +431,13 @@ export default function WarpDialog({
                   }}
                   onClick={() => setShowRestrict((v) => !v)}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      flex: 1
+                    }}
+                  >
                     Entry Restrictions (optional)
                   </Typography>
                   {showRestrict ? (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Typography, IconButton, Tooltip, Popover } from '@mui/material'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlined'
 
 const shortcuts = [
   { key: 'D', action: 'Draw tool' },
@@ -49,7 +49,6 @@ const ShortcutHelpPanel: React.FC = () => {
           <HelpOutlineIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
@@ -72,7 +71,12 @@ const ShortcutHelpPanel: React.FC = () => {
                 >
                   {s.key}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   {s.action}
                 </Typography>
               </Box>

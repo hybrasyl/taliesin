@@ -83,7 +83,13 @@ const FontBlockView: React.FC<Props> = ({
   if (sections.length === 0) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography color="text.secondary">No glyphs loaded.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
+          No glyphs loaded.
+        </Typography>
       </Box>
     )
   }

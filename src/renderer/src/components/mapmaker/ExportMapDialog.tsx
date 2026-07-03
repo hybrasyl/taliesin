@@ -152,11 +152,22 @@ const ExportMapDialog: React.FC<Props> = ({
       <DialogTitle>Export Map as PNG</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Typography
+            variant="body2"
+            gutterBottom
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Map: {mapFile.width} × {mapFile.height} tiles
           </Typography>
 
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Scale: {Math.round(exportScale * 100)}%
           </Typography>
           <Slider
@@ -190,7 +201,14 @@ const ExportMapDialog: React.FC<Props> = ({
             label="Export collision wireframe (_tab.png)"
           />
           {!clientPath && (
-            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', ml: 4 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                display: 'block',
+                ml: 4
+              }}
+            >
               Requires client path for sotp.dat
             </Typography>
           )}

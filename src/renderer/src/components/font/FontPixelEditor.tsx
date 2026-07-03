@@ -36,7 +36,13 @@ const FontPixelEditor: React.FC<Props> = ({
   if (glyph === null || cells === null || index === null || codepoint === null) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography color="text.secondary">Select a glyph to edit</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
+          Select a glyph to edit
+        </Typography>
       </Box>
     )
   }
@@ -47,7 +53,12 @@ const FontPixelEditor: React.FC<Props> = ({
 
   return (
     <Stack spacing={1.5} sx={{ p: 2, alignItems: 'center' }}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary'
+        }}
+      >
         Idx {index} · {formatCodepoint(codepoint)}
         {label ? ` '${label}'` : ''} · {blockLabel}
       </Typography>

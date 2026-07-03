@@ -181,7 +181,14 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
           }}
         />
         {filtered.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              p: 2,
+              textAlign: 'center'
+            }}
+          >
             {clientPath ? 'No music tracks available.' : 'Set a client path in Settings.'}
           </Typography>
         ) : (

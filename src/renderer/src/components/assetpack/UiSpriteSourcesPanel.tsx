@@ -17,7 +17,12 @@ const UiSpriteSourcesPanel: React.FC<PackKindPanelProps> = ({ draft, kind }) => 
   return (
     <PanelContainer title="Source-file groups">
       {groups.length === 0 ? (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           No source-file groups yet — use Add PNG → New source file… to create one.
         </Typography>
       ) : (

@@ -396,7 +396,7 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           label="Source"
           size="small"
           value={sourcePath ?? ''}
-          InputProps={{ readOnly: true }}
+          slotProps={{ input: { readOnly: true } }}
           sx={{ minWidth: 320, flex: 1 }}
         />
 
@@ -466,10 +466,14 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           Save Outputs
         </Button>
       </Box>
-
       {saving && saveProgress && (
         <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Writing {saveProgress.current} / {saveProgress.total}
           </Typography>
           <LinearProgress
@@ -478,17 +482,28 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           />
         </Box>
       )}
-
       {/* Body */}
       <Box sx={{ flex: 1, overflow: 'auto', px: 2, py: 1 }}>
         {!paletteId && (
           <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
-            <Typography color="text.disabled">Select a palette to begin.</Typography>
+            <Typography
+              sx={{
+                color: 'text.disabled'
+              }}
+            >
+              Select a palette to begin.
+            </Typography>
           </Box>
         )}
         {paletteId && !sourcePath && (
           <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
-            <Typography color="text.disabled">Pick a source PNG to colorize.</Typography>
+            <Typography
+              sx={{
+                color: 'text.disabled'
+              }}
+            >
+              Pick a source PNG to colorize.
+            </Typography>
           </Box>
         )}
         {palette &&
@@ -500,10 +515,23 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
             return (
               <Box key={entry.id}>
                 {idx > 0 && <Divider sx={{ my: 1 }} />}
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1 }}>
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  sx={{
+                    alignItems: 'center',
+                    py: 1
+                  }}
+                >
                   <Box sx={{ width: 100, flexShrink: 0 }}>
                     <Typography variant="body2">{entry.name}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                        display: 'block'
+                      }}
+                    >
                       {selectedId ?? 'unset'}
                     </Typography>
                   </Box>
@@ -540,7 +568,6 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
             )
           })}
       </Box>
-
       {customEntry && (
         <CustomVariantDialog
           open={customDialog.open}
@@ -552,7 +579,6 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
           onApply={handleApplyCustom}
         />
       )}
-
       <UnsavedChangesDialog
         open={unsavedDialogOpen}
         label="Colorize"

@@ -212,13 +212,26 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Split Map</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 2
+          }}
+        >
           Current map: {W} × {H} tiles
         </Typography>
 
         {/* Split mode */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              mb: 0.5,
+              display: 'block'
+            }}
+          >
             Split mode
           </Typography>
           <ToggleButtonGroup
@@ -249,8 +262,10 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
                   <Typography
                     key={i}
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
+                    sx={{
+                      color: 'text.secondary',
+                      display: 'block'
+                    }}
                   >
                     {baseName}_{i + 1}.map — {label}
                   </Typography>
@@ -258,8 +273,11 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
                 {remainder && (
                   <Typography
                     variant="caption"
-                    color="warning.main"
-                    sx={{ display: 'block', mt: 1 }}
+                    sx={{
+                      color: 'warning.main',
+                      display: 'block',
+                      mt: 1
+                    }}
                   >
                     Map dimensions don't divide evenly. Extra tiles on the right/bottom edges will
                     be discarded.
@@ -267,7 +285,12 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
                 )}
               </>
             ) : (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
                 Select a split mode to see the cut lines.
               </Typography>
             )}

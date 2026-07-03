@@ -15,7 +15,12 @@ export const EmptyStateSettings: React.FC<{
     <Typography variant="h5" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
       {title}
     </Typography>
-    <Typography color="text.secondary" sx={{ mb: 3 }}>
+    <Typography
+      sx={{
+        color: 'text.secondary',
+        mb: 3
+      }}
+    >
       {description}
     </Typography>
     <Button variant="outlined" startIcon={<SettingsIcon />} onClick={onOpenSettings}>

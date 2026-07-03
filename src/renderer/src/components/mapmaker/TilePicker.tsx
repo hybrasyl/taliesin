@@ -166,7 +166,12 @@ const TilePicker: React.FC<Props> = ({
   if (!clientPath) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.disabled'
+          }}
+        >
           Set a client path in Settings to browse tiles.
         </Typography>
       </Box>
@@ -176,7 +181,12 @@ const TilePicker: React.FC<Props> = ({
   if (loading) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Loading tile assets...
         </Typography>
       </Box>
@@ -212,7 +222,6 @@ const TilePicker: React.FC<Props> = ({
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
-
       {/* Filter */}
       <Box sx={{ px: 1, py: 0.5 }}>
         <TextField
@@ -223,11 +232,15 @@ const TilePicker: React.FC<Props> = ({
           fullWidth
         />
       </Box>
-
-      <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          px: 1
+        }}
+      >
         {tileIds.length} tiles
       </Typography>
-
       {/* Tile grid */}
       <Box ref={parentRef} sx={{ flex: 1, overflow: 'auto', px: 0.5 }}>
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

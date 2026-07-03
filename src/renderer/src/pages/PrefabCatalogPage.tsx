@@ -139,7 +139,13 @@ const PrefabCatalogPage: React.FC = () => {
         <Typography variant="h5" gutterBottom sx={{ color: 'text.button', fontWeight: 'bold' }}>
           Prefab Catalog
         </Typography>
-        <Typography color="text.secondary">No library selected. Set one in Settings.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
+          No library selected. Set one in Settings.
+        </Typography>
       </Box>
     )
   }
@@ -158,7 +164,13 @@ const PrefabCatalogPage: React.FC = () => {
           borderColor: 'divider'
         }}
       >
-        <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            flexShrink: 0
+          }}
+        >
           {filtered.length} / {prefabs.length} prefabs
         </Typography>
         <TextField
@@ -174,7 +186,6 @@ const PrefabCatalogPage: React.FC = () => {
           </IconButton>
         </Tooltip>
       </Box>
-
       {/* Body */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: list */}
@@ -197,8 +208,10 @@ const PrefabCatalogPage: React.FC = () => {
                 <ListItemText
                   primary={p.name}
                   secondary={`${p.width}×${p.height}`}
-                  primaryTypographyProps={{ noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
+                  slotProps={{
+                    primary: { noWrap: true },
+                    secondary: { variant: 'caption' }
+                  }}
                 />
               </ListItemButton>
             ))}
@@ -209,13 +222,24 @@ const PrefabCatalogPage: React.FC = () => {
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           {!loadedPrefab ? (
             <Box sx={{ p: 3 }}>
-              <Typography color="text.disabled">Select a prefab to view details.</Typography>
+              <Typography
+                sx={{
+                  color: 'text.disabled'
+                }}
+              >
+                Select a prefab to view details.
+              </Typography>
             </Box>
           ) : (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box>
                 <Typography variant="h6">{loadedPrefab.name}</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   {loadedPrefab.width}×{loadedPrefab.height} tiles · {selectedSummary?.filename}
                 </Typography>
               </Box>
@@ -226,11 +250,23 @@ const PrefabCatalogPage: React.FC = () => {
               />
 
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    display: 'block'
+                  }}
+                >
                   Created:{' '}
                   {loadedPrefab.createdAt ? new Date(loadedPrefab.createdAt).toLocaleString() : '—'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    display: 'block'
+                  }}
+                >
                   Updated:{' '}
                   {loadedPrefab.updatedAt ? new Date(loadedPrefab.updatedAt).toLocaleString() : '—'}
                 </Typography>
@@ -260,7 +296,6 @@ const PrefabCatalogPage: React.FC = () => {
           )}
         </Box>
       </Box>
-
       {/* Rename dialog */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Rename Prefab</DialogTitle>

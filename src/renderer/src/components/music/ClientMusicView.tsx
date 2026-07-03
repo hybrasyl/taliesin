@@ -80,7 +80,11 @@ const ClientMusicView: React.FC<Props> = ({
   if (!clientPath) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography color="text.secondary">
+        <Typography
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           No Dark Ages client path configured. Set it in Settings.
         </Typography>
       </Box>
@@ -90,7 +94,12 @@ const ClientMusicView: React.FC<Props> = ({
   if (!scanned) {
     return (
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Client music folder: <code>{clientPath}/music</code>
         </Typography>
         <Button
@@ -118,14 +127,19 @@ const ClientMusicView: React.FC<Props> = ({
           borderColor: 'divider'
         }}
       >
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            flex: 1
+          }}
+        >
           {entries.length} tracks in <code>{clientPath}/music</code>
         </Typography>
         <Button size="small" startIcon={<SyncIcon />} onClick={handleScan} disabled={scanning}>
           Refresh
         </Button>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         <Table size="small" stickyHeader>
           <TableHead>
@@ -158,13 +172,23 @@ const ClientMusicView: React.FC<Props> = ({
                     <Typography variant="body2">{e.filename}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary'
+                      }}
+                    >
                       {formatBytes(e.sizeBytes)}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     {maps.length === 0 ? (
-                      <Typography variant="caption" color="text.disabled">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.disabled'
+                        }}
+                      >
                         —
                       </Typography>
                     ) : (

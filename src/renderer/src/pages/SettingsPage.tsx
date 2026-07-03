@@ -100,7 +100,12 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={14} />
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Building...
         </Typography>
       </Box>
@@ -162,14 +167,19 @@ function GeneralTab() {
           ))}
         </Select>
       </FormControl>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* DA Client Path */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Dark Ages Client
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Path to your Dark Ages install directory. Used to open .dat archives and load tile assets.
       </Typography>
       <Box sx={{ mb: 4 }}>
@@ -183,14 +193,19 @@ function GeneralTab() {
           }}
         />
       </Box>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* Brigid asset packs */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Installed Asset Packs
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Folder Brigid loads .datf packs from. Taliesin scans it to preview installed{' '}
         <em>static tiles</em> and <em>world map</em> overrides in the map editors.
       </Typography>
@@ -217,14 +232,19 @@ function GeneralTab() {
       >
         Use default location
       </Link>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* Companion App Path */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Companion App
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Path to the Creidhne executable. Enables the "Launch Creidhne" button on the Dashboard.
       </Typography>
       <Box sx={{ mb: 2 }}>
@@ -332,7 +352,6 @@ function LibrariesTab() {
           </IconButton>
         </Tooltip>
       </Box>
-
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
           Add Library
@@ -363,19 +382,22 @@ function LibrariesTab() {
           </span>
         </Tooltip>
       </Box>
-
       {resolveError && (
         <Alert severity="warning" onClose={() => setResolveError(null)} sx={{ mb: 1.5 }}>
           {resolveError}
         </Alert>
       )}
-
       <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
         {libraries.length === 0 && (
           <ListItem>
             <ListItemText
               primary={
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   No libraries added yet.
                 </Typography>
               }
@@ -410,14 +432,19 @@ function LibrariesTab() {
           </ListItemButton>
         ))}
       </List>
-
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Remove Library</DialogTitle>
         <DialogContent>
           <Typography>
             Remove <strong>{selected}</strong>?
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: 1
+            }}
+          >
             Its index file will also be deleted.
           </Typography>
         </DialogContent>
@@ -488,7 +515,6 @@ function MapDirectoriesTab() {
           </IconButton>
         </Tooltip>
       </Box>
-
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
           Add Directory
@@ -519,13 +545,17 @@ function MapDirectoriesTab() {
           </span>
         </Tooltip>
       </Box>
-
       <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
         {mapDirectories.length === 0 && (
           <ListItem>
             <ListItemText
               primary={
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   No directories added yet.
                 </Typography>
               }
@@ -542,8 +572,10 @@ function MapDirectoriesTab() {
               <ListItemText
                 primary={entry.name}
                 secondary={entry.path}
-                primaryTypographyProps={{ variant: 'body2', color: 'text.button', fontWeight: 500 }}
-                secondaryTypographyProps={{ variant: 'caption', sx: { wordBreak: 'break-all' } }}
+                slotProps={{
+                  primary: { variant: 'body2', color: 'text.button', sx: { fontWeight: 500 } },
+                  secondary: { variant: 'caption', sx: { wordBreak: 'break-all' } }
+                }}
               />
               {entry.path === activeMapDirectory && (
                 <Chip
@@ -558,7 +590,6 @@ function MapDirectoriesTab() {
           </ListItemButton>
         ))}
       </List>
-
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add Map Directory</DialogTitle>
         <DialogContent
@@ -588,7 +619,6 @@ function MapDirectoriesTab() {
           </Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Remove Directory</DialogTitle>
         <DialogContent>
@@ -596,7 +626,14 @@ function MapDirectoriesTab() {
             Remove <strong>{selectedEntry?.name ?? selected}</strong>?
           </Typography>
           {selectedEntry && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                mt: 0.5
+              }}
+            >
               {selectedEntry.path}
             </Typography>
           )}
@@ -653,7 +690,14 @@ function MusicTab() {
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Music Library
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Master source directory containing your audio files (.mp3, .ogg, .mus).
       </Typography>
       <Box sx={{ mb: 3 }}>
@@ -667,14 +711,19 @@ function MusicTab() {
           }}
         />
       </Box>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* ffmpeg path */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         ffmpeg Path
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Path to the ffmpeg binary. Leave blank to use system ffmpeg (must be on PATH). Required for
         converting .wav and .ogg files during pack deploy.
       </Typography>
@@ -689,14 +738,19 @@ function MusicTab() {
           }}
         />
       </Box>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* Encode settings */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         .mus Encode Settings
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Used when converting .wav/.ogg files during pack deploy. Defaults match original DA client
         files (22050 Hz, 64 kbps).
       </Typography>
@@ -725,17 +779,21 @@ function MusicTab() {
           </Select>
         </FormControl>
       </Box>
-
       <Divider sx={{ mb: 3 }} />
-
       {/* Working directories */}
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Working Directories
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Output directories where packs are deployed as numbered <code>.mus</code> files.
       </Typography>
-
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddWorkingDir}>
           Add Directory
@@ -766,13 +824,17 @@ function MusicTab() {
           </span>
         </Tooltip>
       </Box>
-
       <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0 }}>
         {musicWorkingDirs.length === 0 && (
           <ListItem>
             <ListItemText
               primary={
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   No working directories added yet.
                 </Typography>
               }
@@ -784,10 +846,12 @@ function MusicTab() {
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
               <ListItemText
                 primary={dir}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  color: 'text.button',
-                  sx: { wordBreak: 'break-all' }
+                slotProps={{
+                  primary: {
+                    variant: 'body2',
+                    color: 'text.button',
+                    sx: { wordBreak: 'break-all' }
+                  }
                 }}
               />
               {dir === activeMusicWorkingDir && (
@@ -803,14 +867,19 @@ function MusicTab() {
           </ListItemButton>
         ))}
       </List>
-
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Remove Working Directory</DialogTitle>
         <DialogContent>
           <Typography>
             Remove <strong>{selected}</strong>?
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: 1
+            }}
+          >
             The directory and its files are not deleted — only removed from Taliesin.
           </Typography>
         </DialogContent>
@@ -836,7 +905,14 @@ function AssetPacksTab() {
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
         Asset Pack Working Directory
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          mt: 0.5
+        }}
+      >
         Directory where .datf asset pack projects are stored. Each pack is a JSON project file with
         associated PNG assets.
       </Typography>

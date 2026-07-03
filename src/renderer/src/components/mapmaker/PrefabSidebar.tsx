@@ -120,7 +120,12 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
   if (!libraryPath) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.disabled'
+          }}
+        >
           Set a library in Settings to use prefabs.
         </Typography>
       </Box>
@@ -140,7 +145,6 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
           </IconButton>
         </Tooltip>
       </Box>
-
       {/* Search */}
       <Box sx={{ px: 1, py: 0.5 }}>
         <TextField
@@ -151,11 +155,15 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
           fullWidth
         />
       </Box>
-
-      <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          px: 1
+        }}
+      >
         {filtered.length} prefab{filtered.length !== 1 ? 's' : ''}
       </Typography>
-
       {/* List */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         <List dense disablePadding>
@@ -168,14 +176,15 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
               <ListItemText
                 primary={p.name}
                 secondary={`${p.width}×${p.height}`}
-                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2', noWrap: true },
+                  secondary: { variant: 'caption' }
+                }}
               />
             </ListItemButton>
           ))}
         </List>
       </Box>
-
       {/* Preview + actions */}
       {loadedPrefab && (
         <>
@@ -187,7 +196,12 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
               ref={previewCanvasRef}
               style={{ imageRendering: 'pixelated', maxWidth: '100%' }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {loadedPrefab.width}×{loadedPrefab.height} · {loadedPrefab.name}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>

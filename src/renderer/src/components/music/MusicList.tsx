@@ -107,11 +107,16 @@ const MusicList: React.FC<Props> = ({
           </span>
         </Tooltip>
       </Box>
-
-      <Typography variant="caption" color="text.secondary" sx={{ px: 1.5, pb: 0.5 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          px: 1.5,
+          pb: 0.5
+        }}
+      >
         {filtered.length} track{filtered.length !== 1 ? 's' : ''}
       </Typography>
-
       {/* Virtualized list */}
       <Box ref={parentRef} sx={{ flex: 1, overflow: 'auto' }}>
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -167,7 +172,13 @@ const MusicList: React.FC<Props> = ({
                         : entry.filename
                       : (folder ?? null)
                     return secondary ? (
-                      <Typography variant="caption" noWrap color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        noWrap
+                        sx={{
+                          color: 'text.secondary'
+                        }}
+                      >
                         {secondary}
                       </Typography>
                     ) : null
@@ -181,7 +192,12 @@ const MusicList: React.FC<Props> = ({
                     alignItems: 'flex-end'
                   }}
                 >
-                  <Typography variant="caption" color="text.disabled">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.disabled'
+                    }}
+                  >
                     {formatBytes(entry.sizeBytes)}
                   </Typography>
                   {(() => {
@@ -189,8 +205,10 @@ const MusicList: React.FC<Props> = ({
                     return d ? (
                       <Typography
                         variant="caption"
-                        color="text.disabled"
-                        sx={{ fontVariantNumeric: 'tabular-nums' }}
+                        sx={{
+                          color: 'text.disabled',
+                          fontVariantNumeric: 'tabular-nums'
+                        }}
                       >
                         {d}
                       </Typography>
@@ -202,7 +220,6 @@ const MusicList: React.FC<Props> = ({
           })}
         </Box>
       </Box>
-
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </Box>
   )

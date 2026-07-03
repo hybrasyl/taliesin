@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Box, Typography, TextField, Button, Chip, Divider, Tooltip } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import FileUploadIcon from '@mui/icons-material/FileUpload'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { CatalogEntry, CatalogMeta } from '../../hooks/useCatalog'
 import { useWorldIndex } from '../../hooks/useWorldIndex'
@@ -90,7 +90,12 @@ const MapCatalogEditor: React.FC<Props> = ({
             lod{entry.mapNumber}
           </Typography>
           {entry.variant && <Chip label={entry.variant} size="small" variant="outlined" />}
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {entry.sizeBytes.toLocaleString()} bytes
           </Typography>
         </Box>
@@ -120,7 +125,7 @@ const MapCatalogEditor: React.FC<Props> = ({
             fullWidth
             value={draft.name ?? ''}
             onChange={(e) => onUpdateDraft({ name: e.target.value })}
-            inputProps={{ spellCheck: false }}
+            slotProps={{ htmlInput: { spellCheck: false } }}
           />
         </Box>
 
@@ -201,9 +206,7 @@ const MapCatalogEditor: React.FC<Props> = ({
           )}
         </Box>
       </Box>
-
       <Divider />
-
       {/* ── Map canvas ──────────────────────────────────────────────────── */}
       <MapCanvas
         fileBuffer={fileBuffer}
@@ -211,7 +214,6 @@ const MapCatalogEditor: React.FC<Props> = ({
         height={draft.height ?? null}
         clientPath={clientPath}
       />
-
       {/* ── Dimension picker ─────────────────────────────────────────────── */}
       {pickerOpen && fileBuffer && (
         <DimensionPickerDialog

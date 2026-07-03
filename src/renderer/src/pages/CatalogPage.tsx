@@ -41,10 +41,20 @@ const CatalogPage: React.FC = () => {
   if (!activeMapDir) {
     return (
       <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        <Typography variant="h6" color="text.secondary">
+        <Typography
+          variant="h6"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           No active map directory
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Add and activate a map directory in Settings to use the catalog.
         </Typography>
         <Button
@@ -101,7 +111,12 @@ const CatalogPage: React.FC = () => {
               </span>
             </Tooltip>
             {entries.length === 0 && !scanning && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
                 No maps loaded
               </Typography>
             )}
@@ -119,7 +134,13 @@ const CatalogPage: React.FC = () => {
               />
             </Tooltip>
           ) : (
-            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.7rem' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                fontSize: '0.7rem'
+              }}
+            >
               No library selected
             </Typography>
           )}
@@ -127,7 +148,6 @@ const CatalogPage: React.FC = () => {
 
         <MapCatalogList entries={entries} selectedFilename={selectedFilename} onSelect={select} />
       </Box>
-
       {/* Right: editor panel */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {selectedEntry ? (
@@ -155,7 +175,12 @@ const CatalogPage: React.FC = () => {
           </>
         ) : (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {entries.length === 0
                 ? 'Scan a directory to load maps.'
                 : 'Select a map from the list.'}

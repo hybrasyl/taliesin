@@ -231,7 +231,13 @@ const DimensionPickerDialog: React.FC<Props> = ({
     <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         Determine Map Dimensions
-        <Typography variant="body2" color="text.secondary" component="div">
+        <Typography
+          variant="body2"
+          component="div"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           {filename} — {totalTiles.toLocaleString()} tiles — {pairsInView} valid size
           {pairsInView !== 1 ? 's' : ''}
           {!showAll && hasUnreasonable && (
@@ -252,7 +258,6 @@ const DimensionPickerDialog: React.FC<Props> = ({
           )}
         </Typography>
       </DialogTitle>
-
       <DialogContent
         sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}
       >
@@ -297,7 +302,12 @@ const DimensionPickerDialog: React.FC<Props> = ({
           </Tooltip>
 
           {selected && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {selected.width} × {selected.height}
               {!selected.reasonable && ' (unusual)'}
             </Typography>
@@ -306,7 +316,12 @@ const DimensionPickerDialog: React.FC<Props> = ({
           {rendering && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
               <CircularProgress size={14} />
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary'
+                }}
+              >
                 {renderStatus}
               </Typography>
             </Box>
@@ -351,7 +366,12 @@ const DimensionPickerDialog: React.FC<Props> = ({
                 <Box
                   sx={{ width: 12, height: 12, bgcolor: color, borderRadius: 0.5, flexShrink: 0 }}
                 />
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary'
+                  }}
+                >
                   {label}
                 </Typography>
               </Box>
@@ -359,7 +379,6 @@ const DimensionPickerDialog: React.FC<Props> = ({
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button

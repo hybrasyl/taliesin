@@ -89,7 +89,7 @@ const EditorHeader: React.FC<Props> = ({
           label="Filename"
           value={fileName}
           onChange={(e) => onFileNameChange(e.target.value)}
-          inputProps={{ spellCheck: false }}
+          slotProps={{ htmlInput: { spellCheck: false }, formHelperText: { sx: { mx: 0 } } }}
           sx={{
             flex: 1,
             ...(fileNameWarn && {
@@ -99,7 +99,6 @@ const EditorHeader: React.FC<Props> = ({
             })
           }}
           helperText={helperText}
-          FormHelperTextProps={{ sx: { mx: 0 } }}
         />
         <Tooltip title={recycleTooltip}>
           <span>

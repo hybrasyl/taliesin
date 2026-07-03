@@ -140,7 +140,14 @@ function StatusCard({
 }: StatusCardProps) {
   const body = (
     <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 0.75
+        }}
+      >
         <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
         <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
           {label}

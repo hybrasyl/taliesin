@@ -133,7 +133,7 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
             size="small"
             value={width}
             onChange={(e) => setWidth(clampDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
             sx={{ width: 100 }}
           />
           <TextField
@@ -142,7 +142,7 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
             size="small"
             value={height}
             onChange={(e) => setHeight(clampDim(e.target.value))}
-            inputProps={{ min: 1, max: 512 }}
+            slotProps={{ htmlInput: { min: 1, max: 512 } }}
             sx={{ width: 100 }}
           />
           <TextField
@@ -224,7 +224,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
           Noise Parameters
         </Typography>
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Scale (feature size) — {terrainScale.toFixed(3)}
         </Typography>
         <Slider
@@ -237,7 +242,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
           sx={{ mb: 1 }}
         />
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Octaves (detail) — {terrainOctaves}
         </Typography>
         <Slider
@@ -250,7 +260,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
           sx={{ mb: 1 }}
         />
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Persistence — {terrainPersistence.toFixed(2)}
         </Typography>
         <Slider
@@ -263,7 +278,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
           sx={{ mb: 1 }}
         />
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           Secondary threshold — {terrainSecondaryThreshold.toFixed(2)}
         </Typography>
         <Slider
@@ -278,7 +298,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
 
         {wallFamilyIdx >= 0 && (
           <>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Wall density — {(terrainWallDensity * 100).toFixed(0)}%
             </Typography>
             <Slider
@@ -291,7 +316,12 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
               sx={{ mb: 1 }}
             />
 
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               Wall threshold — {terrainWallThreshold.toFixed(2)}
             </Typography>
             <Slider
@@ -305,7 +335,6 @@ const GenerateMapDialog: React.FC<Props> = ({ open, onClose, onGenerate }) => {
           </>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleGenerate} startIcon={<AutoAwesomeIcon />}>

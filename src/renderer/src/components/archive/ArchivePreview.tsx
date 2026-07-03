@@ -152,13 +152,11 @@ const SpritePreview: React.FC<{
           </Select>
         </FormControl>
       )}
-
       {error && (
         <Typography variant="caption" color="error">
           {error}
         </Typography>
       )}
-
       {/* Canvas */}
       <Box
         sx={{
@@ -183,17 +181,21 @@ const SpritePreview: React.FC<{
           }}
         />
       </Box>
-
       {/* Frame info */}
       {currentFrame && (
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center'
+          }}
+        >
           {currentFrame.width} × {currentFrame.height} px
           {rendered?.blendingType != null && ` · blend: ${rendered.blendingType}`}
           {rendered?.animation &&
             ` · walk: ${rendered.animation.walkFrameCount} · atk: ${rendered.animation.attackFrameCount}`}
         </Typography>
       )}
-
       {/* Frame navigation */}
       {totalFrames > 1 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
@@ -284,7 +286,12 @@ const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
           style={{ imageRendering: 'pixelated', border: '1px solid', borderRadius: 4 }}
         />
       )}
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary'
+        }}
+      >
         256 colors (16×16)
       </Typography>
     </Box>
@@ -353,7 +360,14 @@ const ColorTableSwatches: React.FC<{ table: ColorTable }> = ({ table }) => {
         overflow: 'auto'
       }}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          display: 'block',
+          mb: 0.5
+        }}
+      >
         ColorTable · {table.entries.length} {table.entries.length === 1 ? 'entry' : 'entries'}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
@@ -413,7 +427,12 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 4 }}>
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary'
+        }}
+      >
         {entry.entryName}
       </Typography>
       <IconButton
@@ -428,7 +447,12 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
       >
         {playing ? <StopIcon sx={{ fontSize: 48 }} /> : <PlayArrowIcon sx={{ fontSize: 48 }} />}
       </IconButton>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary'
+        }}
+      >
         {playing ? 'Playing…' : 'Click to play'}
       </Typography>
       {error && (
@@ -631,7 +655,13 @@ const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
         />
       </Box>
       {info && (
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center'
+          }}
+        >
           {info.w} × {info.h} px · 8bpp
         </Typography>
       )}
@@ -699,7 +729,13 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
         />
       </Box>
       {info && (
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center'
+          }}
+        >
           {info.w} × {info.h} px · {info.layers} layer{info.layers === 1 ? '' : 's'} · darker = less
           light
         </Typography>
@@ -808,7 +844,13 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
         <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
       </Box>
       {info && (
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center'
+          }}
+        >
           {info.glyphs} glyphs · {info.w} × {info.h} px each
         </Typography>
       )}
@@ -979,41 +1021,58 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
       >
         {rows.map(([k, v]) => (
           <React.Fragment key={k}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary'
+              }}
+            >
               {k}
             </Typography>
             <Typography variant="caption">{v}</Typography>
           </React.Fragment>
         ))}
       </Box>
-
       {status === 'idle' && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
           <Button size="small" variant="outlined" startIcon={<MovieIcon />} onClick={handleConvert}>
             Convert &amp; Play
           </Button>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Browsers can't play Bink directly. The first play converts to MP4 via ffmpeg and caches
             the result.
           </Typography>
         </Box>
       )}
-
       {status === 'converting' && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <CircularProgress size={16} />
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Converting via ffmpeg…
           </Typography>
         </Box>
       )}
-
       {status === 'error' && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Typography variant="caption" color="error">
             {errorMsg}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             Check that ffmpeg is installed and the path is set in Settings.
           </Typography>
           <Button size="small" variant="outlined" onClick={handleConvert}>
@@ -1021,7 +1080,6 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
           </Button>
         </Box>
       )}
-
       <Box
         sx={{
           flex: 1,
@@ -1174,7 +1232,12 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) =
           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
             {entry.entryName}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary'
+            }}
+          >
             {formatBytes(entry.fileSize)} · {type}
           </Typography>
         </Box>
@@ -1195,7 +1258,6 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) =
           </Tooltip>
         )}
       </Box>
-
       {/* Format-specific preview */}
       {type === 'sprite' && (
         <SpritePreview entry={entry} archive={archive} auxArchives={auxArchives} />

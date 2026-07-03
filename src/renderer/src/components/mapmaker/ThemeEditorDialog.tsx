@@ -111,7 +111,12 @@ const TileThumb: React.FC<{
           justifyContent: 'center'
         }}
       >
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary'
+          }}
+        >
           None
         </Typography>
       </Box>
@@ -342,7 +347,14 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         {scanning && <LinearProgress sx={{ mb: 1 }} />}
 
         {scanResult && (
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              mb: 2,
+              display: 'block'
+            }}
+          >
             Scanned {scanResult.fileCount.toLocaleString()} files,{' '}
             {scanResult.tileCount.toLocaleString()} tiles — {scanResult.background.length} unique
             BG, {scanResult.leftForeground.length} unique LFG, {scanResult.rightForeground.length}{' '}
@@ -365,7 +377,14 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         />
 
         {/* Background roles */}
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            mb: 0.5,
+            display: 'block'
+          }}
+        >
           Background Tiles
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
@@ -387,7 +406,14 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
         </Box>
 
         {/* Foreground roles */}
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            mb: 0.5,
+            display: 'block'
+          }}
+        >
           Foreground Tiles
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
@@ -469,7 +495,13 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
                     </Tooltip>
                   ))}
                 {getPickerTiles().length === 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ p: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      p: 1
+                    }}
+                  >
                     No tiles found. Try scanning more directories.
                   </Typography>
                 )}
@@ -478,7 +510,6 @@ const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button
