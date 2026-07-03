@@ -166,8 +166,10 @@ useSettingsStore.subscribe((state) => {
       musEncodeKbps,
       musEncodeSampleRate
     } = state
-    void window.api
-      .saveSettings({
+    // Promise.resolve wraps the IPC result so a non-thenable return (e.g. a
+    // test stub) can't break the .catch chain.
+    Promise.resolve(
+      window.api.saveSettings({
         theme,
         clientPath,
         brigidAssetsPath,
@@ -184,7 +186,7 @@ useSettingsStore.subscribe((state) => {
         musEncodeKbps,
         musEncodeSampleRate
       })
-      .catch((err) => console.error('[settings] save IPC failed:', err))
+    ).catch((err) => console.error('[settings] save IPC failed:', err))
   }, 200)
 })
 
