@@ -33,26 +33,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LaunchIcon from '@mui/icons-material/Launch'
-import { useRecoilState } from 'recoil'
-import {
-  themeState,
-  clientPathState,
-  brigidAssetsPathState,
-  librariesState,
-  activeLibraryState,
-  mapDirectoriesState,
-  activeMapDirectoryState,
-  musicLibraryPathState,
-  musicWorkingDirsState,
-  activeMusicWorkingDirState,
-  ffmpegPathState,
-  musEncodeKbpsState,
-  musEncodeSampleRateState,
-  packDirState,
-  companionPathState,
-  ThemeName,
-  type MapDirectory
-} from '../recoil/atoms'
+import { useSettingsStore, ThemeName, type MapDirectory } from '../store/settingsStore'
 
 const THEMES: { value: ThemeName; label: string }[] = [
   { value: 'hybrasyl', label: 'Hybrasyl' },
@@ -157,10 +138,14 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
 // ── Tab: General ─────────────────────────────────────────────────────────────
 
 function GeneralTab() {
-  const [theme, setTheme] = useRecoilState(themeState)
-  const [clientPath, setClientPath] = useRecoilState(clientPathState)
-  const [brigidAssetsPath, setBrigidAssetsPath] = useRecoilState(brigidAssetsPathState)
-  const [companionPath, setCompanionPath] = useRecoilState(companionPathState)
+  const theme = useSettingsStore((s) => s.theme)
+  const setTheme = useSettingsStore((s) => s.setTheme)
+  const clientPath = useSettingsStore((s) => s.clientPath)
+  const setClientPath = useSettingsStore((s) => s.setClientPath)
+  const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
+  const setBrigidAssetsPath = useSettingsStore((s) => s.setBrigidAssetsPath)
+  const companionPath = useSettingsStore((s) => s.companionPath)
+  const setCompanionPath = useSettingsStore((s) => s.setCompanionPath)
   return (
     <Box>
       {/* Theme */}
@@ -271,8 +256,10 @@ function GeneralTab() {
 // ── Tab: Libraries ───────────────────────────────────────────────────────────
 
 function LibrariesTab() {
-  const [libraries, setLibraries] = useRecoilState(librariesState)
-  const [activeLibrary, setActiveLibrary] = useRecoilState(activeLibraryState)
+  const libraries = useSettingsStore((s) => s.libraries)
+  const setLibraries = useSettingsStore((s) => s.setLibraries)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const setActiveLibrary = useSettingsStore((s) => s.setActiveLibrary)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [indexStatuses, setIndexStatuses] = useState<
@@ -448,8 +435,10 @@ function LibrariesTab() {
 // ── Tab: Map Directories ─────────────────────────────────────────────────────
 
 function MapDirectoriesTab() {
-  const [mapDirectories, setMapDirectories] = useRecoilState(mapDirectoriesState)
-  const [activeMapDirectory, setActiveMapDirectory] = useRecoilState(activeMapDirectoryState)
+  const mapDirectories = useSettingsStore((s) => s.mapDirectories)
+  const setMapDirectories = useSettingsStore((s) => s.setMapDirectories)
+  const activeMapDirectory = useSettingsStore((s) => s.activeMapDirectory)
+  const setActiveMapDirectory = useSettingsStore((s) => s.setActiveMapDirectory)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
@@ -626,14 +615,18 @@ function MapDirectoriesTab() {
 // ── Tab: Music ───────────────────────────────────────────────────────────────
 
 function MusicTab() {
-  const [musicLibraryPath, setMusicLibraryPath] = useRecoilState(musicLibraryPathState)
-  const [musicWorkingDirs, setMusicWorkingDirs] = useRecoilState(musicWorkingDirsState)
-  const [activeMusicWorkingDir, setActiveMusicWorkingDir] = useRecoilState(
-    activeMusicWorkingDirState
-  )
-  const [ffmpegPath, setFfmpegPath] = useRecoilState(ffmpegPathState)
-  const [musEncodeKbps, setMusEncodeKbps] = useRecoilState(musEncodeKbpsState)
-  const [musEncodeSampleRate, setMusEncodeSampleRate] = useRecoilState(musEncodeSampleRateState)
+  const musicLibraryPath = useSettingsStore((s) => s.musicLibraryPath)
+  const setMusicLibraryPath = useSettingsStore((s) => s.setMusicLibraryPath)
+  const musicWorkingDirs = useSettingsStore((s) => s.musicWorkingDirs)
+  const setMusicWorkingDirs = useSettingsStore((s) => s.setMusicWorkingDirs)
+  const activeMusicWorkingDir = useSettingsStore((s) => s.activeMusicWorkingDir)
+  const setActiveMusicWorkingDir = useSettingsStore((s) => s.setActiveMusicWorkingDir)
+  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
+  const setFfmpegPath = useSettingsStore((s) => s.setFfmpegPath)
+  const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
+  const setMusEncodeKbps = useSettingsStore((s) => s.setMusEncodeKbps)
+  const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
+  const setMusEncodeSampleRate = useSettingsStore((s) => s.setMusEncodeSampleRate)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -835,7 +828,8 @@ function MusicTab() {
 // ── Tab: Asset Packs ─────────────────────────────────────────────────────────
 
 function AssetPacksTab() {
-  const [packDir, setPackDir] = useRecoilState(packDirState)
+  const packDir = useSettingsStore((s) => s.packDir)
+  const setPackDir = useSettingsStore((s) => s.setPackDir)
 
   return (
     <Box>

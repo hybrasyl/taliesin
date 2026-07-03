@@ -19,8 +19,7 @@ import {
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import { useRecoilValue } from 'recoil'
-import { mapDirectoriesState, clientPathState } from '../../recoil/atoms'
+import { useSettingsStore } from '../../store/settingsStore'
 import {
   loadMapAssets,
   getGroundBitmap,
@@ -155,8 +154,8 @@ const TileThumb: React.FC<{
 // ── Main Component ───────────────────────────────────────────────────────────
 
 const ThemeEditorDialog: React.FC<Props> = ({ open, onClose, onSave, editTheme }) => {
-  const mapDirs = useRecoilValue(mapDirectoriesState)
-  const clientPath = useRecoilValue(clientPathState)
+  const mapDirs = useSettingsStore((s) => s.mapDirectories)
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   // Scan state
   const [scanDirs, setScanDirs] = useState<string[]>([])

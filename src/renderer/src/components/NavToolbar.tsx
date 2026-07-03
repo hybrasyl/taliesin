@@ -17,8 +17,8 @@ import {
   GiAnvil
 } from 'react-icons/gi'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import { useRecoilState, useRecoilValue } from 'recoil'
-import { currentPageState, activeLibraryState, companionPathState, Page } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
+import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
 import AboutDialog from './AboutDialog'
 
@@ -48,10 +48,11 @@ const activeBtnSx = {
 } as const
 
 const NavToolbar: React.FC = () => {
-  const [currentPage, setCurrentPage] = useRecoilState(currentPageState)
-  const activeLibrary = useRecoilValue(activeLibraryState)
+  const currentPage = useUiStore((s) => s.currentPage)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
-  const companionPath = useRecoilValue(companionPathState)
+  const companionPath = useSettingsStore((s) => s.companionPath)
   const [aboutOpen, setAboutOpen] = React.useState(false)
 
   const nav = (page: Page) => () => setCurrentPage(page)

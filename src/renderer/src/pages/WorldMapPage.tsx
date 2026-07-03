@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { useRecoilValue } from 'recoil'
 import {
   Alert,
   Box,
@@ -26,7 +25,7 @@ import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import SearchIcon from '@mui/icons-material/Search'
 import StarIcon from '@mui/icons-material/Star'
-import { activeLibraryState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -247,7 +246,7 @@ function FileListPanel({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function WorldMapPage() {
-  const activeLibrary = useRecoilValue(activeLibraryState)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
 
   const [referenceFile, setReferenceFile] = useState<FileEntry | null>(null)
   const [files, setFiles] = useState<FileEntry[]>([])

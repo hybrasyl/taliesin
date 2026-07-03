@@ -46,9 +46,8 @@ vi.mock('@tanstack/react-virtual', () => ({
   })
 }))
 
-import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import MusicPage from '../../pages/MusicPage'
-import { musicLibraryPathState } from '../../recoil/atoms'
+import { seedSettings, resetStores } from '../setup/storeWrapper'
 import { installBridgedApi } from '../setup/handlerBridge'
 
 const HANDLERS_PATH = '../../../../main/handlers'
@@ -62,6 +61,7 @@ beforeEach(async () => {
   const fs = await memfs
   fs.reset()
   vi.clearAllMocks()
+  resetStores()
   // execFile mock simulates a successful ffmpeg run via callback.
   execFile.mockImplementation((_cmd: string, _args: string[], cb?: (e: Error | null) => void) => {
     cb?.(null)
@@ -76,13 +76,8 @@ async function mount(opts: { openDirectory?: () => Promise<string | null> } = {}
     settingsManager: { load: async () => ({}), save: async () => undefined },
     dialog: { openDirectory: opts.openDirectory }
   })
-  return render(
-    <RecoilRoot
-      initializeState={(snap: MutableSnapshot) => snap.set(musicLibraryPathState, LIB_DIR)}
-    >
-      <MusicPage />
-    </RecoilRoot>
-  )
+  seedSettings({ musicLibraryPath: LIB_DIR })
+  return render(<MusicPage />)
 }
 
 describe('MusicPackPage — round-trip integration via MusicPage Packs tab', () => {

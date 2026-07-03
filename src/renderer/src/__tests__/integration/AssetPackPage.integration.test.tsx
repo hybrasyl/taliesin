@@ -41,9 +41,8 @@ vi.mock('../../utils/imageLoader', () => ({
   }))
 }))
 
-import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import AssetPackPage from '../../pages/AssetPackPage'
-import { packDirState } from '../../recoil/atoms'
+import { makeStoreWrapper } from '../setup/storeWrapper'
 import { installBridgedApi } from '../setup/handlerBridge'
 
 // Variable-path import keeps TypeScript from graph-resolving src/main/ into
@@ -68,12 +67,7 @@ beforeEach(async () => {
 })
 
 function withPackDir(): React.FC<{ children: React.ReactNode }> {
-  const PackDirProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <RecoilRoot initializeState={(snap: MutableSnapshot) => snap.set(packDirState, PACK_DIR)}>
-      {children}
-    </RecoilRoot>
-  )
-  return PackDirProvider
+  return makeStoreWrapper({ settings: { packDir: PACK_DIR } })
 }
 
 describe('AssetPackPage — round-trip integration', () => {

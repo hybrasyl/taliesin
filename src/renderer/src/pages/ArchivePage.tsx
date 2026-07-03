@@ -16,13 +16,12 @@ import {
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import { DataArchive, type DataArchiveEntry } from '@eriscorp/dalib-ts'
-import { useRecoilValue } from 'recoil'
-import { clientPathState } from '../recoil/atoms'
+import { useSettingsStore } from '../store/settingsStore'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
 
 const ArchivePage: React.FC = () => {
-  const clientPath = useRecoilValue(clientPathState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
 
   const [archivePath, setArchivePath] = useState<string | null>(null)
   const [archive, setArchive] = useState<DataArchive | null>(null)

@@ -1,6 +1,5 @@
 import React from 'react'
-import { useRecoilValue } from 'recoil'
-import { currentPageState } from '../recoil/atoms'
+import { useUiStore } from '../store/uiStore'
 import DashboardPage from '../pages/DashboardPage'
 import CatalogPage from '../pages/CatalogPage'
 import MapEditorPage from '../pages/MapEditorPage'
@@ -16,7 +15,7 @@ import SfxPage from '../pages/SfxPage'
 import SettingsPage from '../pages/SettingsPage'
 
 const PageRenderer: React.FC = () => {
-  const currentPage = useRecoilValue(currentPageState)
+  const currentPage = useUiStore((s) => s.currentPage)
 
   switch (currentPage) {
     case 'dashboard':

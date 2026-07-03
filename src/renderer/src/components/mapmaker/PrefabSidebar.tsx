@@ -13,8 +13,7 @@ import {
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { useRecoilValue } from 'recoil'
-import { clientPathState } from '../../recoil/atoms'
+import { useSettingsStore } from '../../store/settingsStore'
 import type { PrefabSummary, Prefab } from '../../utils/prefabTypes'
 import { loadMapAssets, type MapAssets } from '../../utils/mapRenderer'
 import { renderPrefabPreviewIso, renderPrefabPreviewFlat } from '../../utils/prefabPreview'
@@ -26,7 +25,7 @@ interface Props {
 }
 
 const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }) => {
-  const clientPath = useRecoilValue(clientPathState)
+  const clientPath = useSettingsStore((s) => s.clientPath)
   const [prefabs, setPrefabs] = useState<PrefabSummary[]>([])
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState<string | null>(null)

@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { useRecoilState } from 'recoil'
-import { dirtyEditorState } from '../recoil/atoms'
+import { useUiStore } from '../store/uiStore'
 
 interface UseUnsavedGuardReturn {
   markDirty: () => void
@@ -26,7 +25,7 @@ interface UseUnsavedGuardReturn {
  *   markClean() // call after save / archive / unarchive
  */
 export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
-  const [, setDirtyEditor] = useRecoilState(dirtyEditorState)
+  const setDirtyEditor = useUiStore((s) => s.setDirtyEditor)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const pendingActionRef = useRef<(() => void) | null>(null)

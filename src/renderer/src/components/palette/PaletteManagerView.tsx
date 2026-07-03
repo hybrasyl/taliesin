@@ -19,8 +19,7 @@ import UndoIcon from '@mui/icons-material/Undo'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ImageIcon from '@mui/icons-material/Image'
 import ClearIcon from '@mui/icons-material/Clear'
-import { useRecoilState } from 'recoil'
-import { activePaletteIdState } from '../../recoil/atoms'
+import { useUiStore } from '../../store/uiStore'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import { Palette, PaletteEntry, VariantDef } from '../../utils/paletteTypes'
@@ -60,7 +59,8 @@ function blankEntry(index: number): PaletteEntry {
 
 const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
   const [summaries, setSummaries] = useState<PaletteSummary[]>([])
-  const [activeId, setActiveId] = useRecoilState(activePaletteIdState)
+  const activeId = useUiStore((s) => s.activePaletteId)
+  const setActiveId = useUiStore((s) => s.setActivePaletteId)
   const [draft, setDraft] = useState<Palette | null>(null)
   const [original, setOriginal] = useState<Palette | null>(null)
   const [createOpen, setCreateOpen] = useState(false)

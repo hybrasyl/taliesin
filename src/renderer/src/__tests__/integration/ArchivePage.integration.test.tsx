@@ -102,9 +102,8 @@ const renderer = vi.hoisted(() => ({
 }))
 vi.mock('../../utils/archiveRenderer', () => renderer)
 
-import { RecoilRoot, type MutableSnapshot } from 'recoil'
 import ArchivePage from '../../pages/ArchivePage'
-import { clientPathState } from '../../recoil/atoms'
+import { seedSettings, resetStores } from '../setup/storeWrapper'
 import { installBridgedApi } from '../setup/handlerBridge'
 
 const HANDLERS_PATH = '../../../../main/handlers'
@@ -118,6 +117,7 @@ beforeEach(async () => {
   const fs = await memfs
   fs.reset()
   vi.clearAllMocks()
+  resetStores()
   renderer.classifyEntry.mockImplementation((entry: { entryName: string }) => {
     const name = entry.entryName.toLowerCase()
     if (name.endsWith('.epf') || name.endsWith('.mpf') || name.endsWith('.hpf')) return 'sprite'
@@ -140,13 +140,8 @@ function renderPage(
       settingsManager: { load: async () => ({}), save: async () => undefined },
       dialog: { openFile: opts.openFile, openDirectory: opts.openDirectory }
     })
-    return render(
-      <RecoilRoot
-        initializeState={(snap: MutableSnapshot) => snap.set(clientPathState, CLIENT_PATH)}
-      >
-        <ArchivePage />
-      </RecoilRoot>
-    )
+    seedSettings({ clientPath: CLIENT_PATH })
+    return render(<ArchivePage />)
   })
 }
 

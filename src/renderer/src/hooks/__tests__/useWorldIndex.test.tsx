@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useWorldIndex } from '../useWorldIndex'
-import { activeLibraryState } from '../../recoil/atoms'
-import { makeRecoilWrapper, recoilOverride } from '../../__tests__/setup/recoilWrapper'
+import { makeStoreWrapper } from '../../__tests__/setup/storeWrapper'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
 
 let api: MockApi
@@ -21,7 +20,7 @@ beforeEach(() => {
 })
 
 function withLibrary(value: string | null) {
-  return makeRecoilWrapper([recoilOverride(activeLibraryState, value)])
+  return makeStoreWrapper({ settings: { activeLibrary: value } })
 }
 
 describe('useWorldIndex', () => {

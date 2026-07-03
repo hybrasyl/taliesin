@@ -961,7 +961,7 @@ const MapEditorCanvas: React.FC<Props> = ({
   // Register a non-passive wheel listener so preventDefault() works reliably.
   // React's synthetic onWheel is passive in modern browsers, which silently
   // ignores preventDefault() and lets the browser handle Ctrl+Wheel as zoom.
-  const wheelHandlerRef = useRef<(e: WheelEvent) => void>()
+  const wheelHandlerRef = useRef<((e: WheelEvent) => void) | undefined>(undefined)
   wheelHandlerRef.current = (e: WheelEvent) => {
     if (e.shiftKey) {
       e.preventDefault()

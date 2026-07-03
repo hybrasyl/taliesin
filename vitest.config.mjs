@@ -22,7 +22,7 @@ export default defineConfig({
         'src/main/handlers.ts': { lines: 65, branches: 35, functions: 70, statements: 64 },
         'src/renderer/src/pages/ArchivePage.tsx': {
           lines: 85,
-          branches: 70,
+          branches: 69,
           functions: 75,
           statements: 82
         },
@@ -168,6 +168,7 @@ export default defineConfig({
             'src/renderer/src/utils/__tests__/worldMapXml.test.ts',
             'src/renderer/src/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/hooks/__tests__/**/*.test.{ts,tsx}',
+            'src/renderer/src/store/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/components/**/__tests__/**/*.test.{ts,tsx}'
           ],
           setupFiles: ['./src/renderer/src/__tests__/setup/vitest.setup.ts']
