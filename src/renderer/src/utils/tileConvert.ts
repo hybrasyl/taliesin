@@ -122,6 +122,71 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
 }
 
 /**
+ * Normalize an ALREADY-isometric source (a diamond/face the author drew in iso
+ * projection) to the DA target footprint with a plain area-averaged resize — no
+ * ortho→iso reprojection. Use this instead of convertOrthoTile when orientation
+ * detection (or the author) says the source is already isometric.
+ *
+ * Floor → (56×27)·scale, forced opaque. Wall → (28·scale) wide × (wallHeight·
+ * scale) tall, source alpha preserved (no iso slant is added — the source
+ * already encodes its own top shape).
+ */
+export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffer {
+  const scale: TileScale = opts.scale ?? 1
+  if (scale !== 1 && scale !== 2) {
+    throw new Error(`resampleTile: scale must be 1 or 2, got ${scale}`)
+  }
+  const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
+  const isFloor = opts.layer !== 'wall'
+  const outW = (isFloor ? GROUND_TILE_WIDTH : ISO_HTILE_W) * scale
+  const outH =
+    (isFloor ? GROUND_TILE_HEIGHT : Math.max(1, Math.round(opts.wallHeight ?? src.height))) * scale
+  const data = new Uint8ClampedArray(outW * outH * 4)
+  const inv = 1 / (ss * ss)
+
+  for (let dy = 0; dy < outH; dy++) {
+    for (let dx = 0; dx < outW; dx++) {
+      let r = 0
+      let g = 0
+      let b = 0
+      let a = 0
+      for (let sj = 0; sj < ss; sj++) {
+        const v = (dy + (sj + 0.5) / ss) / outH
+        for (let si = 0; si < ss; si++) {
+          const u = (dx + (si + 0.5) / ss) / outW
+          const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
+          if (isFloor) {
+            // opaque output: straight colour average, alpha forced later
+            r += sr
+            g += sg
+            b += sb
+          } else {
+            // premultiplied so partial-alpha sources average without fringing
+            r += sr * sa
+            g += sg * sa
+            b += sb * sa
+            a += sa
+          }
+        }
+      }
+      const o = (dy * outW + dx) * 4
+      if (isFloor) {
+        data[o] = r * inv
+        data[o + 1] = g * inv
+        data[o + 2] = b * inv
+        data[o + 3] = 255 // floors are fully opaque
+      } else if (a > 0) {
+        data[o] = r / a // un-premultiply
+        data[o + 1] = g / a
+        data[o + 2] = b / a
+        data[o + 3] = a * inv
+      }
+    }
+  }
+  return { data, width: outW, height: outH }
+}
+
+/**
  * Floor projection. Destination footprint is (56×27)·scale. For each destination
  * pixel we invert the iso diamond mapping to a source UV:
  *
@@ -219,23 +284,22 @@ function convertWall(
           if (u >= 0 && u < 1 && v >= 0 && v < 1) {
             // clamp addressing: a wall face has no wrap-around neighbor
             const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
-            r += sr
-            g += sg
-            b += sb
+            // Premultiplied accumulation: weight colour by alpha so the face edge
+            // antialiases against transparency without darkening or brightening.
+            r += sr * sa
+            g += sg * sa
+            b += sb * sa
             a += sa
           }
           // else: sub-sample falls outside the face → contributes transparent (0)
         }
       }
       const o = (dy * outW + dx) * 4
-      // Premultiply-free average: divide colour by covered-sample count so the
-      // face edge antialiases against transparency without darkening.
       if (a > 0) {
-        const cov = a / 255 // total coverage weight across sub-samples
-        data[o] = r / cov
-        data[o + 1] = g / cov
-        data[o + 2] = b / cov
-        data[o + 3] = a * inv
+        data[o] = r / a // un-premultiply
+        data[o + 1] = g / a
+        data[o + 2] = b / a
+        data[o + 3] = a * inv // mean alpha over ALL sub-samples (uncovered = 0)
       } else {
         data[o] = 0
         data[o + 1] = 0

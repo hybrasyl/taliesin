@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { convertOrthoTile } from '../tileConvert'
+import { convertOrthoTile, resampleTile } from '../tileConvert'
 import { PixelBuffer } from '../duotone'
 import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W, ISO_VTILE_STEP } from '../mapRenderer'
 
@@ -182,6 +182,15 @@ describe('convertOrthoTile — wall transparency outside the face', () => {
     expect(a).toBe(255)
     expect([r, g, b]).toEqual([100, 150, 200])
   })
+
+  it('preserves colour (not just alpha) for a semi-transparent source', () => {
+    // Premultiplied averaging must not inflate colour when alpha < 255.
+    const semi = solidSource(16, 16, 100, 150, 200, 128)
+    const out = convertOrthoTile(semi, { layer: 'wall', wallHeight: 16, wallSlant: 'left' })
+    const [r, g, b, a] = px(out, 14, 15)
+    expect([r, g, b]).toEqual([100, 150, 200])
+    expect(a).toBe(128)
+  })
 })
 
 describe('convertOrthoTile — wall is deterministic', () => {
@@ -190,5 +199,32 @@ describe('convertOrthoTile — wall is deterministic', () => {
     const a = convertOrthoTile(src, { layer: 'wall' })
     const b = convertOrthoTile(src, { layer: 'wall' })
     expect(Array.from(a.data)).toEqual(Array.from(b.data))
+  })
+})
+
+describe('resampleTile — already-isometric normalize (no reprojection)', () => {
+  it('resizes an iso floor source to an opaque 56×27 without a diamond mask', () => {
+    // A source with transparent corners would keep them if reprojected; resample
+    // just resizes and forces opacity, so every pixel ends up alpha 255.
+    const src = solidSource(64, 32, 70, 80, 90)
+    const out = resampleTile(src, { layer: 'floor' })
+    expect(out.width).toBe(56)
+    expect(out.height).toBe(27)
+    for (let i = 3; i < out.data.length; i += 4) expect(out.data[i]).toBe(255)
+    expect(px(out, 28, 13).slice(0, 3)).toEqual([70, 80, 90])
+  })
+
+  it('resizes an iso wall source to 28×wallHeight preserving alpha', () => {
+    const src = solidSource(32, 40, 10, 20, 30, 128)
+    const out = resampleTile(src, { layer: 'wall', wallHeight: 40 })
+    expect(out.width).toBe(28)
+    expect(out.height).toBe(40) // no iso slant added on the iso path
+    expect(px(out, 14, 20)).toEqual([10, 20, 30, 128])
+  })
+
+  it('doubles the footprint at scale 2', () => {
+    const out = resampleTile(solidSource(64, 32, 1, 2, 3), { layer: 'floor', scale: 2 })
+    expect(out.width).toBe(112)
+    expect(out.height).toBe(54)
   })
 })

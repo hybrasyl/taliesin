@@ -9,6 +9,7 @@ import {
   GiBrickWall,
   GiPuzzle,
   GiCardboardBox,
+  GiHexes,
   GiPaintBrush,
   GiRuneStone,
   GiMusicalNotes,
@@ -127,6 +128,11 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Asset Pack Manager">
         <IconButton sx={sx('assetpacks')} onClick={nav('assetpacks')}>
           <GiCardboardBox />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Static Tile Manager">
+        <IconButton sx={sx('statictiles')} onClick={nav('statictiles')}>
+          <GiHexes />
         </IconButton>
       </Tooltip>
       <Tooltip title="UI Layout Forge">
