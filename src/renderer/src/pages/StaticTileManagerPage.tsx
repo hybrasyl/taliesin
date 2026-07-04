@@ -45,6 +45,7 @@ import {
   Walkability
 } from '../utils/wallIdAllocator'
 import { legacyWallHeight } from '../utils/wallHeight'
+import { checkTileAnimatedForLayer } from '../utils/tileAnimation'
 import {
   loadMapAssets,
   drawDiamond,
@@ -319,6 +320,14 @@ const StaticTileManagerPage: React.FC = () => {
 
   const wallWalk: Walkability = wallWalkability(assets?.sotpTable ?? null, wallId)
 
+  // Pre-flight the commit target against the legacy animation tables — a pack
+  // PNG for an animated/cycled id is silently ignored by the client.
+  const targetAnimated = checkTileAnimatedForLayer(
+    assets,
+    layer,
+    layer === 'wall' ? wallId : floorId
+  )
+
   // ── Commit the previewed tile into the pack ─────────────────────────────────
   const [committing, setCommitting] = useState(false)
   const commit = useCallback(async () => {
@@ -381,6 +390,40 @@ const StaticTileManagerPage: React.FC = () => {
     cells.length,
     showStatus
   ])
+
+  // Batch-commit every grid cell as a floor with sequential ids (floor-only —
+  // walls need per-id walkability/height decisions, so they stay single-commit).
+  const commitAllFloors = useCallback(async () => {
+    if (!packDir || !project || !selectedPack || cells.length === 0) return
+    setCommitting(true)
+    try {
+      const assetsDir = `${packDir}/${project.pack_id}`
+      await window.api.ensureDir(assetsDir)
+      let assets: PackAsset[] = [...project.assets]
+      let count = 0
+      for (const cell of cells) {
+        const orient =
+          orientationChoice === 'auto' ? detectOrientation(cell).orientation : orientationChoice
+        const opts = { layer: 'floor' as const, scale }
+        const conv =
+          orient === 'orthogonal' ? convertOrthoTile(cell, opts) : resampleTile(cell, opts)
+        const id = nextSlotId(assets, staticTilesKind.parseSlot, { namespace: 'floor' })
+        const filename = `floor${String(id).padStart(5, '0')}.png`
+        const bytes = await pixelBufferToPngBytes(conv)
+        await window.api.writeBytes(`${assetsDir}/${filename}`, bytes)
+        assets = [...assets, { filename, sourcePath }]
+        count++
+      }
+      const updated: PackProject = { ...project, assets, updatedAt: new Date().toISOString() }
+      await window.api.packSave(`${packDir}/${selectedPack}`, updated)
+      setProject(updated)
+      showStatus(`Committed ${count} floor tiles`)
+    } catch (e) {
+      showStatus(`Batch commit failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+    } finally {
+      setCommitting(false)
+    }
+  }, [packDir, project, selectedPack, cells, orientationChoice, scale, sourcePath, showStatus])
 
   if (!packDir) {
     return (
@@ -773,6 +816,14 @@ const StaticTileManagerPage: React.FC = () => {
                 </Alert>
               )}
 
+              {targetAnimated.animated && (
+                <Alert severity="warning" sx={{ py: 0 }}>
+                  Tile {layer === 'wall' ? wallId : floorId} is animated/cycled (legacy sequence{' '}
+                  {targetAnimated.sequence.join(', ')}). The client ignores pack art for animated
+                  ids — this PNG won&apos;t render.
+                </Alert>
+              )}
+
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
@@ -782,6 +833,17 @@ const StaticTileManagerPage: React.FC = () => {
               >
                 Commit tile
               </Button>
+
+              {inputMode === 'grid' && layer === 'floor' && cells.length > 1 && (
+                <Button
+                  variant="outlined"
+                  disabled={!selectedPack || committing}
+                  onClick={commitAllFloors}
+                  fullWidth
+                >
+                  Commit all {cells.length} cells as floors
+                </Button>
+              )}
             </Stack>
           </Box>
         )}
