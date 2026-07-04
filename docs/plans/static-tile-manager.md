@@ -477,6 +477,14 @@ All conversion/slicing is renderer-side on `ImageData`/`ImageBitmap`; only the f
 
 ## Phases
 
+> **Status (2026-07):** Phases 1–4 all implemented on branch `feat/static-tile-manager`
+> (converter core → manager page → wang slicing → polish). Ground truth from the extracted
+> tile corpora reshaped two things vs the original scoping: floors are **diamonds with
+> transparent corners** (not opaque squares — no square option shipped) and walls are always
+> **left/right-angled** (no "none"). 1× only; 2× stays plumbed-but-gated. Deferred: wang layout
+> presets for specific source tools (only the canonical preset ships), and the Brigid/server
+> recommendations below (separate repos).
+
 1. **Geometry lock + converter core** — with the 56×27 geometry confirmed, ship `tileConvert.ts`
    (ortho→iso for floor + wall, resampling to a scale factor `S`) with fixture-based unit tests.
    No UI. Ship 1× first; the `S` parameter is plumbed but only 1× is exercised until the client
