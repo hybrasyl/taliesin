@@ -73,30 +73,44 @@ describe('convertOrthoTile — floor geometry', () => {
   })
 })
 
-describe('convertOrthoTile — floor is fully opaque', () => {
-  it('every output pixel has alpha 255 for a solid source', () => {
+describe('convertOrthoTile — floor is a diamond (default, matches legacy)', () => {
+  it('masks the four corners transparent', () => {
     const out = convertOrthoTile(solidSource(16, 16, 200, 100, 50), { layer: 'floor' })
-    for (let i = 3; i < out.data.length; i += 4) {
-      expect(out.data[i]).toBe(255)
-    }
+    // corners of the 56×27 box are outside the inscribed diamond → transparent
+    expect(px(out, 0, 0)[3]).toBe(0)
+    expect(px(out, out.width - 1, 0)[3]).toBe(0)
+    expect(px(out, 0, out.height - 1)[3]).toBe(0)
+    expect(px(out, out.width - 1, out.height - 1)[3]).toBe(0)
+  })
+
+  it('is opaque at the diamond centre and reproduces the source colour', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 123, 45, 67), { layer: 'floor' })
+    const [r, g, b, a] = px(out, GROUND_TILE_WIDTH / 2, Math.floor(GROUND_TILE_HEIGHT / 2))
+    expect(a).toBe(255)
+    expect([r, g, b]).toEqual([123, 45, 67])
+  })
+
+  it('keeps the source alpha inside the diamond (translucent floors)', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 123, 45, 67, 128), { layer: 'floor' })
+    const [r, g, b, a] = px(out, GROUND_TILE_WIDTH / 2, Math.floor(GROUND_TILE_HEIGHT / 2))
+    expect(a).toBe(128)
+    expect([r, g, b]).toEqual([123, 45, 67]) // colour un-premultiplied cleanly
+  })
+})
+
+describe('convertOrthoTile — floor square shape (opaque, edge-to-edge)', () => {
+  it('every output pixel has alpha 255 for a solid source', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 200, 100, 50), {
+      layer: 'floor',
+      floorShape: 'square'
+    })
+    for (let i = 3; i < out.data.length; i += 4) expect(out.data[i]).toBe(255)
   })
 
   it('forces alpha 255 even when the source carries transparency', () => {
-    // A source with a transparent border must still yield an opaque floor — the
-    // 56×27 diamond carries real surface in the corners, not alpha.
     const src = solidSource(16, 16, 200, 100, 50, 0)
-    const out = convertOrthoTile(src, { layer: 'floor' })
-    for (let i = 3; i < out.data.length; i += 4) {
-      expect(out.data[i]).toBe(255)
-    }
-  })
-
-  it('reproduces the source colour at the diamond centre', () => {
-    const out = convertOrthoTile(solidSource(16, 16, 123, 45, 67), { layer: 'floor' })
-    const [r, g, b] = px(out, GROUND_TILE_WIDTH / 2, Math.floor(GROUND_TILE_HEIGHT / 2))
-    expect(r).toBe(123)
-    expect(g).toBe(45)
-    expect(b).toBe(67)
+    const out = convertOrthoTile(src, { layer: 'floor', floorShape: 'square' })
+    for (let i = 3; i < out.data.length; i += 4) expect(out.data[i]).toBe(255)
   })
 })
 
@@ -109,29 +123,29 @@ describe('convertOrthoTile — floor is deterministic', () => {
   })
 })
 
-describe('convertOrthoTile — floor corner fill (wrap vs clamp)', () => {
+describe('convertOrthoTile — square-floor corner fill (wrap vs clamp)', () => {
   const RED: [number, number, number] = [255, 0, 0]
   const BLUE: [number, number, number] = [0, 0, 255]
   // Left half red, right half blue. The top-left corner triangle maps to a
   // negative source-u; wrap pulls it back into the right (blue) half — i.e. the
-  // opposite edge's content — while clamp pins it to the left (red) edge.
+  // opposite edge's content — while clamp pins it to the left (red) edge. Corner
+  // fill only applies to the opaque 'square' shape (diamonds mask the corners).
   const src = splitSource(16, 16, RED, BLUE)
+  const sq = { layer: 'floor', floorShape: 'square', supersample: 1 } as const
 
   it('wrap fills the top-left corner from the opposite (right) edge', () => {
-    const out = convertOrthoTile(src, { layer: 'floor', corner: 'wrap', supersample: 1 })
-    const [r, , b] = px(out, 0, 0)
+    const [r, , b] = px(convertOrthoTile(src, { ...sq, corner: 'wrap' }), 0, 0)
     expect(b).toBeGreaterThan(r) // blue-dominant → came from the right half
   })
 
   it('clamp fills the top-left corner from the nearest (left) edge', () => {
-    const out = convertOrthoTile(src, { layer: 'floor', corner: 'clamp', supersample: 1 })
-    const [r, , b] = px(out, 0, 0)
+    const [r, , b] = px(convertOrthoTile(src, { ...sq, corner: 'clamp' }), 0, 0)
     expect(r).toBeGreaterThan(b) // red-dominant → clamped to the left edge
   })
 
   it('wrap and clamp agree in the diamond interior', () => {
-    const wrap = convertOrthoTile(src, { layer: 'floor', corner: 'wrap', supersample: 1 })
-    const clamp = convertOrthoTile(src, { layer: 'floor', corner: 'clamp', supersample: 1 })
+    const wrap = convertOrthoTile(src, { ...sq, corner: 'wrap' })
+    const clamp = convertOrthoTile(src, { ...sq, corner: 'clamp' })
     const cx = GROUND_TILE_WIDTH / 2
     const cy = Math.floor(GROUND_TILE_HEIGHT / 2)
     expect(px(wrap, cx, cy)).toEqual(px(clamp, cx, cy))
@@ -171,24 +185,18 @@ describe('convertOrthoTile — wall geometry', () => {
 describe('convertOrthoTile — wall transparency outside the face', () => {
   const src = solidSource(16, 42, 100, 150, 200)
 
-  it("leaves the 'left'-slant transparent triangle in the top-left corner", () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
+  it("leaves the 'left'-face transparent triangle in the top-left corner", () => {
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallFace: 'left' })
     expect(px(out, 0, 0)[3]).toBe(0)
   })
 
-  it("mirrors the transparent triangle to the top-right for 'right' slant", () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'right' })
+  it("mirrors the transparent triangle to the top-right for the 'right' face", () => {
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallFace: 'right' })
     expect(px(out, out.width - 1, 0)[3]).toBe(0)
   })
 
-  it("fills the whole 28×H rectangle for 'none' slant (no transparent triangles)", () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'none' })
-    expect(px(out, 0, 0)[3]).toBe(255)
-    expect(px(out, out.width - 1, 0)[3]).toBe(255)
-  })
-
   it('keeps the face interior opaque and carrying the source colour', () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallFace: 'left' })
     const [r, g, b, a] = px(out, 14, 28) // safely inside the parallelogram
     expect(a).toBe(255)
     expect([r, g, b]).toEqual([100, 150, 200])
@@ -197,7 +205,7 @@ describe('convertOrthoTile — wall transparency outside the face', () => {
   it('preserves colour (not just alpha) for a semi-transparent source', () => {
     // Premultiplied averaging must not inflate colour when alpha < 255.
     const semi = solidSource(16, 42, 100, 150, 200, 128)
-    const out = convertOrthoTile(semi, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
+    const out = convertOrthoTile(semi, { layer: 'wall', wallHeight: 56, wallFace: 'left' })
     const [r, g, b, a] = px(out, 14, 28)
     expect([r, g, b]).toEqual([100, 150, 200])
     expect(a).toBe(128)
@@ -214,15 +222,23 @@ describe('convertOrthoTile — wall is deterministic', () => {
 })
 
 describe('resampleTile — already-isometric normalize (no reprojection)', () => {
-  it('resizes an iso floor source to an opaque 56×27 without a diamond mask', () => {
-    // A source with transparent corners would keep them if reprojected; resample
-    // just resizes and forces opacity, so every pixel ends up alpha 255.
+  it('resizes an iso floor source to a 56×27 diamond (transparent corners)', () => {
     const src = solidSource(64, 32, 70, 80, 90)
     const out = resampleTile(src, { layer: 'floor' })
     expect(out.width).toBe(56)
     expect(out.height).toBe(27)
+    expect(px(out, 0, 0)[3]).toBe(0) // corner masked
+    const [r, g, b, a] = px(out, 28, 13) // centre
+    expect(a).toBe(255)
+    expect([r, g, b]).toEqual([70, 80, 90])
+  })
+
+  it('resizes an iso floor source to an opaque square when floorShape=square', () => {
+    const out = resampleTile(solidSource(64, 32, 70, 80, 90), {
+      layer: 'floor',
+      floorShape: 'square'
+    })
     for (let i = 3; i < out.data.length; i += 4) expect(out.data[i]).toBe(255)
-    expect(px(out, 28, 13).slice(0, 3)).toEqual([70, 80, 90])
   })
 
   it('resizes an iso wall source to 28×wallHeight preserving alpha', () => {

@@ -41,37 +41,58 @@ export type TileScale = 1 | 2
 export type CornerMode = 'wrap' | 'clamp'
 
 /**
- * Which iso face a wall's parallelogram top follows. Wall art is keyed by ID,
- * not side (the same PNG is blitted for left/right foreground at different x
- * offsets by the renderer), so this only picks which top corner is the
- * transparent triangle. 'left' matches the top-left diamond edge (top rises to
- * the right); 'right' mirrors it; 'none' imposes no slant (a plain 28×H
- * rectangle fill — for full textures whose art carries its own top shape).
+ * Floor tile shape. Ground truth (DALib `RenderTile` decodes palette index 0 as
+ * transparent; 38,660 extracted legacy ground tiles are diamonds with corner
+ * alpha ≈ 7/255; Brigid's `TabMapRenderer` stencils on "diamond-shaped pixels"):
+ * legacy floors are 56×27 **diamonds with transparent corners**, and the body
+ * can carry translucency (water etc.).
+ *
+ *  - 'diamond' (default): mask the four corner triangles transparent and keep the
+ *    source's own alpha inside the diamond — matches legacy.
+ *  - 'square'          : fill the whole 56×27 opaque, wrap/clamp the corners (the
+ *    Brigid authoring-guide "fully opaque, edge-to-edge" ideal — for sources that
+ *    are meant to tile as solid squares).
+ */
+export type FloorShape = 'diamond' | 'square'
+
+/**
+ * A wall tile's intrinsic angled orientation. Every static tile is a LEFT- or
+ * RIGHT-angled face — a wall is half a floor's width (28 vs 56) and sits on one
+ * diagonal edge of the iso diamond, so its roofline slopes one way or the other.
+ * There is no "flat/none" wall: a tile that *looks* orthogonal is still a
+ * left- or right-angled half-tile face.
+ *
+ * This is a property of the ART, not of placement. A LEFT-angled tile can be
+ * placed on the right half of a map cell (the LeftForeground/RightForeground
+ * slot the map author chooses is independent of the tile's angle) — so 'left'
+ * here means "the art's roofline rises toward the right / transparent triangle
+ * top-left", not "goes on the left".
  *
  * Ground-truth check (19,430 extracted legacy HPF walls, 2026-07): real walls
  * are exactly 28 wide with heights that are multiples of 14 (ISO_VTILE_STEP).
  * Of full-face walls, ~43% have a clean iso-slope top of |0.5| (14px across the
- * 28px width), split almost perfectly 50/50 between the two directions — so the
- * ±slant is the canonical clean-wall roofline and the two directions are the
- * left/right faces. The rest is detailed hand-drawn art carrying its own shape.
+ * 28px width), split almost perfectly 50/50 between the two angles — confirming
+ * the two intrinsic left/right faces. The rest is detailed hand-drawn art.
  */
-export type WallSlant = 'left' | 'right' | 'none'
+export type WallFace = 'left' | 'right'
 
 export interface ConvertOptions {
   layer: TileLayer
   /** Output scale; default 1. */
   scale?: TileScale
-  /** Floor corner fill mode; default 'wrap'. Ignored for walls. */
+  /** Floor tile shape; default 'diamond'. Ignored for walls. */
+  floorShape?: FloorShape
+  /** Floor corner fill mode for the 'square' shape; default 'wrap'. Ignored otherwise. */
   corner?: CornerMode
   /** Sub-samples per axis per destination pixel; default 4 (→ 16 samples/px). */
   supersample?: number
   /**
-   * Wall content height in 1× pixels (the projected face height, excluding the
-   * iso slant). Defaults to the source height. Ignored for floors.
+   * Wall output height in 1× pixels (the whole tile, multiple of 14 to match a
+   * legacy replacement). Defaults to the source height. Ignored for floors.
    */
   wallHeight?: number
-  /** Which face the wall top slopes along; default 'left'. Ignored for floors. */
-  wallSlant?: WallSlant
+  /** The wall's intrinsic angled face; default 'left'. Ignored for floors. */
+  wallFace?: WallFace
 }
 
 type Rgba = [number, number, number, number]
@@ -125,8 +146,8 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
   }
   const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
   return opts.layer === 'wall'
-    ? convertWall(src, scale, ss, opts.wallHeight ?? src.height, opts.wallSlant ?? 'left')
-    : convertFloor(src, scale, ss, opts.corner ?? 'wrap')
+    ? convertWall(src, scale, ss, opts.wallHeight ?? src.height, opts.wallFace ?? 'left')
+    : convertFloor(src, scale, ss, opts.floorShape ?? 'diamond', opts.corner ?? 'wrap')
 }
 
 /**
@@ -135,9 +156,11 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
  * ortho→iso reprojection. Use this instead of convertOrthoTile when orientation
  * detection (or the author) says the source is already isometric.
  *
- * Floor → (56×27)·scale, forced opaque. Wall → (28·scale) wide × (wallHeight·
- * scale) tall, source alpha preserved (no iso slant is added — the source
- * already encodes its own top shape).
+ * Floor → (56×27)·scale; a 'square' floor is forced opaque, a 'diamond' floor
+ * (default) masks the corner triangles transparent and keeps source alpha (an
+ * already-iso floor source is itself a diamond, so this just preserves it). Wall
+ * → (28·scale) wide × (wallHeight·scale) tall, source alpha preserved (no iso
+ * slant is added — the source already encodes its own top shape).
  */
 export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffer {
   const scale: TileScale = opts.scale ?? 1
@@ -146,6 +169,7 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
   }
   const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
   const isFloor = opts.layer !== 'wall'
+  const opaqueSquare = isFloor && (opts.floorShape ?? 'diamond') === 'square'
   const outW = (isFloor ? GROUND_TILE_WIDTH : ISO_HTILE_W) * scale
   const outH =
     (isFloor ? GROUND_TILE_HEIGHT : Math.max(1, Math.round(opts.wallHeight ?? src.height))) * scale
@@ -162,9 +186,14 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
         const v = (dy + (sj + 0.5) / ss) / outH
         for (let si = 0; si < ss; si++) {
           const u = (dx + (si + 0.5) / ss) / outW
+          // For a 'diamond' floor, drop sub-samples outside the inscribed diamond
+          // (per-sample so the diamond edge antialiases).
+          if (isFloor && !opaqueSquare && Math.abs(u - 0.5) * 2 + Math.abs(v - 0.5) * 2 > 1) {
+            continue
+          }
           const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
-          if (isFloor) {
-            // opaque output: straight colour average, alpha forced later
+          if (opaqueSquare) {
+            // straight colour average, alpha forced later
             r += sr
             g += sg
             b += sb
@@ -178,11 +207,11 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
         }
       }
       const o = (dy * outW + dx) * 4
-      if (isFloor) {
+      if (opaqueSquare) {
         data[o] = r * inv
         data[o + 1] = g * inv
         data[o + 2] = b * inv
-        data[o + 3] = 255 // floors are fully opaque
+        data[o + 3] = 255 // square floors are fully opaque
       } else if (a > 0) {
         data[o] = r / a // un-premultiply
         data[o + 1] = g / a
@@ -202,13 +231,17 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
  *   y = (u + v)·(H/2)            →  Y =  fy/(H/2)        = u + v
  *   ⇒ u = (Y + X)/2 , v = (Y − X)/2
  *
- * u,v ∈ [0,1] is the diamond interior; outside that range are the four corner
- * triangles, resolved by the `corner` addressing mode. Output is forced opaque.
+ * u,v ∈ [0,1] is exactly the diamond interior; outside that range are the four
+ * corner triangles. For the 'diamond' shape (default, matching legacy) corners
+ * are masked transparent and the source's own alpha is kept inside; the diamond
+ * edge antialiases via supersampling. For 'square' the corners are filled per
+ * the `corner` addressing mode and the whole tile is forced opaque.
  */
 function convertFloor(
   src: PixelBuffer,
   scale: TileScale,
   ss: number,
+  shape: FloorShape,
   corner: CornerMode
 ): PixelBuffer {
   const outW = GROUND_TILE_WIDTH * scale
@@ -217,12 +250,14 @@ function convertFloor(
   const halfH = outH / 2
   const data = new Uint8ClampedArray(outW * outH * 4)
   const inv = 1 / (ss * ss)
+  const diamond = shape === 'diamond'
 
   for (let dy = 0; dy < outH; dy++) {
     for (let dx = 0; dx < outW; dx++) {
       let r = 0
       let g = 0
       let b = 0
+      let a = 0
       for (let sj = 0; sj < ss; sj++) {
         const fy = dy + (sj + 0.5) / ss
         const Y = fy / halfH
@@ -231,17 +266,37 @@ function convertFloor(
           const X = fx / halfW - 1
           const u = (Y + X) / 2
           const v = (Y - X) / 2
-          const [sr, sg, sb] = sampleSource(src, u, v, corner)
-          r += sr
-          g += sg
-          b += sb
+          if (diamond) {
+            // Corners (u or v outside [0,1]) stay transparent; inside keeps the
+            // source's own alpha. Premultiplied so the edge AAs cleanly.
+            if (u >= 0 && u < 1 && v >= 0 && v < 1) {
+              const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
+              r += sr * sa
+              g += sg * sa
+              b += sb * sa
+              a += sa
+            }
+          } else {
+            // Opaque square: corners resolved by the addressing mode.
+            const [sr, sg, sb] = sampleSource(src, u, v, corner)
+            r += sr
+            g += sg
+            b += sb
+          }
         }
       }
       const o = (dy * outW + dx) * 4
-      data[o] = r * inv
-      data[o + 1] = g * inv
-      data[o + 2] = b * inv
-      data[o + 3] = 255 // floors are fully opaque — never mask corners transparent
+      if (!diamond) {
+        data[o] = r * inv
+        data[o + 1] = g * inv
+        data[o + 2] = b * inv
+        data[o + 3] = 255 // square floors are fully opaque
+      } else if (a > 0) {
+        data[o] = r / a // un-premultiply
+        data[o + 1] = g / a
+        data[o + 2] = b / a
+        data[o + 3] = a * inv // AA'd diamond edge; corners → 0
+      }
     }
   }
   return { data, width: outW, height: outH }
@@ -255,12 +310,12 @@ function convertFloor(
  * box, not added to it: the source is sheared vertically into a parallelogram
  * whose top edge follows the iso half-tile slope, and the two triangles outside
  * the parallelogram stay transparent (alpha 0) so the face composites over tiles
- * below/behind. 'none' imposes no slant — a plain 28×H rectangle fill.
+ * below/behind. Every wall is a left- or right-angled face (see WallFace).
  *
- *   slant   = ISO_VTILE_STEP·scale (0 when slantDir==='none')
+ *   slant   = ISO_VTILE_STEP·scale
  *   contentH= outH − slant                  (the source's sheared vertical span)
  *   u       = fx / outW                      (0..1 across the 28-wide face)
- *   yTop    = slant·(1−u) ['left'] | slant·u ['right'] | 0 ['none']
+ *   yTop    = slant·(1−u) ['left'] | slant·u ['right']
  *   v       = (fy − yTop) / contentH         (0..1 down the face)
  *
  * Inside u,v ∈ [0,1) we sample the source; outside we emit a transparent pixel.
@@ -273,11 +328,11 @@ function convertWall(
   scale: TileScale,
   ss: number,
   wallHeight: number,
-  slantDir: WallSlant
+  face: WallFace
 ): PixelBuffer {
   const outW = ISO_HTILE_W * scale
   const outH = Math.max(1, Math.round(wallHeight)) * scale
-  const slant = slantDir === 'none' ? 0 : ISO_VTILE_STEP * scale
+  const slant = ISO_VTILE_STEP * scale
   const contentH = Math.max(1, outH - slant)
   const data = new Uint8ClampedArray(outW * outH * 4)
   const inv = 1 / (ss * ss)
@@ -291,7 +346,7 @@ function convertWall(
       for (let si = 0; si < ss; si++) {
         const fx = dx + (si + 0.5) / ss
         const u = fx / outW
-        const yTop = slantDir === 'left' ? slant * (1 - u) : slantDir === 'right' ? slant * u : 0
+        const yTop = face === 'left' ? slant * (1 - u) : slant * u
         for (let sj = 0; sj < ss; sj++) {
           const fy = dy + (sj + 0.5) / ss
           const v = (fy - yTop) / contentH

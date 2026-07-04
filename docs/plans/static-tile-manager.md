@@ -74,11 +74,28 @@ Key facts that drive the conversion math:
 > `Brigid.Data/AssetPacks/StaticTilePack.cs` and Brigid's own
 > [static-tiles-authoring-guide.md](../../../brigid/docs/static-tiles-authoring-guide.md):
 >
-> - **Floor:** `56 × 27`, **fully opaque**, RGBA, filename `floor{id:D5}.png`. Tiles
->   edge-to-edge in the iso grid — do **not** mask the corners transparent. Oversized art is
->   **silently clipped** at the 56×27 atlas cell boundary (the grid packer blits as-is —
->   there is **no resampling** anywhere in the atlas builder,
->   `Brigid.Rendering/TextureAtlas.cs`), so hit 56×27 exactly.
+> - **Floor:** `56 × 27` RGBA, filename `floor{id:D5}.png`. Oversized art is **silently
+>   clipped** at the 56×27 atlas cell boundary (the grid packer blits as-is — there is **no
+>   resampling** anywhere in the atlas builder, `Brigid.Rendering/TextureAtlas.cs`), so hit
+>   56×27 exactly.
+>
+>   > ⚠️ **Correction — floors are DIAMONDS with transparent corners, not opaque squares
+>   > (2026-07, verified against raw data + 38,660 extracted ground tiles).** An earlier
+>   > revision of this doc claimed floors are "fully opaque, do not mask the corners" — that
+>   > is **wrong**. Authoritative evidence: DALib `RenderTile`
+>   > ([Graphics.cs](../../../dalib/DALib/Drawing/Graphics.cs) — `paletteIndex == 0 ?
+>   > Transparent : palette[...]`) decodes legacy ground tiles with **index-0 corners
+>   > transparent**; the same in Taliesin's own renderer
+>   > ([mapRenderer.ts:208](../../src/renderer/src/utils/mapRenderer.ts#L208)); **38,660
+>   > extracted ground tiles** are diamonds (73% fully-opaque diamond *interior*, corner alpha
+>   > ≈ 7/255); and Brigid's `TabMapRenderer` stencils on "only diamond-shaped pixels write to
+>   > stencil". Brigid's own authoring guide already hedges — "floors are fully opaque… **unless
+>   > the legacy tile already has transparent areas**" — and floors legitimately carry
+>   > translucency (water etc.). So the converter emits a **`diamond`** floor by default:
+>   > corner triangles masked transparent, source alpha preserved inside, AA'd diamond edge. A
+>   > **`square`** shape (opaque, wrap/clamp corners — the guide's edge-to-edge ideal) stays
+>   > available as an opt-in. Implemented in
+>   > [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertFloor`.
 > - **Wall:** `28` wide × **variable height**, transparent background; height must **match the
 >   legacy HPF height** for the ID *when replacing a legacy wall* (too tall floats above the
 >   floor, too short leaves a gap); brand-new pack-only IDs carry no height constraint — the
@@ -331,18 +348,18 @@ Applied per tile cell when the source is orthogonal.
    56×27 (or scale-S) footprint, compute the source UV and sample with an N× supersample average
    — no forward-rotation holes, clean diagonals, and each output pixel is a pure function of the
    source, which makes fixtures trivial.
-3. **Fill the full 56×27 footprint — floors are fully opaque, not transparent-cornered.**
-   Legacy ground tiles tile edge-to-edge and the neighbors overlap by half a tile in the iso
-   grid, so the corner triangles carry real surface, not alpha. The converter must produce an
-   opaque 56×27 result; the "diamond" is the *content framing*, not an alpha mask. (Contrast
-   with wall art below, which **is** mostly transparent.)
-   **Corner fill via wrap-sampling:** the corner triangles are exactly the content of the
-   *neighboring* tiles in the iso grid, so for seamless/tileable sources sample the source in
-   **wrap (repeat) mode** during the inverse mapping — the corners pick up the opposite edge's
-   content and the emitted tiles are seam-free *by construction*. For wang sheets the corner
-   content comes from the actual adjacent cell per the adjacency mask instead (see slicing
-   below). Non-tileable loose art falls back to clamp-sampling with a seam warning in the
-   preview. Validate against a real decoded `seo` tile before locking the projection.
+3. **Mask the 56×27 footprint to a diamond — floors are transparent-cornered (corrected).**
+   Ground truth (see the correction box above) shows legacy ground tiles are **diamonds with
+   index-0 transparent corners**; the diamonds tessellate on the iso grid, so the corners are
+   covered by neighbours, not filled with content. The converter's default **`diamond`** shape
+   masks the four corner triangles transparent (the corner is exactly where the inverse-mapped
+   `u` or `v` leaves `[0,1]`), keeps the source's own alpha inside the diamond (floors can be
+   translucent — water, etc.), and antialiases the diamond edge via the supersample.
+   **`square` shape (opt-in):** for a source meant to tile as a solid opaque block, fill the
+   full 56×27 opaque and resolve the corner triangles by **wrap** sampling (seamless, tileable
+   sources pick up the opposite edge) or **clamp** (loose art). The original "floors are fully
+   opaque, corners carry neighbour content" premise was wrong — wrap-fill is now just the
+   `square` corner strategy, not the floor default.
 4. **Wall variant**: for wall art the target is the 28-wide vertical face, not a diamond —
    project to the left/right face parallelograms, keep the variable height, and leave the
    non-wall area transparent so it composites over tiles below/behind.
@@ -355,10 +372,17 @@ Applied per tile cell when the source is orthogonal.
    > two directions are the left/right faces; the remaining ~54% is detailed hand-drawn art
    > that carries its own top shape. So the converter: emits **output height = the target
    > height exactly** (the iso slant is carved *inside* the box, never added — a replacement
-   > must match the legacy height or it floats/gaps), imposes the iso slant as a configurable
-   > `left | right | none` roofline (`none` = plain 28×H rectangle for full textures), and
-   > preserves source alpha with premultiplied averaging. Implemented in
-   > [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertWall`.
+   > must match the legacy height or it floats/gaps), imposes the iso slant per the tile's
+   > **intrinsic angled face (`left | right`)**, and preserves source alpha with premultiplied
+   > averaging. Implemented in [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts)
+   > `convertWall`.
+   >
+   > **Every wall is a left- or right-angled face — there is no "flat/none" wall.** A tile is
+   > half a floor's width and sits on one diagonal diamond edge, so it always angles one way;
+   > a tile that *looks* orthogonal is still a left/right half-tile face. The angle is a
+   > property of the **art**, independent of **placement**: a left-angled tile can be placed
+   > in either the `LeftForeground` or `RightForeground` slot (the map author's choice), so
+   > `WallFace` is "which way the art's roofline slopes", not "which half it goes on".
 
 Do the projection at the **source's working resolution** (or a high supersample of the target),
 then resample down to the selected scale `S` as the last step — projecting at 56×27 directly
@@ -515,11 +539,12 @@ Still open:
   checkout needed. Residual question: whether to offer a file-picker override for a server
   whose *embedded* copy has been patched away from the client's (the lockstep caveat above);
   allocator degrades to range-only checks when no table is available.
-- **Corner treatment on ortho→iso floor projection** — wrap-sampling is the chosen approach
-  (conversion step 3); still confirm against a decoded `seo` (TILEA.BMP) tile that legacy
-  corners really carry neighbor content before locking the fixtures. (Wall geometry is now
-  ground-truth-confirmed against the extracted HPF corpus — see conversion step 4 — but the
-  floor-corner check needs decoded `seo` tiles, which weren't in the wall extract.)
+- ~~Corner treatment on ortho→iso floor projection~~ → **RESOLVED (2026-07): floors are
+  diamonds with transparent corners, not opaque-with-neighbor-content.** Confirmed against
+  DALib `RenderTile` (index-0 → transparent), Taliesin's renderer, Brigid's `TabMapRenderer`
+  diamond stencil, and 38,660 extracted ground tiles. Default output is a `diamond` (masked
+  corners, source alpha preserved); the opaque `square` + wrap/clamp corner fill is an opt-in.
+  See the correction box under "Output geometry" and conversion step 3.
 
 ## Test plan
 

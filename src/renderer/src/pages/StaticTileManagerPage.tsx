@@ -33,7 +33,8 @@ import {
   TileLayer,
   TileScale,
   CornerMode,
-  WallSlant
+  FloorShape,
+  WallFace
 } from '../utils/tileConvert'
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
 import { sliceGrid } from '../utils/gridSlice'
@@ -137,6 +138,7 @@ const StaticTileManagerPage: React.FC = () => {
   // ── Conversion params ───────────────────────────────────────────────────────
   const [layer, setLayer] = useState<TileLayer>('floor')
   const [scale, setScale] = useState<TileScale>(1)
+  const [floorShape, setFloorShape] = useState<FloorShape>('diamond')
   const [corner, setCorner] = useState<CornerMode>('wrap')
   const [orientationChoice, setOrientationChoice] = useState<OrientationChoice>('auto')
 
@@ -153,7 +155,7 @@ const StaticTileManagerPage: React.FC = () => {
   const [passabilityPref, setPassabilityPref] = useState<PassabilityPref>('any')
   const [wallId, setWallId] = useState<number>(WALL_ID_MINT_MIN)
   const [wallHeightField, setWallHeightField] = useState<number>(GROUND_TILE_HEIGHT)
-  const [wallSlant, setWallSlant] = useState<WallSlant>('left')
+  const [wallFace, setWallFace] = useState<WallFace>('left')
   const [floorId, setFloorId] = useState<number>(1)
 
   const srcCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -258,14 +260,24 @@ const StaticTileManagerPage: React.FC = () => {
     const opts = {
       layer,
       scale,
+      floorShape,
       corner,
       wallHeight: layer === 'wall' ? wallHeightField : undefined,
-      wallSlant
+      wallFace
     }
     return effectiveOrientation === 'orthogonal'
       ? convertOrthoTile(previewCell, opts)
       : resampleTile(previewCell, opts)
-  }, [previewCell, layer, scale, corner, wallHeightField, wallSlant, effectiveOrientation])
+  }, [
+    previewCell,
+    layer,
+    scale,
+    floorShape,
+    corner,
+    wallHeightField,
+    wallFace,
+    effectiveOrientation
+  ])
 
   // Paint previews
   useEffect(() => {
@@ -550,23 +562,46 @@ const StaticTileManagerPage: React.FC = () => {
               )}
             </Box>
 
-            {layer === 'floor' && effectiveOrientation === 'orthogonal' && (
+            {layer === 'floor' && (
               <Box>
                 <Typography variant="overline" color="text.secondary">
-                  Corner fill
+                  Floor shape
                 </Typography>
                 <ToggleButtonGroup
                   size="small"
                   exclusive
                   fullWidth
-                  value={corner}
-                  onChange={(_, v) => v && setCorner(v)}
+                  value={floorShape}
+                  onChange={(_, v) => v && setFloorShape(v)}
                 >
-                  <ToggleButton value="wrap">Wrap (seamless)</ToggleButton>
-                  <ToggleButton value="clamp">Clamp (loose)</ToggleButton>
+                  <ToggleButton value="diamond">Diamond</ToggleButton>
+                  <ToggleButton value="square">Square (opaque)</ToggleButton>
                 </ToggleButtonGroup>
+                <Typography variant="caption" color="text.disabled">
+                  Legacy floors are diamonds with transparent corners.
+                </Typography>
               </Box>
             )}
+
+            {layer === 'floor' &&
+              floorShape === 'square' &&
+              effectiveOrientation === 'orthogonal' && (
+                <Box>
+                  <Typography variant="overline" color="text.secondary">
+                    Corner fill
+                  </Typography>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    fullWidth
+                    value={corner}
+                    onChange={(_, v) => v && setCorner(v)}
+                  >
+                    <ToggleButton value="wrap">Wrap (seamless)</ToggleButton>
+                    <ToggleButton value="clamp">Clamp (loose)</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+              )}
           </Stack>
         </Box>
 
@@ -747,14 +782,13 @@ const StaticTileManagerPage: React.FC = () => {
                   select
                   size="small"
                   fullWidth
-                  label="Face slant"
-                  value={wallSlant}
-                  onChange={(e) => setWallSlant(e.target.value as WallSlant)}
-                  helperText="Iso roofline direction; 'none' = plain rectangle."
+                  label="Angled face"
+                  value={wallFace}
+                  onChange={(e) => setWallFace(e.target.value as WallFace)}
+                  helperText="The tile's intrinsic angle, not its map placement."
                 >
-                  <MenuItem value="left">Left face (rises →)</MenuItem>
-                  <MenuItem value="right">Right face (falls →)</MenuItem>
-                  <MenuItem value="none">None (full rectangle)</MenuItem>
+                  <MenuItem value="left">Left (roofline rises →)</MenuItem>
+                  <MenuItem value="right">Right (roofline falls →)</MenuItem>
                 </TextField>
               </>
             )}
