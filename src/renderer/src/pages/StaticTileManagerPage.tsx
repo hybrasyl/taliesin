@@ -57,6 +57,7 @@ import { staticTilesKind } from '../packKinds/staticTiles'
 import { nextSlotId } from '../packKinds/helpers'
 import type { PackProject, PackAsset } from '../packKinds/types'
 import WangSlicePanel from '../components/statictiles/WangSlicePanel'
+import CommittedTiles from '../components/statictiles/CommittedTiles'
 
 interface PackSummary {
   filename: string
@@ -843,6 +844,25 @@ const StaticTileManagerPage: React.FC = () => {
                 >
                   Commit all {cells.length} cells as floors
                 </Button>
+              )}
+
+              {project && packDir && (
+                <CommittedTiles
+                  packDir={packDir}
+                  packFilename={selectedPack}
+                  project={project}
+                  onProjectChange={setProject}
+                  onStatus={showStatus}
+                  onEdit={(ns, id) => {
+                    setLayer(ns)
+                    if (ns === 'floor') setFloorId(id)
+                    else {
+                      setWallId(id)
+                      setWallMode('replace')
+                    }
+                    showStatus(`Editing ${ns} ${id} — import art and commit to replace`)
+                  }}
+                />
               )}
             </Stack>
           </Box>
