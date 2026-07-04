@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { convertOrthoTile, resampleTile } from '../tileConvert'
 import { PixelBuffer } from '../duotone'
-import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W, ISO_VTILE_STEP } from '../mapRenderer'
+import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W } from '../mapRenderer'
 
 // ── Fixtures (follow the solidSource() PixelBuffer pattern from duotone.test) ──
 
@@ -66,7 +66,9 @@ describe('convertOrthoTile — floor geometry', () => {
 
   it('rejects scales outside {1, 2}', () => {
     // exercising the runtime guard with an out-of-enum value
-    const badOpts = { layer: 'floor', scale: 3 } as unknown as Parameters<typeof convertOrthoTile>[1]
+    const badOpts = { layer: 'floor', scale: 3 } as unknown as Parameters<
+      typeof convertOrthoTile
+    >[1]
     expect(() => convertOrthoTile(solidSource(4, 4, 0, 0, 0), badOpts)).toThrow()
   })
 })
@@ -137,57 +139,66 @@ describe('convertOrthoTile — floor corner fill (wrap vs clamp)', () => {
 })
 
 describe('convertOrthoTile — wall geometry', () => {
-  it('emits a 28-wide face with the iso slant added to the content height', () => {
-    const out = convertOrthoTile(solidSource(16, 20, 10, 20, 30), {
+  it('emits a 28-wide face whose height EXACTLY equals wallHeight (legacy match)', () => {
+    // Real legacy walls are 28 wide with heights that are multiples of 14; a
+    // replacement must match that height exactly, so the slant is carved inside
+    // the box rather than added to it.
+    const out = convertOrthoTile(solidSource(16, 42, 10, 20, 30), {
       layer: 'wall',
-      wallHeight: 20
+      wallHeight: 56
     })
     expect(out.width).toBe(ISO_HTILE_W)
     expect(out.width).toBe(28)
-    expect(out.height).toBe(20 + ISO_VTILE_STEP) // contentH + slant
+    expect(out.height).toBe(56)
   })
 
-  it('defaults wall content height to the source height', () => {
-    const out = convertOrthoTile(solidSource(16, 32, 10, 20, 30), { layer: 'wall' })
-    expect(out.height).toBe(32 + ISO_VTILE_STEP)
+  it('defaults wall height to the source height', () => {
+    const out = convertOrthoTile(solidSource(16, 42, 10, 20, 30), { layer: 'wall' })
+    expect(out.height).toBe(42)
   })
 
-  it('doubles width, content height, and slant at scale 2', () => {
-    const out = convertOrthoTile(solidSource(16, 20, 10, 20, 30), {
+  it('doubles width and height at scale 2', () => {
+    const out = convertOrthoTile(solidSource(16, 42, 10, 20, 30), {
       layer: 'wall',
       scale: 2,
-      wallHeight: 20
+      wallHeight: 56
     })
     expect(out.width).toBe(56)
-    expect(out.height).toBe(20 * 2 + ISO_VTILE_STEP * 2)
+    expect(out.height).toBe(112)
   })
 })
 
 describe('convertOrthoTile — wall transparency outside the face', () => {
-  const src = solidSource(16, 16, 100, 150, 200)
+  const src = solidSource(16, 42, 100, 150, 200)
 
   it("leaves the 'left'-slant transparent triangle in the top-left corner", () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 16, wallSlant: 'left' })
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
     expect(px(out, 0, 0)[3]).toBe(0)
   })
 
   it("mirrors the transparent triangle to the top-right for 'right' slant", () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 16, wallSlant: 'right' })
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'right' })
     expect(px(out, out.width - 1, 0)[3]).toBe(0)
   })
 
+  it("fills the whole 28×H rectangle for 'none' slant (no transparent triangles)", () => {
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'none' })
+    expect(px(out, 0, 0)[3]).toBe(255)
+    expect(px(out, out.width - 1, 0)[3]).toBe(255)
+  })
+
   it('keeps the face interior opaque and carrying the source colour', () => {
-    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 16, wallSlant: 'left' })
-    const [r, g, b, a] = px(out, 14, 15) // safely inside the parallelogram
+    const out = convertOrthoTile(src, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
+    const [r, g, b, a] = px(out, 14, 28) // safely inside the parallelogram
     expect(a).toBe(255)
     expect([r, g, b]).toEqual([100, 150, 200])
   })
 
   it('preserves colour (not just alpha) for a semi-transparent source', () => {
     // Premultiplied averaging must not inflate colour when alpha < 255.
-    const semi = solidSource(16, 16, 100, 150, 200, 128)
-    const out = convertOrthoTile(semi, { layer: 'wall', wallHeight: 16, wallSlant: 'left' })
-    const [r, g, b, a] = px(out, 14, 15)
+    const semi = solidSource(16, 42, 100, 150, 200, 128)
+    const out = convertOrthoTile(semi, { layer: 'wall', wallHeight: 56, wallSlant: 'left' })
+    const [r, g, b, a] = px(out, 14, 28)
     expect([r, g, b]).toEqual([100, 150, 200])
     expect(a).toBe(128)
   })

@@ -32,7 +32,8 @@ import {
   resampleTile,
   TileLayer,
   TileScale,
-  CornerMode
+  CornerMode,
+  WallSlant
 } from '../utils/tileConvert'
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
 import { sliceGrid } from '../utils/gridSlice'
@@ -152,6 +153,7 @@ const StaticTileManagerPage: React.FC = () => {
   const [passabilityPref, setPassabilityPref] = useState<PassabilityPref>('any')
   const [wallId, setWallId] = useState<number>(WALL_ID_MINT_MIN)
   const [wallHeightField, setWallHeightField] = useState<number>(GROUND_TILE_HEIGHT)
+  const [wallSlant, setWallSlant] = useState<WallSlant>('left')
   const [floorId, setFloorId] = useState<number>(1)
 
   const srcCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -257,12 +259,13 @@ const StaticTileManagerPage: React.FC = () => {
       layer,
       scale,
       corner,
-      wallHeight: layer === 'wall' ? wallHeightField : undefined
+      wallHeight: layer === 'wall' ? wallHeightField : undefined,
+      wallSlant
     }
     return effectiveOrientation === 'orthogonal'
       ? convertOrthoTile(previewCell, opts)
       : resampleTile(previewCell, opts)
-  }, [previewCell, layer, scale, corner, wallHeightField, effectiveOrientation])
+  }, [previewCell, layer, scale, corner, wallHeightField, wallSlant, effectiveOrientation])
 
   // Paint previews
   useEffect(() => {
@@ -736,9 +739,23 @@ const StaticTileManagerPage: React.FC = () => {
                   helperText={
                     wallMode === 'replace'
                       ? 'Auto-derived from the decoded legacy HPF; match it exactly.'
-                      : 'Pack-only ids carry no height constraint.'
+                      : 'Legacy walls are multiples of 14 (one iso step).'
                   }
                 />
+
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  label="Face slant"
+                  value={wallSlant}
+                  onChange={(e) => setWallSlant(e.target.value as WallSlant)}
+                  helperText="Iso roofline direction; 'none' = plain rectangle."
+                >
+                  <MenuItem value="left">Left face (rises →)</MenuItem>
+                  <MenuItem value="right">Right face (falls →)</MenuItem>
+                  <MenuItem value="none">None (full rectangle)</MenuItem>
+                </TextField>
               </>
             )}
 

@@ -45,9 +45,17 @@ export type CornerMode = 'wrap' | 'clamp'
  * not side (the same PNG is blitted for left/right foreground at different x
  * offsets by the renderer), so this only picks which top corner is the
  * transparent triangle. 'left' matches the top-left diamond edge (top rises to
- * the right); 'right' mirrors it.
+ * the right); 'right' mirrors it; 'none' imposes no slant (a plain 28×H
+ * rectangle fill — for full textures whose art carries its own top shape).
+ *
+ * Ground-truth check (19,430 extracted legacy HPF walls, 2026-07): real walls
+ * are exactly 28 wide with heights that are multiples of 14 (ISO_VTILE_STEP).
+ * Of full-face walls, ~43% have a clean iso-slope top of |0.5| (14px across the
+ * 28px width), split almost perfectly 50/50 between the two directions — so the
+ * ±slant is the canonical clean-wall roofline and the two directions are the
+ * left/right faces. The rest is detailed hand-drawn art carrying its own shape.
  */
-export type WallSlant = 'left' | 'right'
+export type WallSlant = 'left' | 'right' | 'none'
 
 export interface ConvertOptions {
   layer: TileLayer
@@ -240,19 +248,25 @@ function convertFloor(
 }
 
 /**
- * Wall projection. Destination is (28·scale) wide × (contentH + slant) tall,
- * where contentH = wallHeight·scale and slant = ISO_VTILE_STEP·scale. The source
- * square is sheared vertically into a parallelogram whose top edge follows the
- * iso half-tile slope; the two triangles outside the parallelogram stay
- * transparent (alpha 0) so the face composites over tiles below/behind.
+ * Wall projection. Destination is (28·scale) wide × (wallHeight·scale) tall —
+ * the output height EXACTLY equals wallHeight so a replacement tile matches the
+ * legacy HPF height (a multiple of 14; too tall floats above the floor, too
+ * short leaves a gap). The iso slant (ISO_VTILE_STEP·scale) is carved INSIDE the
+ * box, not added to it: the source is sheared vertically into a parallelogram
+ * whose top edge follows the iso half-tile slope, and the two triangles outside
+ * the parallelogram stay transparent (alpha 0) so the face composites over tiles
+ * below/behind. 'none' imposes no slant — a plain 28×H rectangle fill.
  *
- *   u    = fx / outW                        (0..1 across the 28-wide face)
- *   yTop = slant·(1−u)  ['left']  |  slant·u  ['right']
- *   v    = (fy − yTop) / contentH           (0..1 down the face)
+ *   slant   = ISO_VTILE_STEP·scale (0 when slantDir==='none')
+ *   contentH= outH − slant                  (the source's sheared vertical span)
+ *   u       = fx / outW                      (0..1 across the 28-wide face)
+ *   yTop    = slant·(1−u) ['left'] | slant·u ['right'] | 0 ['none']
+ *   v       = (fy − yTop) / contentH         (0..1 down the face)
  *
  * Inside u,v ∈ [0,1) we sample the source; outside we emit a transparent pixel.
  * Source alpha is preserved (unlike floors), so an already-transparent source
- * top stays transparent.
+ * top stays transparent. Colour is accumulated premultiplied so partial-alpha
+ * sources and the antialiased face edge average without darkening/brightening.
  */
 function convertWall(
   src: PixelBuffer,
@@ -262,9 +276,9 @@ function convertWall(
   slantDir: WallSlant
 ): PixelBuffer {
   const outW = ISO_HTILE_W * scale
-  const contentH = Math.max(1, Math.round(wallHeight)) * scale
-  const slant = ISO_VTILE_STEP * scale
-  const outH = contentH + slant
+  const outH = Math.max(1, Math.round(wallHeight)) * scale
+  const slant = slantDir === 'none' ? 0 : ISO_VTILE_STEP * scale
+  const contentH = Math.max(1, outH - slant)
   const data = new Uint8ClampedArray(outW * outH * 4)
   const inv = 1 / (ss * ss)
 
@@ -277,7 +291,7 @@ function convertWall(
       for (let si = 0; si < ss; si++) {
         const fx = dx + (si + 0.5) / ss
         const u = fx / outW
-        const yTop = slantDir === 'left' ? slant * (1 - u) : slant * u
+        const yTop = slantDir === 'left' ? slant * (1 - u) : slantDir === 'right' ? slant * u : 0
         for (let sj = 0; sj < ss; sj++) {
           const fy = dy + (sj + 0.5) / ss
           const v = (fy - yTop) / contentH

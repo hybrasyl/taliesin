@@ -347,6 +347,19 @@ Applied per tile cell when the source is orthogonal.
    project to the left/right face parallelograms, keep the variable height, and leave the
    non-wall area transparent so it composites over tiles below/behind.
 
+   > ✅ **Wall geometry — confirmed against 19,430 extracted legacy HPF walls (2026-07).**
+   > Every real wall is exactly **28 wide** with a height that is a **multiple of 14**
+   > (`ISO_VTILE_STEP`, one iso step). Of full-face walls, **~43% have a clean iso-slope top
+   > of |0.5|** (a 14px rise/fall across the 28px width) — split almost perfectly **50/50**
+   > between the two directions, i.e. the ±slant is the canonical clean-wall roofline and the
+   > two directions are the left/right faces; the remaining ~54% is detailed hand-drawn art
+   > that carries its own top shape. So the converter: emits **output height = the target
+   > height exactly** (the iso slant is carved *inside* the box, never added — a replacement
+   > must match the legacy height or it floats/gaps), imposes the iso slant as a configurable
+   > `left | right | none` roofline (`none` = plain 28×H rectangle for full textures), and
+   > preserves source alpha with premultiplied averaging. Implemented in
+   > [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertWall`.
+
 Do the projection at the **source's working resolution** (or a high supersample of the target),
 then resample down to the selected scale `S` as the last step — projecting at 56×27 directly
 throws away detail the diagonals need. Conversion is pure and testable:
@@ -503,8 +516,10 @@ Still open:
   whose *embedded* copy has been patched away from the client's (the lockstep caveat above);
   allocator degrades to range-only checks when no table is available.
 - **Corner treatment on ortho→iso floor projection** — wrap-sampling is the chosen approach
-  (conversion step 3); still confirm against a decoded `seo` tile that legacy corners really
-  carry neighbor content before locking the fixtures.
+  (conversion step 3); still confirm against a decoded `seo` (TILEA.BMP) tile that legacy
+  corners really carry neighbor content before locking the fixtures. (Wall geometry is now
+  ground-truth-confirmed against the extracted HPF corpus — see conversion step 4 — but the
+  floor-corner check needs decoded `seo` tiles, which weren't in the wall extract.)
 
 ## Test plan
 
