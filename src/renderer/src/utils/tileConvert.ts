@@ -29,33 +29,6 @@ export type TileLayer = 'floor' | 'wall'
 export type TileScale = 1 | 2
 
 /**
- * How the ortho→iso floor projection fills the out-of-diamond corner triangles.
- * Floors are edge-to-edge and fully opaque, so the corners carry real neighbor
- * content, not alpha:
- *  - 'wrap'  : sample the source in repeat mode — the corners pick up the
- *              opposite edge's content and seamless/tileable sources emit
- *              seam-free tiles by construction (the default).
- *  - 'clamp' : sample the nearest edge pixel — fallback for non-tileable loose
- *              art (the preview should warn about possible seams).
- */
-export type CornerMode = 'wrap' | 'clamp'
-
-/**
- * Floor tile shape. Ground truth (DALib `RenderTile` decodes palette index 0 as
- * transparent; 38,660 extracted legacy ground tiles are diamonds with corner
- * alpha ≈ 7/255; Brigid's `TabMapRenderer` stencils on "diamond-shaped pixels"):
- * legacy floors are 56×27 **diamonds with transparent corners**, and the body
- * can carry translucency (water etc.).
- *
- *  - 'diamond' (default): mask the four corner triangles transparent and keep the
- *    source's own alpha inside the diamond — matches legacy.
- *  - 'square'          : fill the whole 56×27 opaque, wrap/clamp the corners (the
- *    Brigid authoring-guide "fully opaque, edge-to-edge" ideal — for sources that
- *    are meant to tile as solid squares).
- */
-export type FloorShape = 'diamond' | 'square'
-
-/**
  * A wall tile's intrinsic angled orientation. Every static tile is a LEFT- or
  * RIGHT-angled face — a wall is half a floor's width (28 vs 56) and sits on one
  * diagonal edge of the iso diamond, so its roofline slopes one way or the other.
@@ -80,10 +53,6 @@ export interface ConvertOptions {
   layer: TileLayer
   /** Output scale; default 1. */
   scale?: TileScale
-  /** Floor tile shape; default 'diamond'. Ignored for walls. */
-  floorShape?: FloorShape
-  /** Floor corner fill mode for the 'square' shape; default 'wrap'. Ignored otherwise. */
-  corner?: CornerMode
   /** Sub-samples per axis per destination pixel; default 4 (→ 16 samples/px). */
   supersample?: number
   /**
@@ -102,20 +71,13 @@ function clamp01(x: number): number {
 }
 
 /**
- * Nearest-neighbour source sample at normalized UV with the given addressing
- * mode. Inside the diamond both modes agree (u,v ∈ [0,1]); they diverge only in
- * the corner triangles, which is exactly where the seamless-vs-seam choice lives.
+ * Nearest-neighbour source sample at normalized UV, clamped to the source edge.
+ * Callers only sample inside the geometry they're building (diamond interior /
+ * wall face), so u,v are already within [0,1] and clamping is just a guard.
  */
-function sampleSource(src: PixelBuffer, u: number, v: number, mode: CornerMode): Rgba {
-  let uu: number
-  let vv: number
-  if (mode === 'wrap') {
-    uu = u - Math.floor(u)
-    vv = v - Math.floor(v)
-  } else {
-    uu = clamp01(u)
-    vv = clamp01(v)
-  }
+function sampleSource(src: PixelBuffer, u: number, v: number): Rgba {
+  const uu = clamp01(u)
+  const vv = clamp01(v)
   let sx = Math.floor(uu * src.width)
   let sy = Math.floor(vv * src.height)
   if (sx >= src.width) sx = src.width - 1
@@ -147,7 +109,7 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
   const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
   return opts.layer === 'wall'
     ? convertWall(src, scale, ss, opts.wallHeight ?? src.height, opts.wallFace ?? 'left')
-    : convertFloor(src, scale, ss, opts.floorShape ?? 'diamond', opts.corner ?? 'wrap')
+    : convertFloor(src, scale, ss)
 }
 
 /**
@@ -156,11 +118,11 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
  * ortho→iso reprojection. Use this instead of convertOrthoTile when orientation
  * detection (or the author) says the source is already isometric.
  *
- * Floor → (56×27)·scale; a 'square' floor is forced opaque, a 'diamond' floor
- * (default) masks the corner triangles transparent and keeps source alpha (an
- * already-iso floor source is itself a diamond, so this just preserves it). Wall
- * → (28·scale) wide × (wallHeight·scale) tall, source alpha preserved (no iso
- * slant is added — the source already encodes its own top shape).
+ * Floor → (56×27)·scale diamond: the corner triangles are masked transparent and
+ * source alpha is kept inside (an already-iso floor source is itself a diamond,
+ * so this just preserves it). Wall → (28·scale) wide × (wallHeight·scale) tall,
+ * source alpha preserved (no iso slant is added — the source already encodes its
+ * own top shape).
  */
 export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffer {
   const scale: TileScale = opts.scale ?? 1
@@ -169,7 +131,6 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
   }
   const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
   const isFloor = opts.layer !== 'wall'
-  const opaqueSquare = isFloor && (opts.floorShape ?? 'diamond') === 'square'
   const outW = (isFloor ? GROUND_TILE_WIDTH : ISO_HTILE_W) * scale
   const outH =
     (isFloor ? GROUND_TILE_HEIGHT : Math.max(1, Math.round(opts.wallHeight ?? src.height))) * scale
@@ -186,33 +147,19 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
         const v = (dy + (sj + 0.5) / ss) / outH
         for (let si = 0; si < ss; si++) {
           const u = (dx + (si + 0.5) / ss) / outW
-          // For a 'diamond' floor, drop sub-samples outside the inscribed diamond
+          // Floors are diamonds: drop sub-samples outside the inscribed diamond
           // (per-sample so the diamond edge antialiases).
-          if (isFloor && !opaqueSquare && Math.abs(u - 0.5) * 2 + Math.abs(v - 0.5) * 2 > 1) {
-            continue
-          }
-          const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
-          if (opaqueSquare) {
-            // straight colour average, alpha forced later
-            r += sr
-            g += sg
-            b += sb
-          } else {
-            // premultiplied so partial-alpha sources average without fringing
-            r += sr * sa
-            g += sg * sa
-            b += sb * sa
-            a += sa
-          }
+          if (isFloor && Math.abs(u - 0.5) * 2 + Math.abs(v - 0.5) * 2 > 1) continue
+          const [sr, sg, sb, sa] = sampleSource(src, u, v)
+          // premultiplied so partial-alpha sources average without fringing
+          r += sr * sa
+          g += sg * sa
+          b += sb * sa
+          a += sa
         }
       }
       const o = (dy * outW + dx) * 4
-      if (opaqueSquare) {
-        data[o] = r * inv
-        data[o + 1] = g * inv
-        data[o + 2] = b * inv
-        data[o + 3] = 255 // square floors are fully opaque
-      } else if (a > 0) {
+      if (a > 0) {
         data[o] = r / a // un-premultiply
         data[o + 1] = g / a
         data[o + 2] = b / a
@@ -232,25 +179,18 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
  *   ⇒ u = (Y + X)/2 , v = (Y − X)/2
  *
  * u,v ∈ [0,1] is exactly the diamond interior; outside that range are the four
- * corner triangles. For the 'diamond' shape (default, matching legacy) corners
- * are masked transparent and the source's own alpha is kept inside; the diamond
- * edge antialiases via supersampling. For 'square' the corners are filled per
- * the `corner` addressing mode and the whole tile is forced opaque.
+ * corner triangles, which are masked transparent (legacy floors are diamonds —
+ * DALib decodes their index-0 corners as transparent). The source's own alpha is
+ * kept inside (floors can be translucent — water, etc.) and the diamond edge
+ * antialiases via supersampling.
  */
-function convertFloor(
-  src: PixelBuffer,
-  scale: TileScale,
-  ss: number,
-  shape: FloorShape,
-  corner: CornerMode
-): PixelBuffer {
+function convertFloor(src: PixelBuffer, scale: TileScale, ss: number): PixelBuffer {
   const outW = GROUND_TILE_WIDTH * scale
   const outH = GROUND_TILE_HEIGHT * scale
   const halfW = outW / 2
   const halfH = outH / 2
   const data = new Uint8ClampedArray(outW * outH * 4)
   const inv = 1 / (ss * ss)
-  const diamond = shape === 'diamond'
 
   for (let dy = 0; dy < outH; dy++) {
     for (let dx = 0; dx < outW; dx++) {
@@ -266,32 +206,19 @@ function convertFloor(
           const X = fx / halfW - 1
           const u = (Y + X) / 2
           const v = (Y - X) / 2
-          if (diamond) {
-            // Corners (u or v outside [0,1]) stay transparent; inside keeps the
-            // source's own alpha. Premultiplied so the edge AAs cleanly.
-            if (u >= 0 && u < 1 && v >= 0 && v < 1) {
-              const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
-              r += sr * sa
-              g += sg * sa
-              b += sb * sa
-              a += sa
-            }
-          } else {
-            // Opaque square: corners resolved by the addressing mode.
-            const [sr, sg, sb] = sampleSource(src, u, v, corner)
-            r += sr
-            g += sg
-            b += sb
+          // Corners (u or v outside [0,1]) stay transparent; inside keeps the
+          // source's own alpha. Premultiplied so the edge AAs cleanly.
+          if (u >= 0 && u < 1 && v >= 0 && v < 1) {
+            const [sr, sg, sb, sa] = sampleSource(src, u, v)
+            r += sr * sa
+            g += sg * sa
+            b += sb * sa
+            a += sa
           }
         }
       }
       const o = (dy * outW + dx) * 4
-      if (!diamond) {
-        data[o] = r * inv
-        data[o + 1] = g * inv
-        data[o + 2] = b * inv
-        data[o + 3] = 255 // square floors are fully opaque
-      } else if (a > 0) {
+      if (a > 0) {
         data[o] = r / a // un-premultiply
         data[o + 1] = g / a
         data[o + 2] = b / a
@@ -351,8 +278,7 @@ function convertWall(
           const fy = dy + (sj + 0.5) / ss
           const v = (fy - yTop) / contentH
           if (u >= 0 && u < 1 && v >= 0 && v < 1) {
-            // clamp addressing: a wall face has no wrap-around neighbor
-            const [sr, sg, sb, sa] = sampleSource(src, u, v, 'clamp')
+            const [sr, sg, sb, sa] = sampleSource(src, u, v)
             // Premultiplied accumulation: weight colour by alpha so the face edge
             // antialiases against transparency without darkening or brightening.
             r += sr * sa

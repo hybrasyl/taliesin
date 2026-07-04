@@ -32,8 +32,6 @@ import {
   resampleTile,
   TileLayer,
   TileScale,
-  CornerMode,
-  FloorShape,
   WallFace
 } from '../utils/tileConvert'
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
@@ -138,8 +136,6 @@ const StaticTileManagerPage: React.FC = () => {
   // ── Conversion params ───────────────────────────────────────────────────────
   const [layer, setLayer] = useState<TileLayer>('floor')
   const [scale, setScale] = useState<TileScale>(1)
-  const [floorShape, setFloorShape] = useState<FloorShape>('diamond')
-  const [corner, setCorner] = useState<CornerMode>('wrap')
   const [orientationChoice, setOrientationChoice] = useState<OrientationChoice>('auto')
 
   // ── Target pack ─────────────────────────────────────────────────────────────
@@ -260,24 +256,13 @@ const StaticTileManagerPage: React.FC = () => {
     const opts = {
       layer,
       scale,
-      floorShape,
-      corner,
       wallHeight: layer === 'wall' ? wallHeightField : undefined,
       wallFace
     }
     return effectiveOrientation === 'orthogonal'
       ? convertOrthoTile(previewCell, opts)
       : resampleTile(previewCell, opts)
-  }, [
-    previewCell,
-    layer,
-    scale,
-    floorShape,
-    corner,
-    wallHeightField,
-    wallFace,
-    effectiveOrientation
-  ])
+  }, [previewCell, layer, scale, wallHeightField, wallFace, effectiveOrientation])
 
   // Paint previews
   useEffect(() => {
@@ -563,45 +548,10 @@ const StaticTileManagerPage: React.FC = () => {
             </Box>
 
             {layer === 'floor' && (
-              <Box>
-                <Typography variant="overline" color="text.secondary">
-                  Floor shape
-                </Typography>
-                <ToggleButtonGroup
-                  size="small"
-                  exclusive
-                  fullWidth
-                  value={floorShape}
-                  onChange={(_, v) => v && setFloorShape(v)}
-                >
-                  <ToggleButton value="diamond">Diamond</ToggleButton>
-                  <ToggleButton value="square">Square (opaque)</ToggleButton>
-                </ToggleButtonGroup>
-                <Typography variant="caption" color="text.disabled">
-                  Legacy floors are diamonds with transparent corners.
-                </Typography>
-              </Box>
+              <Typography variant="caption" color="text.disabled">
+                Floors are 56×27 diamonds — corners masked transparent, source alpha kept.
+              </Typography>
             )}
-
-            {layer === 'floor' &&
-              floorShape === 'square' &&
-              effectiveOrientation === 'orthogonal' && (
-                <Box>
-                  <Typography variant="overline" color="text.secondary">
-                    Corner fill
-                  </Typography>
-                  <ToggleButtonGroup
-                    size="small"
-                    exclusive
-                    fullWidth
-                    value={corner}
-                    onChange={(_, v) => v && setCorner(v)}
-                  >
-                    <ToggleButton value="wrap">Wrap (seamless)</ToggleButton>
-                    <ToggleButton value="clamp">Clamp (loose)</ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-              )}
           </Stack>
         </Box>
 

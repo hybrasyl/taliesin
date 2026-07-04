@@ -91,11 +91,11 @@ Key facts that drive the conversion math:
 >   > ≈ 7/255); and Brigid's `TabMapRenderer` stencils on "only diamond-shaped pixels write to
 >   > stencil". Brigid's own authoring guide already hedges — "floors are fully opaque… **unless
 >   > the legacy tile already has transparent areas**" — and floors legitimately carry
->   > translucency (water etc.). So the converter emits a **`diamond`** floor by default:
->   > corner triangles masked transparent, source alpha preserved inside, AA'd diamond edge. A
->   > **`square`** shape (opaque, wrap/clamp corners — the guide's edge-to-edge ideal) stays
->   > available as an opt-in. Implemented in
->   > [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertFloor`.
+>   > translucency (water etc.). So the converter **always** emits a diamond: corner triangles
+>   > masked transparent, the source's own alpha kept inside (opaque interior for normal tiles,
+>   > translucent where the art is), AA'd diamond edge. There is **no opaque-square floor
+>   > option** — the target worlds have no orthogonal maps, only edge-to-edge diamonds.
+>   > Implemented in [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertFloor`.
 > - **Wall:** `28` wide × **variable height**, transparent background; height must **match the
 >   legacy HPF height** for the ID *when replacing a legacy wall* (too tall floats above the
 >   floor, too short leaves a gap); brand-new pack-only IDs carry no height constraint — the
@@ -351,15 +351,13 @@ Applied per tile cell when the source is orthogonal.
 3. **Mask the 56×27 footprint to a diamond — floors are transparent-cornered (corrected).**
    Ground truth (see the correction box above) shows legacy ground tiles are **diamonds with
    index-0 transparent corners**; the diamonds tessellate on the iso grid, so the corners are
-   covered by neighbours, not filled with content. The converter's default **`diamond`** shape
-   masks the four corner triangles transparent (the corner is exactly where the inverse-mapped
-   `u` or `v` leaves `[0,1]`), keeps the source's own alpha inside the diamond (floors can be
-   translucent — water, etc.), and antialiases the diamond edge via the supersample.
-   **`square` shape (opt-in):** for a source meant to tile as a solid opaque block, fill the
-   full 56×27 opaque and resolve the corner triangles by **wrap** sampling (seamless, tileable
-   sources pick up the opposite edge) or **clamp** (loose art). The original "floors are fully
-   opaque, corners carry neighbour content" premise was wrong — wrap-fill is now just the
-   `square` corner strategy, not the floor default.
+   covered by neighbours, not filled with content. The converter **always** masks the four
+   corner triangles transparent (the corner is exactly where the inverse-mapped `u` or `v`
+   leaves `[0,1]`), keeps the source's own alpha inside the diamond (opaque for normal tiles,
+   translucent where the art is — water, etc.), and antialiases the diamond edge via the
+   supersample. There is **no opaque-square floor option and no corner wrap/clamp fill** — the
+   target worlds have no orthogonal maps, only edge-to-edge diamonds. The original "floors are
+   fully opaque, corners carry neighbour content" premise was wrong.
 4. **Wall variant**: for wall art the target is the 28-wide vertical face, not a diamond —
    project to the left/right face parallelograms, keep the variable height, and leave the
    non-wall area transparent so it composites over tiles below/behind.
@@ -542,9 +540,9 @@ Still open:
 - ~~Corner treatment on ortho→iso floor projection~~ → **RESOLVED (2026-07): floors are
   diamonds with transparent corners, not opaque-with-neighbor-content.** Confirmed against
   DALib `RenderTile` (index-0 → transparent), Taliesin's renderer, Brigid's `TabMapRenderer`
-  diamond stencil, and 38,660 extracted ground tiles. Default output is a `diamond` (masked
-  corners, source alpha preserved); the opaque `square` + wrap/clamp corner fill is an opt-in.
-  See the correction box under "Output geometry" and conversion step 3.
+  diamond stencil, and 38,660 extracted ground tiles. Output is **always** a diamond (masked
+  corners, source alpha preserved) — no opaque-square option, since the target worlds have no
+  orthogonal maps. See the correction box under "Output geometry" and conversion step 3.
 
 ## Test plan
 
