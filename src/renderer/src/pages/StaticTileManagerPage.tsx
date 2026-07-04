@@ -55,6 +55,7 @@ import type { MapAssets } from '../utils/mapRenderer'
 import { staticTilesKind } from '../packKinds/staticTiles'
 import { nextSlotId } from '../packKinds/helpers'
 import type { PackProject, PackAsset } from '../packKinds/types'
+import WangSlicePanel from '../components/statictiles/WangSlicePanel'
 
 interface PackSummary {
   filename: string
@@ -124,7 +125,7 @@ const StaticTileManagerPage: React.FC = () => {
   // ── Source ────────────────────────────────────────────────────────────────
   const [sourceImage, setSourceImage] = useState<PixelBuffer | null>(null)
   const [sourcePath, setSourcePath] = useState<string>('')
-  const [inputMode, setInputMode] = useState<'loose' | 'grid'>('loose')
+  const [inputMode, setInputMode] = useState<'loose' | 'grid' | 'wang'>('loose')
   const [cellW, setCellW] = useState(32)
   const [cellH, setCellH] = useState(32)
   const [marginX, setMarginX] = useState(0)
@@ -435,6 +436,7 @@ const StaticTileManagerPage: React.FC = () => {
               >
                 <ToggleButton value="loose">Loose</ToggleButton>
                 <ToggleButton value="grid">Grid sheet</ToggleButton>
+                <ToggleButton value="wang">Wang</ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
@@ -487,21 +489,23 @@ const StaticTileManagerPage: React.FC = () => {
 
             <Divider />
 
-            <Box>
-              <Typography variant="overline" color="text.secondary">
-                Layer
-              </Typography>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                fullWidth
-                value={layer}
-                onChange={(_, v) => v && setLayer(v)}
-              >
-                <ToggleButton value="floor">Floor</ToggleButton>
-                <ToggleButton value="wall">Wall</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
+            {inputMode !== 'wang' && (
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  Layer
+                </Typography>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  fullWidth
+                  value={layer}
+                  onChange={(_, v) => v && setLayer(v)}
+                >
+                  <ToggleButton value="floor">Floor</ToggleButton>
+                  <ToggleButton value="wall">Wall</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            )}
 
             <Box>
               <Typography variant="overline" color="text.secondary">
@@ -524,32 +528,41 @@ const StaticTileManagerPage: React.FC = () => {
               )}
             </Box>
 
-            <Box>
-              <Typography variant="overline" color="text.secondary">
-                Orientation
-              </Typography>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                value={orientationChoice}
-                onChange={(e) => setOrientationChoice(e.target.value as OrientationChoice)}
-              >
-                <MenuItem value="auto">Auto{detected ? ` — ${detected.orientation}` : ''}</MenuItem>
-                <MenuItem value="orthogonal">Orthogonal (project → iso)</MenuItem>
-                <MenuItem value="isometric">Isometric (normalize only)</MenuItem>
-              </TextField>
-              {detected && orientationChoice === 'auto' && (
-                <Typography variant="caption" color="text.disabled">
-                  detected {detected.orientation} ({Math.round(detected.confidence * 100)}%
-                  confidence)
+            {inputMode !== 'wang' && (
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  Orientation
                 </Typography>
-              )}
-            </Box>
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  value={orientationChoice}
+                  onChange={(e) => setOrientationChoice(e.target.value as OrientationChoice)}
+                >
+                  <MenuItem value="auto">
+                    Auto{detected ? ` — ${detected.orientation}` : ''}
+                  </MenuItem>
+                  <MenuItem value="orthogonal">Orthogonal (project → iso)</MenuItem>
+                  <MenuItem value="isometric">Isometric (normalize only)</MenuItem>
+                </TextField>
+                {detected && orientationChoice === 'auto' && (
+                  <Typography variant="caption" color="text.disabled">
+                    detected {detected.orientation} ({Math.round(detected.confidence * 100)}%
+                    confidence)
+                  </Typography>
+                )}
+              </Box>
+            )}
 
-            {layer === 'floor' && (
+            {inputMode !== 'wang' && layer === 'floor' && (
               <Typography variant="caption" color="text.disabled">
                 Floors are 56×27 diamonds — corners masked transparent, source alpha kept.
+              </Typography>
+            )}
+            {inputMode === 'wang' && (
+              <Typography variant="caption" color="text.disabled">
+                Wang mode slices ground autotiles into diamond floors + a mask sidecar.
               </Typography>
             )}
           </Stack>
@@ -559,8 +572,18 @@ const StaticTileManagerPage: React.FC = () => {
         <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
           {!sourceImage ? (
             <Typography sx={{ color: 'text.disabled' }}>
-              Import a PNG (loose tile or grid sheet) to begin.
+              Import a PNG (loose tile, grid sheet, or wang set) to begin.
             </Typography>
+          ) : inputMode === 'wang' ? (
+            <WangSlicePanel
+              source={sourceImage}
+              scale={scale}
+              packDir={packDir}
+              packFilename={selectedPack}
+              project={project}
+              onProjectChange={setProject}
+              onStatus={showStatus}
+            />
           ) : (
             <Stack spacing={2}>
               {inputMode === 'grid' && cells.length > 1 && (
@@ -620,146 +643,148 @@ const StaticTileManagerPage: React.FC = () => {
           )}
         </Box>
 
-        {/* Right: commit */}
-        <Box
-          sx={{
-            width: 300,
-            flexShrink: 0,
-            borderLeft: '1px solid',
-            borderColor: 'divider',
-            overflow: 'auto',
-            p: 2
-          }}
-        >
-          <Stack spacing={2}>
-            <Typography variant="overline" color="text.secondary">
-              Commit to pack
-            </Typography>
-            <TextField
-              select
-              size="small"
-              fullWidth
-              label="Target static_tiles pack"
-              value={selectedPack}
-              onChange={(e) => setSelectedPack(e.target.value)}
-            >
-              {packs.length === 0 && (
-                <MenuItem value="" disabled>
-                  No static_tiles packs — create one in Asset Pack Manager
-                </MenuItem>
-              )}
-              {packs.map((p) => (
-                <MenuItem key={p.filename} value={p.filename}>
-                  {p.pack_id} (v{p.pack_version})
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {layer === 'floor' ? (
+        {/* Right: commit (loose/grid only — wang commits from its own panel) */}
+        {inputMode !== 'wang' && (
+          <Box
+            sx={{
+              width: 300,
+              flexShrink: 0,
+              borderLeft: '1px solid',
+              borderColor: 'divider',
+              overflow: 'auto',
+              p: 2
+            }}
+          >
+            <Stack spacing={2}>
+              <Typography variant="overline" color="text.secondary">
+                Commit to pack
+              </Typography>
               <TextField
+                select
                 size="small"
                 fullWidth
-                label="Floor tile id"
-                type="number"
-                value={floorId}
-                onChange={(e) => setFloorId(Number(e.target.value))}
-                helperText="Floors are unconstrained server-side (1–65535)."
-              />
-            ) : (
-              <>
-                <ToggleButtonGroup
-                  size="small"
-                  exclusive
-                  fullWidth
-                  value={wallMode}
-                  onChange={(_, v) => v && setWallMode(v)}
-                >
-                  <ToggleButton value="mint">Mint new</ToggleButton>
-                  <ToggleButton value="replace">Replace legacy</ToggleButton>
-                </ToggleButtonGroup>
+                label="Target static_tiles pack"
+                value={selectedPack}
+                onChange={(e) => setSelectedPack(e.target.value)}
+              >
+                {packs.length === 0 && (
+                  <MenuItem value="" disabled>
+                    No static_tiles packs — create one in Asset Pack Manager
+                  </MenuItem>
+                )}
+                {packs.map((p) => (
+                  <MenuItem key={p.filename} value={p.filename}>
+                    {p.pack_id} (v{p.pack_version})
+                  </MenuItem>
+                ))}
+              </TextField>
 
-                {wallMode === 'mint' && (
+              {layer === 'floor' ? (
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Floor tile id"
+                  type="number"
+                  value={floorId}
+                  onChange={(e) => setFloorId(Number(e.target.value))}
+                  helperText="Floors are unconstrained server-side (1–65535)."
+                />
+              ) : (
+                <>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    fullWidth
+                    value={wallMode}
+                    onChange={(_, v) => v && setWallMode(v)}
+                  >
+                    <ToggleButton value="mint">Mint new</ToggleButton>
+                    <ToggleButton value="replace">Replace legacy</ToggleButton>
+                  </ToggleButtonGroup>
+
+                  {wallMode === 'mint' && (
+                    <TextField
+                      select
+                      size="small"
+                      fullWidth
+                      label="Walkability preference"
+                      value={passabilityPref}
+                      onChange={(e) => setPassabilityPref(e.target.value as PassabilityPref)}
+                      helperText={
+                        assets?.sotpTable
+                          ? 'Picks the next free id whose legacy sotp byte matches.'
+                          : 'No sotp.dat loaded — range-only allocation.'
+                      }
+                    >
+                      <MenuItem value="any">Any</MenuItem>
+                      <MenuItem value="blocking">Blocking</MenuItem>
+                      <MenuItem value="passable">Passable</MenuItem>
+                    </TextField>
+                  )}
+
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Wall tile id"
+                    type="number"
+                    value={wallId}
+                    onChange={(e) => setWallId(Number(e.target.value))}
+                    error={!isMintableWallId(wallId)}
+                    helperText={`Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`}
+                  />
+
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <Typography variant="body2">Walkability:</Typography>
+                    <Chip size="small" label={wallWalk} color={WALKABILITY_COLOR[wallWalk]} />
+                  </Stack>
+
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Wall height (1×, px)"
+                    type="number"
+                    value={wallHeightField}
+                    onChange={(e) => setWallHeightField(Number(e.target.value))}
+                    helperText={
+                      wallMode === 'replace'
+                        ? 'Auto-derived from the decoded legacy HPF; match it exactly.'
+                        : 'Legacy walls are multiples of 14 (one iso step).'
+                    }
+                  />
+
                   <TextField
                     select
                     size="small"
                     fullWidth
-                    label="Walkability preference"
-                    value={passabilityPref}
-                    onChange={(e) => setPassabilityPref(e.target.value as PassabilityPref)}
-                    helperText={
-                      assets?.sotpTable
-                        ? 'Picks the next free id whose legacy sotp byte matches.'
-                        : 'No sotp.dat loaded — range-only allocation.'
-                    }
+                    label="Angled face"
+                    value={wallFace}
+                    onChange={(e) => setWallFace(e.target.value as WallFace)}
+                    helperText="The tile's intrinsic angle, not its map placement."
                   >
-                    <MenuItem value="any">Any</MenuItem>
-                    <MenuItem value="blocking">Blocking</MenuItem>
-                    <MenuItem value="passable">Passable</MenuItem>
+                    <MenuItem value="left">Left (roofline rises →)</MenuItem>
+                    <MenuItem value="right">Right (roofline falls →)</MenuItem>
                   </TextField>
-                )}
+                </>
+              )}
 
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Wall tile id"
-                  type="number"
-                  value={wallId}
-                  onChange={(e) => setWallId(Number(e.target.value))}
-                  error={!isMintableWallId(wallId)}
-                  helperText={`Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`}
-                />
+              {layer === 'wall' && wallMode === 'replace' && !clientPath && (
+                <Alert severity="info" sx={{ py: 0 }}>
+                  Set a client path in Settings to auto-derive legacy wall heights and walkability.
+                </Alert>
+              )}
 
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <Typography variant="body2">Walkability:</Typography>
-                  <Chip size="small" label={wallWalk} color={WALKABILITY_COLOR[wallWalk]} />
-                </Stack>
-
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Wall height (1×, px)"
-                  type="number"
-                  value={wallHeightField}
-                  onChange={(e) => setWallHeightField(Number(e.target.value))}
-                  helperText={
-                    wallMode === 'replace'
-                      ? 'Auto-derived from the decoded legacy HPF; match it exactly.'
-                      : 'Legacy walls are multiples of 14 (one iso step).'
-                  }
-                />
-
-                <TextField
-                  select
-                  size="small"
-                  fullWidth
-                  label="Angled face"
-                  value={wallFace}
-                  onChange={(e) => setWallFace(e.target.value as WallFace)}
-                  helperText="The tile's intrinsic angle, not its map placement."
-                >
-                  <MenuItem value="left">Left (roofline rises →)</MenuItem>
-                  <MenuItem value="right">Right (roofline falls →)</MenuItem>
-                </TextField>
-              </>
-            )}
-
-            {layer === 'wall' && wallMode === 'replace' && !clientPath && (
-              <Alert severity="info" sx={{ py: 0 }}>
-                Set a client path in Settings to auto-derive legacy wall heights and walkability.
-              </Alert>
-            )}
-
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              disabled={!converted || !selectedPack || committing}
-              onClick={commit}
-              fullWidth
-            >
-              Commit tile
-            </Button>
-          </Stack>
-        </Box>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                disabled={!converted || !selectedPack || committing}
+                onClick={commit}
+                fullWidth
+              >
+                Commit tile
+              </Button>
+            </Stack>
+          </Box>
+        )}
       </Box>
     </Box>
   )
