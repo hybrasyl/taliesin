@@ -65,10 +65,9 @@ describe('convertOrthoTile — floor geometry', () => {
   })
 
   it('rejects scales outside {1, 2}', () => {
-    // @ts-expect-error — exercising the runtime guard with an out-of-enum value
-    expect(() =>
-      convertOrthoTile(solidSource(4, 4, 0, 0, 0), { layer: 'floor', scale: 3 })
-    ).toThrow()
+    // exercising the runtime guard with an out-of-enum value
+    const badOpts = { layer: 'floor', scale: 3 } as unknown as Parameters<typeof convertOrthoTile>[1]
+    expect(() => convertOrthoTile(solidSource(4, 4, 0, 0, 0), badOpts)).toThrow()
   })
 })
 
