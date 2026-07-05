@@ -1308,6 +1308,18 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
       return picked
     }
   )
+  ipcMain.handle(
+    'dialog:openFiles',
+    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
+      const r = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+        ...(defaultPath ? { defaultPath } : {})
+      })
+      for (const p of r.filePaths) blessRoot(ctx, p)
+      return r.filePaths
+    }
+  )
   ipcMain.handle('dialog:openDirectory', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     const picked = r.filePaths[0] ?? null

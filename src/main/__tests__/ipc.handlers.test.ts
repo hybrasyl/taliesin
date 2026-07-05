@@ -397,6 +397,16 @@ describe('dialog handlers', () => {
     expect(await invoke('dialog:openFile')).toBeNull()
   })
 
+  it('dialog:openFiles returns every selected path', async () => {
+    dialogReplies.openFile = ['/u/a.png', '/u/b.png', '/u/c.png']
+    expect(await invoke('dialog:openFiles')).toEqual(['/u/a.png', '/u/b.png', '/u/c.png'])
+  })
+
+  it('dialog:openFiles returns an empty array when cancelled', async () => {
+    dialogReplies.openFile = []
+    expect(await invoke('dialog:openFiles')).toEqual([])
+  })
+
   it('dialog:openDirectory returns the selected directory or null', async () => {
     dialogReplies.openDirectory = '/u/dir'
     expect(await invoke('dialog:openDirectory')).toBe('/u/dir')

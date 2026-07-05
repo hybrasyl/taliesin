@@ -12,9 +12,11 @@ import {
   Stack,
   Alert,
   IconButton,
-  Tooltip
+  Tooltip,
+  LinearProgress
 } from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
+import LibraryAddIcon from '@mui/icons-material/LibraryAdd'
 import SaveIcon from '@mui/icons-material/Save'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
@@ -27,13 +29,7 @@ import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
 import { loadPixelBufferFromPath, pixelBufferToPngBytes } from '../utils/imageLoader'
 import { PixelBuffer } from '../utils/duotone'
-import {
-  convertOrthoTile,
-  resampleTile,
-  TileLayer,
-  TileScale,
-  WallFace
-} from '../utils/tileConvert'
+import { convertCell, TileLayer, TileScale, WallFace } from '../utils/tileConvert'
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
 import { sliceGrid } from '../utils/gridSlice'
 import {
@@ -45,7 +41,7 @@ import {
   Walkability
 } from '../utils/wallIdAllocator'
 import { legacyWallHeight } from '../utils/wallHeight'
-import { checkTileAnimatedForLayer } from '../utils/tileAnimation'
+import { checkTileEligibility, describeIneligibility } from '../utils/tileEligibility'
 import {
   loadMapAssets,
   drawDiamond,
@@ -262,9 +258,7 @@ const StaticTileManagerPage: React.FC = () => {
       wallHeight: layer === 'wall' ? wallHeightField : undefined,
       wallFace
     }
-    return effectiveOrientation === 'orthogonal'
-      ? convertOrthoTile(previewCell, opts)
-      : resampleTile(previewCell, opts)
+    return convertCell(previewCell, opts, effectiveOrientation)
   }, [previewCell, layer, scale, wallHeightField, wallFace, effectiveOrientation])
 
   // Paint previews
@@ -321,16 +315,21 @@ const StaticTileManagerPage: React.FC = () => {
 
   const wallWalk: Walkability = wallWalkability(assets?.sotpTable ?? null, wallId)
 
-  // Pre-flight the commit target against the legacy animation tables — a pack
-  // PNG for an animated/cycled id is silently ignored by the client.
-  const targetAnimated = checkTileAnimatedForLayer(
-    assets,
-    layer,
-    layer === 'wall' ? wallId : floorId
-  )
+  // Pre-flight the commit target against the legacy tables — a pack PNG for a
+  // frame-animated or palette-cycled id is silently ignored by the client.
+  const targetId = layer === 'wall' ? wallId : floorId
+  const targetEligibility = checkTileEligibility(assets, layer, targetId)
+  // Replace mode intentionally writes over a legacy/pack id; any other layer
+  // that targets an already-committed id would be a silent clobber, so we block
+  // it (and say so) rather than overwrite.
+  const isReplaceMode = layer === 'wall' && wallMode === 'replace'
+  const targetUsed = (layer === 'wall' ? usedIds.wall : usedIds.floor).has(targetId)
+  const wouldOverwrite = targetUsed && !isReplaceMode
 
   // ── Commit the previewed tile into the pack ─────────────────────────────────
   const [committing, setCommitting] = useState(false)
+  // Live progress for the multi-file batch import (null when not running).
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
   const commit = useCallback(async () => {
     if (!packDir || !project || !selectedPack || !converted) return
     const id = layer === 'wall' ? wallId : floorId
@@ -400,31 +399,152 @@ const StaticTileManagerPage: React.FC = () => {
     try {
       const assetsDir = `${packDir}/${project.pack_id}`
       await window.api.ensureDir(assetsDir)
-      let assets: PackAsset[] = [...project.assets]
+      let packAssets: PackAsset[] = [...project.assets]
+      const ineligible: string[] = []
       let count = 0
       for (const cell of cells) {
         const orient =
           orientationChoice === 'auto' ? detectOrientation(cell).orientation : orientationChoice
         const opts = { layer: 'floor' as const, scale }
-        const conv =
-          orient === 'orthogonal' ? convertOrthoTile(cell, opts) : resampleTile(cell, opts)
-        const id = nextSlotId(assets, staticTilesKind.parseSlot, { namespace: 'floor' })
+        const conv = convertCell(cell, opts, orient)
+        const id = nextSlotId(packAssets, staticTilesKind.parseSlot, { namespace: 'floor' })
+        // Fresh-pack floor ids start at 1 — inside the legacy range — so a batch
+        // can silently target animated/cycled ids. Write anyway, but collect them.
+        const elig = checkTileEligibility(assets, 'floor', id)
+        if (!elig.eligible && elig.reason) {
+          ineligible.push(`${id} (${describeIneligibility(elig.reason)})`)
+        }
         const filename = `floor${String(id).padStart(5, '0')}.png`
         const bytes = await pixelBufferToPngBytes(conv)
         await window.api.writeBytes(`${assetsDir}/${filename}`, bytes)
-        assets = [...assets, { filename, sourcePath }]
+        packAssets = [...packAssets, { filename, sourcePath }]
         count++
       }
-      const updated: PackProject = { ...project, assets, updatedAt: new Date().toISOString() }
+      const updated: PackProject = {
+        ...project,
+        assets: packAssets,
+        updatedAt: new Date().toISOString()
+      }
       await window.api.packSave(`${packDir}/${selectedPack}`, updated)
       setProject(updated)
-      showStatus(`Committed ${count} floor tiles`)
+      const warn = ineligible.length
+        ? ` — ${ineligible.length} target animated/cycled ids that won't render: ${ineligible.join(', ')}`
+        : ''
+      showStatus(`Committed ${count} floor tiles${warn}`)
     } catch (e) {
       showStatus(`Batch commit failed: ${e instanceof Error ? e.message : 'unknown error'}`)
     } finally {
       setCommitting(false)
     }
-  }, [packDir, project, selectedPack, cells, orientationChoice, scale, sourcePath, showStatus])
+  }, [
+    packDir,
+    project,
+    selectedPack,
+    cells,
+    orientationChoice,
+    scale,
+    sourcePath,
+    showStatus,
+    assets
+  ])
+
+  // Multi-file batch import: pick many PNGs and commit each as its own tile for
+  // the current layer. Floors mint sequential floor ids; walls mint sequential
+  // ids via nextWallId (respecting the passability pref) with per-file height =
+  // source height. Ineligible (animated/cycled) target ids are reported, not
+  // dropped. Runs independent of the single-source preview / grid slicing.
+  const batchImport = useCallback(async () => {
+    if (!packDir || !project || !selectedPack) return
+    const paths = await window.api.openFiles([{ name: 'PNG image', extensions: ['png'] }])
+    if (paths.length === 0) return
+    setCommitting(true)
+    setBatchProgress({ done: 0, total: paths.length })
+    try {
+      const assetsDir = `${packDir}/${project.pack_id}`
+      await window.api.ensureDir(assetsDir)
+      let packAssets: PackAsset[] = [...project.assets]
+      const mintedWalls = new Set(usedIds.wall) // grows as we mint, per-file
+      const ineligible: string[] = []
+      const failed: string[] = []
+      let count = 0
+      let done = 0
+      let exhausted = false
+      for (const p of paths) {
+        try {
+          const buf = await loadPixelBufferFromPath(p)
+          const orient =
+            orientationChoice === 'auto' ? detectOrientation(buf).orientation : orientationChoice
+          let id: number
+          let filename: string
+          if (layer === 'wall') {
+            const next = nextWallId({
+              used: mintedWalls,
+              sotp: assets?.sotpTable ?? null,
+              passability: passabilityPref === 'any' ? undefined : passabilityPref
+            })
+            if (next === null) {
+              exhausted = true
+              break
+            }
+            id = next
+            mintedWalls.add(id)
+            filename = `wall${String(id).padStart(5, '0')}.png`
+          } else {
+            id = nextSlotId(packAssets, staticTilesKind.parseSlot, { namespace: 'floor' })
+            filename = `floor${String(id).padStart(5, '0')}.png`
+          }
+          const opts = { layer, scale, wallHeight: layer === 'wall' ? buf.height : undefined }
+          const conv = convertCell(buf, opts, orient)
+          const elig = checkTileEligibility(assets, layer, id)
+          if (!elig.eligible && elig.reason) {
+            ineligible.push(`${id} (${describeIneligibility(elig.reason)})`)
+          }
+          const bytes = await pixelBufferToPngBytes(conv)
+          await window.api.writeBytes(`${assetsDir}/${filename}`, bytes)
+          packAssets = [...packAssets, { filename, sourcePath: p }]
+          count++
+        } catch {
+          failed.push(p.split(/[\\/]/).pop() ?? p)
+        }
+        done++
+        setBatchProgress({ done, total: paths.length })
+      }
+      const updated: PackProject = {
+        ...project,
+        assets: packAssets,
+        updatedAt: new Date().toISOString()
+      }
+      await window.api.packSave(`${packDir}/${selectedPack}`, updated)
+      setProject(updated)
+      const notes: string[] = []
+      if (exhausted) notes.push('wall id range exhausted — stopped early')
+      if (failed.length) notes.push(`${failed.length} failed to load: ${failed.join(', ')}`)
+      if (ineligible.length) {
+        notes.push(
+          `${ineligible.length} target animated/cycled ids that won't render: ${ineligible.join(', ')}`
+        )
+      }
+      showStatus(
+        `Committed ${count} ${layer} tile${count === 1 ? '' : 's'}${notes.length ? ` — ${notes.join('; ')}` : ''}`
+      )
+    } catch (e) {
+      showStatus(`Batch import failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+    } finally {
+      setCommitting(false)
+      setBatchProgress(null)
+    }
+  }, [
+    packDir,
+    project,
+    selectedPack,
+    layer,
+    scale,
+    orientationChoice,
+    passabilityPref,
+    usedIds.wall,
+    assets,
+    showStatus
+  ])
 
   if (!packDir) {
     return (
@@ -466,6 +586,34 @@ const StaticTileManagerPage: React.FC = () => {
             <Button variant="contained" startIcon={<ImageIcon />} onClick={handleImport} fullWidth>
               Import image…
             </Button>
+
+            <Tooltip title={`Pick many PNGs; commit each as its own ${layer} tile`}>
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={<LibraryAddIcon />}
+                  onClick={batchImport}
+                  disabled={!selectedPack || committing}
+                  fullWidth
+                >
+                  Batch import files…
+                </Button>
+              </span>
+            </Tooltip>
+
+            {batchProgress && (
+              <Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={
+                    batchProgress.total > 0 ? (batchProgress.done / batchProgress.total) * 100 : 0
+                  }
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Committing {batchProgress.done}/{batchProgress.total}…
+                </Typography>
+              </Box>
+            )}
 
             <Box>
               <Typography variant="overline" color="text.secondary">
@@ -625,6 +773,7 @@ const StaticTileManagerPage: React.FC = () => {
               packDir={packDir}
               packFilename={selectedPack}
               project={project}
+              assets={assets}
               onProjectChange={setProject}
               onStatus={showStatus}
             />
@@ -817,18 +966,40 @@ const StaticTileManagerPage: React.FC = () => {
                 </Alert>
               )}
 
-              {targetAnimated.animated && (
+              {!assets && (
+                <Alert severity="info" sx={{ py: 0 }}>
+                  No client loaded — render eligibility (animated / palette-cycled) and wall
+                  walkability can&apos;t be verified. Commits still write, but aren&apos;t
+                  validated.
+                </Alert>
+              )}
+
+              {wouldOverwrite && (
                 <Alert severity="warning" sx={{ py: 0 }}>
-                  Tile {layer === 'wall' ? wallId : floorId} is animated/cycled (legacy sequence{' '}
-                  {targetAnimated.sequence.join(', ')}). The client ignores pack art for animated
-                  ids — this PNG won&apos;t render.
+                  {layer}
+                  {String(targetId).padStart(5, '0')} already exists in this pack. Commit is blocked
+                  to avoid overwriting — pick an unused id
+                  {layer === 'wall' ? ' or switch to Replace' : ''}.
+                </Alert>
+              )}
+
+              {!targetEligibility.eligible && targetEligibility.reason && (
+                <Alert severity="warning" sx={{ py: 0 }}>
+                  Tile {layer === 'wall' ? wallId : floorId} is{' '}
+                  {describeIneligibility(targetEligibility.reason)}
+                  {targetEligibility.reason === 'animated' && targetEligibility.sequence?.length
+                    ? ` (legacy sequence ${targetEligibility.sequence.join(', ')})`
+                    : ''}
+                  . The client ignores pack art for{' '}
+                  {describeIneligibility(targetEligibility.reason)} ids — this PNG won&apos;t
+                  render.
                 </Alert>
               )}
 
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
-                disabled={!converted || !selectedPack || committing}
+                disabled={!converted || !selectedPack || committing || wouldOverwrite}
                 onClick={commit}
                 fullWidth
               >

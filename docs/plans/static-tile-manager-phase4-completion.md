@@ -5,6 +5,20 @@ already implemented on branch `feat/static-tile-manager`; this doc scopes the fo
 polish items the user approved (2026-07-05). Parent plan:
 [static-tile-manager.md](static-tile-manager.md).
 
+> **Status (2026-07-05): all four items implemented.** Green: typecheck, eslint, prettier,
+> **926 tests**, `electron-vite build`.
+>
+> - **1** — [tileEligibility.ts](../../src/renderer/src/utils/tileEligibility.ts) (`checkTileEligibility`
+>   = animated → legacy-gated palette-cycled → eligible; pure `isPaletteCycled`/`hasLegacyFloor`/
+>   `hasLegacyWall`) + 11 tests. Single commit panel now shows the combined warning.
+> - **2** — `commitAllFloors` + [WangSlicePanel](../../src/renderer/src/components/statictiles/WangSlicePanel.tsx)
+>   run eligibility per allocated id and report ineligible ids in the status (write-anyway).
+> - **3** — `dialog:openFiles` multi-select IPC (main/preload/env.d.ts) + `batchImport` (floors mint
+>   sequential; walls mint via `nextWallId`, height = source height) + `LinearProgress`.
+>   `convertCell` helper folds the ortho/iso branch shared by every path.
+> - **4** — no-client "can't verify" note + non-replace overwrite block (button disabled + warning);
+>   wang panel carries a light can't-verify caption.
+
 ## Current state (branch `feat/static-tile-manager`, pushed, 12 commits)
 
 - **Converter** [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts): floors → 56×27

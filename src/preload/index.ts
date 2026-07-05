@@ -66,6 +66,8 @@ const api = {
   // Dialogs
   openFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFile', filters, defaultPath),
+  openFiles: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string[]> =>
+    ipcRenderer.invoke('dialog:openFiles', filters, defaultPath),
   openDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:openDirectory'),
   saveFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:saveFile', filters, defaultPath),

@@ -21,6 +21,11 @@ import { convertOrthoTile, TileScale } from '../../utils/tileConvert'
 import { sliceGrid } from '../../utils/gridSlice'
 import { WANG_SCHEMES, WangSchemeId, getWangScheme, describeMask } from '../../utils/wangSlicer'
 import { buildWangSidecar, wangSidecarFilename, WangAssignment } from '../../utils/wangSidecar'
+import {
+  checkTileEligibility,
+  describeIneligibility,
+  type EligibilityAssets
+} from '../../utils/tileEligibility'
 import { staticTilesKind } from '../../packKinds/staticTiles'
 import { nextSlotId } from '../../packKinds/helpers'
 import type { PackProject, PackAsset } from '../../packKinds/types'
@@ -31,6 +36,8 @@ interface WangSlicePanelProps {
   packDir: string | null
   packFilename: string
   project: PackProject | null
+  /** Loaded legacy tables for render-eligibility pre-flight (null = no client). */
+  assets: EligibilityAssets | null
   onProjectChange: (p: PackProject) => void
   onStatus: (msg: string) => void
 }
@@ -63,6 +70,7 @@ const WangSlicePanel: React.FC<WangSlicePanelProps> = ({
   packDir,
   packFilename,
   project,
+  assets,
   onProjectChange,
   onStatus
 }) => {
@@ -131,18 +139,25 @@ const WangSlicePanel: React.FC<WangSlicePanelProps> = ({
     try {
       const assetsDir = `${packDir}/${project.pack_id}`
       await window.api.ensureDir(assetsDir)
-      let assets: PackAsset[] = [...project.assets]
+      let packAssets: PackAsset[] = [...project.assets]
       const assignments: WangAssignment[] = []
+      const ineligible: string[] = []
 
       for (const [idxStr, mask] of entries) {
         const cell = cells[Number(idxStr)]
         if (!cell) continue
         const converted = convertOrthoTile(cell.buffer, { layer: 'floor', scale })
-        const id = nextSlotId(assets, staticTilesKind.parseSlot, { namespace: 'floor' })
+        const id = nextSlotId(packAssets, staticTilesKind.parseSlot, { namespace: 'floor' })
+        // Wang ids are floors; a fresh pack starts at 1 (legacy range), so flag
+        // any allocated id the client would ignore. Write anyway, report at end.
+        const elig = checkTileEligibility(assets, 'floor', id)
+        if (!elig.eligible && elig.reason) {
+          ineligible.push(`${id} (${describeIneligibility(elig.reason)})`)
+        }
         const filename = `floor${String(id).padStart(5, '0')}.png`
         const bytes = await pixelBufferToPngBytes(converted)
         await window.api.writeBytes(`${assetsDir}/${filename}`, bytes)
-        assets = [...assets, { filename, sourcePath: '' }]
+        packAssets = [...packAssets, { filename, sourcePath: '' }]
         assignments.push({ mask, tileId: id })
       }
 
@@ -153,12 +168,15 @@ const WangSlicePanel: React.FC<WangSlicePanelProps> = ({
 
       const updated: PackProject = {
         ...project,
-        assets,
+        assets: packAssets,
         updatedAt: new Date().toISOString()
       }
       await window.api.packSave(`${packDir}/${packFilename}`, updated)
       onProjectChange(updated)
-      onStatus(`Committed ${assignments.length} wang tiles + ${sidecarName}`)
+      const warn = ineligible.length
+        ? ` — ${ineligible.length} target animated/cycled ids that won't render: ${ineligible.join(', ')}`
+        : ''
+      onStatus(`Committed ${assignments.length} wang tiles + ${sidecarName}${warn}`)
     } catch (e) {
       onStatus(`Wang commit failed: ${e instanceof Error ? e.message : 'unknown error'}`)
     } finally {
@@ -167,6 +185,7 @@ const WangSlicePanel: React.FC<WangSlicePanelProps> = ({
   }, [
     packDir,
     project,
+    assets,
     masks,
     cells,
     scale,
@@ -317,6 +336,12 @@ const WangSlicePanel: React.FC<WangSlicePanelProps> = ({
             )
           })}
         </Box>
+      )}
+
+      {!assets && (
+        <Typography variant="caption" color="text.secondary">
+          No client loaded — animated / palette-cycled target ids can&apos;t be flagged.
+        </Typography>
       )}
 
       <Button

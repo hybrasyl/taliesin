@@ -113,6 +113,20 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
 }
 
 /**
+ * Convert a source cell per its detected orientation: `convertOrthoTile` reprojects
+ * an orthogonal source onto DA iso geometry; `resampleTile` area-averages an
+ * already-iso source. Shared by every batch/commit path so orientation handling
+ * stays consistent.
+ */
+export function convertCell(
+  src: PixelBuffer,
+  opts: ConvertOptions,
+  orientation: 'orthogonal' | 'isometric'
+): PixelBuffer {
+  return orientation === 'orthogonal' ? convertOrthoTile(src, opts) : resampleTile(src, opts)
+}
+
+/**
  * Normalize an ALREADY-isometric source (a diamond/face the author drew in iso
  * projection) to the DA target footprint with a plain area-averaged resize — no
  * ortho→iso reprojection. Use this instead of convertOrthoTile when orientation
