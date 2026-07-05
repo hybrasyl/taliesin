@@ -9,6 +9,7 @@ export type Page =
   | 'mapmaker'
   | 'prefabs'
   | 'assetpacks'
+  | 'statictiles'
   | 'uiforge'
   | 'palettes'
   | 'fonteditor'

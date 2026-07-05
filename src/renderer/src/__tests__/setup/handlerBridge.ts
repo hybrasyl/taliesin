@@ -171,6 +171,7 @@ export interface BridgeContext {
   /** Optional dialog stub — defaults to canceling all dialogs. */
   dialog?: {
     openFile?: () => Promise<string | null>
+    openFiles?: () => Promise<string[]>
     openDirectory?: () => Promise<string | null>
     saveFile?: () => Promise<string | null>
   }
@@ -223,6 +224,11 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
       const p = (await dialog.openFile?.()) ?? null
       if (p) handlerCtx.blessedRoots.add(p)
       return p
+    },
+    openFiles: async () => {
+      const ps = (await dialog.openFiles?.()) ?? []
+      for (const p of ps) handlerCtx.blessedRoots.add(p)
+      return ps
     },
     openDirectory: async () => {
       const p = (await dialog.openDirectory?.()) ?? null

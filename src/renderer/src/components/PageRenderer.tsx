@@ -8,6 +8,7 @@ import ArchivePage from '../pages/ArchivePage'
 import MapMakerPage from '../pages/MapMakerPage'
 import PrefabCatalogPage from '../pages/PrefabCatalogPage'
 import AssetPackPage from '../pages/AssetPackPage'
+import StaticTileManagerPage from '../pages/StaticTileManagerPage'
 import UiForgePage from '../pages/UiForgePage'
 import PalettePage from '../pages/PalettePage'
 import FontEditorPage from '../pages/FontEditorPage'
@@ -35,6 +36,8 @@ const PageRenderer: React.FC = () => {
       return <PrefabCatalogPage />
     case 'assetpacks':
       return <AssetPackPage />
+    case 'statictiles':
+      return <StaticTileManagerPage />
     case 'uiforge':
       return <UiForgePage />
     case 'palettes':

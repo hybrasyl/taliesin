@@ -26,7 +26,7 @@ export const staticTilesKind: PackKind = {
   type: 'static_tiles',
   label: 'Static Tiles (floor / wall)',
   description:
-    'Replaces non-animated ground (floor) and wall tiles by tile ID — the raw MapTile value, no offset. Floor tiles are 28×28; walls share the 28px width but vary in height. Skip palette-cycled/animated IDs (the client ignores pack art for them).',
+    'Replaces non-animated ground (floor) and wall tiles by tile ID — the raw MapTile value, no offset. Floor tiles are 56×27 and fully opaque; walls are 28px wide with variable height (match the legacy HPF) and a transparent background. Skip palette-cycled/animated IDs (the client ignores pack art for them).',
   dimension: {
     label: 'any',
     validate: () => null

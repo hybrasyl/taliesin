@@ -82,6 +82,10 @@ declare global {
       filters?: { name: string; extensions: string[] }[],
       defaultPath?: string
     ) => Promise<string | null>
+    openFiles: (
+      filters?: { name: string; extensions: string[] }[],
+      defaultPath?: string
+    ) => Promise<string[]>
     openDirectory: () => Promise<string | null>
     saveFile: (
       filters?: { name: string; extensions: string[] }[],

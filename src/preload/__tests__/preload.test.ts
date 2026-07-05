@@ -60,6 +60,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "close-window",
         "dialog:openDirectory",
         "dialog:openFile",
+        "dialog:openFiles",
         "dialog:saveFile",
         "frame:scan",
         "fs:copyFile",
