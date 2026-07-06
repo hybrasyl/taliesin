@@ -4,7 +4,14 @@ import { useSettingsStore, type ThemeName } from './store/settingsStore'
 import { useUiStore } from './store/uiStore'
 import { clearAllCaches } from './utils/mapRenderer'
 import { clearFieldCache } from './utils/worldMapRenderer'
-import { hybrasylTheme, chadulTheme, danaanTheme, grinnealTheme } from './themes'
+import {
+  hybrasylTheme,
+  chadulTheme,
+  danaanTheme,
+  grinnealTheme,
+  mundanesTheme,
+  dubhaimidTheme
+} from './themes'
 import type { Theme } from '@mui/material/styles'
 import MainLayout from './components/MainLayout'
 import PageRenderer from './components/PageRenderer'
@@ -14,7 +21,9 @@ const themes: Record<ThemeName, Theme> = {
   hybrasyl: hybrasylTheme,
   chadul: chadulTheme,
   danaan: danaanTheme,
-  grinneal: grinnealTheme
+  grinneal: grinnealTheme,
+  mundanes: mundanesTheme,
+  dubhaimid: dubhaimidTheme
 }
 
 const scrollbarColors: Record<ThemeName, { thumb: string; thumbHover: string; track: string }> = {
@@ -37,6 +46,16 @@ const scrollbarColors: Record<ThemeName, { thumb: string; thumbHover: string; tr
     thumb: 'rgba(106,122,80,0.5)',
     thumbHover: 'rgba(106,122,80,0.8)',
     track: 'rgba(22,18,14,0.4)'
+  },
+  mundanes: {
+    thumb: 'rgba(25,118,210,0.5)',
+    thumbHover: 'rgba(25,118,210,0.8)',
+    track: 'rgba(201,205,212,0.4)'
+  },
+  dubhaimid: {
+    thumb: 'rgba(92,139,196,0.5)',
+    thumbHover: 'rgba(92,139,196,0.8)',
+    track: 'rgba(30,30,30,0.4)'
   }
 }
 

@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 
-export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal'
+export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal' | 'mundanes' | 'dubhaimid'
+
+/**
+ * The "corporate/plain" themes. Chrome that's stylized for the four fantasy
+ * themes (skull window glyphs, #000 keyline/drop shadows) drops to flat MUI
+ * icons and no shadows for these. Ported from Oghma's PLAIN_CHROME_THEMES.
+ */
+export const PLAIN_CHROME_THEMES: ThemeName[] = ['mundanes', 'dubhaimid']
 
 export interface MapDirectory {
   path: string
@@ -78,7 +85,7 @@ export type SettingsStore = RendererSettings & SettingsActions
 // wrong-typed values into the store.
 function coerce(raw: Record<string, unknown>): Partial<RendererSettings> {
   const out: Partial<RendererSettings> = {}
-  const themes = ['hybrasyl', 'chadul', 'danaan', 'grinneal']
+  const themes = ['hybrasyl', 'chadul', 'danaan', 'grinneal', 'mundanes', 'dubhaimid']
   if (typeof raw.theme === 'string' && themes.includes(raw.theme))
     out.theme = raw.theme as ThemeName
   if (typeof raw.clientPath === 'string') out.clientPath = raw.clientPath
@@ -104,6 +111,14 @@ function coerce(raw: Record<string, unknown>): Partial<RendererSettings> {
 // load → set → subscribe-fires → save the exact same content back, bouncing
 // settings.json on every launch.
 let suppressNextSave = false
+
+// Gate that blocks ALL persistence until the store has hydrated from disk at
+// least once. Without it, any set() before hydrate completes — most commonly a
+// dev-mode HMR reload that re-instantiates the store at DEFAULT_SETTINGS —
+// would persist those defaults over the user's real settings.json (the main
+// process treats an all-defaults file as valid and never falls back to the
+// backup). This is a hard guard against that whole class of data-loss bug.
+let hydrated = false
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
   ...DEFAULT_SETTINGS,
@@ -131,7 +146,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 
   hydrate: async () => {
     const loaded = await window.api.loadSettings()
+    // Order matters: mark hydrated BEFORE set() so the subscription's hydrated
+    // gate lets this write through to be consumed by suppressNextSave (rather
+    // than blocked outright, which would leave suppressNextSave armed and eat
+    // the user's first real change).
     suppressNextSave = true
+    hydrated = true
     set(coerce(loaded))
   }
 }))
@@ -142,6 +162,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 useSettingsStore.subscribe((state) => {
+  // Never persist until the first disk load has landed (see `hydrated` above).
+  if (!hydrated) return
   if (suppressNextSave) {
     suppressNextSave = false
     return

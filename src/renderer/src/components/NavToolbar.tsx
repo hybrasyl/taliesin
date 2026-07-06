@@ -45,7 +45,10 @@ const btnSx = {
 
 const activeBtnSx = {
   ...btnSx,
-  color: 'secondary.dark',
+  // Tripled self-selector raises specificity so the active tint (secondary.dark)
+  // wins over any theme-level chrome icon color — e.g. the Mundanes theme forces
+  // all chrome IconButtons white. A no-op for themes without that override.
+  '&&&': { color: 'secondary.dark' },
   backgroundColor: 'rgba(255,255,255,0.08)'
 } as const
 

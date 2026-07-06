@@ -39,7 +39,9 @@ const THEMES: { value: ThemeName; label: string }[] = [
   { value: 'hybrasyl', label: 'Hybrasyl' },
   { value: 'chadul', label: 'Chadul' },
   { value: 'danaan', label: 'Danaan' },
-  { value: 'grinneal', label: 'Grinneal' }
+  { value: 'grinneal', label: 'Grinneal' },
+  { value: 'mundanes', label: 'Mundanes' },
+  { value: 'dubhaimid', label: 'Dubhaimid' }
 ]
 
 // ── Shared path input ────────────────────────────────────────────────────────
