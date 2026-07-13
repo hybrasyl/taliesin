@@ -9,7 +9,7 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <Box data-testid="app-root" sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar
         position="static"
         sx={{

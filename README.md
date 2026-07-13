@@ -124,6 +124,18 @@ npm run test:coverage
 
 Test files live alongside source under `src/` using the `*.test.ts` / `*.test.tsx` convention.
 
+## Releasing
+
+Release notes are authored in **`CHANGELOG.md`**, not hand-edited on GitHub after the fact:
+
+1. As PRs land, add the user-facing change under `## [Unreleased]` (Keep a Changelog format).
+2. To cut a release: promote `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (add a fresh empty
+   `[Unreleased]` above it) and bump the version: `npm version X.Y.Z --no-git-tag-version`.
+3. Tag `vX.Y.Z` and push. `release.yml` builds/signs the artifacts, then
+   `scripts/changelog-extract.mjs` pulls that version's section into the release body and
+   `generate_release_notes` appends the auto PR list beneath it. A missing section falls back
+   to the auto notes, so a forgotten entry never fails the release.
+
 ## Contributing
 
 Issues and pull requests welcome. Please open an issue before starting significant work.

@@ -1,5 +1,6 @@
 {
   "name": "taliesin",
+  "productName": "Taliesin",
   "version": "2.6.0",
   "description": "Dark Ages client asset viewer — companion to Creidhne",
   "main": "./out/main/index.js",
@@ -8,6 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "e2e": "npm run build && playwright test",
+    "e2e:only": "playwright test",
     "typecheck": "tsc --build",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
@@ -52,6 +55,7 @@
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^4.0.0",
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
