@@ -5,7 +5,7 @@
  * and auto-clusters tiles into families. Outputs a static JSON file that ships
  * with the app for use by the procedural map generator.
  *
- * Run: npx tsx scripts/buildTileAtlas.ts
+ * Run: npx tsx scripts/buildTileAtlas.ts <mapDir> [mapDir...]
  */
 
 import { promises as fs } from 'fs'
@@ -13,11 +13,6 @@ import { join } from 'path'
 import type { BgFamily, WallFamily, TileAtlas } from '../src/renderer/src/utils/tileThemeTypes'
 
 // ── Config ──────────────────────────────────────────────────────────────────
-
-const MAP_DIRS = [
-  'E:\\Hybrasyl Dev\\Maps\\map-collection-prime2\\map-collection-prime',
-  'F:\\Documents\\Hybrasyl\\world\\mapfiles'
-]
 
 const OUTPUT_PATH = join(__dirname, '..', 'src', 'renderer', 'src', 'data', 'tileAtlas.json')
 
@@ -54,7 +49,7 @@ function resolveDimensions(fileSize: number): { w: number; h: number } | null {
 
 // ── Scanning ────────────────────────────────────────────────────────────────
 
-async function scanMaps() {
+async function scanMaps(mapDirs: string[]) {
   // Accumulators
   const bgFreq = new Map<number, number>()
   const bgAdj = new Map<number, Map<number, number>>() // bgId -> neighborBgId -> count
@@ -77,7 +72,7 @@ async function scanMaps() {
     neighbors.set(b, (neighbors.get(b) ?? 0) + 1)
   }
 
-  for (const dirPath of MAP_DIRS) {
+  for (const dirPath of mapDirs) {
     let entries: Awaited<ReturnType<typeof fs.readdir>>
     try {
       entries = await fs.readdir(dirPath, { withFileTypes: true })
@@ -413,10 +408,17 @@ function buildOutput(
 
 async function main() {
   console.log('=== Tile Atlas Builder ===\n')
+
+  const mapDirs = process.argv.slice(2)
+  if (mapDirs.length === 0) {
+    console.error('Usage: npx tsx scripts/buildTileAtlas.ts <mapDir> [mapDir...]')
+    process.exit(1)
+  }
+
   console.log('Scanning map directories...')
 
   const { bgFreq, bgAdj, wallPairFreq, wallPairGrounds, fileCount, tileCount, skippedFiles } =
-    await scanMaps()
+    await scanMaps(mapDirs)
 
   console.log(`\nScan complete:`)
   console.log(`  ${fileCount} files processed, ${skippedFiles} skipped`)
