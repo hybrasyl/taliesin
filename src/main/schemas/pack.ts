@@ -17,6 +17,7 @@ const contentTypeSchema = z.enum([
   'music',
   'sound_effects',
   'world_maps',
+  'town_maps',
   'npc_portraits',
   'static_tiles',
   'creature_sprites',

@@ -7,6 +7,7 @@ import { uiSpriteOverridesKind } from './uiSpriteOverrides'
 import { musicKind } from './music'
 import { soundEffectsKind } from './soundEffects'
 import { worldMapsKind } from './worldMaps'
+import { townMapsKind } from './townMaps'
 import { npcPortraitsKind } from './npcPortraits'
 import { staticTilesKind } from './staticTiles'
 import { creatureSpritesKind } from './creatureSprites'
@@ -26,6 +27,7 @@ export const PACK_KINDS: Record<ContentType, PackKind> = {
   music: musicKind,
   sound_effects: soundEffectsKind,
   world_maps: worldMapsKind,
+  town_maps: townMapsKind,
   npc_portraits: npcPortraitsKind,
   static_tiles: staticTilesKind,
   creature_sprites: creatureSpritesKind,

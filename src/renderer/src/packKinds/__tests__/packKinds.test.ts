@@ -7,6 +7,7 @@ import { uiSpriteOverridesKind } from '../uiSpriteOverrides'
 import { musicKind } from '../music'
 import { soundEffectsKind } from '../soundEffects'
 import { worldMapsKind } from '../worldMaps'
+import { townMapsKind } from '../townMaps'
 import { npcPortraitsKind } from '../npcPortraits'
 import { staticTilesKind } from '../staticTiles'
 import { creatureSpritesKind } from '../creatureSprites'
@@ -15,7 +16,7 @@ import { getKind, listKinds, isKnownContentType, PACK_KINDS } from '../index'
 import type { PackAsset, PackProject } from '../types'
 
 describe('PACK_KINDS registry', () => {
-  it('has all 12 known content types', () => {
+  it('has all 13 known content types', () => {
     expect(Object.keys(PACK_KINDS).sort()).toEqual([
       'ability_icons',
       'creature_sprites',
@@ -26,6 +27,7 @@ describe('PACK_KINDS registry', () => {
       'npc_portraits',
       'sound_effects',
       'static_tiles',
+      'town_maps',
       'ui_panels',
       'ui_sprite_overrides',
       'world_maps'
@@ -33,9 +35,9 @@ describe('PACK_KINDS registry', () => {
   })
 
   it('listKinds returns each kind once', () => {
-    expect(listKinds()).toHaveLength(12)
+    expect(listKinds()).toHaveLength(13)
     const types = new Set(listKinds().map((k) => k.type))
-    expect(types.size).toBe(12)
+    expect(types.size).toBe(13)
   })
 
   it('getKind returns the matching kind', () => {
@@ -336,6 +338,49 @@ describe('worldMapsKind', () => {
     expect(() => worldMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(
       /requires ctx.namespace/
     )
+  })
+})
+
+describe('townMapsKind', () => {
+  it('parseSlot reads town_{mapId:D5}.png with the map id as slot id', () => {
+    expect(townMapsKind.parseSlot('town_00500.png')).toEqual({ namespace: 'town', id: 500 })
+    expect(townMapsKind.parseSlot('town_00001.png')).toEqual({ namespace: 'town', id: 1 })
+    expect(townMapsKind.parseSlot('town_500.png')).toBeNull() // 3 digits
+    expect(townMapsKind.parseSlot('field001.png')).toBeNull()
+  })
+
+  it('nextAssetPath pads the prompted map id to 5 digits', () => {
+    expect(
+      townMapsKind.nextAssetPath({ ctx: { namespace: '500' }, existingAssets: [] }).zipPath
+    ).toBe('town_00500.png')
+    expect(
+      townMapsKind.nextAssetPath({ ctx: { namespace: '1' }, existingAssets: [] }).zipPath
+    ).toBe('town_00001.png')
+  })
+
+  it('nextAssetPath rejects non-numeric and out-of-range map ids', () => {
+    expect(() =>
+      townMapsKind.nextAssetPath({ ctx: { namespace: 'abc' }, existingAssets: [] })
+    ).toThrow(/numeric map ID/)
+    expect(() => townMapsKind.nextAssetPath({ ctx: {}, existingAssets: [] })).toThrow(
+      /numeric map ID/
+    )
+    expect(() =>
+      townMapsKind.nextAssetPath({ ctx: { namespace: '0' }, existingAssets: [] })
+    ).toThrow(/between 1 and 99999/)
+  })
+
+  it('dimension accepts 568×406 and integer multiples, rejects others', () => {
+    expect(townMapsKind.dimension!.validate(568, 406)).toBeNull()
+    expect(townMapsKind.dimension!.validate(1136, 812)).toBeNull()
+    expect(townMapsKind.dimension!.validate(569, 406)).not.toBeNull()
+    expect(townMapsKind.dimension!.validate(1136, 406)).not.toBeNull() // mismatched factor
+    expect(townMapsKind.customNamespacePrompt).toBeDefined()
+  })
+
+  it('covers is a strict empty town_maps object', () => {
+    expect(() => townMapsKind.coversSchema.parse({ town_maps: {} })).not.toThrow()
+    expect(() => townMapsKind.coversSchema.parse({ town_maps: { x: 1 } })).toThrow()
   })
 })
 
