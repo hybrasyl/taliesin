@@ -150,7 +150,8 @@ export default defineConfig({
             'src/preload/**/__tests__/**/*.test.ts',
             'src/renderer/src/utils/__tests__/**/*.test.ts',
             'src/renderer/src/packKinds/__tests__/**/*.test.ts',
-            'src/renderer/src/uiforge/__tests__/**/*.test.ts'
+            'src/renderer/src/uiforge/__tests__/**/*.test.ts',
+            'scripts/**/*.test.mjs'
           ],
           // mapXml/worldMapXml/panelXml use DOMParser → jsdom project picks them up instead.
           exclude: [

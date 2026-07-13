@@ -67,7 +67,11 @@ const TitleBar: React.FC = () => {
   }
 
   return (
-    <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 36, px: 1.5 }}>
+    <Toolbar
+      data-testid="title-bar"
+      variant="dense"
+      sx={{ bgcolor: 'secondary.main', minHeight: 36, px: 1.5 }}
+    >
       <img
         src="./taliesin.png"
         alt="Taliesin"
@@ -82,7 +86,9 @@ const TitleBar: React.FC = () => {
         sx={{
           fontWeight: 'bold',
           flexGrow: 0,
-          fontSize: '1.5rem',
+          // Pin against responsiveFontSizes() breakpoint media queries on the h6
+          // variant, which would otherwise grow the title on window resize.
+          '&&': { fontSize: '1.5rem' },
           textShadow: plain ? 'none' : TITLE_TEXT_SHADOW
         }}
       >

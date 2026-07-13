@@ -138,7 +138,7 @@ const SpritePreview: React.FC<{
   )
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
       {/* Palette picker */}
       {needsPalette && paletteNames.length > 0 && (
         <FormControl size="small" fullWidth>
@@ -300,30 +300,54 @@ const PalettePreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }
 
 // ── Text preview ─────────────────────────────────────────────────────────────
 
+// Cap how much text we decode/render. Far larger than any real DA text/.tbl
+// asset; guards against a huge (or mis-typed binary) entry making the DOM text
+// node pathological to lay out.
+const MAX_TEXT_PREVIEW_BYTES = 256 * 1024
+
+// Real .tbl dye tables begin with a small "colors per entry" count (~6). Other
+// .tbl files (palette/cycling tables, or binary blobs) are NOT dye tables: when
+// their first line decodes to a huge number, ColorTable.parseText allocates that
+// many color objects PER entry with no cap and without stopping at EOF — a 40 KB
+// file can exhaust the heap (OOM). Only hand the buffer to the parser when the
+// header looks like a real dye table.
+const MAX_COLORS_PER_ENTRY = 64
+
+function tryParseColorTable(buf: Uint8Array): ColorTable | null {
+  const head = new TextDecoder('utf-8', { fatal: false }).decode(buf.subarray(0, 64))
+  const firstLine = (head.split(/\r?\n/, 1)[0] ?? '').trim()
+  if (!/^\d+$/.test(firstLine)) return null
+  const colorsPerEntry = parseInt(firstLine, 10)
+  if (!(colorsPerEntry >= 1 && colorsPerEntry <= MAX_COLORS_PER_ENTRY)) return null
+  try {
+    const parsed = ColorTable.fromBuffer(buf)
+    return parsed.entries.length > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = ({
   entry,
   archive
 }) => {
-  const { text, colorTable } = useMemo(() => {
+  const { text, truncatedBytes, colorTable } = useMemo(() => {
     const buf = archive.getEntryBuffer(entry)
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(buf)
+    const truncatedBytes =
+      buf.length > MAX_TEXT_PREVIEW_BYTES ? buf.length - MAX_TEXT_PREVIEW_BYTES : 0
+    const slice = truncatedBytes > 0 ? buf.subarray(0, MAX_TEXT_PREVIEW_BYTES) : buf
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(slice)
     // Try parsing .tbl files as a ColorTable (dye table). If it has entries,
     // render the swatches above the raw text. Most .tbl files are not dye
-    // tables and will return zero entries — those just show plain text.
-    let colorTable: ColorTable | null = null
-    if (entry.entryName.toLowerCase().endsWith('.tbl')) {
-      try {
-        const parsed = ColorTable.fromBuffer(buf)
-        if (parsed.entries.length > 0) colorTable = parsed
-      } catch {
-        /* not a color table */
-      }
-    }
-    return { text, colorTable }
+    // tables and will return null — those just show plain text.
+    const colorTable = entry.entryName.toLowerCase().endsWith('.tbl')
+      ? tryParseColorTable(buf)
+      : null
+    return { text, truncatedBytes, colorTable }
   }, [entry, archive])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0 }}>
       {colorTable && <ColorTableSwatches table={colorTable} />}
       <Box
         sx={{
@@ -342,11 +366,23 @@ const TextPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
       >
         {text}
       </Box>
+      {truncatedBytes > 0 && (
+        <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+          Preview truncated — {formatBytes(truncatedBytes)} more not shown. Use Extract Raw for the
+          full file.
+        </Typography>
+      )}
     </Box>
   )
 }
 
+// Cap rendered dye-table rows so a large table can't spawn thousands of styled
+// swatch Boxes (each is an Emotion-styled node). Real dye tables are tiny.
+const MAX_SWATCH_ROWS = 512
+
 const ColorTableSwatches: React.FC<{ table: ColorTable }> = ({ table }) => {
+  const shown = table.entries.slice(0, MAX_SWATCH_ROWS)
+  const hidden = table.entries.length - shown.length
   return (
     <Box
       sx={{
@@ -369,9 +405,10 @@ const ColorTableSwatches: React.FC<{ table: ColorTable }> = ({ table }) => {
         }}
       >
         ColorTable · {table.entries.length} {table.entries.length === 1 ? 'entry' : 'entries'}
+        {hidden > 0 && ` (showing first ${MAX_SWATCH_ROWS})`}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-        {table.entries.map((entry, i) => (
+        {shown.map((entry, i) => (
           <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography
               variant="caption"
@@ -526,7 +563,7 @@ const TilesetPreview: React.FC<{
   const totalPages = Math.max(1, Math.ceil(tileCount / TILES_PER_PAGE))
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
       {paletteNames.length > 0 && (
         <FormControl size="small" fullWidth>
           <InputLabel>Palette</InputLabel>
@@ -630,7 +667,7 @@ const PcxPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   }, [entry, archive])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0 }}>
       {error && (
         <Typography variant="caption" color="error">
           {error}
@@ -703,7 +740,7 @@ const DarknessPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive 
   }, [entry, archive])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0 }}>
       {error && (
         <Typography variant="caption" color="error">
           {error}
@@ -807,7 +844,7 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
   }, [entry, archive, sizeIdx])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
       <FormControl size="small" fullWidth>
         <InputLabel>Glyph size</InputLabel>
         <Select
@@ -1008,7 +1045,7 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   ]
 
   return (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
       <Box
         sx={{
           display: 'grid',
@@ -1225,7 +1262,16 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) =
     type === 'font'
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 1.5, gap: 1 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        p: 1.5,
+        gap: 1
+      }}
+    >
       {/* Entry header + extract buttons */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <Box sx={{ flex: 1 }}>
