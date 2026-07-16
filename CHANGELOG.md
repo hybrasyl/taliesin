@@ -23,6 +23,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-07-16
+
 ### Added
 
 - **Static Tile Manager**: a new top-level page for authoring `static_tiles`
