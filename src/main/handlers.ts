@@ -16,8 +16,10 @@ import {
   loadIndex,
   saveIndex,
   getIndexStatus,
-  deleteIndex
+  deleteIndex,
+  listSectionFiles
 } from '@eriscorp/hybindex-ts'
+import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import {
   loadPacks,
@@ -243,6 +245,46 @@ export async function listDir(
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw err
   }
+}
+
+/** One world type's `.xml` files, split by whether they are archived. */
+export interface SectionListing {
+  /** Absolute path to `<libraryPath>/<type>`, forward-slashed. */
+  dir: string
+  /** Type-relative, forward-slashed, sorted. e.g. `fire/blast.xml` */
+  active: string[]
+  /** Type-relative, forward-slashed, sorted. e.g. `.ignore/old.xml` */
+  archived: string[]
+}
+
+/**
+ * List one world type's `.xml` files (`maps`, `castables`, …) recursively,
+ * already split into active and archived.
+ *
+ * Delegates to hybindex's own `listSectionFiles` rather than walking here:
+ * that function is the single definition of which files belong to a section —
+ * the index builder and its stat cache both go through it — so a scanner of
+ * our own would be a third implementation, free to disagree with the index
+ * about what exists. Each returned rel path *is* the `<type>NamesByFilename` /
+ * `MapDetail.filename` key, so callers look names up directly with no
+ * `.ignore/` prefix handling.
+ */
+export async function listSection(
+  ctx: HandlerContext,
+  libraryPath: string,
+  type: string
+): Promise<SectionListing> {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  // `type` needs its own traversal check: listSectionFiles joins it onto the
+  // library internally, so validating libraryPath alone does not contain it —
+  // a `type` of '../../..' would enumerate the disk outside the world.
+  assertInside(safeLib, type)
+  const { dir, active, archived } = await listSectionFiles(safeLib, type)
+  // `join` returns native separators; the renderer composes paths as
+  // `${dir}/${rel}` with forward slashes. Handing back a native `dir` makes
+  // `selectedFile.path === file.path` silently false, which drops the file
+  // list's selection highlight after a rename.
+  return { dir: dir.replace(/\\/g, '/'), active, archived }
 }
 
 export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
@@ -731,11 +773,45 @@ export async function indexRead(ctx: HandlerContext, libraryRoot: string) {
   return loadIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
 }
 
-export async function indexBuild(ctx: HandlerContext, libraryRoot: string) {
+/**
+ * Builds currently running, keyed by normalized library path.
+ *
+ * Nothing upstream serialises build requests, so concurrent callers each ran a
+ * full `buildIndex` + `saveIndex` over the same world. Writes are atomic per
+ * *file*, but a build writes ~18 of them, so two builds interleave at file
+ * granularity and leave a `_filecache.json` that disagrees with the per-type
+ * files beside it. That self-heals (the next status reports stale and rebuilds)
+ * but costs a wasted rebuild and opens a window where a reader sees a
+ * mixed-generation index. Collapsing concurrent requests onto one promise
+ * closes it.
+ */
+const inflightBuilds = new Map<string, Promise<WorldIndex>>()
+
+export async function indexBuild(ctx: HandlerContext, libraryRoot: string): Promise<WorldIndex> {
   const safe = assertInsideAnyRoot(allRoots(ctx), libraryRoot)
-  const idx = await buildIndex(safe)
-  await saveIndex(safe, idx)
-  return idx
+  // Key on the normalized path rather than the raw argument. `normalize` keeps
+  // a trailing separator ('/lib/' → '\lib\'), so strip it too, or one world
+  // reached by two spellings would build twice. The fallback keeps a
+  // separator-only path non-empty.
+  const key = safe.replace(/[\\/]+$/, '') || safe
+  const existing = inflightBuilds.get(key)
+  if (existing) return existing
+  const build = (async () => {
+    const idx = await buildIndex(safe)
+    await saveIndex(safe, idx)
+    return idx
+  })().finally(() => {
+    // Clear on rejection too — a failed build must not poison the world until
+    // the process restarts.
+    inflightBuilds.delete(key)
+  })
+  inflightBuilds.set(key, build)
+  return build
+}
+
+/** Test seam: the map is module state and outlives individual test cases. */
+export function __resetInflightBuilds(): void {
+  inflightBuilds.clear()
 }
 
 export async function indexStatus(ctx: HandlerContext, libraryRoot: string) {
@@ -1342,6 +1418,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // Filesystem
   ipcMain.handle('fs:readFile', (_, p) => readFile(ctx, p))
   ipcMain.handle('fs:listDir', (_, p) => listDir(ctx, p))
+  ipcMain.handle('fs:listSection', (_, p, t) => listSection(ctx, p, t))
   ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(ctx, s, d))
   ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))
   ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(ctx, p, d))

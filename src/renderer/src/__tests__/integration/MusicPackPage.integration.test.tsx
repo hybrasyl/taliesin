@@ -15,7 +15,8 @@ vi.mock('@eriscorp/hybindex-ts', () => {
     loadIndex: vi.fn(async () => null),
     saveIndex: vi.fn(),
     getIndexStatus: vi.fn(),
-    deleteIndex: vi.fn()
+    deleteIndex: vi.fn(),
+    listSectionFiles: vi.fn()
   }
   return { ...m, default: m }
 })

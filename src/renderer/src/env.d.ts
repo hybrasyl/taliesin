@@ -6,6 +6,18 @@ declare global {
     isDirectory: boolean
   }
 
+  /**
+   * One world type's `.xml` files, listed recursively and split by whether they
+   * are archived. `dir` is absolute and forward-slashed; each rel path is
+   * type-relative and *is* the `<type>NamesByFilename` / `MapDetail.filename`
+   * index key, so names look up directly with no `.ignore/` prefix handling.
+   */
+  interface SectionListing {
+    dir: string
+    active: string[]
+    archived: string[]
+  }
+
   interface MapScanEntry {
     filename: string
     sizeBytes: number
@@ -93,6 +105,7 @@ declare global {
     ) => Promise<string | null>
     readFile: (filePath: string) => Promise<Buffer>
     listDir: (dirPath: string) => Promise<DirEntry[]>
+    listSection: (libraryPath: string, type: string) => Promise<SectionListing>
     copyFile: (src: string, dst: string) => Promise<void>
     writeFile: (filePath: string, content: string) => Promise<void>
     writeBytes: (filePath: string, data: Uint8Array) => Promise<void>

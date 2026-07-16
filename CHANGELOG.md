@@ -45,9 +45,20 @@ Keep entries user-facing — internal refactors/tests show up in the appended au
 - Title bar polish: the "Taliesin" wordmark and window/logo icons pick up a
   keyline outline and soft depth shadow (shared with the other house apps) for
   crisper contrast across themes.
+- Map Editor now lists maps filed in subdirectories of `maps/` (and of
+  `maps/.ignore/`), matching what the server loads and what the world index
+  catalogues. Rows show the subfolder, so two maps sharing a filename across
+  folders stay distinguishable.
+- Archiving or unarchiving a map now mirrors its subfolder — `townmaps/x.xml`
+  archives to `.ignore/townmaps/x.xml` and returns to where it came from,
+  instead of being flattened onto the archive root (where two maps of the same
+  name would silently collide and one would be renamed).
 
 ### Fixed
 
+- The world index is no longer built twice when opening a library with a stale
+  cache, and pages that read it now share one build instead of each starting
+  their own.
 - Archive Viewer: preview control rows (sprite frame navigation, tileset
   pagination, font/glyph selectors) no longer overflow off the bottom of the
   viewer pane.

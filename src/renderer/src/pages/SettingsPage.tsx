@@ -346,7 +346,7 @@ function LibrariesTab() {
           Hybrasyl World Libraries
         </Typography>
         <Tooltip
-          title="Add the world/xml directory of your Hybrasyl repo (e.g. C:\hybrasyl\world\xml). Each library shares an index with Creidhne at world/.creidhne/index.json."
+          title="Add the world/xml directory of your Hybrasyl repo (e.g. C:\hybrasyl\world\xml). Each library shares a rebuildable index cache with Creidhne, stored on this machine outside the world folder."
           placement="top"
         >
           <IconButton size="small" sx={{ ml: 1 }}>

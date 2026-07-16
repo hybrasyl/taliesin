@@ -111,4 +111,19 @@ describe('useWorldIndex', () => {
     await waitFor(() => expect(result.current.index).toBe(built))
     expect(api.indexBuild).toHaveBeenCalledWith('/lib')
   })
+
+  it('shares one build across concurrent consumers of the same library', async () => {
+    // The state is a shared store, not per-instance: six call sites mounting
+    // against a stale cache must not each start their own build.
+    api.indexStatus.mockResolvedValue({ exists: true, stale: true })
+    api.indexBuild.mockResolvedValue(fakeIndex)
+    const wrapper = withLibrary('/lib')
+
+    const a = renderHook(() => useWorldIndex(), { wrapper })
+    const b = renderHook(() => useWorldIndex(), { wrapper })
+
+    await waitFor(() => expect(a.result.current.index).toBe(fakeIndex))
+    await waitFor(() => expect(b.result.current.index).toBe(fakeIndex))
+    expect(api.indexBuild).toHaveBeenCalledTimes(1)
+  })
 })

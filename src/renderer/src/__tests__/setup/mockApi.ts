@@ -32,6 +32,7 @@ export function createMockApi(): MockApi {
     // File system
     'readFile',
     'listDir',
+    'listSection',
     'copyFile',
     'writeFile',
     'writeBytes',
