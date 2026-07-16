@@ -5,6 +5,7 @@ import {
   type RendererSettings
 } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
+import { resetWorldIndexStore } from '../../store/worldIndexStore'
 
 /**
  * Test helpers for the Zustand stores. Unlike Recoil, the stores are global
@@ -19,7 +20,7 @@ const DEFAULT_UI = {
   activeColorizeSource: null
 }
 
-/** Reset both stores to their initial state. Call in `beforeEach`. */
+/** Reset the stores to their initial state. Call in `beforeEach`. */
 export function resetStores(): void {
   useSettingsStore.setState({
     ...DEFAULT_SETTINGS,
@@ -28,6 +29,9 @@ export function resetStores(): void {
     musicWorkingDirs: []
   })
   useUiStore.setState({ ...DEFAULT_UI })
+  // Also clears its module-level in-flight maps. Without this a prior test's
+  // `loadedFor` silently no-ops the next test's `ensure`.
+  resetWorldIndexStore()
 }
 
 /** Seed settings-store fields. */

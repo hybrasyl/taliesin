@@ -111,11 +111,25 @@ export default defineConfig({
           functions: 100,
           statements: 100
         },
+        // Now a thin selector wrapper — the state it used to own lives in
+        // store/worldIndexStore.ts, which has its own floor below.
         'src/renderer/src/hooks/useWorldIndex.ts': {
-          lines: 94,
-          branches: 60,
+          lines: 100,
+          branches: 100,
           functions: 100,
-          statements: 93
+          statements: 100
+        },
+        'src/renderer/src/store/worldIndexStore.ts': {
+          lines: 100,
+          branches: 80,
+          functions: 100,
+          statements: 100
+        },
+        'src/renderer/src/utils/mapFileRel.ts': {
+          lines: 100,
+          branches: 100,
+          functions: 100,
+          statements: 100
         },
         'src/renderer/src/components/assetpack/PackEditor.tsx': {
           lines: 92,

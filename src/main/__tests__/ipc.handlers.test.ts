@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import { normalize as pathNormalize } from 'path'
+// For the module-level in-flight build map, which outlives individual cases.
+import * as handlerModule from '../handlers'
 
 // Hoisted shared state — populated by the electron mock at registration time
 // and consumed by tests after import('../index') triggers the registrations.
@@ -215,7 +217,10 @@ const {
     getIndexStatus: vi.fn<(...a: unknown[]) => Promise<{ exists: boolean; builtAt?: string }>>(
       async () => ({ exists: false })
     ),
-    deleteIndex: vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined)
+    deleteIndex: vi.fn<(...a: unknown[]) => Promise<void>>(async () => undefined),
+    listSectionFiles: vi.fn<
+      (...a: unknown[]) => Promise<{ dir: string; active: string[]; archived: string[] }>
+    >(async () => ({ dir: '/lib/maps', active: [], archived: [] }))
   }
   const libraryPath = { resolveLibraryPath: vi.fn(async (p: string) => p + '/world/xml') }
 
@@ -318,6 +323,8 @@ function reset() {
   dialogReplies.openDirectory = null
   dialogReplies.saveFile = null
   vi.clearAllMocks()
+  // Module state, so it survives clearAllMocks and leaks between cases.
+  handlerModule.__resetInflightBuilds()
 }
 
 // ── Setup: import index.ts to register handlers ───────────────────────────────
@@ -535,6 +542,135 @@ describe('hybindex handlers', () => {
 
   it('library:resolve delegates to resolveLibraryPath', async () => {
     expect(await invoke('library:resolve', '/picked')).toBe(pathNormalize('/picked') + '/world/xml')
+  })
+})
+
+describe('fs:listSection', () => {
+  type Listing = { dir: string; active: string[]; archived: string[] }
+
+  it('delegates to listSectionFiles with the normalized library and the type', async () => {
+    await invoke('fs:listSection', '/lib', 'maps')
+    expect(hybindex.listSectionFiles).toHaveBeenCalledWith(pathNormalize('/lib'), 'maps')
+  })
+
+  it('passes active and archived through unchanged, keeping the .ignore/ prefix', async () => {
+    hybindex.listSectionFiles.mockResolvedValueOnce({
+      dir: '/lib/maps',
+      active: ['Abel.xml', 'townmaps/Piet.xml'],
+      archived: ['.ignore/old.xml', '.ignore/Deprecated/older.xml']
+    })
+    const r = await invoke<Listing>('fs:listSection', '/lib', 'maps')
+    expect(r.active).toEqual(['Abel.xml', 'townmaps/Piet.xml'])
+    expect(r.archived).toEqual(['.ignore/old.xml', '.ignore/Deprecated/older.xml'])
+    // The split is the point: archived entries must never leak into active.
+    expect(r.active.some((f) => f.startsWith('.ignore/'))).toBe(false)
+  })
+
+  it('normalizes a native-separator dir to forward slashes', async () => {
+    // The renderer composes `${dir}/${rel}` and compares those strings for
+    // selection. A native dir makes every such comparison silently false.
+    hybindex.listSectionFiles.mockResolvedValueOnce({
+      dir: 'E:\\world\\xml\\maps',
+      active: [],
+      archived: []
+    })
+    const r = await invoke<Listing>('fs:listSection', '/lib', 'maps')
+    expect(r.dir).toBe('E:/world/xml/maps')
+  })
+
+  it('returns empty lists for a missing type directory rather than throwing', async () => {
+    hybindex.listSectionFiles.mockResolvedValueOnce({ dir: '/lib/maps', active: [], archived: [] })
+    await expect(invoke<Listing>('fs:listSection', '/lib', 'maps')).resolves.toEqual({
+      dir: '/lib/maps',
+      active: [],
+      archived: []
+    })
+  })
+
+  it('rejects a traversal type without ever enumerating', async () => {
+    // listSectionFiles joins `type` onto the library itself, so validating the
+    // library alone does not contain it — '../../..' would walk the disk.
+    await expect(invoke('fs:listSection', '/lib', '../../..')).rejects.toThrow(/traversal/i)
+    expect(hybindex.listSectionFiles).not.toHaveBeenCalled()
+  })
+
+  it('rejects a library path outside every allowed root', async () => {
+    const indexModule = await import('../index')
+    indexModule.ctx.blessedRoots.delete('/')
+    indexModule.ctx.blessedRoots.add(pathNormalize('/allowed'))
+    try {
+      await expect(invoke('fs:listSection', '/elsewhere', 'maps')).rejects.toThrow()
+      expect(hybindex.listSectionFiles).not.toHaveBeenCalled()
+    } finally {
+      indexModule.ctx.blessedRoots.delete(pathNormalize('/allowed'))
+      indexModule.ctx.blessedRoots.add('/')
+    }
+  })
+})
+
+describe('index:build in-flight cache', () => {
+  /** A build we can hold open, to make "concurrent" deterministic. */
+  function deferred<T>() {
+    let resolve!: (v: T) => void
+    let reject!: (e: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  afterEach(() => {
+    handlerModule.__resetInflightBuilds()
+  })
+
+  it('collapses concurrent builds of one library onto a single build', async () => {
+    const d = deferred<unknown>()
+    const idx = { libraryPath: '/lib', builtAt: 't' }
+    hybindex.buildIndex.mockReturnValueOnce(d.promise)
+
+    const a = invoke('index:build', '/lib')
+    const b = invoke('index:build', '/lib')
+    d.resolve(idx)
+
+    expect(await a).toBe(idx)
+    expect(await b).toBe(idx)
+    expect(hybindex.buildIndex).toHaveBeenCalledTimes(1)
+    expect(hybindex.saveIndex).toHaveBeenCalledTimes(1)
+  })
+
+  it('collapses paths that normalize to the same library', async () => {
+    const d = deferred<unknown>()
+    hybindex.buildIndex.mockReturnValueOnce(d.promise)
+    const a = invoke('index:build', '/lib')
+    const b = invoke('index:build', '/lib/')
+    d.resolve({ libraryPath: '/lib' })
+    await Promise.all([a, b])
+    expect(hybindex.buildIndex).toHaveBeenCalledTimes(1)
+  })
+
+  it('builds again once the previous build has settled', async () => {
+    await invoke('index:build', '/lib')
+    await invoke('index:build', '/lib')
+    expect(hybindex.buildIndex).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the cache when a build fails, so the next call retries', async () => {
+    hybindex.buildIndex.mockRejectedValueOnce(new Error('boom'))
+    await expect(invoke('index:build', '/lib')).rejects.toThrow('boom')
+    // A failed build must not poison the library until the process restarts.
+    await expect(invoke('index:build', '/lib')).resolves.toBeDefined()
+    expect(hybindex.buildIndex).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects every collapsed caller when the shared build fails', async () => {
+    const d = deferred<unknown>()
+    hybindex.buildIndex.mockReturnValueOnce(d.promise)
+    const a = invoke('index:build', '/lib')
+    const b = invoke('index:build', '/lib')
+    d.reject(new Error('shared failure'))
+    await expect(a).rejects.toThrow('shared failure')
+    await expect(b).rejects.toThrow('shared failure')
   })
 })
 

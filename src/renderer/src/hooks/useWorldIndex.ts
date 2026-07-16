@@ -1,70 +1,35 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useSettingsStore } from '../store/settingsStore'
+import { useWorldIndexStore } from '../store/worldIndexStore'
 
+/**
+ * Read the world index for the active library, building it if absent or stale.
+ *
+ * The index is a rebuildable cache that lives outside the (git) world folder
+ * and is shared with Creidhne, so a fresh machine — or a world edited
+ * externally — may have no cache or a stale one. Builds are incremental, so an
+ * up-to-date cache makes that path cheap.
+ *
+ * State lives in {@link useWorldIndexStore}, not per-instance `useState`: with
+ * six call sites, per-instance state let each mount start its own build off the
+ * same stale status. See that module for the details.
+ */
 export function useWorldIndex() {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
-  const [index, setIndex] = useState<WorldIndex | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [building, setBuilding] = useState(false)
-  const [buildError, setBuildError] = useState<string | null>(null)
+  // Select fields individually — a single object selector would return a fresh
+  // reference on every call and re-render all six consumers on any store write.
+  const index = useWorldIndexStore((s) => s.index)
+  const loading = useWorldIndexStore((s) => s.loading)
+  const building = useWorldIndexStore((s) => s.building)
+  const buildError = useWorldIndexStore((s) => s.buildError)
+  const ensure = useWorldIndexStore((s) => s.ensure)
+  const doBuild = useWorldIndexStore((s) => s.build)
 
-  // Load the index whenever the active library changes. The index is now a
-  // rebuildable cache that lives outside the (git) world folder and is shared
-  // with Creidhne, so a fresh machine — or a world edited externally — may have
-  // no cache or a stale one. Auto-build in that case, then use the result;
-  // otherwise read the existing cache. buildIndex is incremental, so an
-  // up-to-date cache makes the build path cheap.
   useEffect(() => {
-    if (!activeLibrary) {
-      setIndex(null)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    ;(async () => {
-      try {
-        const status = await window.api.indexStatus(activeLibrary)
-        if (!status?.exists || status?.stale) {
-          if (cancelled) return
-          setBuilding(true)
-          setBuildError(null)
-          try {
-            const built = await window.api.indexBuild(activeLibrary)
-            if (!cancelled) setIndex(built)
-          } catch (e) {
-            if (!cancelled) {
-              setBuildError(e instanceof Error ? e.message : 'Index build failed')
-            }
-          } finally {
-            if (!cancelled) setBuilding(false)
-          }
-        } else {
-          const existing = await window.api.indexRead(activeLibrary)
-          if (!cancelled) setIndex(existing)
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [activeLibrary])
+    void ensure(activeLibrary)
+  }, [activeLibrary, ensure])
 
-  // Trigger a full rebuild (writes to disk, then updates state)
-  const build = useCallback(async () => {
-    if (!activeLibrary) return
-    setBuilding(true)
-    setBuildError(null)
-    try {
-      const result = await window.api.indexBuild(activeLibrary)
-      setIndex(result)
-    } catch (e) {
-      setBuildError(e instanceof Error ? e.message : 'Index build failed')
-    } finally {
-      setBuilding(false)
-    }
-  }, [activeLibrary])
+  const build = useCallback(() => doBuild(activeLibrary), [activeLibrary, doBuild])
 
   return { index, loading, building, buildError, build }
 }

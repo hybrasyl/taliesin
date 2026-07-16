@@ -6,6 +6,16 @@ export interface DirEntry {
   isDirectory: boolean
 }
 
+/** One world type's `.xml` files, recursive, split by archived state. */
+export interface SectionListing {
+  /** Absolute path to `<libraryPath>/<type>`, forward-slashed. */
+  dir: string
+  /** Type-relative, forward-slashed, sorted. e.g. `fire/blast.xml` */
+  active: string[]
+  /** Type-relative, forward-slashed, sorted. e.g. `.ignore/old.xml` */
+  archived: string[]
+}
+
 export interface MapScanEntry {
   filename: string
   sizeBytes: number
@@ -75,6 +85,8 @@ const api = {
   // File system — returns raw bytes for dalib-ts to parse in the renderer
   readFile: (filePath: string): Promise<Buffer> => ipcRenderer.invoke('fs:readFile', filePath),
   listDir: (dirPath: string): Promise<DirEntry[]> => ipcRenderer.invoke('fs:listDir', dirPath),
+  listSection: (libraryPath: string, type: string): Promise<SectionListing> =>
+    ipcRenderer.invoke('fs:listSection', libraryPath, type),
   copyFile: (src: string, dst: string): Promise<void> =>
     ipcRenderer.invoke('fs:copyFile', src, dst),
   writeFile: (filePath: string, content: string): Promise<void> =>
@@ -140,13 +152,21 @@ const api = {
   bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string): Promise<string> =>
     ipcRenderer.invoke('bik:convert', bytes, ffmpegPath, cacheDir),
 
-  // World index (shared with Creidhne via <library>/world/.creidhne/index.json)
+  // World index — a derived, rebuildable cache in per-machine local storage
+  // (%LOCALAPPDATA%\Erisco\hybindex\v<N>\<worldKey>\), never in the git-tracked
+  // world folder. Shared with Creidhne because the key is derived from the
+  // world's path, so both apps resolve the same cache directory.
   indexRead: (libraryRoot: string): Promise<unknown | null> =>
     ipcRenderer.invoke('index:read', libraryRoot),
   indexBuild: (libraryRoot: string): Promise<unknown> =>
     ipcRenderer.invoke('index:build', libraryRoot),
-  indexStatus: (libraryRoot: string): Promise<{ exists: boolean; builtAt?: string }> =>
-    ipcRenderer.invoke('index:status', libraryRoot),
+  indexStatus: (
+    libraryRoot: string
+  ): Promise<{
+    exists: boolean
+    builtAt?: string
+    stale?: boolean
+  }> => ipcRenderer.invoke('index:status', libraryRoot),
   indexDelete: (libraryRoot: string): Promise<void> =>
     ipcRenderer.invoke('index:delete', libraryRoot),
   libraryResolve: (selectedPath: string): Promise<string | null> =>

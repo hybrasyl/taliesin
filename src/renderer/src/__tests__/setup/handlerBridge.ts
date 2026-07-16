@@ -244,6 +244,7 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // Filesystem
     readFile: (p) => handlers.readFile(handlerCtx, p),
     listDir: (p) => handlers.listDir(handlerCtx, p),
+    listSection: (p, t) => handlers.listSection(handlerCtx, p, t),
     copyFile: (s, d) => handlers.copyFile(handlerCtx, s, d),
     writeFile: (p, c) => handlers.writeFile(handlerCtx, p, c),
     writeBytes: (p, d) => handlers.writeBytes(handlerCtx, p, d),

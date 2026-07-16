@@ -6,7 +6,9 @@ Built with Electron + React + MUI.
 
 ## Creidhne integration
 
-Taliesin reads and writes the same `world/.creidhne/index.json` that Creidhne maintains. Point both apps at the same world library folder in Settings and the index stays in sync automatically — map names, NPC lists, and other cross-references are available in both tools without a separate build step.
+Taliesin and Creidhne share one world index, built by `@eriscorp/hybindex-ts`. Point both apps at the same world library folder in Settings and the index stays in sync automatically — map names, NPC lists, and other cross-references are available in both tools without a separate build step.
+
+The index is derived and rebuildable, so it lives in per-machine local storage (`%LOCALAPPDATA%\Erisco\hybindex\`) rather than in the git-tracked world folder. Both apps land on the same cache because its key is derived from the world's own path; builds are incremental, so whichever app opens the world second usually finds the work already done.
 
 > For far too long, previous members of the dev team maintained that a tool like this could not exist due to the complexity of the underlying XML structures. Recent advances in machine learning and latent space navigation have shown this to be demonstrably false.
 

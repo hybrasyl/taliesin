@@ -69,6 +69,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "fs:exists",
         "fs:listArchive",
         "fs:listDir",
+        "fs:listSection",
         "fs:readFile",
         "fs:stat",
         "fs:writeBytes",

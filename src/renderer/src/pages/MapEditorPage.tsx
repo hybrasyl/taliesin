@@ -31,18 +31,26 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
+import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
 import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
-  name: string
+  /**
+   * Type-relative, forward-slashed: `Abel.xml`, `fire/blast.xml`,
+   * `.ignore/old.xml`. This *is* the `mapDetails[].filename` index key, so
+   * name/id lookups need no prefix stripping.
+   */
+  rel: string
+  /** Absolute, forward-slashed: `${dir}/${rel}`. */
   path: string
+  /** Row label and filter target — see `displayName`. */
+  display: string
   mapName?: string
   mapId?: number
   archived?: boolean
 }
 
 const MAPS_SUBDIR = 'maps'
-const IGNORE_SUBDIR = 'maps/.ignore'
 
 // ── Derive map id from binary filename (e.g. lod00001.map → 1, hyb30001.map → 30001) ────
 
@@ -314,7 +322,9 @@ function FileListPanel({
     if (!q) return list
     return list.filter(
       (f) =>
-        f.name.toLowerCase().includes(q) ||
+        // Filter what the user sees, not the raw rel path — searching the
+        // latter would make "ignore" match every archived map.
+        f.display.toLowerCase().includes(q) ||
         (f.mapName?.toLowerCase().includes(q) ?? false) ||
         (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
     )
@@ -337,7 +347,7 @@ function FileListPanel({
       <ListItem key={f.path} disablePadding>
         <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
           <ListItemText
-            primary={f.name.replace(/\.xml$/i, '')}
+            primary={f.display}
             secondary={
               <>
                 {f.mapName && (
@@ -504,8 +514,13 @@ export default function MapEditorPage() {
   const worldMapNames = worldIndex?.worldmaps ?? []
   const spawnGroupNames = worldIndex?.spawngroups ?? []
 
-  const mapsDir = activeLibrary ? `${activeLibrary}/${MAPS_SUBDIR}` : null
-  const ignoreDir = activeLibrary ? `${activeLibrary}/${IGNORE_SUBDIR}` : null
+  // The section directory comes back from fs:listSection rather than being
+  // rebuilt from activeLibrary here. It is the same join hybindex itself uses,
+  // already forward-slashed, so row paths and write paths cannot disagree about
+  // separators — a second derivation would have to normalize identically
+  // forever, and resolveLibraryPath hands back native separators.
+  const [mapsDir, setMapsDir] = useState<string | null>(null)
+  const ignoreDir = mapsDir ? `${mapsDir}/.ignore` : null
 
   // filename → map <Name> lookup built from the index (zero extra file reads)
   const activeNameMap = useMemo(
@@ -525,49 +540,39 @@ export default function MapEditorPage() {
     [worldIndex]
   )
 
-  const loadActiveFiles = async () => {
-    if (!mapsDir) {
+  /**
+   * One listSection call replaces the two flat listDir scans this used to do.
+   * It enumerates recursively — so a map filed in a subdirectory is no longer
+   * invisible here while the index lists it — and returns active and archived
+   * already split, which excludes the archive *explicitly* rather than relying
+   * on a `.isFile()` filter to drop the `.ignore` directory by accident.
+   */
+  const loadFiles = async () => {
+    if (!activeLibrary) {
       setFiles([])
-      return
-    }
-    try {
-      const entries = await window.api.listDir(mapsDir)
-      setFiles(
-        entries
-          .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map((e) => ({
-            name: e.name,
-            path: `${mapsDir}/${e.name}`,
-            mapName: activeNameMap.get(e.name),
-            mapId: activeIdMap.get(e.name)
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-      )
-    } catch {
-      setFiles([])
-    }
-  }
-
-  const loadArchivedFiles = async () => {
-    if (!ignoreDir) {
       setArchivedFiles([])
+      setMapsDir(null)
       return
     }
     try {
-      const entries = await window.api.listDir(ignoreDir)
-      setArchivedFiles(
-        entries
-          .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map((e) => ({
-            name: e.name,
-            path: `${ignoreDir}/${e.name}`,
-            mapName: ignoredNameMap.get(e.name),
-            mapId: ignoredIdMap.get(e.name),
-            archived: true
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-      )
+      const { dir, active, archived } = await window.api.listSection(activeLibrary, MAPS_SUBDIR)
+      setMapsDir(dir)
+      const toEntry = (rel: string, isArchived: boolean): FileEntry => ({
+        rel,
+        path: `${dir}/${rel}`,
+        display: displayName(rel),
+        mapName: (isArchived ? ignoredNameMap : activeNameMap).get(rel),
+        mapId: (isArchived ? ignoredIdMap : activeIdMap).get(rel),
+        ...(isArchived && { archived: true })
+      })
+      // listSection sorts by code unit — deterministic, but it puts lod10 ahead
+      // of lod2. Re-sort for display with numeric collation.
+      const byDisplay = (a: FileEntry, b: FileEntry) =>
+        a.display.localeCompare(b.display, undefined, { numeric: true })
+      setFiles(active.map((rel) => toEntry(rel, false)).sort(byDisplay))
+      setArchivedFiles(archived.map((rel) => toEntry(rel, true)).sort(byDisplay))
     } catch {
+      setFiles([])
       setArchivedFiles([])
     }
   }
@@ -580,8 +585,7 @@ export default function MapEditorPage() {
       setEditingMap(null)
       return
     }
-    loadActiveFiles()
-    loadArchivedFiles()
+    loadFiles()
   }, [activeLibrary])
 
   // Re-populate mapName/mapId when the index is (re)built without re-scanning the filesystem
@@ -589,24 +593,22 @@ export default function MapEditorPage() {
     setFiles((prev) =>
       prev.map((f) => ({
         ...f,
-        mapName: activeNameMap.get(f.name),
-        mapId: activeIdMap.get(f.name)
+        mapName: activeNameMap.get(f.rel),
+        mapId: activeIdMap.get(f.rel)
       }))
     )
     setArchivedFiles((prev) =>
       prev.map((f) => ({
         ...f,
-        mapName: ignoredNameMap.get(f.name),
-        mapId: ignoredIdMap.get(f.name)
+        mapName: ignoredNameMap.get(f.rel),
+        mapId: ignoredIdMap.get(f.rel)
       }))
     )
   }, [activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap])
 
-  const handleToggleArchived = async () => {
-    const next = !showArchived
-    setShowArchived(next)
-    if (next) await loadArchivedFiles()
-  }
+  // Both lists arrive from one listSection call, so revealing the archive is
+  // pure state — no round-trip.
+  const handleToggleArchived = () => setShowArchived((v) => !v)
 
   const doNew = () => setNewDialogOpen(true)
   const handleNew = () => guard(doNew)
@@ -637,29 +639,39 @@ export default function MapEditorPage() {
   const handleSelect = (file: FileEntry) => guard(() => doSelect(file))
 
   const handleSave = async (data: MapData, fileName: string) => {
-    if (!activeLibrary) return
+    // mapsDir arrives with the first listSection response, so it is null until
+    // the list has loaded — there is nothing to save against before then.
+    if (!activeLibrary || !mapsDir || !ignoreDir) return
     try {
-      const isRename = !!(selectedFile && fileName !== selectedFile.name)
-      const newPath = isRename || !selectedFile ? `${mapsDir}/${fileName}` : selectedFile.path
+      // `fileName` is a bare name from the editor's field, so put it back in the
+      // folder the map already lives in. Resolving it against the type root
+      // instead would silently lift a subfoldered map out of its folder — most
+      // easily by clicking regenerate, which hands back a bare `lod00001.xml`.
+      const targetRel = joinRel(selectedFile ? relFolder(selectedFile.rel) : '', fileName)
+      const isRename = !!(selectedFile && targetRel !== activeRel(selectedFile.rel))
+      const newPath = isRename || !selectedFile ? `${mapsDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeMapXml(data)
       await window.api.writeFile(newPath, xml)
       setEditingMap(data)
 
       if (isRename && selectedFile) {
-        const archivePath = `${ignoreDir}/${selectedFile.name}`
+        // activeRel, not rel: keyed on the rel path this mirrors an active
+        // map's subfolder into the archive, but an already-archived map's rel
+        // still carries `.ignore/` and would double it into `.ignore/.ignore/`.
+        const archivePath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
         await window.api.copyFile(selectedFile.path, archivePath)
         setSnackbar({
           message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
           severity: 'info'
         })
-        setSelectedFile({ name: fileName, path: newPath })
+        setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       } else if (!selectedFile) {
-        setSelectedFile({ name: fileName, path: newPath })
+        setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       }
 
       markClean()
-      await loadActiveFiles()
+      await loadFiles()
     } catch (err) {
       console.error('Failed to save map:', err)
       setSnackbar({
@@ -672,7 +684,11 @@ export default function MapEditorPage() {
   const handleArchive = async () => {
     if (!selectedFile || !ignoreDir || !mapsDir) return
     try {
-      const destPath = `${ignoreDir}/${selectedFile.name}`
+      // `.ignore/<activeRel>` mirrors the active subpath, so archive/unarchive
+      // round-trips instead of collapsing `fire/blast.xml` and `ice/blast.xml`
+      // onto one name. Only active maps can reach here, so activeRel is a
+      // no-op today — it keeps the prefix from ever being doubled.
+      const destPath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
       const exists = await window.api.exists(destPath)
       if (exists) {
         setSnackbar({
@@ -685,8 +701,7 @@ export default function MapEditorPage() {
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
-      await loadActiveFiles()
-      await loadArchivedFiles()
+      await loadFiles()
     } catch (err) {
       setSnackbar({
         message: `Archive failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -698,7 +713,9 @@ export default function MapEditorPage() {
   const handleUnarchive = async () => {
     if (!selectedFile || !mapsDir) return
     try {
-      const destPath = `${mapsDir}/${selectedFile.name}`
+      // Strip the `.ignore/` prefix but keep any subfolder beneath it, so the
+      // map returns to where it was archived from.
+      const destPath = `${mapsDir}/${activeRel(selectedFile.rel)}`
       const exists = await window.api.exists(destPath)
       if (exists) {
         setSnackbar({ message: 'An active map with this name already exists.', severity: 'error' })
@@ -708,8 +725,7 @@ export default function MapEditorPage() {
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
-      await loadActiveFiles()
-      await loadArchivedFiles()
+      await loadFiles()
     } catch (err) {
       setSnackbar({
         message: `Unarchive failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -751,7 +767,7 @@ export default function MapEditorPage() {
         ) : editingMap ? (
           <MapEditorPanel
             map={editingMap}
-            initialFileName={selectedFile?.name ?? null}
+            initialFileName={selectedFile ? baseName(selectedFile.rel) : null}
             isArchived={isArchived}
             isExisting={!!selectedFile}
             mapNames={mapNames}
