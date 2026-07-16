@@ -34,12 +34,37 @@ const ensures = new Map<string, Promise<void>>()
 const builds = new Map<string, Promise<void>>()
 
 /**
- * Only publish a result if its library is still the active one. The effect that
+ * Only touch state while `library` is still the active one. The effect that
  * calls `ensure` is keyed on `activeLibrary`, so a slow build for library A must
- * not overwrite state after the user has switched to B.
+ * not overwrite state — including clearing a spinner — after the user has
+ * switched to B.
  */
 const isCurrent = (library: string): boolean =>
   useSettingsStore.getState().activeLibrary === library
+
+/**
+ * Run `fn` for `library` at most once concurrently, tracked in `inflight`.
+ * Concurrent callers share the first call's promise; the key is dropped once it
+ * settles (on rejection too, so a failure never wedges the library).
+ */
+function once(
+  inflight: Map<string, Promise<void>>,
+  library: string,
+  fn: () => Promise<void>
+): Promise<void> {
+  const pending = inflight.get(library)
+  if (pending) return pending
+  const run = fn().finally(() => inflight.delete(library))
+  inflight.set(library, run)
+  return run
+}
+
+/** Record a failed build, but only for the library still on screen. */
+function fail(set: (p: Partial<WorldIndexState>) => void, library: string, e: unknown): void {
+  if (isCurrent(library)) {
+    set({ buildError: e instanceof Error ? e.message : 'Index build failed' })
+  }
+}
 
 export const useWorldIndexStore = create<WorldIndexState>((set, get) => ({
   index: null,
@@ -54,10 +79,8 @@ export const useWorldIndexStore = create<WorldIndexState>((set, get) => ({
       return
     }
     if (get().loadedFor === library) return
-    const pending = ensures.get(library)
-    if (pending) return pending
 
-    const run = (async () => {
+    return once(ensures, library, async () => {
       set({ loading: true })
       try {
         const status = await window.api.indexStatus(library)
@@ -67,48 +90,35 @@ export const useWorldIndexStore = create<WorldIndexState>((set, get) => ({
             const built = await window.api.indexBuild(library)
             if (isCurrent(library)) set({ index: built, loadedFor: library })
           } catch (e) {
-            if (isCurrent(library)) {
-              set({ buildError: e instanceof Error ? e.message : 'Index build failed' })
-            }
+            fail(set, library, e)
           } finally {
-            set({ building: false })
+            if (isCurrent(library)) set({ building: false })
           }
         } else {
           const existing = await window.api.indexRead(library)
           if (isCurrent(library)) set({ index: existing, loadedFor: library })
         }
       } finally {
-        set({ loading: false })
-        ensures.delete(library)
+        if (isCurrent(library)) set({ loading: false })
       }
-    })()
-    ensures.set(library, run)
-    return run
+    })
   },
 
   build: async (library) => {
     if (!library) return
     // No `loadedFor` short-circuit — an explicit rebuild must rebuild — but
     // concurrent clicks still collapse onto one build.
-    const pending = builds.get(library)
-    if (pending) return pending
-
-    const run = (async () => {
+    return once(builds, library, async () => {
       set({ building: true, buildError: null })
       try {
         const result = await window.api.indexBuild(library)
         if (isCurrent(library)) set({ index: result, loadedFor: library })
       } catch (e) {
-        if (isCurrent(library)) {
-          set({ buildError: e instanceof Error ? e.message : 'Index build failed' })
-        }
+        fail(set, library, e)
       } finally {
-        set({ building: false })
-        builds.delete(library)
+        if (isCurrent(library)) set({ building: false })
       }
-    })()
-    builds.set(library, run)
-    return run
+    })
   }
 }))
 

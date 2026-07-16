@@ -88,6 +88,28 @@ describe('ensure', () => {
     expect(useWorldIndexStore.getState().loadedFor).toBeNull()
   })
 
+  it('does not clear the spinner for the library now loading when the old one settles', async () => {
+    // The finally blocks must be guarded too, not just the success/error sets:
+    // A settling after a switch to B would otherwise report B as idle mid-build.
+    activate('/libA')
+    const a = deferred<WorldIndex>()
+    api.indexRead.mockReturnValueOnce(a.promise)
+    const inFlightA = useWorldIndexStore.getState().ensure('/libA')
+
+    activate('/libB')
+    api.indexStatus.mockResolvedValue({ exists: false })
+    api.indexBuild.mockReturnValue(deferred<WorldIndex>().promise) // B never settles
+    const inFlightB = useWorldIndexStore.getState().ensure('/libB')
+    await Promise.resolve()
+
+    a.resolve(fakeIndex)
+    await inFlightA
+
+    expect(useWorldIndexStore.getState().building).toBe(true)
+    expect(useWorldIndexStore.getState().loading).toBe(true)
+    void inFlightB
+  })
+
   it('records a build failure and stops building', async () => {
     activate('/lib')
     api.indexStatus.mockResolvedValue({ exists: false })

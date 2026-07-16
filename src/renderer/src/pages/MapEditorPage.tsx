@@ -31,7 +31,7 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
-import { activeRel, displayName, toPosix } from '../utils/mapFileRel'
+import { activeRel, displayName } from '../utils/mapFileRel'
 import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
@@ -514,12 +514,12 @@ export default function MapEditorPage() {
   const worldMapNames = worldIndex?.worldmaps ?? []
   const spawnGroupNames = worldIndex?.spawngroups ?? []
 
-  // resolveLibraryPath builds the library path with `join`, so it carries native
-  // separators; fs:listSection returns `dir` forward-slashed. Normalize once so
-  // the paths we compose here are byte-identical to the ones rows carry —
-  // otherwise selection comparisons silently fail on Windows.
-  const libDir = activeLibrary ? toPosix(activeLibrary) : null
-  const mapsDir = libDir ? `${libDir}/${MAPS_SUBDIR}` : null
+  // The section directory comes back from fs:listSection rather than being
+  // rebuilt from activeLibrary here. It is the same join hybindex itself uses,
+  // already forward-slashed, so row paths and write paths cannot disagree about
+  // separators — a second derivation would have to normalize identically
+  // forever, and resolveLibraryPath hands back native separators.
+  const [mapsDir, setMapsDir] = useState<string | null>(null)
   const ignoreDir = mapsDir ? `${mapsDir}/.ignore` : null
 
   // filename → map <Name> lookup built from the index (zero extra file reads)
@@ -551,10 +551,12 @@ export default function MapEditorPage() {
     if (!activeLibrary) {
       setFiles([])
       setArchivedFiles([])
+      setMapsDir(null)
       return
     }
     try {
       const { dir, active, archived } = await window.api.listSection(activeLibrary, MAPS_SUBDIR)
+      setMapsDir(dir)
       const toEntry = (rel: string, isArchived: boolean): FileEntry => ({
         rel,
         path: `${dir}/${rel}`,
@@ -637,7 +639,9 @@ export default function MapEditorPage() {
   const handleSelect = (file: FileEntry) => guard(() => doSelect(file))
 
   const handleSave = async (data: MapData, fileName: string) => {
-    if (!activeLibrary) return
+    // mapsDir arrives with the first listSection response, so it is null until
+    // the list has loaded — there is nothing to save against before then.
+    if (!activeLibrary || !mapsDir || !ignoreDir) return
     try {
       const isRename = !!(selectedFile && fileName !== activeRel(selectedFile.rel))
       const newPath = isRename || !selectedFile ? `${mapsDir}/${fileName}` : selectedFile.path
@@ -647,9 +651,10 @@ export default function MapEditorPage() {
       setEditingMap(data)
 
       if (isRename && selectedFile) {
-        // Keyed on the rel path, so a map in a subfolder archives to the
-        // mirrored subpath rather than being flattened onto the archive root.
-        const archivePath = `${ignoreDir}/${selectedFile.rel}`
+        // activeRel, not rel: keyed on the rel path this mirrors an active
+        // map's subfolder into the archive, but an already-archived map's rel
+        // still carries `.ignore/` and would double it into `.ignore/.ignore/`.
+        const archivePath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
         await window.api.copyFile(selectedFile.path, archivePath)
         setSnackbar({
           message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
@@ -674,10 +679,11 @@ export default function MapEditorPage() {
   const handleArchive = async () => {
     if (!selectedFile || !ignoreDir || !mapsDir) return
     try {
-      // `.ignore/<rel>` mirrors the active subpath, so archive/unarchive round-
-      // trips instead of collapsing `fire/blast.xml` and `ice/blast.xml` onto
-      // one name.
-      const destPath = `${ignoreDir}/${selectedFile.rel}`
+      // `.ignore/<activeRel>` mirrors the active subpath, so archive/unarchive
+      // round-trips instead of collapsing `fire/blast.xml` and `ice/blast.xml`
+      // onto one name. Only active maps can reach here, so activeRel is a
+      // no-op today — it keeps the prefix from ever being doubled.
+      const destPath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
       const exists = await window.api.exists(destPath)
       if (exists) {
         setSnackbar({

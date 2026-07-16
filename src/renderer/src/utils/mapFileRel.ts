@@ -29,17 +29,3 @@ export function activeRel(rel: string): string {
 export function displayName(rel: string): string {
   return activeRel(rel).replace(/\.xml$/i, '')
 }
-
-/**
- * Forward-slash an absolute path and drop any trailing separator.
- *
- * `resolveLibraryPath` builds the library path with `join`, so it carries
- * native separators, while `fs:listSection` returns `dir` forward-slashed.
- * Composing row paths from one and comparing against the other would make
- * `selectedFile.path === file.path` always false and silently drop the file
- * list's selection highlight. Normalizing the library path once keeps both
- * sides byte-identical.
- */
-export function toPosix(p: string): string {
-  return p.replace(/\\/g, '/').replace(/\/+$/, '')
-}

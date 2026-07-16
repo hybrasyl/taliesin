@@ -247,19 +247,11 @@ export async function listDir(
   }
 }
 
-/** One world type's `.xml` files, split by whether they are archived. */
-export interface SectionListing {
-  /** Absolute path to `<libraryPath>/<type>`, forward-slashed. */
-  dir: string
-  /** Type-relative, forward-slashed, sorted. e.g. `fire/blast.xml` */
-  active: string[]
-  /** Type-relative, forward-slashed, sorted. e.g. `.ignore/old.xml` */
-  archived: string[]
-}
-
 /**
  * List one world type's `.xml` files (`maps`, `castables`, …) recursively,
- * already split into active and archived.
+ * already split into active and archived. Returns the section's absolute `dir`
+ * (forward-slashed) plus type-relative, forward-slashed, sorted rel paths —
+ * `fire/blast.xml`, `.ignore/old.xml`.
  *
  * Delegates to hybindex's own `listSectionFiles` rather than walking here:
  * that function is the single definition of which files belong to a section —
@@ -273,7 +265,7 @@ export async function listSection(
   ctx: HandlerContext,
   libraryPath: string,
   type: string
-): Promise<SectionListing> {
+): Promise<{ dir: string; active: string[]; archived: string[] }> {
   const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
   // `type` needs its own traversal check: listSectionFiles joins it onto the
   // library internally, so validating libraryPath alone does not contain it —

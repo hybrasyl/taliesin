@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeRel, displayName, toPosix } from '../mapFileRel'
+import { activeRel, displayName } from '../mapFileRel'
 
 describe('activeRel', () => {
   it.each([
@@ -17,6 +17,15 @@ describe('activeRel', () => {
     expect(activeRel('ignore-me.xml')).toBe('ignore-me.xml')
     expect(activeRel('sub/.ignore/x.xml')).toBe('sub/.ignore/x.xml')
   })
+
+  it('composes an archive destination that never doubles the prefix', () => {
+    // What the callers actually do with it. Keying an archive path off the raw
+    // rel doubles the prefix for an already-archived map — `.ignore/.ignore/` —
+    // and copyFile would mkdir -p that into existence.
+    const archiveDest = (rel: string) => `maps/.ignore/${activeRel(rel)}`
+    expect(archiveDest('townmaps/Piet.xml')).toBe('maps/.ignore/townmaps/Piet.xml')
+    expect(archiveDest('.ignore/old.xml')).toBe('maps/.ignore/old.xml')
+  })
 })
 
 describe('displayName', () => {
@@ -32,22 +41,5 @@ describe('displayName', () => {
 
   it('keeps the subfolder so same-named maps stay distinguishable', () => {
     expect(displayName('fire/blast.xml')).not.toBe(displayName('ice/blast.xml'))
-  })
-})
-
-describe('toPosix', () => {
-  it.each([
-    ['E:\\hyb\\world\\xml', 'E:/hyb/world/xml'],
-    ['E:\\hyb\\world\\xml\\', 'E:/hyb/world/xml'],
-    ['/already/posix', '/already/posix'],
-    ['/trailing/', '/trailing']
-  ])('%s → %s', (input, expected) => {
-    expect(toPosix(input)).toBe(expected)
-  })
-
-  it('makes a native library path compose to the same string as a listSection dir', () => {
-    // The bug this guards: `${activeLibrary}/maps` was mixed-separator, so it
-    // never equalled the forward-slashed dir rows carry, and selection broke.
-    expect(`${toPosix('E:\\hyb\\world\\xml')}/maps`).toBe('E:/hyb/world/xml/maps')
   })
 })
