@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeRel, displayName } from '../mapFileRel'
+import { activeRel, baseName, displayName, joinRel, relFolder } from '../mapFileRel'
 
 describe('activeRel', () => {
   it.each([
@@ -41,5 +41,32 @@ describe('displayName', () => {
 
   it('keeps the subfolder so same-named maps stay distinguishable', () => {
     expect(displayName('fire/blast.xml')).not.toBe(displayName('ice/blast.xml'))
+  })
+})
+
+describe('baseName / relFolder / joinRel', () => {
+  it.each([
+    ['Abel.xml', '', 'Abel.xml'],
+    ['townmaps/Piet.xml', 'townmaps', 'Piet.xml'],
+    ['.ignore/old.xml', '', 'old.xml'],
+    ['.ignore/Deprecated/older.xml', 'Deprecated', 'older.xml']
+  ])('%s → folder %o, name %o', (rel, folder, name) => {
+    expect(relFolder(rel)).toBe(folder)
+    expect(baseName(rel)).toBe(name)
+  })
+
+  it('round-trips a rel path through its folder and name', () => {
+    for (const rel of ['Abel.xml', 'townmaps/Piet.xml', 'a/b/c.xml']) {
+      expect(joinRel(relFolder(rel), baseName(rel))).toBe(rel)
+    }
+  })
+
+  it('keeps an edited or regenerated name in the map its folder came from', () => {
+    // What handleSave does. The regenerate button hands back a bare
+    // `lod00001.xml`; resolving that against the type root would move the map.
+    const save = (rel: string, typed: string) => joinRel(relFolder(rel), typed)
+    expect(save('townmaps/Piet.xml', 'lod00001.xml')).toBe('townmaps/lod00001.xml')
+    expect(save('townmaps/Piet.xml', 'Piet2.xml')).toBe('townmaps/Piet2.xml')
+    expect(save('Abel.xml', 'Abel2.xml')).toBe('Abel2.xml')
   })
 })

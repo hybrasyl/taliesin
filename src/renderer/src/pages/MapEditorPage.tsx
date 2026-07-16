@@ -31,7 +31,7 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
-import { activeRel, displayName } from '../utils/mapFileRel'
+import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
 import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
@@ -643,8 +643,13 @@ export default function MapEditorPage() {
     // the list has loaded — there is nothing to save against before then.
     if (!activeLibrary || !mapsDir || !ignoreDir) return
     try {
-      const isRename = !!(selectedFile && fileName !== activeRel(selectedFile.rel))
-      const newPath = isRename || !selectedFile ? `${mapsDir}/${fileName}` : selectedFile.path
+      // `fileName` is a bare name from the editor's field, so put it back in the
+      // folder the map already lives in. Resolving it against the type root
+      // instead would silently lift a subfoldered map out of its folder — most
+      // easily by clicking regenerate, which hands back a bare `lod00001.xml`.
+      const targetRel = joinRel(selectedFile ? relFolder(selectedFile.rel) : '', fileName)
+      const isRename = !!(selectedFile && targetRel !== activeRel(selectedFile.rel))
+      const newPath = isRename || !selectedFile ? `${mapsDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeMapXml(data)
       await window.api.writeFile(newPath, xml)
@@ -660,9 +665,9 @@ export default function MapEditorPage() {
           message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
           severity: 'info'
         })
-        setSelectedFile({ rel: fileName, path: newPath, display: displayName(fileName) })
+        setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       } else if (!selectedFile) {
-        setSelectedFile({ rel: fileName, path: newPath, display: displayName(fileName) })
+        setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       }
 
       markClean()
@@ -762,7 +767,7 @@ export default function MapEditorPage() {
         ) : editingMap ? (
           <MapEditorPanel
             map={editingMap}
-            initialFileName={selectedFile ? activeRel(selectedFile.rel) : null}
+            initialFileName={selectedFile ? baseName(selectedFile.rel) : null}
             isArchived={isArchived}
             isExisting={!!selectedFile}
             mapNames={mapNames}
