@@ -61,6 +61,8 @@ const api = {
   // App
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   getUserDataPath: (): Promise<string> => ipcRenderer.invoke('get-user-data-path'),
+  // Opens the OS file manager with settings.json highlighted.
+  revealSettings: (): Promise<void> => ipcRenderer.invoke('app:revealSettings'),
   // Signals the main process that the renderer has hydrated (settings loaded),
   // so it can reveal the main window and dismiss the startup splash.
   appReady: (): void => ipcRenderer.send('app:ready'),
