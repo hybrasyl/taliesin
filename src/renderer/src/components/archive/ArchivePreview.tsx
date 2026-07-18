@@ -819,14 +819,12 @@ const FontPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> =
       for (let g = 0; g < fnt.glyphCount; g++) {
         const col = g % cols,
           row = Math.floor(g / cols)
-        const glyph = fnt.getGlyphData(g)
+        // Canonical MSB-first decode via dalib-ts (>=2.2.0): one byte per pixel,
+        // 0/1, indexed [y * glyphWidth + x].
+        const pixels = fnt.getGlyphPixels(g)
         for (let y = 0; y < gh; y++) {
           for (let x = 0; x < gw; x++) {
-            const byteIdx = y * fnt.bytesPerRow + (x >> 3)
-            // MSB-first: bit 7 is the leftmost pixel of each byte. (dalib-ts
-            // docs say LSB-first, but visual output confirms otherwise.)
-            const bit = (glyph[byteIdx] >> (7 - (x & 7))) & 1
-            if (!bit) continue
+            if (!pixels[y * gw + x]) continue
             const px = (row * gh + y) * canvas.width + (col * gw + x)
             const off = px * 4
             data[off] = 255
