@@ -23,6 +23,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings is now a grid of cards** instead of a tab strip. Each concern
+  (Appearance, Libraries, Dark Ages Client, Installed Asset Packs, Companion App,
+  Map Directories, Music Library, ffmpeg, .mus Encode Settings, Music Working
+  Directories, Asset Packs, About) is its own card in a responsive grid, matching
+  Creidhne. The theme selector is now a visual picker showing a live preview
+  swatch of each theme rather than a dropdown.
+- The **About** action moved from the toolbar into an About card in Settings.
+
 ## [2.7.0] - 2026-07-16
 
 ### Added
