@@ -86,6 +86,7 @@ declare global {
     closeWindow: () => void
     getAppVersion: () => Promise<string>
     getUserDataPath: () => Promise<string>
+    revealSettings: () => Promise<void>
     appReady: () => void
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>

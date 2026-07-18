@@ -32,6 +32,9 @@ record; where they disagree with this file, the git history was taken as authori
   Creidhne. The theme selector is now a visual picker showing a live preview
   swatch of each theme rather than a dropdown.
 - The **About** action moved from the toolbar into an About card in Settings.
+  The card shows the app icon, version, and project links (modeled on
+  oghma/mabon), with an "About Taliesin…" button and a **Reveal settings
+  folder** button that opens `settings.json` in the OS file manager.
 
 ## [2.7.0] - 2026-07-16
 

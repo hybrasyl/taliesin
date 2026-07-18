@@ -123,6 +123,10 @@ function createWindow(): void {
 // has hydrated its settings — see the `app:ready` IPC handler in handlers.ts.
 ctx.onAppReady = revealMainWindow
 
+// Reveal settings.json in the OS file manager (Settings → About). `shell` and
+// the settings path live here, so the handler in handlers.ts delegates back.
+ctx.revealSettings = () => shell.showItemInFolder(join(settingsPath, 'settings.json'))
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('co.eris.taliesin')
 

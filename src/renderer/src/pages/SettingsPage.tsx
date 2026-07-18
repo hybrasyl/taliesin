@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
   Paper,
+  Stack,
   Typography,
   Select,
   MenuItem,
@@ -31,6 +32,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LaunchIcon from '@mui/icons-material/Launch'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
@@ -272,17 +274,71 @@ function CompanionCard() {
 // ── Card: About ──────────────────────────────────────────────────────────────
 
 function AboutCard({ onOpen }: { onOpen: () => void }) {
+  const [version, setVersion] = useState('')
+  // On the hybrasyl theme the default (primary) link color reads poorly against
+  // the paper; info is legible. Matches the Installed Asset Packs link.
+  const theme = useSettingsStore((s) => s.theme)
+  const linkColorSx = theme === 'hybrasyl' ? { color: 'info.main' } : {}
+
+  useEffect(() => {
+    void window.api.getAppVersion().then(setVersion)
+  }, [])
+
   return (
     <Paper sx={cardSx}>
       <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         About
       </Typography>
-      <Typography variant="body2" sx={cardDescSx}>
-        Version info and project links.
-      </Typography>
-      <Button variant="outlined" size="small" onClick={onOpen} sx={{ alignSelf: 'flex-start' }}>
-        About Taliesin
-      </Button>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
+        <Box
+          component="img"
+          src="./taliesin.png"
+          alt=""
+          aria-hidden
+          sx={{ height: 48, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}
+        />
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            Taliesin
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Version {version || '…'} — a Dark Ages asset viewer and .datf authoring tool, companion
+            to Creidhne.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+            <Link
+              href="https://www.hybrasyl.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              sx={linkColorSx}
+            >
+              hybrasyl.com
+            </Link>
+            <Link
+              href="https://github.com/hybrasyl"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              sx={linkColorSx}
+            >
+              GitHub
+            </Link>
+          </Box>
+        </Box>
+      </Stack>
+      <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5 }}>
+        <Button variant="outlined" startIcon={<InfoOutlinedIcon />} onClick={onOpen}>
+          About Taliesin…
+        </Button>
+        <Button
+          variant="text"
+          startIcon={<FolderOpenIcon />}
+          onClick={() => window.api.revealSettings()}
+        >
+          Reveal settings folder
+        </Button>
+      </Stack>
     </Paper>
   )
 }

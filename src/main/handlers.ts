@@ -65,6 +65,11 @@ export interface HandlerContext {
    * Wired up in index.ts to reveal the main window + tear down the splash.
    */
   onAppReady?: () => void
+  /**
+   * Opens the OS file manager with settings.json highlighted. Wired up in
+   * index.ts, which owns the electron `shell` reference and settings path.
+   */
+  revealSettings?: () => void
 }
 
 /**
@@ -1359,6 +1364,11 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
+  // Reveal settings.json in the OS file manager. Handled in index.ts, which
+  // owns the electron `shell` reference.
+  ipcMain.handle('app:revealSettings', () => {
+    ctx.revealSettings?.()
+  })
 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A
