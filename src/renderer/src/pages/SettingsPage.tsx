@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
+  Paper,
   Typography,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Button,
-  Divider,
   Tooltip,
   IconButton,
   List,
@@ -22,8 +22,6 @@ import {
   TextField,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
   Link
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -33,16 +31,16 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LaunchIcon from '@mui/icons-material/Launch'
-import { useSettingsStore, ThemeName, type MapDirectory } from '../store/settingsStore'
+import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
+import ThemePicker from '../components/ThemePicker'
+import AboutDialog from '../components/AboutDialog'
 
-const THEMES: { value: ThemeName; label: string }[] = [
-  { value: 'hybrasyl', label: 'Hybrasyl' },
-  { value: 'chadul', label: 'Chadul' },
-  { value: 'danaan', label: 'Danaan' },
-  { value: 'grinneal', label: 'Grinneal' },
-  { value: 'mundanes', label: 'Mundanes' },
-  { value: 'dubhaimid', label: 'Dubhaimid' }
-]
+// Settings sections are Paper cards laid out in a responsive grid (mirrors the
+// creidhne/oghma pattern). Full-height flex column so cards sharing a grid row
+// match height.
+const cardSx = { p: 3, display: 'flex', flexDirection: 'column', height: '100%' }
+const cardHeadingSx = { color: 'text.button', fontWeight: 'bold' }
+const cardDescSx = { color: 'text.secondary', mb: 2 }
 
 // ── Shared path input ────────────────────────────────────────────────────────
 
@@ -142,91 +140,87 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
   )
 }
 
-// ── Tab: General ─────────────────────────────────────────────────────────────
+// ── Card: Appearance ─────────────────────────────────────────────────────────
 
-function GeneralTab() {
+function AppearanceCard() {
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
+        Appearance
+      </Typography>
+      <Typography variant="body2" sx={cardDescSx}>
+        Pick a theme. The four stylized themes get gamified window chrome; Mundanes and Dubhaimid
+        are flat/corporate.
+      </Typography>
+      <ThemePicker value={theme} onChange={setTheme} />
+    </Paper>
+  )
+}
+
+// ── Card: Dark Ages Client ───────────────────────────────────────────────────
+
+function DAClientCard() {
   const clientPath = useSettingsStore((s) => s.clientPath)
   const setClientPath = useSettingsStore((s) => s.setClientPath)
-  const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
-  const setBrigidAssetsPath = useSettingsStore((s) => s.setBrigidAssetsPath)
-  const companionPath = useSettingsStore((s) => s.companionPath)
-  const setCompanionPath = useSettingsStore((s) => s.setCompanionPath)
   return (
-    <Box>
-      {/* Theme */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Theme
-      </Typography>
-      <FormControl size="small" sx={{ minWidth: 280, mb: 4, display: 'block', mt: 1 }}>
-        <InputLabel>Theme</InputLabel>
-        <Select value={theme} label="Theme" onChange={(e) => setTheme(e.target.value as ThemeName)}>
-          {THEMES.map((t) => (
-            <MenuItem key={t.value} value={t.value}>
-              {t.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <Divider sx={{ mb: 3 }} />
-      {/* DA Client Path */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Dark Ages Client
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Path to your Dark Ages install directory. Used to open .dat archives and load tile assets.
       </Typography>
-      <Box sx={{ mb: 4 }}>
-        <PathInput
-          value={clientPath ?? ''}
-          onChange={(v) => setClientPath(v || null)}
-          placeholder="e.g. C:\Program Files (x86)\Dark Ages"
-          onBrowse={async () => {
-            const d = await window.api.openDirectory()
-            if (d) setClientPath(d)
-          }}
-        />
-      </Box>
-      <Divider sx={{ mb: 3 }} />
-      {/* Brigid asset packs */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+      <PathInput
+        value={clientPath ?? ''}
+        onChange={(v) => setClientPath(v || null)}
+        placeholder="e.g. C:\Program Files (x86)\Dark Ages"
+        onBrowse={async () => {
+          const d = await window.api.openDirectory()
+          if (d) setClientPath(d)
+        }}
+      />
+    </Paper>
+  )
+}
+
+// ── Card: Installed Asset Packs (Brigid) ─────────────────────────────────────
+
+function BrigidAssetsCard() {
+  const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
+  const setBrigidAssetsPath = useSettingsStore((s) => s.setBrigidAssetsPath)
+  // On the hybrasyl theme the default (primary) link color reads poorly against
+  // the paper; info is legible. Other themes keep the default.
+  const theme = useSettingsStore((s) => s.theme)
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Installed Asset Packs
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Folder Brigid loads .datf packs from. Taliesin scans it to preview installed{' '}
         <em>static tiles</em> and <em>world map</em> overrides in the map editors.
       </Typography>
-      <Box sx={{ mb: 1 }}>
-        <PathInput
-          value={brigidAssetsPath ?? ''}
-          onChange={(v) => setBrigidAssetsPath(v || null)}
-          placeholder="e.g. %LOCALAPPDATA%\erisco\Brigid\assets"
-          onBrowse={async () => {
-            const d = await window.api.openDirectory()
-            if (d) setBrigidAssetsPath(d)
-          }}
-        />
-      </Box>
+      <PathInput
+        value={brigidAssetsPath ?? ''}
+        onChange={(v) => setBrigidAssetsPath(v || null)}
+        placeholder="e.g. %LOCALAPPDATA%\erisco\Brigid\assets"
+        onBrowse={async () => {
+          const d = await window.api.openDirectory()
+          if (d) setBrigidAssetsPath(d)
+        }}
+      />
       <Link
         component="button"
         type="button"
         variant="body2"
-        sx={{ mb: 4, display: 'inline-block' }}
+        sx={{
+          mt: 1,
+          display: 'inline-block',
+          alignSelf: 'flex-start',
+          ...(theme === 'hybrasyl' && { color: 'info.main' })
+        }}
         onClick={async () => {
           const suggested = await window.api.packSuggestedBrigidAssetsPath()
           if (suggested) setBrigidAssetsPath(suggested)
@@ -234,50 +228,68 @@ function GeneralTab() {
       >
         Use default location
       </Link>
-      <Divider sx={{ mb: 3 }} />
-      {/* Companion App Path */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+    </Paper>
+  )
+}
+
+// ── Card: Companion App ──────────────────────────────────────────────────────
+
+function CompanionCard() {
+  const companionPath = useSettingsStore((s) => s.companionPath)
+  const setCompanionPath = useSettingsStore((s) => s.setCompanionPath)
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Companion App
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Path to the Creidhne executable. Enables the "Launch Creidhne" button on the Dashboard.
       </Typography>
-      <Box sx={{ mb: 2 }}>
-        <PathInput
-          value={companionPath ?? ''}
-          onChange={(v) => setCompanionPath(v || null)}
-          placeholder="e.g. D:\tools\Creidhne.exe"
-          onBrowse={async () => {
-            const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe'] }])
-            if (f) setCompanionPath(f)
-          }}
-        />
-      </Box>
+      <PathInput
+        value={companionPath ?? ''}
+        onChange={(v) => setCompanionPath(v || null)}
+        placeholder="e.g. D:\tools\Creidhne.exe"
+        onBrowse={async () => {
+          const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe'] }])
+          if (f) setCompanionPath(f)
+        }}
+      />
       {companionPath && (
         <Button
           variant="outlined"
           size="small"
           startIcon={<LaunchIcon />}
           onClick={() => window.api.launchCompanion(companionPath)}
-          sx={{ mb: 4 }}
+          sx={{ mt: 2, alignSelf: 'flex-start' }}
         >
           Test Launch
         </Button>
       )}
-    </Box>
+    </Paper>
   )
 }
 
-// ── Tab: Libraries ───────────────────────────────────────────────────────────
+// ── Card: About ──────────────────────────────────────────────────────────────
 
-function LibrariesTab() {
+function AboutCard({ onOpen }: { onOpen: () => void }) {
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
+        About
+      </Typography>
+      <Typography variant="body2" sx={cardDescSx}>
+        Version info and project links.
+      </Typography>
+      <Button variant="outlined" size="small" onClick={onOpen} sx={{ alignSelf: 'flex-start' }}>
+        About Taliesin
+      </Button>
+    </Paper>
+  )
+}
+
+// ── Card: Libraries ──────────────────────────────────────────────────────────
+
+function LibrariesCard() {
   const libraries = useSettingsStore((s) => s.libraries)
   const setLibraries = useSettingsStore((s) => s.setLibraries)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
@@ -340,9 +352,9 @@ function LibrariesTab() {
   }
 
   return (
-    <Box>
+    <Paper sx={cardSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        <Typography variant="h6" sx={cardHeadingSx}>
           Hybrasyl World Libraries
         </Typography>
         <Tooltip
@@ -457,13 +469,13 @@ function LibrariesTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   )
 }
 
-// ── Tab: Map Directories ─────────────────────────────────────────────────────
+// ── Card: Map Directories ────────────────────────────────────────────────────
 
-function MapDirectoriesTab() {
+function MapDirectoriesCard() {
   const mapDirectories = useSettingsStore((s) => s.mapDirectories)
   const setMapDirectories = useSettingsStore((s) => s.setMapDirectories)
   const activeMapDirectory = useSettingsStore((s) => s.activeMapDirectory)
@@ -503,9 +515,9 @@ function MapDirectoriesTab() {
   const selectedEntry = mapDirectories.find((d) => d.path === selected)
 
   return (
-    <Box>
+    <Paper sx={cardSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        <Typography variant="h6" sx={cardHeadingSx}>
           Binary .map File Directories
         </Typography>
         <Tooltip
@@ -647,116 +659,80 @@ function MapDirectoriesTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   )
 }
 
-// ── Tab: Music ───────────────────────────────────────────────────────────────
+// ── Card: Music Library ──────────────────────────────────────────────────────
 
-function MusicTab() {
+function MusicLibraryCard() {
   const musicLibraryPath = useSettingsStore((s) => s.musicLibraryPath)
   const setMusicLibraryPath = useSettingsStore((s) => s.setMusicLibraryPath)
-  const musicWorkingDirs = useSettingsStore((s) => s.musicWorkingDirs)
-  const setMusicWorkingDirs = useSettingsStore((s) => s.setMusicWorkingDirs)
-  const activeMusicWorkingDir = useSettingsStore((s) => s.activeMusicWorkingDir)
-  const setActiveMusicWorkingDir = useSettingsStore((s) => s.setActiveMusicWorkingDir)
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
+        Music Library
+      </Typography>
+      <Typography variant="body2" sx={cardDescSx}>
+        Master source directory containing your audio files (.mp3, .ogg, .mus).
+      </Typography>
+      <PathInput
+        value={musicLibraryPath ?? ''}
+        onChange={(v) => setMusicLibraryPath(v || null)}
+        placeholder="e.g. D:\music-library"
+        onBrowse={async () => {
+          const d = await window.api.openDirectory()
+          if (d) setMusicLibraryPath(d)
+        }}
+      />
+    </Paper>
+  )
+}
+
+// ── Card: ffmpeg ─────────────────────────────────────────────────────────────
+
+function FfmpegCard() {
   const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const setFfmpegPath = useSettingsStore((s) => s.setFfmpegPath)
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
+        ffmpeg Path
+      </Typography>
+      <Typography variant="body2" sx={cardDescSx}>
+        Path to the ffmpeg binary. Leave blank to use system ffmpeg (must be on PATH). Required for
+        converting .wav and .ogg files during pack deploy.
+      </Typography>
+      <PathInput
+        value={ffmpegPath ?? ''}
+        onChange={(v) => setFfmpegPath(v || null)}
+        placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
+        onBrowse={async () => {
+          const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe', '*'] }])
+          if (f) setFfmpegPath(f)
+        }}
+      />
+    </Paper>
+  )
+}
+
+// ── Card: .mus Encode Settings ───────────────────────────────────────────────
+
+function MusEncodeCard() {
   const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
   const setMusEncodeKbps = useSettingsStore((s) => s.setMusEncodeKbps)
   const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
   const setMusEncodeSampleRate = useSettingsStore((s) => s.setMusEncodeSampleRate)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-
-  const handleAddWorkingDir = async () => {
-    const dir = await window.api.openDirectory()
-    if (!dir || musicWorkingDirs.includes(dir)) return
-    const updated = [...musicWorkingDirs, dir]
-    setMusicWorkingDirs(updated)
-    if (!activeMusicWorkingDir) setActiveMusicWorkingDir(dir)
-  }
-
-  const handleRemoveConfirmed = () => {
-    if (!selected) return
-    const updated = musicWorkingDirs.filter((d) => d !== selected)
-    setMusicWorkingDirs(updated)
-    if (activeMusicWorkingDir === selected) setActiveMusicWorkingDir(updated[0] ?? null)
-    setSelected(null)
-    setConfirmOpen(false)
-  }
-
   return (
-    <Box>
-      {/* Library path */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Music Library
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
-        Master source directory containing your audio files (.mp3, .ogg, .mus).
-      </Typography>
-      <Box sx={{ mb: 3 }}>
-        <PathInput
-          value={musicLibraryPath ?? ''}
-          onChange={(v) => setMusicLibraryPath(v || null)}
-          placeholder="e.g. D:\music-library"
-          onBrowse={async () => {
-            const d = await window.api.openDirectory()
-            if (d) setMusicLibraryPath(d)
-          }}
-        />
-      </Box>
-      <Divider sx={{ mb: 3 }} />
-      {/* ffmpeg path */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        ffmpeg Path
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
-        Path to the ffmpeg binary. Leave blank to use system ffmpeg (must be on PATH). Required for
-        converting .wav and .ogg files during pack deploy.
-      </Typography>
-      <Box sx={{ mb: 3 }}>
-        <PathInput
-          value={ffmpegPath ?? ''}
-          onChange={(v) => setFfmpegPath(v || null)}
-          placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
-          onBrowse={async () => {
-            const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe', '*'] }])
-            if (f) setFfmpegPath(f)
-          }}
-        />
-      </Box>
-      <Divider sx={{ mb: 3 }} />
-      {/* Encode settings */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         .mus Encode Settings
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Used when converting .wav/.ogg files during pack deploy. Defaults match original DA client
         files (22050 Hz, 64 kbps).
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2 }}>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Sample Rate</InputLabel>
           <Select
@@ -781,19 +757,43 @@ function MusicTab() {
           </Select>
         </FormControl>
       </Box>
-      <Divider sx={{ mb: 3 }} />
-      {/* Working directories */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+    </Paper>
+  )
+}
+
+// ── Card: Music Working Directories ──────────────────────────────────────────
+
+function MusicWorkingDirsCard() {
+  const musicWorkingDirs = useSettingsStore((s) => s.musicWorkingDirs)
+  const setMusicWorkingDirs = useSettingsStore((s) => s.setMusicWorkingDirs)
+  const activeMusicWorkingDir = useSettingsStore((s) => s.activeMusicWorkingDir)
+  const setActiveMusicWorkingDir = useSettingsStore((s) => s.setActiveMusicWorkingDir)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const handleAddWorkingDir = async () => {
+    const dir = await window.api.openDirectory()
+    if (!dir || musicWorkingDirs.includes(dir)) return
+    const updated = [...musicWorkingDirs, dir]
+    setMusicWorkingDirs(updated)
+    if (!activeMusicWorkingDir) setActiveMusicWorkingDir(dir)
+  }
+
+  const handleRemoveConfirmed = () => {
+    if (!selected) return
+    const updated = musicWorkingDirs.filter((d) => d !== selected)
+    setMusicWorkingDirs(updated)
+    if (activeMusicWorkingDir === selected) setActiveMusicWorkingDir(updated[0] ?? null)
+    setSelected(null)
+    setConfirmOpen(false)
+  }
+
+  return (
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Working Directories
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Output directories where packs are deployed as numbered <code>.mus</code> files.
       </Typography>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -892,85 +892,75 @@ function MusicTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   )
 }
 
-// ── Tab: Asset Packs ─────────────────────────────────────────────────────────
+// ── Card: Asset Packs ────────────────────────────────────────────────────────
 
-function AssetPacksTab() {
+function AssetPacksCard() {
   const packDir = useSettingsStore((s) => s.packDir)
   const setPackDir = useSettingsStore((s) => s.setPackDir)
 
   return (
-    <Box>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+    <Paper sx={cardSx}>
+      <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Asset Pack Working Directory
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          mb: 1.5,
-          mt: 0.5
-        }}
-      >
+      <Typography variant="body2" sx={cardDescSx}>
         Directory where .datf asset pack projects are stored. Each pack is a JSON project file with
         associated PNG assets.
       </Typography>
-      <Box sx={{ mb: 2 }}>
-        <PathInput
-          value={packDir ?? ''}
-          onChange={(v) => setPackDir(v || null)}
-          placeholder="e.g. D:\asset-packs"
-          onBrowse={async () => {
-            const d = await window.api.openDirectory()
-            if (d) setPackDir(d)
-          }}
-        />
-      </Box>
+      <PathInput
+        value={packDir ?? ''}
+        onChange={(v) => setPackDir(v || null)}
+        placeholder="e.g. D:\asset-packs"
+        onBrowse={async () => {
+          const d = await window.api.openDirectory()
+          if (d) setPackDir(d)
+        }}
+      />
       {!packDir && (
-        <Alert severity="info" sx={{ mt: 1 }}>
+        <Alert severity="info" sx={{ mt: 2 }}>
           Set a working directory to enable the Asset Pack Manager.
         </Alert>
       )}
-    </Box>
+    </Paper>
   )
 }
 
 // ── Settings Page ────────────────────────────────────────────────────────────
 
-const TAB_LABELS = ['General', 'Libraries', 'Map Directories', 'Music', 'Asset Packs']
-
 const SettingsPage: React.FC = () => {
-  const [tab, setTab] = useState(0)
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ px: 3, pt: 2 }}>
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Settings
-        </Typography>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          {TAB_LABELS.map((label) => (
-            <Tab key={label} label={label} />
-          ))}
-        </Tabs>
+    <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
+      <Typography variant="h5" gutterBottom sx={{ ...cardHeadingSx, mb: 3 }}>
+        Settings
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(680px, 1fr))',
+          gap: 3,
+          alignItems: 'stretch'
+        }}
+      >
+        <AppearanceCard />
+        <LibrariesCard />
+        <DAClientCard />
+        <BrigidAssetsCard />
+        <CompanionCard />
+        <MapDirectoriesCard />
+        <MusicLibraryCard />
+        <FfmpegCard />
+        <MusEncodeCard />
+        <MusicWorkingDirsCard />
+        <AssetPacksCard />
+        <AboutCard onOpen={() => setAboutOpen(true)} />
       </Box>
-
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3, maxWidth: 680 }}>
-        {tab === 0 && <GeneralTab />}
-        {tab === 1 && <LibrariesTab />}
-        {tab === 2 && <MapDirectoriesTab />}
-        {tab === 3 && <MusicTab />}
-        {tab === 4 && <AssetPacksTab />}
-      </Box>
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </Box>
   )
 }

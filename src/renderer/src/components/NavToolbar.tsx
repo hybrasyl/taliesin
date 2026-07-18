@@ -18,11 +18,9 @@ import {
   GiAnvil,
   GiBlacksmith
 } from 'react-icons/gi'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
-import AboutDialog from './AboutDialog'
 
 const iconSx = {
   '& svg': {
@@ -58,7 +56,6 @@ const NavToolbar: React.FC = () => {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const companionPath = useSettingsStore((s) => s.companionPath)
-  const [aboutOpen, setAboutOpen] = React.useState(false)
 
   const nav = (page: Page) => () => setCurrentPage(page)
   const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)
@@ -188,13 +185,6 @@ const NavToolbar: React.FC = () => {
           </IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="About Taliesin">
-        <IconButton sx={btnSx} onClick={() => setAboutOpen(true)}>
-          <InfoOutlinedIcon sx={{ fontSize: '1.2em' }} />
-        </IconButton>
-      </Tooltip>
-
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </Toolbar>
   )
 }
