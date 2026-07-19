@@ -67,6 +67,23 @@ const api = {
   // so it can reveal the main window and dismiss the startup splash.
   appReady: (): void => ipcRenderer.send('app:ready'),
 
+  // Report Issue / diagnostics (see src/main/report/). Flat, per the house
+  // window.api contract.
+  reportRendererError: (payload: {
+    source: string
+    message: string
+    stack?: string
+  }): Promise<void> => ipcRenderer.invoke('diagnostics:reportRendererError', payload),
+  buildDiagnostics: (): Promise<string> => ipcRenderer.invoke('diagnostics:build'),
+  openIssue: (payload: {
+    title: string
+    body: string
+  }): Promise<{ ok: true; truncated: boolean }> =>
+    ipcRenderer.invoke('diagnostics:openIssue', payload),
+  copyReport: (payload: { body: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke('diagnostics:copyReport', payload),
+  revealLogs: (): Promise<void> => ipcRenderer.invoke('diagnostics:revealLogs'),
+
   // Settings
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings: unknown) => ipcRenderer.invoke('settings:save', settings),

@@ -46,8 +46,13 @@ import {
   packCompileFilenamesSchema,
   catalogDataSchema,
   sfxIndexSchema,
-  tileThemeSchema
+  tileThemeSchema,
+  rendererErrorSchema,
+  openIssueSchema,
+  copyReportSchema
 } from './schemas'
+import { buildDiagnostics, openIssue, copyReport, revealLogs } from './report/diagnostics'
+import { captureError } from './report/sessionLog'
 import type { createSettingsManager, TaliesinSettings } from './settingsManager'
 
 const execFileAsync = promisify(execFile)
@@ -224,6 +229,34 @@ export async function getAppVersion(ctx: HandlerContext): Promise<string> {
   } catch {
     return ctx.appGetVersion()
   }
+}
+
+// ── Report Issue / diagnostics ─────────────────────────────────────────────────
+//
+// Backing bodies for the diagnostics:* channels (see src/main/report/). Payloads
+// are validated with parseOrLog at the boundary; the heavy lifting lives in the
+// tested report modules. See the document repo's report-issue-module.md.
+
+/** Forward a scrubbed renderer error into the shared session log + ring buffer. */
+export function reportRendererError(ctx: HandlerContext, payload: unknown): void {
+  const p = parseOrLog(ctx, 'diagnostics:reportRendererError', rendererErrorSchema, payload)
+  captureError({ source: p.source, origin: 'renderer', message: p.message, stack: p.stack })
+}
+
+/** Assemble the scrubbed, editable diagnostics block for the report dialog. */
+export async function buildReport(ctx: HandlerContext): Promise<string> {
+  return buildDiagnostics({ version: await getAppVersion(ctx) })
+}
+
+export function reportOpenIssue(
+  ctx: HandlerContext,
+  payload: unknown
+): { ok: true; truncated: boolean } {
+  return openIssue(parseOrLog(ctx, 'diagnostics:openIssue', openIssueSchema, payload))
+}
+
+export function reportCopy(ctx: HandlerContext, payload: unknown): { ok: true } {
+  return copyReport(parseOrLog(ctx, 'diagnostics:copyReport', copyReportSchema, payload))
 }
 
 // ── File system ──────────────────────────────────────────────────────────────
@@ -1369,6 +1402,16 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('app:revealSettings', () => {
     ctx.revealSettings?.()
   })
+
+  // Report Issue / diagnostics — renderer errors + the report dialog's build /
+  // open-issue / copy / reveal-logs actions (see src/main/report/).
+  ipcMain.handle('diagnostics:reportRendererError', (_, payload) =>
+    reportRendererError(ctx, payload)
+  )
+  ipcMain.handle('diagnostics:build', () => buildReport(ctx))
+  ipcMain.handle('diagnostics:openIssue', (_, payload) => reportOpenIssue(ctx, payload))
+  ipcMain.handle('diagnostics:copyReport', (_, payload) => reportCopy(ctx, payload))
+  ipcMain.handle('diagnostics:revealLogs', () => revealLogs())
 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A

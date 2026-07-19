@@ -16,6 +16,7 @@ import type { Theme } from '@mui/material/styles'
 import MainLayout from './components/MainLayout'
 import PageRenderer from './components/PageRenderer'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
+import ReportIssueDialog from './components/ReportIssueDialog'
 
 const themes: Record<ThemeName, Theme> = {
   hybrasyl: hybrasylTheme,
@@ -66,6 +67,8 @@ export default function App(): React.ReactElement {
   const dirtyEditor = useUiStore((s) => s.dirtyEditor)
   const setDirtyEditor = useUiStore((s) => s.setDirtyEditor)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  const reportIssueOpen = useUiStore((s) => s.reportIssueOpen)
+  const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
 
   const [navDialogOpen, setNavDialogOpen] = React.useState(false)
   const [pendingPage, setPendingPage] = React.useState<string | null>(null)
@@ -143,6 +146,10 @@ export default function App(): React.ReactElement {
         onSave={handleNavSave}
         onDiscard={handleNavDiscard}
         onCancel={handleNavCancel}
+      />
+      <ReportIssueDialog
+        open={reportIssueOpen}
+        onClose={() => setReportIssueOpen(false)}
       />
     </ThemeProvider>
   )

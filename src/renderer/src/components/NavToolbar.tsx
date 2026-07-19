@@ -16,7 +16,8 @@ import {
   GiSoundWaves,
   GiSettingsKnobs,
   GiAnvil,
-  GiBlacksmith
+  GiBlacksmith,
+  GiBugNet
 } from 'react-icons/gi'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore, Page } from '../store/uiStore'
@@ -53,6 +54,7 @@ const activeBtnSx = {
 const NavToolbar: React.FC = () => {
   const currentPage = useUiStore((s) => s.currentPage)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const companionPath = useSettingsStore((s) => s.companionPath)
@@ -169,6 +171,11 @@ const NavToolbar: React.FC = () => {
         sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
       />
 
+      <Tooltip title="Report an issue">
+        <IconButton sx={btnSx} onClick={() => setReportIssueOpen(true)}>
+          <GiBugNet />
+        </IconButton>
+      </Tooltip>
       <Tooltip title="Settings">
         <IconButton sx={sx('settings')} onClick={nav('settings')}>
           <GiSettingsKnobs />

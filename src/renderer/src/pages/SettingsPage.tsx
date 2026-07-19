@@ -33,7 +33,9 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
+import { useUiStore } from '../store/uiStore'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
 
@@ -275,6 +277,7 @@ function CompanionCard() {
 
 function AboutCard({ onOpen }: { onOpen: () => void }) {
   const [version, setVersion] = useState('')
+  const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Matches the Installed Asset Packs link.
   const theme = useSettingsStore((s) => s.theme)
@@ -332,11 +335,25 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
           About Taliesin…
         </Button>
         <Button
+          variant="outlined"
+          startIcon={<BugReportOutlinedIcon />}
+          onClick={() => setReportIssueOpen(true)}
+        >
+          Report an issue…
+        </Button>
+        <Button
           variant="text"
           startIcon={<FolderOpenIcon />}
           onClick={() => window.api.revealSettings()}
         >
           Reveal settings folder
+        </Button>
+        <Button
+          variant="text"
+          startIcon={<FolderOpenIcon />}
+          onClick={() => window.api.revealLogs()}
+        >
+          Reveal logs folder
         </Button>
       </Stack>
     </Paper>

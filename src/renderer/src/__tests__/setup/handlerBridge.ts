@@ -215,6 +215,14 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     appReady: () => undefined,
     launchCompanion: (p) => handlers.launchCompanion(handlerCtx, p),
 
+    // Report Issue / diagnostics — stubbed; integration tests exercise page
+    // state machines, not the diagnostics flow (unit-tested in src/main/report).
+    reportRendererError: async () => undefined,
+    buildDiagnostics: async () => '',
+    openIssue: async () => ({ ok: true as const, truncated: false }),
+    copyReport: async () => ({ ok: true as const }),
+    revealLogs: async () => undefined,
+
     // Settings
     loadSettings: async () => (await handlers.loadSettings(handlerCtx)) as Record<string, unknown>,
     saveSettings: (s) => handlers.saveSettings(handlerCtx, s),

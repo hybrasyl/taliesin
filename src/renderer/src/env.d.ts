@@ -88,6 +88,18 @@ declare global {
     getUserDataPath: () => Promise<string>
     revealSettings: () => Promise<void>
     appReady: () => void
+    reportRendererError: (payload: {
+      source: string
+      message: string
+      stack?: string
+    }) => Promise<void>
+    buildDiagnostics: () => Promise<string>
+    openIssue: (payload: {
+      title: string
+      body: string
+    }) => Promise<{ ok: true; truncated: boolean }>
+    copyReport: (payload: { body: string }) => Promise<{ ok: true }>
+    revealLogs: () => Promise<void>
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>
     launchCompanion: (exePath: string) => Promise<boolean>
