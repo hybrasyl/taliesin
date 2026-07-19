@@ -32,11 +32,14 @@ interface UiState {
   activePaletteId: string | null
   /** Selected colorize source image. */
   activeColorizeSource: string | null
+  /** Whether the Report Issue dialog is open (transient; never persisted). */
+  reportIssueOpen: boolean
 
   setCurrentPage: (page: Page) => void
   setDirtyEditor: (editor: DirtyEditor | null) => void
   setActivePaletteId: (id: string | null) => void
   setActiveColorizeSource: (src: string | null) => void
+  setReportIssueOpen: (open: boolean) => void
 }
 
 /** Ephemeral, session-only UI state (never persisted to disk). */
@@ -45,9 +48,11 @@ export const useUiStore = create<UiState>((set) => ({
   dirtyEditor: null,
   activePaletteId: null,
   activeColorizeSource: null,
+  reportIssueOpen: false,
 
   setCurrentPage: (currentPage) => set({ currentPage }),
   setDirtyEditor: (dirtyEditor) => set({ dirtyEditor }),
   setActivePaletteId: (activePaletteId) => set({ activePaletteId }),
-  setActiveColorizeSource: (activeColorizeSource) => set({ activeColorizeSource })
+  setActiveColorizeSource: (activeColorizeSource) => set({ activeColorizeSource }),
+  setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen })
 }))

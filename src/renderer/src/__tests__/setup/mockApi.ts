@@ -22,6 +22,12 @@ export function createMockApi(): MockApi {
     'getUserDataPath',
     'appReady',
     'launchCompanion',
+    // Report Issue / diagnostics
+    'reportRendererError',
+    'buildDiagnostics',
+    'openIssue',
+    'copyReport',
+    'revealLogs',
     // Settings
     'loadSettings',
     'saveSettings',

@@ -23,6 +23,17 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **Report an issue.** A bug-report affordance in the toolbar (and an About-card
+  button) opens a dialog with an editable, privacy-scrubbed diagnostics block
+  (app, version, OS, and recent errors — usernames, file paths, emails, and IPs
+  are redacted). From there you can open a prefilled GitHub issue or copy the
+  report to the clipboard. Uncaught errors are captured to rotating per-session
+  log files, and a crash now shows a recoverable "Something went wrong" screen
+  with a Report/Reload choice instead of a blank window. A **Reveal logs folder**
+  button in the About card opens the log directory.
+
 ### Changed
 
 - **Settings is now a grid of cards** instead of a tab strip. Each concern

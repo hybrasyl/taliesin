@@ -6,6 +6,8 @@ import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { loadPacks } from './assetPacks'
 import { createSplashWindow } from './splash'
+import { initSessionLog, captureError } from './report/sessionLog'
+import { installGlobalErrorHandlers } from './report/errorHandlers'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -40,6 +42,13 @@ function migrateSettingsFromRoaming(): void {
 migrateSettingsFromRoaming()
 
 const settingsManager = createSettingsManager(settingsPath)
+
+// Report Issue / diagnostics: capture uncaught main-process errors into the
+// scrubbed per-session log, and touch this run's log file (keep-5 rotation) under
+// <settingsPath>/logs. Wired up first so an error during boot is still captured.
+// Both best-effort — a logging failure must never block startup.
+installGlobalErrorHandlers(captureError)
+void initSessionLog(join(settingsPath, 'logs'))
 
 // Exported so tests can seed `blessedRoots` with the synthetic paths their
 // in-memory filesystem uses. In production this is used purely internally.
