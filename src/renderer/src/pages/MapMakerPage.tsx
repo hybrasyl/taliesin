@@ -64,7 +64,10 @@ import TabMapPopup from '../components/mapmaker/TabMapPopup'
 import DirectionalResizeButtons from '../components/mapmaker/DirectionalResizeButtons'
 import ShortcutHelpPanel from '../components/mapmaker/ShortcutHelpPanel'
 import SplitMapDialog from '../components/mapmaker/SplitMapDialog'
-import JoinMapDialog, { type JoinSource } from '../components/mapmaker/JoinMapDialog'
+import JoinMapDialog, {
+  type JoinResultMode,
+  type JoinSource
+} from '../components/mapmaker/JoinMapDialog'
 import GenerateMapDialog from '../components/mapmaker/GenerateMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import {
@@ -595,15 +598,29 @@ const MapMakerPage: React.FC = () => {
   )
 
   /**
-   * The composite opens as its own dirty tab rather than replacing the active
-   * one: both sources stay exactly as they were, so a join that turned out
-   * wrong costs a tab close instead of an undo the sources can't express.
+   * 'new' opens the composite as its own dirty tab and leaves both sources
+   * alone — a join that turned out wrong costs a tab close. 'join' rewrites
+   * this tab in place, keeping its file path so a save overwrites the original
+   * map; undo history is dropped because the pre-join tiles are no longer
+   * addressable by tile-level changes.
    */
   const handleJoin = useCallback(
-    (joined: MapFile) => {
-      addTab(createTab(joined, null, true))
+    (joined: MapFile, mode: JoinResultMode) => {
+      if (mode === 'new' || !activeTabId) {
+        addTab(createTab(joined, null, true))
+        return
+      }
+      updateTab(activeTabId, {
+        mapFile: joined,
+        dirty: true,
+        undoStack: [],
+        redoStack: [],
+        selection: null,
+        pasteMode: false,
+        renderVersion: renderVersion + 1
+      })
     },
-    [addTab]
+    [addTab, activeTabId, updateTab, renderVersion]
   )
 
   // ── Context menu action handler ────────────────────────────────────────────

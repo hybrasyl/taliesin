@@ -8,13 +8,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Slider,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography
 } from '@mui/material'
+import ZoomInIcon from '@mui/icons-material/ZoomIn'
+import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import { MapFile } from '@eriscorp/dalib-ts'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import { filenameFromPath } from '../../utils/format'
@@ -42,13 +46,23 @@ export interface JoinSource {
   mapFile: MapFile
 }
 
+/**
+ * What the composite becomes.
+ *
+ * `new` is the default because it is the non-destructive one: a fresh map has
+ * no XML yet, so there is nothing for the shifted coordinates to contradict.
+ * `join` keeps the current tab's identity and file, which is what makes the
+ * existing map's warps a problem worth warning about.
+ */
+export type JoinResultMode = 'new' | 'join'
+
 interface Props {
   open: boolean
   /** The active tab's map — the one being joined *to*. */
   mapFile: MapFile
   sources: JoinSource[]
   clientPath: string | null
-  onJoin: (joined: MapFile, label: string) => void
+  onJoin: (joined: MapFile, mode: JoinResultMode) => void
   onClose: () => void
   onStatus: (msg: string) => void
 }
@@ -68,9 +82,15 @@ const BROWSE = '__browse__'
 /** What the field shows once a browsed file has been sized and accepted — a
  *  separate value so the field reads as the filename, not as "Browse…". */
 const BROWSED = '__browsed__'
-const PREVIEW_PX = 560
 /** Long enough that dragging the offset slider doesn't queue a render per tick. */
 const PREVIEW_DEBOUNCE_MS = 120
+
+/** Zoom bounds. 1 is native tile size; a preview never needs to magnify past it. */
+const MIN_ZOOM = 0.05
+const MAX_ZOOM = 1
+const ZOOM_STEP = 1.25
+/** Breathing room so the fitted map isn't flush against the viewport edge. */
+const FIT_PAD_PX = 16
 
 /**
  * Screen position of the lattice point at the top corner of tile (tx, ty).
@@ -103,9 +123,14 @@ const JoinMapDialog: React.FC<Props> = ({
   const [otherLabel, setOtherLabel] = useState('')
   const [side, setSide] = useState<JoinSide>('right')
   const [offset, setOffset] = useState(0)
+  const [mode, setMode] = useState<JoinResultMode>('new')
   const [joining, setJoining] = useState(false)
   const [pending, setPending] = useState<{ filename: string; fileBuffer: Uint8Array } | null>(null)
+  /** null means "fit to the viewport"; a number is an explicit user zoom. */
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
   const previewRef = useRef<HTMLCanvasElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // Reset on every open: a stale pick from last time is never what's wanted.
   useEffect(() => {
@@ -116,6 +141,8 @@ const JoinMapDialog: React.FC<Props> = ({
     setSide('right')
     setOffset(0)
     setPending(null)
+    setZoom(null)
+    setMode('new')
   }, [open])
 
   const range = other ? offsetRange(side, mapFile, other) : { min: 0, max: 0 }
@@ -138,6 +165,63 @@ const JoinMapDialog: React.FC<Props> = ({
   const tooBig = !!layout && (layout.width > MAX_MAP_DIM || layout.height > MAX_MAP_DIM)
   const oversized = !!layout && !tooBig && (layout.width > WARN_DIM || layout.height > WARN_DIM)
 
+  // ── Zoom ───────────────────────────────────────────────────────────────────
+
+  // Track the viewport so "fit" stays true when the dialog is resized.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) =>
+      setViewport({ w: entry.contentRect.width, h: entry.contentRect.height })
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [open])
+
+  const fitScale = useMemo(() => {
+    if (!composite || viewport.w === 0) return 0.25
+    const { w, h } = isoCanvasSize(composite.width, composite.height, 1)
+    const fit = Math.min(MAX_ZOOM, (viewport.w - FIT_PAD_PX) / w, (viewport.h - FIT_PAD_PX) / h)
+    return Math.max(MIN_ZOOM, fit)
+  }, [composite, viewport])
+
+  const scale = zoom ?? fitScale
+
+  // Picking a different map or side reframes the whole preview, so drop back to
+  // fit. Nudging the offset does not — that would fight a deliberate zoom while
+  // the user is lining the seam up, which is exactly when zoom matters.
+  useEffect(() => {
+    setZoom(null)
+  }, [other, side])
+
+  const applyZoom = useCallback(
+    (next: number) => setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next))),
+    []
+  )
+
+  // ── Pan ────────────────────────────────────────────────────────────────────
+
+  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const el = scrollRef.current
+    if (!el) return
+    el.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const el = scrollRef.current
+    if (!el || !drag.current) return
+    el.scrollLeft = drag.current.left - (e.clientX - drag.current.x)
+    el.scrollTop = drag.current.top - (e.clientY - drag.current.y)
+  }
+
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>): void => {
+    scrollRef.current?.releasePointerCapture(e.pointerId)
+    drag.current = null
+  }
+
   // ── Preview ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -148,7 +232,6 @@ const JoinMapDialog: React.FC<Props> = ({
     const draw = async (): Promise<void> => {
       const W = composite.width
       const H = composite.height
-      const scale = Math.min(0.5, PREVIEW_PX / ((W + H) * ISO_HTILE_W))
       const { w: pw, h: ph } = isoCanvasSize(W, H, scale)
       canvas.width = pw
       canvas.height = ph
@@ -199,7 +282,7 @@ const JoinMapDialog: React.FC<Props> = ({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [composite, layout, other, clientPath])
+  }, [composite, layout, other, clientPath, scale])
 
   // ── Source selection ───────────────────────────────────────────────────────
 
@@ -240,8 +323,12 @@ const JoinMapDialog: React.FC<Props> = ({
     if (!composite || tooBig) return
     setJoining(true)
     try {
-      onJoin(composite, otherLabel)
-      onStatus(`Joined ${otherLabel} to the ${side} — ${composite.width}×${composite.height}`)
+      onJoin(composite, mode)
+      onStatus(
+        mode === 'new'
+          ? `New map from ${otherLabel} joined to the ${side} — ${composite.width}×${composite.height}`
+          : `Joined ${otherLabel} to the ${side} — ${composite.width}×${composite.height}`
+      )
       onClose()
     } catch (err) {
       onStatus(`Join failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -252,14 +339,22 @@ const JoinMapDialog: React.FC<Props> = ({
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="xl"
+        fullWidth
+        // Lining a seam up is the whole task, so the preview gets as much of
+        // the screen as the dialog can reasonably take.
+        slotProps={{ paper: { sx: { height: '92vh' } } }}
+      >
         <DialogTitle>Join Map</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
             Current map: {mapFile.width} × {mapFile.height} tiles
           </Typography>
 
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexShrink: 0 }}>
             <TextField
               select
               size="small"
@@ -301,12 +396,86 @@ const JoinMapDialog: React.FC<Props> = ({
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 3 }}>
-            <canvas
-              ref={previewRef}
-              style={{ imageRendering: 'pixelated', border: '1px solid', borderRadius: 4 }}
-            />
-            <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', gap: 3, flex: 1, minHeight: 0 }}>
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Box
+                ref={scrollRef}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                sx={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflow: 'auto',
+                  bgcolor: '#000',
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  cursor: 'grab',
+                  '&:active': { cursor: 'grabbing' },
+                  // Centres a map smaller than the viewport; a larger one just
+                  // scrolls from the top-left.
+                  display: 'grid',
+                  placeItems: 'center'
+                }}
+              >
+                <canvas
+                  ref={previewRef}
+                  style={{ imageRendering: 'pixelated', display: 'block' }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 1 }}>
+                <Tooltip title="Zoom out">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => applyZoom(scale / ZOOM_STEP)}
+                      disabled={!composite || scale <= MIN_ZOOM}
+                    >
+                      <ZoomOutIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Slider
+                  size="small"
+                  value={scale}
+                  min={MIN_ZOOM}
+                  max={MAX_ZOOM}
+                  step={0.01}
+                  disabled={!composite}
+                  onChange={(_, v) => applyZoom(v as number)}
+                  sx={{ mx: 1, maxWidth: 220 }}
+                />
+                <Tooltip title="Zoom in">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => applyZoom(scale * ZOOM_STEP)}
+                      disabled={!composite || scale >= MAX_ZOOM}
+                    >
+                      <ZoomInIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'text.secondary', minWidth: 44, textAlign: 'right' }}
+                >
+                  {Math.round(scale * 100)}%
+                </Typography>
+                <Button size="small" onClick={() => setZoom(null)} disabled={zoom === null}>
+                  Fit
+                </Button>
+                <Button size="small" onClick={() => applyZoom(1)}>
+                  1:1
+                </Button>
+                <Typography variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
+                  Drag to pan
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ width: 340, flexShrink: 0, overflow: 'auto' }}>
               {other && layout ? (
                 <>
                   <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -350,10 +519,38 @@ const JoinMapDialog: React.FC<Props> = ({
                       normally handles.
                     </Alert>
                   )}
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    Tiles only — warps and other map XML are not rewritten, so anything pointing
-                    into the incoming map needs its coordinates re-pointed.
-                  </Alert>
+
+                  <Typography variant="caption" sx={{ display: 'block', mt: 3 }}>
+                    Result
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={mode}
+                    exclusive
+                    fullWidth
+                    onChange={(_, v) => v && setMode(v)}
+                    size="small"
+                    sx={{ mt: 0.5 }}
+                  >
+                    <ToggleButton value="new">Save as new map</ToggleButton>
+                    <ToggleButton value="join">Join into current</ToggleButton>
+                  </ToggleButtonGroup>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', display: 'block', mt: 1 }}
+                  >
+                    {mode === 'new'
+                      ? 'Opens in a new tab. Both source maps are left as they are.'
+                      : 'Replaces this tab’s map, keeping its file. Ctrl+Z will not undo it.'}
+                  </Typography>
+
+                  {/* Only a join has an existing map XML to disagree with: a new
+                      map has no warps yet, so nothing can be pointing anywhere. */}
+                  {mode === 'join' && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      Tiles only — this map’s warps and other XML are not rewritten, so anything
+                      whose coordinates the join moved needs re-pointing.
+                    </Alert>
+                  )}
                 </>
               ) : (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -373,7 +570,7 @@ const JoinMapDialog: React.FC<Props> = ({
             disabled={joining || !composite || tooBig}
             startIcon={joining ? <CircularProgress size={14} color="inherit" /> : undefined}
           >
-            Join
+            {mode === 'new' ? 'Save as New Map' : 'Join'}
           </Button>
         </DialogActions>
       </Dialog>
