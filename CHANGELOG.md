@@ -55,6 +55,19 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Leaving an editor with unsaved changes now asks first.** Every editor
+  published its unsaved state for the toolbar to check, but nothing ever
+  checked it — switching pages silently discarded unsaved map, world map, font
+  and UI panel edits. Navigation now raises the same Save / Discard / Cancel
+  prompt that switching files within a page already did, and a failed save keeps
+  you where you are instead of navigating anyway.
+- **The Map Maker no longer loses your open maps when you switch pages.** Tabs,
+  their undo history and their unsaved edits now survive navigation. Previously
+  a single toolbar click destroyed every open tab — including maps that only
+  ever existed in memory (new, generated, split or joined), which were
+  unrecoverable, while reopening a saved one meant going back through the
+  dimension picker. Open maps are now held for the session, so closing tabs is
+  what frees them.
 - **World maps filed in subdirectories are no longer invisible.** The world map
   editor scanned only the top level of `worldmaps/`, so a world map in a
   subfolder was listed by the world index but absent from the editor. It now

@@ -175,6 +175,31 @@ describe('useUnsavedGuard', () => {
     })
   })
 
+  it('drops its global registration when the editor unmounts dirty', () => {
+    // dirtyEditor is a single slot that outlives the page that set it. Left
+    // behind, it blocks the *next* navigation and offers to save a component
+    // that no longer exists.
+    const { result, unmount } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    act(() => result.current.markDirty())
+    expect(useUiStore.getState().dirtyEditor?.label).toBe('Map')
+
+    unmount()
+    expect(useUiStore.getState().dirtyEditor).toBeNull()
+  })
+
+  it('leaves another editor’s registration alone on unmount', () => {
+    // A page that mounts and registers before this one tears down must keep
+    // its slot — the cleanup is identity-checked, not unconditional.
+    const { result, unmount } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    act(() => result.current.markDirty())
+
+    const other = { label: 'World Map', onSave: async (): Promise<void> => {} }
+    act(() => useUiStore.getState().setDirtyEditor(other))
+
+    unmount()
+    expect(useUiStore.getState().dirtyEditor).toBe(other)
+  })
+
   it('updates Recoil dirtyEditorState with the supplied label', async () => {
     let capturedLabel: string | null = null
     const Capture = ({ label }: { label: string }) => {
