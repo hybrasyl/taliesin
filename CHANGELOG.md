@@ -52,6 +52,16 @@ record; where they disagree with this file, the git history was taken as authori
 - **The map and world map file lists group by folder.** A new toggle switches
   between the flat list and a collapsible folder tree; the choice is remembered
   between sessions.
+- **Settings is now a grid of cards** instead of a tab strip. Each concern
+  (Appearance, Libraries, Dark Ages Client, Installed Asset Packs, Companion App,
+  Map Directories, Music Library, ffmpeg, .mus Encode Settings, Music Working
+  Directories, Asset Packs, About) is its own card in a responsive grid, matching
+  Creidhne. The theme selector is now a visual picker showing a live preview
+  swatch of each theme rather than a dropdown.
+- The **About** action moved from the toolbar into an About card in Settings.
+  The card shows the app icon, version, and project links (modeled on
+  oghma/mabon), with an "About Taliesin…" button and a **Reveal settings
+  folder** button that opens `settings.json` in the OS file manager.
 
 ### Fixed
 
@@ -74,17 +84,11 @@ record; where they disagree with this file, the git history was taken as authori
   enumerates recursively, and archiving, restoring and renaming preserve the
   subfolder (including a template's `.meta.json` sidecar) instead of flattening
   everything to the type root.
-
-- **Settings is now a grid of cards** instead of a tab strip. Each concern
-  (Appearance, Libraries, Dark Ages Client, Installed Asset Packs, Companion App,
-  Map Directories, Music Library, ffmpeg, .mus Encode Settings, Music Working
-  Directories, Asset Packs, About) is its own card in a responsive grid, matching
-  Creidhne. The theme selector is now a visual picker showing a live preview
-  swatch of each theme rather than a dropdown.
-- The **About** action moved from the toolbar into an About card in Settings.
-  The card shows the app icon, version, and project links (modeled on
-  oghma/mabon), with an "About Taliesin…" button and a **Reveal settings
-  folder** button that opens `settings.json` in the OS file manager.
+- **Font glyph previews decode correctly.** The archive preview hand-unpacked
+  glyph bits against a comment claiming the format was LSB-first; it now uses
+  dalib-ts's `getGlyphPixels()`, which is canonically MSB-first. Also picks up
+  that release's ColorTable out-of-memory guard, MPF variable-length header fix
+  and CRC-32 finalXor correction.
 
 ## [2.7.0] - 2026-07-16
 
