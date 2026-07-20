@@ -23,6 +23,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-07-20
+
 ### Added
 
 - **Report an issue.** A bug-report affordance in the toolbar (and an About-card

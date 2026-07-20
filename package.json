@@ -1,7 +1,7 @@
 {
   "name": "taliesin",
   "productName": "Taliesin",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Dark Ages client asset viewer — companion to Creidhne",
   "main": "./out/main/index.js",
   "author": "Caeldeth",
