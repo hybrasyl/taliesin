@@ -38,7 +38,15 @@ export interface RendererSettings {
   companionPath: string | null
   musEncodeKbps: number
   musEncodeSampleRate: number
+  /** How the map / world map editor file lists group their rows. Global rather
+   *  than per-editor: it is a reading preference, not per-section state. */
+  fileListViewMode: FileListViewMode
 }
+
+/** Flat rows of `folder/name`, or rows grouped under collapsible folders. */
+export type FileListViewMode = 'flat' | 'folder'
+
+export const FILE_LIST_VIEW_MODES: readonly FileListViewMode[] = ['flat', 'folder']
 
 export const DEFAULT_SETTINGS: RendererSettings = {
   theme: 'hybrasyl',
@@ -55,7 +63,8 @@ export const DEFAULT_SETTINGS: RendererSettings = {
   packDir: null,
   companionPath: null,
   musEncodeKbps: 64,
-  musEncodeSampleRate: 22050
+  musEncodeSampleRate: 22050,
+  fileListViewMode: 'flat'
 }
 
 interface SettingsActions {
@@ -74,6 +83,7 @@ interface SettingsActions {
   setCompanionPath: (path: string | null) => void
   setMusEncodeKbps: (kbps: number) => void
   setMusEncodeSampleRate: (rate: number) => void
+  setFileListViewMode: (mode: FileListViewMode) => void
   /** Load persisted settings from disk into the store (once, at startup). */
   hydrate: () => Promise<void>
 }
@@ -103,6 +113,11 @@ function coerce(raw: Record<string, unknown>): Partial<RendererSettings> {
   if (typeof raw.companionPath === 'string') out.companionPath = raw.companionPath
   if (typeof raw.musEncodeKbps === 'number') out.musEncodeKbps = raw.musEncodeKbps
   if (typeof raw.musEncodeSampleRate === 'number') out.musEncodeSampleRate = raw.musEncodeSampleRate
+  if (
+    typeof raw.fileListViewMode === 'string' &&
+    (FILE_LIST_VIEW_MODES as readonly string[]).includes(raw.fileListViewMode)
+  )
+    out.fileListViewMode = raw.fileListViewMode as FileListViewMode
   return out
 }
 
@@ -143,6 +158,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setCompanionPath: (companionPath) => set({ companionPath }),
   setMusEncodeKbps: (musEncodeKbps) => set({ musEncodeKbps }),
   setMusEncodeSampleRate: (musEncodeSampleRate) => set({ musEncodeSampleRate }),
+  setFileListViewMode: (fileListViewMode) => set({ fileListViewMode }),
 
   hydrate: async () => {
     const loaded = await window.api.loadSettings()
@@ -186,7 +202,8 @@ useSettingsStore.subscribe((state) => {
       packDir,
       companionPath,
       musEncodeKbps,
-      musEncodeSampleRate
+      musEncodeSampleRate,
+      fileListViewMode
     } = state
     // Promise.resolve wraps the IPC result so a non-thenable return (e.g. a
     // test stub) can't break the .catch chain.
@@ -206,7 +223,8 @@ useSettingsStore.subscribe((state) => {
         packDir,
         companionPath,
         musEncodeKbps,
-        musEncodeSampleRate
+        musEncodeSampleRate,
+        fileListViewMode
       })
     ).catch((err) => console.error('[settings] save IPC failed:', err))
   }, 200)

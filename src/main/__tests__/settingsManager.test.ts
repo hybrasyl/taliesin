@@ -181,7 +181,8 @@ describe('createSettingsManager.load', () => {
         musEncodeKbps: 128,
         musEncodeSampleRate: 48000,
         packDir: '/packs',
-        companionPath: '/companion'
+        companionPath: '/companion',
+        fileListViewMode: 'folder'
       })
     )
     const s = await createSettingsManager(USER_DATA).load()
@@ -199,6 +200,7 @@ describe('createSettingsManager.load', () => {
     expect(s.musEncodeSampleRate).toBe(48000)
     expect(s.packDir).toBe('/packs')
     expect(s.companionPath).toBe('/companion')
+    expect(s.fileListViewMode).toBe('folder')
   })
 
   it('coerces wrong-typed optional fields to undefined/defaults (withDefaults falsy branches)', async () => {
@@ -218,7 +220,8 @@ describe('createSettingsManager.load', () => {
         musEncodeKbps: 'fast', // → 64
         musEncodeSampleRate: null, // → 22050
         packDir: 0,
-        companionPath: true
+        companionPath: true,
+        fileListViewMode: 'tree' // not one of the two modes → undefined
       })
     )
     const s = await createSettingsManager(USER_DATA).load()
@@ -234,6 +237,18 @@ describe('createSettingsManager.load', () => {
     expect(s.musEncodeSampleRate).toBe(22050)
     expect(s.packDir).toBeUndefined()
     expect(s.companionPath).toBeUndefined()
+    expect(s.fileListViewMode).toBeUndefined()
+  })
+
+  it('accepts either file-list view mode', async () => {
+    // 'folder' is covered above; 'flat' is the other half of the enum guard,
+    // and is worth persisting explicitly rather than inferring from absence.
+    files.set(
+      PRIMARY,
+      JSON.stringify({ libraries: [], mapDirectories: [], fileListViewMode: 'flat' })
+    )
+    const s = await createSettingsManager(USER_DATA).load()
+    expect(s.fileListViewMode).toBe('flat')
   })
 
   it('drops malformed entries inside mapDirectories arrays', async () => {

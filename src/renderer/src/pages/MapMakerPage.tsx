@@ -41,6 +41,7 @@ import AspectRatioIcon from '@mui/icons-material/AspectRatio'
 import ImageIcon from '@mui/icons-material/Image'
 import AnimationIcon from '@mui/icons-material/Animation'
 import CallSplitIcon from '@mui/icons-material/CallSplit'
+import CallMergeIcon from '@mui/icons-material/CallMerge'
 import MapIcon from '@mui/icons-material/Map'
 import ExtensionIcon from '@mui/icons-material/Extension'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
@@ -63,6 +64,7 @@ import TabMapPopup from '../components/mapmaker/TabMapPopup'
 import DirectionalResizeButtons from '../components/mapmaker/DirectionalResizeButtons'
 import ShortcutHelpPanel from '../components/mapmaker/ShortcutHelpPanel'
 import SplitMapDialog from '../components/mapmaker/SplitMapDialog'
+import JoinMapDialog, { type JoinSource } from '../components/mapmaker/JoinMapDialog'
 import GenerateMapDialog from '../components/mapmaker/GenerateMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import {
@@ -248,6 +250,7 @@ const MapMakerPage: React.FC = () => {
   const [exportOpen, setExportOpen] = useState(false)
   const [createPrefabOpen, setCreatePrefabOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [joinOpen, setJoinOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
   const [showTabMap, setShowTabMap] = useState(false)
@@ -578,6 +581,29 @@ const MapMakerPage: React.FC = () => {
       showStatus(`Resized to ${newW}×${newH}`)
     },
     [mapFile, activeTabId, updateTab, showStatus, renderVersion]
+  )
+
+  // ── Map join ───────────────────────────────────────────────────────────────
+
+  /** Every other open tab that actually holds a map, offered as a join source. */
+  const joinSources = useMemo<JoinSource[]>(
+    () =>
+      tabs
+        .filter((t) => t.id !== activeTabId && t.mapFile)
+        .map((t) => ({ id: t.id, label: tabLabel(t), mapFile: t.mapFile as MapFile })),
+    [tabs, activeTabId]
+  )
+
+  /**
+   * The composite opens as its own dirty tab rather than replacing the active
+   * one: both sources stay exactly as they were, so a join that turned out
+   * wrong costs a tab close instead of an undo the sources can't express.
+   */
+  const handleJoin = useCallback(
+    (joined: MapFile) => {
+      addTab(createTab(joined, null, true))
+    },
+    [addTab]
   )
 
   // ── Context menu action handler ────────────────────────────────────────────
@@ -1210,6 +1236,13 @@ const MapMakerPage: React.FC = () => {
             </IconButton>
           </span>
         </Tooltip>
+        <Tooltip title="Join Map">
+          <span>
+            <IconButton size="small" onClick={() => setJoinOpen(true)} disabled={!mapFile}>
+              <CallMergeIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
@@ -1540,6 +1573,17 @@ const MapMakerPage: React.FC = () => {
           mapFile={mapFile}
           clientPath={clientPath}
           onClose={() => setSplitOpen(false)}
+          onStatus={showStatus}
+        />
+      )}
+      {mapFile && (
+        <JoinMapDialog
+          open={joinOpen}
+          mapFile={mapFile}
+          sources={joinSources}
+          clientPath={clientPath}
+          onJoin={handleJoin}
+          onClose={() => setJoinOpen(false)}
           onStatus={showStatus}
         />
       )}

@@ -33,8 +33,32 @@ record; where they disagree with this file, the git history was taken as authori
   log files, and a crash now shows a recoverable "Something went wrong" screen
   with a Report/Reload choice instead of a blank window. A **Reveal logs folder**
   button in the About card opens the log directory.
+- **Join Maps.** The Map Maker can stitch a second map onto any side of the
+  current one. Pick it from another open tab or browse for a `.map` on disk,
+  choose left/top/bottom/right, and slide it along the seam (with start / center
+  / end presets) while a live isometric preview ghosts the incoming map in
+  place. Edges of different lengths are handled — the result is the union, with
+  uncovered tiles left empty — and the join opens as a new tab, leaving both
+  source maps untouched. Warps are not rewritten, so coordinates pointing into
+  the joined-on map still need re-pointing.
+- **Folder picker on save.** The map and world map editors now let you choose
+  (or type) a subfolder to save into, next to the filename field. Renaming or
+  regenerating a filename keeps the file in the folder it already lives in.
 
 ### Changed
+
+- **The map and world map file lists group by folder.** A new toggle switches
+  between the flat list and a collapsible folder tree; the choice is remembered
+  between sessions.
+
+### Fixed
+
+- **World maps filed in subdirectories are no longer invisible.** The world map
+  editor scanned only the top level of `worldmaps/`, so a world map in a
+  subfolder was listed by the world index but absent from the editor. It now
+  enumerates recursively, and archiving, restoring and renaming preserve the
+  subfolder (including a template's `.meta.json` sidecar) instead of flattening
+  everything to the type root.
 
 - **Settings is now a grid of cards** instead of a tab strip. Each concern
   (Appearance, Libraries, Dark Ages Client, Installed Asset Packs, Companion App,

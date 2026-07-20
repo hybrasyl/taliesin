@@ -4,6 +4,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
+import FolderSelect from './FolderSelect'
 
 interface Props {
   title: string
@@ -16,6 +17,13 @@ interface Props {
   archiveLabel?: string
   unarchiveLabel?: string
   onFileNameChange: (value: string) => void
+  /** Save destination within the type directory. Omit the trio to hide the
+   *  picker entirely (editors that have no folder notion). */
+  folder?: string
+  folderOptions?: string[]
+  /** The folder the file is in now — `''` for a new file at the root. */
+  initialFolder?: string
+  onFolderChange?: (value: string) => void
   onRegenerate: () => void
   onSave: () => void
   onArchive?: () => void
@@ -33,6 +41,10 @@ const EditorHeader: React.FC<Props> = ({
   archiveLabel,
   unarchiveLabel,
   onFileNameChange,
+  folder,
+  folderOptions,
+  initialFolder,
+  onFolderChange,
   onRegenerate,
   onSave,
   onArchive,
@@ -40,14 +52,19 @@ const EditorHeader: React.FC<Props> = ({
 }) => {
   const recyclePending = !!initialFileName && fileName !== computedFileName
   const willRename = !!initialFileName && fileName !== initialFileName
+  const willMove = !!initialFileName && initialFolder !== undefined && folder !== initialFolder
   const fileNameWarn = recyclePending || willRename
   const recycleDisabled = fileName === computedFileName
 
-  const helperText = willRename
-    ? `Saving will create "${fileName}" and archive "${initialFileName}"`
-    : recyclePending
-      ? `Computed name: "${computedFileName}" — click ↺ to apply (saves as new file)`
-      : undefined
+  const destination = folder ? `${folder}/${fileName}` : fileName
+  const helperText =
+    willRename || willMove
+      ? `Saving will create "${destination}" and archive "${
+          initialFolder ? `${initialFolder}/` : ''
+        }${initialFileName}"`
+      : recyclePending
+        ? `Computed name: "${computedFileName}" — click ↺ to apply (saves as new file)`
+        : undefined
 
   const recycleTooltip = recycleDisabled
     ? 'Filename is auto-computed'
@@ -92,7 +109,7 @@ const EditorHeader: React.FC<Props> = ({
           slotProps={{ htmlInput: { spellCheck: false }, formHelperText: { sx: { mx: 0 } } }}
           sx={{
             flex: 1,
-            ...(fileNameWarn && {
+            ...((fileNameWarn || willMove) && {
               '& .MuiOutlinedInput-root fieldset': { borderColor: 'warning.main' },
               '& .MuiInputLabel-root:not(.Mui-focused)': { color: 'warning.main' },
               '& .MuiFormHelperText-root': { color: 'warning.main' }
@@ -107,6 +124,14 @@ const EditorHeader: React.FC<Props> = ({
             </IconButton>
           </span>
         </Tooltip>
+        {onFolderChange && (
+          <FolderSelect
+            value={folder ?? ''}
+            options={folderOptions ?? []}
+            onChange={onFolderChange}
+            warn={willMove}
+          />
+        )}
       </Box>
     </Box>
   )
