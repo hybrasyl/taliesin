@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -10,27 +10,25 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
-  IconButton,
-  InputAdornment,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
   Snackbar,
-  TextField,
   Tooltip,
   Typography
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import ArchiveIcon from '@mui/icons-material/Archive'
-import SearchIcon from '@mui/icons-material/Search'
 import StarIcon from '@mui/icons-material/Star'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import WorldMapEditorPanel from '../components/worldmapeditor/WorldMapEditorPanel'
+import SectionFileList from '../components/shared/SectionFileList'
 import { parseWorldMapXml, serializeWorldMapXml } from '../utils/worldMapXml'
+import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
+import { folderOptions } from '../utils/fileTree'
 import {
   DEFAULT_WORLD_MAP,
   pointKey,
@@ -39,18 +37,33 @@ import {
 } from '../data/worldMapData'
 
 interface FileEntry {
-  name: string
+  /**
+   * Type-relative, forward-slashed: `Temuair.xml`, `regions/Mileth.xml`,
+   * `.ignore/Draft.xml`. The identity a row carries — see `mapFileRel`.
+   */
+  rel: string
+  /** Absolute, forward-slashed: `${dir}/${rel}`. */
   path: string
+  /** Bare filename, what the editor's filename field edits. */
+  name: string
+  /** Row label and filter target — `activeRel` minus `.xml`. */
+  display: string
+  /** Lives under `.ignore/` — a template rather than an active world map. */
   template?: boolean
   /** True only for the canonical reference set */
   isReferenceSet?: boolean
 }
 
 const WORLDMAPS_SUBDIR = 'worldmaps'
-const IGNORE_SUBDIR = 'worldmaps/.ignore'
 const REFERENCE_FILENAME = 'ReferenceMapSet.xml'
 
 // ── File list panel ───────────────────────────────────────────────────────────
+
+const matchesQuery = (f: FileEntry, q: string): boolean => f.display.toLowerCase().includes(q)
+
+/** The reference set is pinned above the list, so it answers the filter itself. */
+const referenceMatchesQuery = (q: string): boolean =>
+  !q || REFERENCE_FILENAME.toLowerCase().includes(q) || 'reference set'.includes(q)
 
 function FileListPanel({
   referenceFile,
@@ -73,197 +86,95 @@ function FileListPanel({
   showTemplates: boolean
   onToggleTemplates: () => void
 }) {
-  const [search, setSearch] = React.useState('')
+  const viewMode = useSettingsStore((s) => s.fileListViewMode)
 
-  const filtered = (list: FileEntry[]) =>
-    search.trim() ? list.filter((f) => f.name.toLowerCase().includes(search.toLowerCase())) : list
+  const renderRow = useCallback(
+    (f: FileEntry, muted: boolean): React.ReactElement => (
+      <ListItem disablePadding>
+        <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+          <ListItemText
+            // In folder view the enclosing header already names the folder.
+            primary={viewMode === 'folder' ? f.name.replace(/\.xml$/i, '') : f.display}
+            slotProps={{
+              primary: {
+                noWrap: true,
+                variant: 'body2',
+                ...(muted && { color: 'text.secondary' })
+              }
+            }}
+          />
+        </ListItemButton>
+      </ListItem>
+    ),
+    [selectedFile, onSelect, viewMode]
+  )
 
-  const filteredActive = filtered(files)
-  const filteredTemplates = filtered(templateFiles)
-
-  const refMatchesSearch =
-    !search.trim() ||
-    REFERENCE_FILENAME.toLowerCase().includes(search.toLowerCase()) ||
-    'reference set'.includes(search.toLowerCase())
+  const header = useCallback(
+    (query: string): React.ReactNode =>
+      referenceMatchesQuery(query) && (
+        <>
+          <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              Reference Set
+            </Typography>
+          </Box>
+          {referenceFile ? (
+            <List dense disablePadding>
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={selectedFile?.path === referenceFile.path}
+                  onClick={() => onSelect(referenceFile)}
+                >
+                  <ListItemText
+                    primary={referenceFile.name.replace(/\.xml$/i, '')}
+                    slotProps={{ primary: { noWrap: true, variant: 'body2' } }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          ) : (
+            <Box sx={{ px: 1.5, pb: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={onCreateReference}
+                fullWidth
+              >
+                Create Reference Set
+              </Button>
+            </Box>
+          )}
+          <Divider sx={{ my: 0.5 }} />
+        </>
+      ),
+    [referenceFile, selectedFile, onSelect, onCreateReference]
+  )
 
   return (
-    <Box
-      sx={{
-        width: 240,
-        flexShrink: 0,
-        borderRight: 1,
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
-      <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle2">World Maps</Typography>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title={showTemplates ? 'Hide Templates' : 'Show Templates'}>
-            <IconButton
-              size="small"
-              onClick={onToggleTemplates}
-              color={showTemplates ? 'primary' : 'default'}
-            >
-              <ArchiveIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="New World Map">
-            <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
-              New
-            </Button>
-          </Tooltip>
-        </Box>
-      </Box>
-      <Box sx={{ px: 1, pb: 1 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Filter..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
-        />
-      </Box>
-      <Divider />
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {/* Reference Set — always visible */}
-        {refMatchesSearch && (
-          <>
-            <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                Reference Set
-              </Typography>
-            </Box>
-            {referenceFile ? (
-              <List dense disablePadding>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    selected={selectedFile?.path === referenceFile.path}
-                    onClick={() => onSelect(referenceFile)}
-                  >
-                    <ListItemText
-                      primary={referenceFile.name.replace(/\.xml$/i, '')}
-                      slotProps={{
-                        primary: { noWrap: true, variant: 'body2' }
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              </List>
-            ) : (
-              <Box sx={{ px: 1.5, pb: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={onCreateReference}
-                  fullWidth
-                >
-                  Create Reference Set
-                </Button>
-              </Box>
-            )}
-            <Divider sx={{ my: 0.5 }} />
-          </>
-        )}
-
-        {/* Active maps */}
-        {filteredActive.length === 0 && !showTemplates && !referenceFile ? (
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              p: 2
-            }}
-          >
-            No world map XMLs found. Check that a library is set in Settings.
-          </Typography>
-        ) : filteredActive.length === 0 && (!showTemplates || filteredTemplates.length === 0) ? (
-          !refMatchesSearch && (
-            <Typography
-              variant="body2"
-              sx={{
-                color: 'text.secondary',
-                p: 2
-              }}
-            >
-              No matches.
-            </Typography>
-          )
-        ) : (
-          <>
-            {filteredActive.length > 0 && (
-              <List dense disablePadding>
-                {filteredActive.map((f) => (
-                  <ListItem key={f.path} disablePadding>
-                    <ListItemButton
-                      selected={selectedFile?.path === f.path}
-                      onClick={() => onSelect(f)}
-                    >
-                      <ListItemText
-                        primary={f.name.replace(/\.xml$/i, '')}
-                        slotProps={{
-                          primary: { noWrap: true, variant: 'body2' }
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-            {showTemplates && filteredTemplates.length > 0 && (
-              <>
-                <Divider sx={{ my: 0.5 }} />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    px: 1.5,
-                    py: 0.5,
-                    display: 'block'
-                  }}
-                >
-                  Templates
-                </Typography>
-                <List dense disablePadding>
-                  {filteredTemplates.map((f) => (
-                    <ListItem key={f.path} disablePadding>
-                      <ListItemButton
-                        selected={selectedFile?.path === f.path}
-                        onClick={() => onSelect(f)}
-                      >
-                        <ListItemText
-                          primary={f.name.replace(/\.xml$/i, '')}
-                          slotProps={{
-                            primary: {
-                              noWrap: true,
-                              variant: 'body2',
-                              color: 'text.secondary'
-                            }
-                          }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
-                </List>
-              </>
-            )}
-          </>
-        )}
-      </Box>
-    </Box>
+    <SectionFileList
+      title="World Maps"
+      files={files}
+      archivedFiles={templateFiles}
+      archivedLabel="Templates"
+      showArchived={showTemplates}
+      onToggleArchived={onToggleTemplates}
+      matches={matchesQuery}
+      renderRow={renderRow}
+      header={header}
+      // The Create Reference Set button counts as content: a world with no
+      // world maps at all still gets an actionable panel, not "none found".
+      headerMatches={referenceMatchesQuery}
+      emptyMessage="No world map XMLs found. Check that a library is set in Settings."
+      actions={
+        <Tooltip title="New World Map">
+          <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
+            New
+          </Button>
+        </Tooltip>
+      }
+    />
   )
 }
 
@@ -303,62 +214,66 @@ export default function WorldMapPage() {
   const { index: worldIndex } = useWorldIndex()
   const mapNames = worldIndex?.maps ?? []
 
-  const worldmapsDir = activeLibrary ? `${activeLibrary}/${WORLDMAPS_SUBDIR}` : null
-  const ignoreDir = activeLibrary ? `${activeLibrary}/${IGNORE_SUBDIR}` : null
+  // Both directories come back from fs:listSection rather than being rebuilt
+  // from activeLibrary here: it is the same join hybindex itself uses, already
+  // forward-slashed, so row paths and write paths cannot disagree about
+  // separators (resolveLibraryPath hands back native ones).
+  const [worldmapsDir, setWorldmapsDir] = useState<string | null>(null)
+  const ignoreDir = worldmapsDir ? `${worldmapsDir}/.ignore` : null
 
-  // ── File list loaders ─────────────────────────────────────────────────────
+  // Save destinations offered by the folder picker — templates included, since
+  // a template's folder is exactly where its active counterpart belongs.
+  const folderChoices = useMemo(
+    () => folderOptions([...files, ...templateFiles]),
+    [files, templateFiles]
+  )
 
-  const loadActiveFiles = async () => {
-    if (!worldmapsDir) {
+  // ── File list loader ──────────────────────────────────────────────────────
+
+  /**
+   * One listSection call replaces the two flat listDir scans this used to do.
+   * It enumerates recursively — a world map filed in a subdirectory is no
+   * longer invisible here while the index lists it — and returns active and
+   * archived already split, so templates come from the same round trip.
+   */
+  const loadFiles = async () => {
+    if (!activeLibrary) {
       setFiles([])
+      setTemplateFiles([])
+      setReferenceFile(null)
+      setWorldmapsDir(null)
       return
     }
     try {
-      const entries = await window.api.listDir(worldmapsDir)
-      setFiles(
-        entries
-          .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
-          .map((e) => ({ name: e.name, path: `${worldmapsDir}/${e.name}` }))
-          .sort((a, b) => a.name.localeCompare(b.name))
+      const { dir, active, archived } = await window.api.listSection(
+        activeLibrary,
+        WORLDMAPS_SUBDIR
       )
+      setWorldmapsDir(dir)
+      const toEntry = (rel: string, template: boolean): FileEntry => ({
+        rel,
+        path: `${dir}/${rel}`,
+        name: baseName(rel),
+        display: displayName(rel),
+        ...(template && { template: true })
+      })
+      // listSection sorts by code unit; re-sort for display with numeric
+      // collation so Field10 follows Field2.
+      const byDisplay = (a: FileEntry, b: FileEntry) =>
+        a.display.localeCompare(b.display, undefined, { numeric: true })
+
+      setFiles(active.map((rel) => toEntry(rel, false)).sort(byDisplay))
+
+      // The reference set is the one at the archive root — a template filed in
+      // a subfolder that happens to share the name is just a template.
+      const templates = archived.map((rel) => toEntry(rel, true))
+      const ref = templates.find((f) => f.name === REFERENCE_FILENAME && relFolder(f.rel) === '')
+      setReferenceFile(ref ? { ...ref, isReferenceSet: true } : null)
+      setTemplateFiles(templates.filter((f) => f !== ref).sort(byDisplay))
     } catch {
       setFiles([])
-    }
-  }
-
-  const loadIgnoreFiles = async () => {
-    if (!ignoreDir) {
-      setReferenceFile(null)
       setTemplateFiles([])
-      return
-    }
-    try {
-      await window.api.ensureDir(ignoreDir)
-      const entries = await window.api.listDir(ignoreDir)
-      const xmlFiles = entries
-        .filter((e) => !e.isDirectory && /\.xml$/i.test(e.name))
-        .sort((a, b) => a.name.localeCompare(b.name))
-
-      // Separate reference set from other templates
-      const refEntry = xmlFiles.find((e) => e.name === REFERENCE_FILENAME)
-      setReferenceFile(
-        refEntry
-          ? {
-              name: refEntry.name,
-              path: `${ignoreDir}/${refEntry.name}`,
-              template: true,
-              isReferenceSet: true
-            }
-          : null
-      )
-      setTemplateFiles(
-        xmlFiles
-          .filter((e) => e.name !== REFERENCE_FILENAME)
-          .map((e) => ({ name: e.name, path: `${ignoreDir}/${e.name}`, template: true }))
-      )
-    } catch {
       setReferenceFile(null)
-      setTemplateFiles([])
     }
   }
 
@@ -373,15 +288,12 @@ export default function WorldMapPage() {
       setReferencePoints(null)
       return
     }
-    loadActiveFiles()
-    loadIgnoreFiles()
+    loadFiles()
   }, [activeLibrary])
 
-  const handleToggleTemplates = async () => {
-    const next = !showTemplates
-    setShowTemplates(next)
-    if (next) await loadIgnoreFiles()
-  }
+  // Both lists arrive from one listSection call, so revealing templates is
+  // pure state — no round trip.
+  const handleToggleTemplates = () => setShowTemplates((v) => !v)
 
   // ── Create reference set ──────────────────────────────────────────────────
 
@@ -393,7 +305,9 @@ export default function WorldMapPage() {
       const xml = serializeWorldMapXml(newMap)
       await window.api.writeFile(refPath, xml)
       const entry: FileEntry = {
+        rel: `.ignore/${REFERENCE_FILENAME}`,
         name: REFERENCE_FILENAME,
+        display: displayName(REFERENCE_FILENAME),
         path: refPath,
         template: true,
         isReferenceSet: true
@@ -415,19 +329,24 @@ export default function WorldMapPage() {
 
   // ── Meta helpers ──────────────────────────────────────────────────────────
 
-  const metaPath = (fileName: string) =>
-    ignoreDir ? `${ignoreDir}/${fileName.replace(/\.xml$/i, '.meta.json')}` : null
+  /**
+   * Sidecars live inside `.ignore`, mirroring the world map's own subfolder —
+   * keying them on the bare filename would pile every subfoldered map's meta
+   * into the archive root, where two same-named maps would collide.
+   */
+  const metaPath = (rel: string) =>
+    ignoreDir ? `${ignoreDir}/${activeRel(rel).replace(/\.xml$/i, '.meta.json')}` : null
 
-  const saveMeta = async (fileName: string, newMeta: WorldMapMeta) => {
-    const path = metaPath(fileName)
+  const saveMeta = async (rel: string, newMeta: WorldMapMeta) => {
+    const path = metaPath(rel)
     if (!path) return
     await window.api.writeFile(path, JSON.stringify(newMeta, null, 2))
   }
 
   const loadMetaAndReference = async (
-    fileName: string
+    rel: string
   ): Promise<{ meta: WorldMapMeta; referencePoints: WorldMapData['points'] } | null> => {
-    const path = metaPath(fileName)
+    const path = metaPath(rel)
     if (!path || !ignoreDir) return null
     try {
       const exists = await window.api.exists(path)
@@ -471,7 +390,7 @@ export default function WorldMapPage() {
       const xml = new TextDecoder('utf-8').decode(bytes)
       setEditingMap(parseWorldMapXml(xml))
 
-      const result = await loadMetaAndReference(file.name)
+      const result = await loadMetaAndReference(file.rel)
       if (result) {
         setMeta(result.meta)
         setReferencePoints(result.referencePoints)
@@ -486,36 +405,41 @@ export default function WorldMapPage() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
-  const handleSave = async (data: WorldMapData, fileName: string) => {
+  const handleSave = async (data: WorldMapData, fileName: string, folder: string) => {
     if (!activeLibrary || !worldmapsDir) return
     try {
       const isTemplate = selectedFile?.template === true
       const baseDir = isTemplate ? ignoreDir! : worldmapsDir
-      const isRename = !!(selectedFile && fileName !== selectedFile.name)
-      const newPath = isRename || !selectedFile ? `${baseDir}/${fileName}` : selectedFile.path
+      // The filename field's value is a bare name — it tracks the world map's
+      // <Name>, so saving one filed in a subfolder must put it back there
+      // rather than resolving against the type root.
+      const targetRel = joinRel(folder, fileName)
+      const isRename = !!(selectedFile && targetRel !== activeRel(selectedFile.rel))
+      const newPath = isRename || !selectedFile ? `${baseDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeWorldMapXml(data)
       await window.api.writeFile(newPath, xml)
       setEditingMap(data)
 
-      if (isRename && selectedFile) {
-        setSnackbar({
-          message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
-          severity: 'info'
-        })
+      if (isRename || !selectedFile) {
+        if (isRename) {
+          setSnackbar({
+            message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
+            severity: 'info'
+          })
+        }
         setSelectedFile({
-          name: fileName,
+          rel: isTemplate ? `.ignore/${targetRel}` : targetRel,
           path: newPath,
+          name: baseName(targetRel),
+          display: displayName(targetRel),
           template: isTemplate || undefined,
-          isReferenceSet: selectedFile.isReferenceSet
+          isReferenceSet: selectedFile?.isReferenceSet
         })
-      } else if (!selectedFile) {
-        setSelectedFile({ name: fileName, path: newPath })
       }
 
       markClean()
-      await loadActiveFiles()
-      if (isTemplate) await loadIgnoreFiles()
+      await loadFiles()
     } catch (err) {
       setSnackbar({
         message: `Save failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -529,7 +453,10 @@ export default function WorldMapPage() {
   const handleMoveToTemplates = async () => {
     if (!selectedFile || !ignoreDir || !worldmapsDir) return
     try {
-      const destPath = `${ignoreDir}/${selectedFile.name}`
+      // `.ignore/<activeRel>` mirrors the active subpath, so the round trip
+      // back to active lands where it started instead of collapsing
+      // `regions/Temuair.xml` and `drafts/Temuair.xml` onto one name.
+      const destPath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
       const exists = await window.api.exists(destPath)
       if (exists) {
         setSnackbar({ message: 'A template with this name already exists.', severity: 'error' })
@@ -541,8 +468,7 @@ export default function WorldMapPage() {
       setEditingMap(null)
       setMeta(null)
       setReferencePoints(null)
-      await loadActiveFiles()
-      await loadIgnoreFiles()
+      await loadFiles()
     } catch (err) {
       setSnackbar({
         message: `Move failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -554,7 +480,8 @@ export default function WorldMapPage() {
   const handleMoveToActive = async () => {
     if (!selectedFile || !worldmapsDir) return
     try {
-      const destPath = `${worldmapsDir}/${selectedFile.name}`
+      // Strip the `.ignore/` prefix but keep any subfolder beneath it.
+      const destPath = `${worldmapsDir}/${activeRel(selectedFile.rel)}`
       const exists = await window.api.exists(destPath)
       if (exists) {
         setSnackbar({
@@ -569,8 +496,7 @@ export default function WorldMapPage() {
       setEditingMap(null)
       setMeta(null)
       setReferencePoints(null)
-      await loadActiveFiles()
-      await loadIgnoreFiles()
+      await loadFiles()
     } catch (err) {
       setSnackbar({
         message: `Move failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -586,7 +512,7 @@ export default function WorldMapPage() {
     const newMeta: WorldMapMeta = { ...meta, excludes: [...meta.excludes, key] }
     setMeta(newMeta)
     try {
-      await saveMeta(selectedFile.name, newMeta)
+      await saveMeta(selectedFile.rel, newMeta)
     } catch {
       setSnackbar({ message: 'Failed to save exclusion.', severity: 'error' })
     }
@@ -601,7 +527,7 @@ export default function WorldMapPage() {
     setEditingMap((prev) => (prev ? { ...prev, points: [...prev.points, restoredPoint] } : null))
     markDirty()
     try {
-      await saveMeta(selectedFile.name, newMeta)
+      await saveMeta(selectedFile.rel, newMeta)
     } catch {
       setSnackbar({ message: 'Failed to save restore.', severity: 'error' })
     }
@@ -653,7 +579,7 @@ export default function WorldMapPage() {
       const newMeta: WorldMapMeta = { reference: REFERENCE_FILENAME, excludes }
       setMeta(newMeta)
       setReferencePoints(refData.points)
-      await saveMeta(selectedFile.name, newMeta)
+      await saveMeta(selectedFile.rel, newMeta)
     } catch (err) {
       setSnackbar({
         message: `Link failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -707,6 +633,8 @@ export default function WorldMapPage() {
           <WorldMapEditorPanel
             worldMap={editingMap}
             initialFileName={selectedFile?.name ?? null}
+            initialFolder={selectedFile ? relFolder(selectedFile.rel) : ''}
+            folderOptions={folderChoices}
             isTemplate={isTemplate}
             isReferenceSet={isReferenceSet}
             isExisting={!!selectedFile}

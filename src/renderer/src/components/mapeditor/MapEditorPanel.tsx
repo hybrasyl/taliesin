@@ -54,6 +54,7 @@ import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
+import { normalizeFolder } from '../../utils/fileTree'
 import {
   ALL_BOARD_TYPES,
   ALL_DIRECTIONS,
@@ -79,6 +80,10 @@ import {
 interface Props {
   map: MapData
   initialFileName: string | null
+  /** Folder the selected map lives in, `''` at the type root. */
+  initialFolder: string
+  /** Folders already in use, offered as save destinations. */
+  folderOptions: string[]
   isArchived: boolean
   isExisting: boolean
   warnings?: string[]
@@ -86,7 +91,7 @@ interface Props {
   npcNames: string[]
   worldMapNames: string[]
   spawnGroupNames: string[]
-  onSave: (data: MapData, fileName: string) => Promise<void>
+  onSave: (data: MapData, fileName: string, folder: string) => Promise<void>
   onArchive?: () => void
   onUnarchive?: () => void
   onDirtyChange: (dirty: boolean) => void
@@ -1490,6 +1495,8 @@ function MapPlacementTab({
 export default function MapEditorPanel({
   map,
   initialFileName,
+  initialFolder,
+  folderOptions,
   isArchived,
   isExisting,
   warnings = [],
@@ -1505,6 +1512,7 @@ export default function MapEditorPanel({
 }: Props) {
   const [data, setData] = useState<MapData>(() => ({ ...DEFAULT_MAP, ...map }))
   const [fileName, setFileName] = useState(initialFileName ?? computeMapFilename(map.id))
+  const [folder, setFolder] = useState(initialFolder)
   const [tab, setTab] = useState(0)
   const isDirtyRef = useRef(false)
 
@@ -1513,8 +1521,9 @@ export default function MapEditorPanel({
   useEffect(() => {
     setData({ ...DEFAULT_MAP, ...map })
     setFileName(initialFileName ?? computeMapFilename(map.id))
+    setFolder(initialFolder)
     isDirtyRef.current = false
-  }, [map, initialFileName])
+  }, [map, initialFileName, initialFolder])
 
   const markDirty = useCallback(() => {
     if (!isDirtyRef.current) {
@@ -1532,10 +1541,10 @@ export default function MapEditorPanel({
   )
 
   const handleSave = useCallback(async () => {
-    await onSave(data, fileName)
+    await onSave(data, fileName, normalizeFolder(folder))
     isDirtyRef.current = false
     onDirtyChange(false)
-  }, [data, fileName, onSave, onDirtyChange])
+  }, [data, fileName, folder, onSave, onDirtyChange])
 
   saveRef.current = handleSave
 
@@ -1550,6 +1559,10 @@ export default function MapEditorPanel({
         isExisting={isExisting}
         isArchived={isArchived}
         onFileNameChange={setFileName}
+        folder={folder}
+        folderOptions={folderOptions}
+        initialFolder={initialFolder}
+        onFolderChange={setFolder}
         onRegenerate={() => setFileName(computedFileName)}
         onSave={handleSave}
         onArchive={onArchive}

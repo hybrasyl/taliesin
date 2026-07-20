@@ -65,14 +65,12 @@ export default function App(): React.ReactElement {
   const clientPath = useSettingsStore((s) => s.clientPath)
   const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
   const dirtyEditor = useUiStore((s) => s.dirtyEditor)
-  const setDirtyEditor = useUiStore((s) => s.setDirtyEditor)
-  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  const pendingPage = useUiStore((s) => s.pendingPage)
+  const commitPendingPage = useUiStore((s) => s.commitPendingPage)
+  const cancelPendingPage = useUiStore((s) => s.cancelPendingPage)
   const reportIssueOpen = useUiStore((s) => s.reportIssueOpen)
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
 
-  const [navDialogOpen, setNavDialogOpen] = React.useState(false)
-  const [pendingPage, setPendingPage] = React.useState<string | null>(null)
-  const dirtyEditorRef = useRef(dirtyEditor)
   const settingsLoaded = useRef(false)
 
   // Sync scrollbar CSS custom properties with active theme
@@ -107,32 +105,22 @@ export default function App(): React.ReactElement {
     clearFieldCache()
   }, [clientPath, brigidAssetsPath])
 
-  useEffect(() => {
-    dirtyEditorRef.current = dirtyEditor
-  }, [dirtyEditor])
-
-  const handleNavDiscard = useCallback(() => {
-    setNavDialogOpen(false)
-    setDirtyEditor(null)
-    if (pendingPage) setCurrentPage(pendingPage as never)
-    setPendingPage(null)
-  }, [pendingPage, setCurrentPage, setDirtyEditor])
+  // Navigation blocked by a dirty editor: the store parks the destination in
+  // pendingPage, and these three answer for it.
+  const handleNavDiscard = useCallback(() => commitPendingPage(), [commitPendingPage])
 
   const handleNavSave = useCallback(async () => {
-    setNavDialogOpen(false)
     try {
       await dirtyEditor?.onSave()
     } catch {
+      // Leave the dialog up on a failed save — navigating anyway is the one
+      // outcome the user did not ask for.
       return
     }
-    if (pendingPage) setCurrentPage(pendingPage as never)
-    setPendingPage(null)
-  }, [pendingPage, dirtyEditor, setCurrentPage])
+    commitPendingPage()
+  }, [dirtyEditor, commitPendingPage])
 
-  const handleNavCancel = useCallback(() => {
-    setNavDialogOpen(false)
-    setPendingPage(null)
-  }, [])
+  const handleNavCancel = useCallback(() => cancelPendingPage(), [cancelPendingPage])
 
   return (
     <ThemeProvider theme={themes[theme] ?? hybrasylTheme}>
@@ -141,16 +129,13 @@ export default function App(): React.ReactElement {
         <PageRenderer />
       </MainLayout>
       <UnsavedChangesDialog
-        open={navDialogOpen}
+        open={pendingPage !== null}
         label={dirtyEditor?.label}
         onSave={handleNavSave}
         onDiscard={handleNavDiscard}
         onCancel={handleNavCancel}
       />
-      <ReportIssueDialog
-        open={reportIssueOpen}
-        onClose={() => setReportIssueOpen(false)}
-      />
+      <ReportIssueDialog open={reportIssueOpen} onClose={() => setReportIssueOpen(false)} />
     </ThemeProvider>
   )
 }

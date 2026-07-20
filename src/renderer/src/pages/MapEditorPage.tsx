@@ -9,8 +9,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
-  IconButton,
   InputAdornment,
   List,
   ListItem,
@@ -29,9 +27,11 @@ import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
+import SectionFileList from '../components/shared/SectionFileList'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
 import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
+import { folderOptions } from '../utils/fileTree'
 import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
@@ -298,6 +298,18 @@ function NewMapDialog({
 
 // ── File list panel ───────────────────────────────────────────────────────────
 
+/**
+ * Filter what the user sees, not the raw rel path — searching the latter would
+ * make "ignore" match every archived map.
+ */
+function matchesQuery(f: FileEntry, q: string): boolean {
+  return (
+    f.display.toLowerCase().includes(q) ||
+    (f.mapName?.toLowerCase().includes(q) ?? false) ||
+    (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
+  )
+}
+
 function FileListPanel({
   files,
   archivedFiles,
@@ -315,165 +327,74 @@ function FileListPanel({
   showArchived: boolean
   onToggleArchived: () => void
 }) {
-  const [search, setSearch] = React.useState('')
-
-  const filtered = (list: FileEntry[]) => {
-    const q = search.trim().toLowerCase()
-    if (!q) return list
-    return list.filter(
-      (f) =>
-        // Filter what the user sees, not the raw rel path — searching the
-        // latter would make "ignore" match every archived map.
-        f.display.toLowerCase().includes(q) ||
-        (f.mapName?.toLowerCase().includes(q) ?? false) ||
-        (f.mapId !== undefined && `lod${f.mapId}`.includes(q))
-    )
-  }
-
-  const filteredActive = filtered(files)
-  const filteredArchived = filtered(archivedFiles)
+  const viewMode = useSettingsStore((s) => s.fileListViewMode)
 
   // Active + archived rows are identical except archived ones are muted.
-  const renderFileRow = (f: FileEntry, muted = false): React.ReactElement => {
-    const italicClip = {
-      display: 'block',
-      fontStyle: 'italic',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-      ...(muted && { color: 'text.disabled' })
-    }
-    return (
-      <ListItem key={f.path} disablePadding>
-        <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
-          <ListItemText
-            primary={f.display}
-            secondary={
-              <>
-                {f.mapName && (
-                  <Box component="span" sx={italicClip}>
-                    {f.mapName}
-                  </Box>
-                )}
-                {f.mapId !== undefined && (
-                  <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
-                )}
-              </>
-            }
-            slotProps={{
-              primary: {
-                noWrap: true,
-                variant: 'body2',
-                ...(muted && { color: 'text.secondary' })
-              },
+  const renderRow = useCallback(
+    (f: FileEntry, muted: boolean): React.ReactElement => {
+      const italicClip = {
+        display: 'block',
+        fontStyle: 'italic',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        ...(muted && { color: 'text.disabled' })
+      }
+      return (
+        <ListItem disablePadding>
+          <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+            <ListItemText
+              // In folder view the enclosing header already names the folder,
+              // so the row shows only the filename.
+              primary={viewMode === 'folder' ? baseName(f.rel).replace(/\.xml$/i, '') : f.display}
+              secondary={
+                <>
+                  {f.mapName && (
+                    <Box component="span" sx={italicClip}>
+                      {f.mapName}
+                    </Box>
+                  )}
+                  {f.mapId !== undefined && (
+                    <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
+                  )}
+                </>
+              }
+              slotProps={{
+                primary: {
+                  noWrap: true,
+                  variant: 'body2',
+                  ...(muted && { color: 'text.secondary' })
+                },
 
-              secondary: { component: 'div', variant: 'caption' }
-            }}
-          />
-        </ListItemButton>
-      </ListItem>
-    )
-  }
+                secondary: { component: 'div', variant: 'caption' }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      )
+    },
+    [selectedFile, onSelect, viewMode]
+  )
 
   return (
-    <Box
-      sx={{
-        width: 240,
-        flexShrink: 0,
-        borderRight: 1,
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
-      <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle2">Maps</Typography>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title={showArchived ? 'Hide Archived' : 'Show Archived'}>
-            <IconButton
-              size="small"
-              onClick={onToggleArchived}
-              color={showArchived ? 'primary' : 'default'}
-            >
-              <ArchiveIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="New Map">
-            <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
-              New
-            </Button>
-          </Tooltip>
-        </Box>
-      </Box>
-      <Box sx={{ px: 1, pb: 1 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Filter..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
-        />
-      </Box>
-      <Divider />
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {files.length === 0 && !showArchived ? (
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              p: 2
-            }}
-          >
-            No map XMLs found. Check that a library is set in Settings.
-          </Typography>
-        ) : filteredActive.length === 0 && (!showArchived || filteredArchived.length === 0) ? (
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              p: 2
-            }}
-          >
-            No matches.
-          </Typography>
-        ) : (
-          <>
-            <List dense disablePadding>
-              {filteredActive.map((f) => renderFileRow(f))}
-            </List>
-            {showArchived && filteredArchived.length > 0 && (
-              <>
-                <Divider sx={{ my: 0.5 }} />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    px: 1.5,
-                    py: 0.5,
-                    display: 'block'
-                  }}
-                >
-                  Archived
-                </Typography>
-                <List dense disablePadding>
-                  {filteredArchived.map((f) => renderFileRow(f, true))}
-                </List>
-              </>
-            )}
-          </>
-        )}
-      </Box>
-    </Box>
+    <SectionFileList
+      title="Maps"
+      files={files}
+      archivedFiles={archivedFiles}
+      archivedLabel="Archived"
+      showArchived={showArchived}
+      onToggleArchived={onToggleArchived}
+      matches={matchesQuery}
+      renderRow={renderRow}
+      emptyMessage="No map XMLs found. Check that a library is set in Settings."
+      actions={
+        <Tooltip title="New Map">
+          <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
+            New
+          </Button>
+        </Tooltip>
+      }
+    />
   )
 }
 
@@ -538,6 +459,14 @@ export default function MapEditorPage() {
   const ignoredIdMap = useMemo(
     () => new Map((worldIndex?.ignoredMapDetails ?? []).map((d) => [d.filename, d.id])),
     [worldIndex]
+  )
+
+  // Save destinations offered by the folder picker: every folder maps already
+  // occupy, archived ones included — a folder emptied by archiving everything
+  // in it is still somewhere you might file a map.
+  const folderChoices = useMemo(
+    () => folderOptions([...files, ...archivedFiles]),
+    [files, archivedFiles]
   )
 
   /**
@@ -638,16 +567,17 @@ export default function MapEditorPage() {
   }
   const handleSelect = (file: FileEntry) => guard(() => doSelect(file))
 
-  const handleSave = async (data: MapData, fileName: string) => {
+  const handleSave = async (data: MapData, fileName: string, folder: string) => {
     // mapsDir arrives with the first listSection response, so it is null until
     // the list has loaded — there is nothing to save against before then.
     if (!activeLibrary || !mapsDir || !ignoreDir) return
     try {
-      // `fileName` is a bare name from the editor's field, so put it back in the
-      // folder the map already lives in. Resolving it against the type root
-      // instead would silently lift a subfoldered map out of its folder — most
-      // easily by clicking regenerate, which hands back a bare `lod00001.xml`.
-      const targetRel = joinRel(selectedFile ? relFolder(selectedFile.rel) : '', fileName)
+      // `fileName` is a bare name from the editor's field; `folder` is the
+      // picker's, defaulted to the folder the map already lives in. Resolving
+      // the name against the type root instead would silently lift a
+      // subfoldered map out of its folder — most easily by clicking
+      // regenerate, which hands back a bare `lod00001.xml`.
+      const targetRel = joinRel(folder, fileName)
       const isRename = !!(selectedFile && targetRel !== activeRel(selectedFile.rel))
       const newPath = isRename || !selectedFile ? `${mapsDir}/${targetRel}` : selectedFile.path
 
@@ -768,6 +698,8 @@ export default function MapEditorPage() {
           <MapEditorPanel
             map={editingMap}
             initialFileName={selectedFile ? baseName(selectedFile.rel) : null}
+            initialFolder={selectedFile ? relFolder(selectedFile.rel) : ''}
+            folderOptions={folderChoices}
             isArchived={isArchived}
             isExisting={!!selectedFile}
             mapNames={mapNames}

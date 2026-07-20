@@ -25,6 +25,8 @@ export interface TaliesinSettings {
   musEncodeSampleRate: number
   packDir?: string
   companionPath?: string
+  /** File-list grouping preference for the map / world map editors. */
+  fileListViewMode?: 'flat' | 'folder'
 }
 
 const DEFAULTS: TaliesinSettings = {
@@ -71,7 +73,11 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
     musEncodeSampleRate:
       typeof data.musEncodeSampleRate === 'number' ? data.musEncodeSampleRate : 22050,
     packDir: typeof data.packDir === 'string' ? data.packDir : undefined,
-    companionPath: typeof data.companionPath === 'string' ? data.companionPath : undefined
+    companionPath: typeof data.companionPath === 'string' ? data.companionPath : undefined,
+    fileListViewMode:
+      data.fileListViewMode === 'flat' || data.fileListViewMode === 'folder'
+        ? data.fileListViewMode
+        : undefined
   }
 }
 

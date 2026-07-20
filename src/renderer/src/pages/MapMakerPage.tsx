@@ -41,6 +41,7 @@ import AspectRatioIcon from '@mui/icons-material/AspectRatio'
 import ImageIcon from '@mui/icons-material/Image'
 import AnimationIcon from '@mui/icons-material/Animation'
 import CallSplitIcon from '@mui/icons-material/CallSplit'
+import CallMergeIcon from '@mui/icons-material/CallMerge'
 import MapIcon from '@mui/icons-material/Map'
 import ExtensionIcon from '@mui/icons-material/Extension'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
@@ -51,8 +52,9 @@ import TilePicker, { type TileLayer } from '../components/mapmaker/TilePicker'
 import MapEditorCanvas, {
   type EditorTool,
   type TileChange,
-  type Selection,
-  type Clipboard
+  // Shadows the DOM's global `Selection` on purpose — every annotation in this
+  // file means a tile-rect selection.
+  type Selection
 } from '../components/mapmaker/MapEditorCanvas'
 import NewMapDialog from '../components/mapmaker/NewMapDialog'
 import ResizeMapDialog from '../components/mapmaker/ResizeMapDialog'
@@ -63,6 +65,10 @@ import TabMapPopup from '../components/mapmaker/TabMapPopup'
 import DirectionalResizeButtons from '../components/mapmaker/DirectionalResizeButtons'
 import ShortcutHelpPanel from '../components/mapmaker/ShortcutHelpPanel'
 import SplitMapDialog from '../components/mapmaker/SplitMapDialog'
+import JoinMapDialog, {
+  type JoinResultMode,
+  type JoinSource
+} from '../components/mapmaker/JoinMapDialog'
 import GenerateMapDialog from '../components/mapmaker/GenerateMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import {
@@ -73,56 +79,9 @@ import {
 } from '../utils/mapEditorTools'
 import { floodFill } from '../utils/mapEditorTools'
 import { sanitizePrefabName, trimPrefab, type Prefab } from '../utils/prefabTypes'
+import { createTab, tabLabel, useMapMakerStore } from '../store/mapMakerStore'
 
-// ── Undo types ───────────────────────────────────────────────────────────────
-
-type UndoGroup = TileChange[]
 const MAX_UNDO = 100
-
-// ── Tab types ───────────────────────────────────────────────────────────────
-
-interface MapTab {
-  id: string
-  mapFile: MapFile | null
-  filePath: string | null
-  dirty: boolean
-  undoStack: UndoGroup[]
-  redoStack: UndoGroup[]
-  selection: Selection | null
-  clipboard: Clipboard | null
-  pasteMode: boolean
-  canvasKey: number
-  renderVersion: number
-}
-
-let nextCanvasKey = 0
-
-function createTab(
-  mapFile: MapFile | null = null,
-  filePath: string | null = null,
-  dirty = false
-): MapTab {
-  return {
-    id: crypto.randomUUID(),
-    mapFile,
-    filePath,
-    dirty,
-    undoStack: [],
-    redoStack: [],
-    selection: null,
-    clipboard: null,
-    pasteMode: false,
-    canvasKey: ++nextCanvasKey,
-    renderVersion: 0
-  }
-}
-
-function tabLabel(tab: MapTab): string {
-  if (tab.filePath) {
-    return filenameFromPath(tab.filePath)
-  }
-  return tab.mapFile ? 'Untitled' : 'Empty'
-}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -132,8 +91,15 @@ const MapMakerPage: React.FC = () => {
 
   // ── Tab state ──────────────────────────────────────────────────────────────
 
-  const [tabs, setTabs] = useState<MapTab[]>([])
-  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  // Held in a store, not this component: navigating away unmounts the page, and
+  // as local state that silently destroyed every open map, undo stack and
+  // in-memory-only document. See mapMakerStore.
+  const tabs = useMapMakerStore((s) => s.tabs)
+  const activeTabId = useMapMakerStore((s) => s.activeTabId)
+  const setActiveTabId = useMapMakerStore((s) => s.setActiveTabId)
+  const addTab = useMapMakerStore((s) => s.addTab)
+  const updateTab = useMapMakerStore((s) => s.updateTab)
+  const removeTab = useMapMakerStore((s) => s.removeTab)
 
   const activeTab = useMemo(
     () => tabs.find((t) => t.id === activeTabId) ?? null,
@@ -151,35 +117,6 @@ const MapMakerPage: React.FC = () => {
   const pasteMode = activeTab?.pasteMode ?? false
   const canvasKey = activeTab?.canvasKey ?? 0
   const renderVersion = activeTab?.renderVersion ?? 0
-
-  const updateTab = useCallback((id: string, patch: Partial<MapTab>) => {
-    setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
-  }, [])
-
-  const addTab = useCallback((tab: MapTab) => {
-    setTabs((prev) => [...prev, tab])
-    setActiveTabId(tab.id)
-  }, [])
-
-  const removeTab = useCallback(
-    (id: string) => {
-      setTabs((prev) => {
-        const idx = prev.findIndex((t) => t.id === id)
-        const next = prev.filter((t) => t.id !== id)
-        // If closing the active tab, switch to adjacent
-        if (id === activeTabId) {
-          if (next.length === 0) {
-            setActiveTabId(null)
-          } else {
-            const newIdx = Math.min(idx, next.length - 1)
-            setActiveTabId(next[newIdx].id)
-          }
-        }
-        return next
-      })
-    },
-    [activeTabId]
-  )
 
   // Close tab confirmation dialog
   const [closingTabId, setClosingTabId] = useState<string | null>(null)
@@ -248,6 +185,7 @@ const MapMakerPage: React.FC = () => {
   const [exportOpen, setExportOpen] = useState(false)
   const [createPrefabOpen, setCreatePrefabOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [joinOpen, setJoinOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
   const [showTabMap, setShowTabMap] = useState(false)
@@ -578,6 +516,43 @@ const MapMakerPage: React.FC = () => {
       showStatus(`Resized to ${newW}×${newH}`)
     },
     [mapFile, activeTabId, updateTab, showStatus, renderVersion]
+  )
+
+  // ── Map join ───────────────────────────────────────────────────────────────
+
+  /** Every other open tab that actually holds a map, offered as a join source. */
+  const joinSources = useMemo<JoinSource[]>(
+    () =>
+      tabs
+        .filter((t) => t.id !== activeTabId && t.mapFile)
+        .map((t) => ({ id: t.id, label: tabLabel(t), mapFile: t.mapFile as MapFile })),
+    [tabs, activeTabId]
+  )
+
+  /**
+   * 'new' opens the composite as its own dirty tab and leaves both sources
+   * alone — a join that turned out wrong costs a tab close. 'join' rewrites
+   * this tab in place, keeping its file path so a save overwrites the original
+   * map; undo history is dropped because the pre-join tiles are no longer
+   * addressable by tile-level changes.
+   */
+  const handleJoin = useCallback(
+    (joined: MapFile, mode: JoinResultMode) => {
+      if (mode === 'new' || !activeTabId) {
+        addTab(createTab(joined, null, true))
+        return
+      }
+      updateTab(activeTabId, {
+        mapFile: joined,
+        dirty: true,
+        undoStack: [],
+        redoStack: [],
+        selection: null,
+        pasteMode: false,
+        renderVersion: renderVersion + 1
+      })
+    },
+    [addTab, activeTabId, updateTab, renderVersion]
   )
 
   // ── Context menu action handler ────────────────────────────────────────────
@@ -1210,6 +1185,13 @@ const MapMakerPage: React.FC = () => {
             </IconButton>
           </span>
         </Tooltip>
+        <Tooltip title="Join Map">
+          <span>
+            <IconButton size="small" onClick={() => setJoinOpen(true)} disabled={!mapFile}>
+              <CallMergeIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
@@ -1540,6 +1522,17 @@ const MapMakerPage: React.FC = () => {
           mapFile={mapFile}
           clientPath={clientPath}
           onClose={() => setSplitOpen(false)}
+          onStatus={showStatus}
+        />
+      )}
+      {mapFile && (
+        <JoinMapDialog
+          open={joinOpen}
+          mapFile={mapFile}
+          sources={joinSources}
+          clientPath={clientPath}
+          onJoin={handleJoin}
+          onClose={() => setJoinOpen(false)}
           onStatus={showStatus}
         />
       )}

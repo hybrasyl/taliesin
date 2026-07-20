@@ -33,8 +33,47 @@ record; where they disagree with this file, the git history was taken as authori
   log files, and a crash now shows a recoverable "Something went wrong" screen
   with a Report/Reload choice instead of a blank window. A **Reveal logs folder**
   button in the About card opens the log directory.
+- **Join Maps.** The Map Maker can stitch a second map onto any side of the
+  current one. Pick it from another open tab or browse for a `.map` on disk,
+  choose left/top/bottom/right, and slide it along the seam (with start / center
+  / end presets) while a live isometric preview — zoomable, pannable, and fitted
+  to the window — ghosts the incoming map in place. Edges of different lengths
+  are handled: the result is the union, with uncovered tiles left empty. The
+  result can either be **saved as a new map** (the default, opening in a new tab
+  and leaving both sources untouched) or **joined into the current map**, which
+  keeps its file — in that case the map's existing warps are not rewritten and
+  anything the join moved needs re-pointing.
+- **Folder picker on save.** The map and world map editors now let you choose
+  (or type) a subfolder to save into, next to the filename field. Renaming or
+  regenerating a filename keeps the file in the folder it already lives in.
 
 ### Changed
+
+- **The map and world map file lists group by folder.** A new toggle switches
+  between the flat list and a collapsible folder tree; the choice is remembered
+  between sessions.
+
+### Fixed
+
+- **Leaving an editor with unsaved changes now asks first.** Every editor
+  published its unsaved state for the toolbar to check, but nothing ever
+  checked it — switching pages silently discarded unsaved map, world map, font
+  and UI panel edits. Navigation now raises the same Save / Discard / Cancel
+  prompt that switching files within a page already did, and a failed save keeps
+  you where you are instead of navigating anyway.
+- **The Map Maker no longer loses your open maps when you switch pages.** Tabs,
+  their undo history and their unsaved edits now survive navigation. Previously
+  a single toolbar click destroyed every open tab — including maps that only
+  ever existed in memory (new, generated, split or joined), which were
+  unrecoverable, while reopening a saved one meant going back through the
+  dimension picker. Open maps are now held for the session, so closing tabs is
+  what frees them.
+- **World maps filed in subdirectories are no longer invisible.** The world map
+  editor scanned only the top level of `worldmaps/`, so a world map in a
+  subfolder was listed by the world index but absent from the editor. It now
+  enumerates recursively, and archiving, restoring and renaming preserve the
+  subfolder (including a template's `.meta.json` sidecar) instead of flattening
+  everything to the type root.
 
 - **Settings is now a grid of cards** instead of a tab strip. Each concern
   (Appearance, Libraries, Dark Ages Client, Installed Asset Packs, Companion App,

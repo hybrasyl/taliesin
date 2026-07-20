@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
-import { useUiStore } from '../store/uiStore'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useUiStore, type DirtyEditor } from '../store/uiStore'
 
 interface UseUnsavedGuardReturn {
   markDirty: () => void
@@ -31,20 +31,41 @@ export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
   const pendingActionRef = useRef<(() => void) | null>(null)
   const saveRef = useRef<(() => Promise<void>) | null>(null)
   const isDirtyRef = useRef(false)
+  const registeredRef = useRef<DirtyEditor | null>(null)
 
   const markDirty = useCallback(() => {
     if (isDirtyRef.current) return
     isDirtyRef.current = true
-    setDirtyEditor({
+    const entry: DirtyEditor = {
       label,
       onSave: async () => {
         await saveRef.current?.()
       }
-    })
+    }
+    registeredRef.current = entry
+    setDirtyEditor(entry)
   }, [label, setDirtyEditor])
+
+  /**
+   * Drop the global registration when the editor goes away.
+   *
+   * `dirtyEditor` is a single slot that outlives the page that set it, so an
+   * editor unmounting while dirty — the Discard path, or any unmount that
+   * doesn't run markClean — would leave a phantom guard behind that blocks the
+   * *next* navigation and offers to save a component that no longer exists.
+   * Identity-checked so a page that mounts before this one tears down can't
+   * have its own registration cleared.
+   */
+  useEffect(
+    () => () => {
+      if (useUiStore.getState().dirtyEditor === registeredRef.current) setDirtyEditor(null)
+    },
+    [setDirtyEditor]
+  )
 
   const markClean = useCallback(() => {
     isDirtyRef.current = false
+    registeredRef.current = null
     setDirtyEditor(null)
   }, [setDirtyEditor])
 

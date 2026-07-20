@@ -374,7 +374,7 @@ export const ISO_HTILE_W = HTILE_W
 /** Vertical screen step per tile row/column in pixels (14). */
 export const ISO_VTILE_STEP = HTILE_W / 2
 
-/** Canvas padding above the isometric origin in pixels (480). */
+/** Canvas padding above the isometric origin in pixels (512). */
 export const ISO_FOREGROUND_PAD = FOREGROUND_PAD
 
 /**

@@ -28,6 +28,7 @@ import ClientMapSelect from './ClientMapSelect'
 import WorldMapCanvas from './WorldMapCanvas'
 import { useSettingsStore } from '../../store/settingsStore'
 import { clearFieldCache } from '../../utils/worldMapRenderer'
+import { normalizeFolder } from '../../utils/fileTree'
 import {
   computeWorldMapFilename,
   pointKey,
@@ -42,13 +43,17 @@ import type { MapWarp } from '../../data/mapData'
 interface Props {
   worldMap: WorldMapData
   initialFileName: string | null
+  /** Folder the selected file lives in, `''` at the type root. */
+  initialFolder: string
+  /** Folders already in use, offered as save destinations. */
+  folderOptions: string[]
   isTemplate: boolean
   isReferenceSet?: boolean
   isExisting: boolean
   mapNames: string[]
   meta: WorldMapMeta | null
   referencePoints: WorldMapPoint[] | null
-  onSave: (data: WorldMapData, fileName: string) => Promise<void>
+  onSave: (data: WorldMapData, fileName: string, folder: string) => Promise<void>
   onMoveToTemplates?: () => void
   onMoveToActive?: () => void
   onDirtyChange: (dirty: boolean) => void
@@ -184,6 +189,8 @@ function ExcludedGroup({ items }: { items: ExcludedRow[] }) {
 export default function WorldMapEditorPanel({
   worldMap,
   initialFileName,
+  initialFolder,
+  folderOptions,
   isTemplate,
   isReferenceSet,
   isExisting,
@@ -214,6 +221,7 @@ export default function WorldMapEditorPanel({
   const [fileName, setFileName] = useState(
     initialFileName ?? computeWorldMapFilename(worldMap.name)
   )
+  const [folder, setFolder] = useState(initialFolder)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [placeMode, setPlaceMode] = useState(false)
   const [dialogState, setDialogState] = useState<PointDialogState | null>(null)
@@ -224,6 +232,7 @@ export default function WorldMapEditorPanel({
   useEffect(() => {
     setData(worldMap)
     setFileName(initialFileName ?? computeWorldMapFilename(worldMap.name))
+    setFolder(initialFolder)
     setSelectedIndex(null)
     setPlaceMode(false)
     setDialogState(null)
@@ -283,10 +292,10 @@ export default function WorldMapEditorPanel({
   const computedFileName = computeWorldMapFilename(data.name)
 
   const doSave = useCallback(async () => {
-    await onSave(data, fileName)
+    await onSave(data, fileName, normalizeFolder(folder))
     isDirtyRef.current = false
     onDirtyChange(false)
-  }, [data, fileName, onSave, onDirtyChange])
+  }, [data, fileName, folder, onSave, onDirtyChange])
 
   useEffect(() => {
     saveRef.current = doSave
@@ -374,6 +383,10 @@ export default function WorldMapEditorPanel({
         archiveLabel="Move to Templates"
         unarchiveLabel="Move to Active"
         onFileNameChange={setFileName}
+        folder={folder}
+        folderOptions={folderOptions}
+        initialFolder={initialFolder}
+        onFolderChange={setFolder}
         onRegenerate={() => setFileName(computedFileName)}
         onSave={doSave}
         onArchive={onMoveToTemplates}
