@@ -23,6 +23,17 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **Derived world map groups link to the reference set again.** Sidecars written before the
+  canonical set was renamed still pointed at `MasterMapSet.xml`; opening such a group failed to
+  read it and silently dropped the link — no "Derived from…" chip, no Sync from Reference, and
+  exclusions did nothing. The old name now resolves to `ReferenceMapSet.xml` and the sidecar is
+  corrected the next time it is saved.
+- **Filename, ↺ and folder picker line up in every editor.** The map XML editor's filename hint
+  (a map's computed name rarely matches its file's) was pushing the controls beside it out of
+  alignment; the hint now sits on its own line below them.
+
 ## [2.8.0] - 2026-07-20
 
 ### Added

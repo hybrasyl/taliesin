@@ -358,7 +358,21 @@ export default function WorldMapPage() {
         reference: raw.reference ?? raw.master,
         excludes: raw.excludes ?? []
       }
-      const refPath = `${ignoreDir}/${m.reference}`
+      // The filename is legacy-tolerant too: sidecars written before the set was
+      // renamed still point at `MasterMapSet.xml`. Reading that blind ENOENTs in
+      // the main process and drops the group to unlinked — no derived chip, no
+      // sync, exclusions inert — so probe first and fall back to the current
+      // reference set. The normalized name goes back on the next saveMeta,
+      // healing the sidecar without writing to the world on mere load.
+      const storedPath = m.reference ? `${ignoreDir}/${m.reference}` : null
+      const refPath =
+        storedPath && (await window.api.exists(storedPath))
+          ? storedPath
+          : `${ignoreDir}/${REFERENCE_FILENAME}`
+      if (refPath !== storedPath) {
+        if (!(await window.api.exists(refPath))) return null
+        m.reference = REFERENCE_FILENAME
+      }
       const refBytes = await window.api.readFile(refPath)
       const refData = parseWorldMapXml(new TextDecoder().decode(refBytes))
       return { meta: m, referencePoints: refData.points }

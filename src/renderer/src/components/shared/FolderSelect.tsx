@@ -41,7 +41,17 @@ const FolderSelect: React.FC<Props> = ({ value, options, onChange, warn }) => (
         {...params}
         label="Folder"
         placeholder="(root)"
-        slotProps={{ htmlInput: { spellCheck: false } }}
+        // MUI v9 hands renderInput a `slotProps` (not the v5-era InputProps /
+        // inputProps), and it carries the classes Autocomplete styles itself
+        // through. Replacing the object instead of merging into it drops
+        // `.MuiAutocomplete-input` from the inner input, which then keeps the
+        // default 8.5px vertical padding while the root still gets
+        // Autocomplete's — leaving the field taller than the Filename one
+        // beside it.
+        slotProps={{
+          ...params.slotProps,
+          htmlInput: { ...params.slotProps?.htmlInput, spellCheck: false }
+        }}
         sx={
           warn
             ? {

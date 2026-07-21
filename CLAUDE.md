@@ -109,6 +109,11 @@ Prop APIs differ from v5–v7 and fail typecheck cryptically:
 - `ListItemText` has no `primaryTypographyProps` — use `slotProps={{ primary: { … } }}`.
 - `Stack`: `alignItems`/`justifyContent` go in `sx`, not top-level props.
 - Icons v9 drops deprecated base names (e.g. use `HelpOutlineOutlined`, not `HelpOutline`).
+- `Autocomplete`'s `renderInput` params carry **`slotProps`** (v5–v7 used `InputProps` +
+  `inputProps`). Setting your own `slotProps` on the inner `TextField` *replaces* that object and
+  silently drops the classes/refs Autocomplete styles itself through — the field renders ~12px
+  taller than a plain `size="small"` one and the popup anchors wrong. Always spread:
+  `slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps?.htmlInput, … } }}`.
 
 When unsure of a v9 prop shape, grep a sibling app (creidhne/elatha/oghma `src/renderer`) for the
 working idiom rather than guessing.

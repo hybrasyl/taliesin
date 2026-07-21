@@ -6,6 +6,9 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import FolderSelect from './FolderSelect'
 
+/** One header per editor pane, so a constant is enough to describe the field. */
+const HELPER_ID = 'editor-header-filename-helper'
+
 interface Props {
   title: string
   entityLabel?: string
@@ -106,16 +109,19 @@ const EditorHeader: React.FC<Props> = ({
           label="Filename"
           value={fileName}
           onChange={(e) => onFileNameChange(e.target.value)}
-          slotProps={{ htmlInput: { spellCheck: false }, formHelperText: { sx: { mx: 0 } } }}
+          slotProps={{
+            htmlInput: {
+              spellCheck: false,
+              ...(helperText && { 'aria-describedby': HELPER_ID })
+            }
+          }}
           sx={{
             flex: 1,
             ...((fileNameWarn || willMove) && {
               '& .MuiOutlinedInput-root fieldset': { borderColor: 'warning.main' },
-              '& .MuiInputLabel-root:not(.Mui-focused)': { color: 'warning.main' },
-              '& .MuiFormHelperText-root': { color: 'warning.main' }
+              '& .MuiInputLabel-root:not(.Mui-focused)': { color: 'warning.main' }
             })
           }}
-          helperText={helperText}
         />
         <Tooltip title={recycleTooltip}>
           <span>
@@ -133,6 +139,20 @@ const EditorHeader: React.FC<Props> = ({
           />
         )}
       </Box>
+      {/* Below the row, not as the Filename field's helperText: a map's computed
+          name (`lod00500.xml`) almost never matches its real one (`Abel.xml`), so
+          the message is permanently visible there and its height knocks the ↺
+          button and folder picker off the input's centreline. Out here the row
+          height is constant and the message gets the full width. */}
+      {helperText && (
+        <Typography
+          id={HELPER_ID}
+          variant="caption"
+          sx={{ color: fileNameWarn || willMove ? 'warning.main' : 'text.secondary' }}
+        >
+          {helperText}
+        </Typography>
+      )}
     </Box>
   )
 }
