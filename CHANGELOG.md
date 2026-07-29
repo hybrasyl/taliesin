@@ -25,6 +25,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).
+  Tileset previews no longer punch holes where a tile uses palette index 0, and no longer show
+  stray padding bytes as garbage outside the isometric diamond. SPF sprite previews honour each
+  frame's placement and row pitch instead of ignoring them. The darkness overlay masks its run
+  intensity correctly. Imported UI prefabs no longer gain invented frames. Maps with tile IDs
+  above 32767, or with trailing bytes after the tile data, now load instead of failing.
 - **Derived world map groups link to the reference set again.** Sidecars written before the
   canonical set was renamed still pointed at `MasterMapSet.xml`; opening such a group failed to
   read it and silently dropped the link — no "Derived from…" chip, no Sync from Reference, and
