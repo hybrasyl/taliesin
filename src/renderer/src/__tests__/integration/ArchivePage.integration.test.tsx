@@ -28,11 +28,19 @@ const dalib = vi.hoisted(() => {
       return this.entries.find((e) => e.entryName === name) ?? null
     }
   }
+  let lastResolver: { archiveName: string; provider: (name: string) => unknown } | null = null
   return {
     DataArchive: FakeDataArchive,
     setEntries: (entries: Entry[]) => {
       nextEntries = entries
     },
+    recordResolver: (archiveName: string, provider: (name: string) => unknown) => {
+      lastResolver = { archiveName, provider }
+    },
+    resetResolver: () => {
+      lastResolver = null
+    },
+    lastResolver: () => lastResolver,
     Palette: class {
       static fromBuffer() {
         return new (class {})()
@@ -44,7 +52,16 @@ const dalib = vi.hoisted(() => {
 vi.mock('fs', async () => (await memfs).fsModule)
 vi.mock('@eriscorp/dalib-ts', () => ({
   DataArchive: dalib.DataArchive,
-  Palette: dalib.Palette
+  Palette: dalib.Palette,
+  // The preview builds one resolver per open archive. Resolution itself is
+  // dalib-ts's job, so every entry here is "no rule matched" — but the
+  // constructor arguments ARE this page's contract, so they are recorded.
+  PaletteResolver: class {
+    constructor(archiveName: string, _archive: unknown, provider: (n: string) => unknown) {
+      dalib.recordResolver(archiveName, provider)
+    }
+    resolve = () => null
+  }
 }))
 vi.mock('@eriscorp/dalib-ts/helpers/imageData', () => ({ toImageData: () => new ImageData(1, 1) }))
 vi.mock('@eriscorp/hybindex-ts', () => {
@@ -119,6 +136,7 @@ beforeEach(async () => {
   fs.reset()
   vi.clearAllMocks()
   resetStores()
+  dalib.resetResolver()
   renderer.classifyEntry.mockImplementation((entry: { entryName: string }) => {
     const name = entry.entryName.toLowerCase()
     if (name.endsWith('.epf') || name.endsWith('.mpf') || name.endsWith('.hpf')) return 'sprite'
@@ -169,6 +187,55 @@ describe('ArchivePage — round-trip integration', () => {
     // Groups are collapsed by default; expand .epf to reveal its entries.
     await user.click(await screen.findByText('.epf'))
     expect(screen.getByText('icon.epf')).toBeInTheDocument()
+  })
+
+  // Opening an archive also pulls in the sibling archives the palette rules
+  // read (khanpal.dat, legend.dat). Both of these drive that loop: the first
+  // with a sibling present and the open archive standing in for itself, the
+  // second with neither on disk. Whether a sibling is found must not change
+  // whether the archive opens.
+  it('hands the resolver the archive name and a provider that finds loaded siblings', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde, 0xad]))
+    fs.files.set(`${CLIENT_PATH}/khanpal.dat`, Buffer.from([0xbe, 0xef]))
+    dalib.setEntries([
+      { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array([1]) }
+    ])
+
+    const user = userEvent.setup()
+    await renderPage({ openFile: async () => `${CLIENT_PATH}/legend.dat` })
+    await user.click(await screen.findByRole('button', { name: /open archive/i }))
+    expect(await screen.findByText('legend.dat')).toBeInTheDocument()
+    expect(screen.getByText(/1 entries/)).toBeInTheDocument()
+
+    // Selecting an entry mounts the preview, which builds the resolver.
+    await user.click(await screen.findByText('.epf'))
+    await user.click(await screen.findByText('icon.epf'))
+
+    await waitFor(() => expect(dalib.lastResolver()).not.toBeNull())
+    const resolver = dalib.lastResolver()!
+    // The rules key on the archive's file name, not its path.
+    expect(resolver.archiveName).toBe('legend.dat')
+    // The provider resolves by name, is case-insensitive, and returns null
+    // rather than throwing for a sibling that was not loaded.
+    expect(resolver.provider('khanpal.dat')).not.toBeNull()
+    expect(resolver.provider('KHANPAL.DAT')).not.toBeNull()
+    expect(resolver.provider('national.dat')).toBeNull()
+  })
+
+  it('opens just as cleanly when no sibling palette archive exists', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xde, 0xad]))
+    dalib.setEntries([
+      { entryName: 'tilea.bmp', fileSize: 100, toUint8Array: () => new Uint8Array([1]) }
+    ])
+
+    const user = userEvent.setup()
+    await renderPage({ openFile: async () => `${CLIENT_PATH}/seo.dat` })
+    await user.click(await screen.findByRole('button', { name: /open archive/i }))
+
+    expect(await screen.findByText('seo.dat')).toBeInTheDocument()
+    expect(screen.getByText(/1 entries/)).toBeInTheDocument()
   })
 
   it('selecting an entry routes to the right preview type via classifyEntry', async () => {

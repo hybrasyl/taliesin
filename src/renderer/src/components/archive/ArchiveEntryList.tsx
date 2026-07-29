@@ -6,15 +6,21 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { DataArchiveEntry } from '@eriscorp/dalib-ts'
 import { classifyEntry } from '../../utils/archiveRenderer'
 import { formatBytes } from '../../utils/format'
+import { useArchiveStore } from '../../store/archiveStore'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Entries come from the store, and selection is an index — no `DataArchive` or
+ * `DataArchiveEntry` crosses this boundary as a prop. See archiveStore.ts for
+ * why that matters (React 19.2's dev prop diff walks the raw `.dat` buffer).
+ */
 interface Props {
-  entries: DataArchiveEntry[]
   filter: string
-  selected: DataArchiveEntry | null
+  /** Index into `archive.entries`, or null when nothing is selected. */
+  selectedIndex: number | null
   expandedGroups: Set<string>
-  onSelect: (entry: DataArchiveEntry) => void
+  onSelect: (entryIndex: number) => void
   onToggleGroup: (ext: string) => void
 }
 
@@ -28,6 +34,8 @@ interface GroupHeader {
 interface EntryRow {
   kind: 'entry'
   entry: DataArchiveEntry
+  /** Position in `archive.entries` — the stable identity for selection. */
+  index: number
 }
 
 type ListItem = GroupHeader | EntryRow
@@ -52,31 +60,34 @@ const TYPE_ICONS: Record<string, string> = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 const ArchiveEntryList: React.FC<Props> = ({
-  entries,
   filter,
-  selected,
+  selectedIndex,
   expandedGroups,
   onSelect,
   onToggleGroup
 }) => {
   const parentRef = useRef<HTMLDivElement>(null)
+  const archive = useArchiveStore((s) => s.archive)
+  const entries = archive?.entries
 
-  // Group + filter entries
+  // Group + filter entries. Positions are carried through so selection stays an
+  // index into the original `archive.entries`, unaffected by filtering.
   const items = useMemo<ListItem[]>(() => {
+    if (!entries) return []
     const q = filter.trim().toLowerCase()
-    const filtered = q ? entries.filter((e) => e.entryName.toLowerCase().includes(q)) : entries
 
     // Group by extension
-    const groups = new Map<string, DataArchiveEntry[]>()
-    for (const entry of filtered) {
+    const groups = new Map<string, EntryRow[]>()
+    entries.forEach((entry, index) => {
+      if (q && !entry.entryName.toLowerCase().includes(q)) return
       const e = getExt(entry)
       let list = groups.get(e)
       if (!list) {
         list = []
         groups.set(e, list)
       }
-      list.push(entry)
-    }
+      list.push({ kind: 'entry', entry, index })
+    })
 
     // Sort group keys
     const sortedKeys = [...groups.keys()].sort()
@@ -87,11 +98,7 @@ const ArchiveEntryList: React.FC<Props> = ({
       const groupEntries = groups.get(ext)!
       const expanded = expandedGroups.has(ext)
       result.push({ kind: 'header', ext, count: groupEntries.length, expanded })
-      if (expanded) {
-        for (const entry of groupEntries) {
-          result.push({ kind: 'entry', entry })
-        }
-      }
+      if (expanded) result.push(...groupEntries)
     }
     return result
   }, [entries, filter, expandedGroups])
@@ -108,7 +115,7 @@ const ArchiveEntryList: React.FC<Props> = ({
       if (item.kind === 'header') {
         onToggleGroup(item.ext)
       } else {
-        onSelect(item.entry)
+        onSelect(item.index)
       }
     },
     [onToggleGroup, onSelect]
@@ -160,7 +167,8 @@ const ArchiveEntryList: React.FC<Props> = ({
           }
 
           const entry = item.entry
-          const isSelected = selected?.entryName === entry.entryName
+          // By index, not name: duplicate entry names are legal in some archives.
+          const isSelected = selectedIndex === item.index
           const icon = TYPE_ICONS[classifyEntry(entry)] ?? '\u{1F4E6}'
 
           return (

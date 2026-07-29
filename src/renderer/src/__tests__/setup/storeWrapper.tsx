@@ -5,6 +5,7 @@ import {
   type RendererSettings
 } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
+import { useArchiveStore } from '../../store/archiveStore'
 import { resetWorldIndexStore } from '../../store/worldIndexStore'
 
 /**
@@ -29,6 +30,8 @@ export function resetStores(): void {
     musicWorkingDirs: []
   })
   useUiStore.setState({ ...DEFAULT_UI })
+  // Without this a prior test's open archive stays visible to the next one.
+  useArchiveStore.getState().close()
   // Also clears its module-level in-flight maps. Without this a prior test's
   // `loadedFor` silently no-ops the next test's `ensure`.
   resetWorldIndexStore()

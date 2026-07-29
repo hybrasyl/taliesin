@@ -23,8 +23,30 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **The Archive Viewer picks the right palette by itself.** Opening a sprite, tile sheet or
+  foreground tile no longer starts on whichever palette happened to sort first — it starts on the
+  one the client would use, worked out from the archive and entry name. The picker is still there
+  and still switches palettes by hand; it now begins on the correct answer and names the rule it
+  used, so a wrong guess is reportable. Tile sheets resolve **per tile**, which a single palette
+  never could. Entries with no matching rule say so instead of showing something plausible and
+  wrong.
+
 ### Fixed
 
+- **The dev build no longer freezes on large Dark Ages files.** Switching archives, editing a map,
+  or opening the Static Tile Manager could stall the window or exhaust its memory. React's
+  development-only render profiler was inspecting the game binaries held in component state, one
+  row per byte. That profiler is now off by default when running from source (set
+  `VITE_REACT_PERF_TRACK=1` to turn it back on), and the Archive page keeps its archive out of
+  reach of it regardless. **Packaged builds were never affected.**
+- **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).
+  Tileset previews no longer punch holes where a tile uses palette index 0, and no longer show
+  stray padding bytes as garbage outside the isometric diamond. SPF sprite previews honour each
+  frame's placement and row pitch instead of ignoring them. The darkness overlay masks its run
+  intensity correctly. Imported UI prefabs no longer gain invented frames. Maps with tile IDs
+  above 32767, or with trailing bytes after the tile data, now load instead of failing.
 - **Derived world map groups link to the reference set again.** Sidecars written before the
   canonical set was renamed still pointed at `MasterMapSet.xml`; opening such a group failed to
   read it and silently dropped the link — no "Derived from…" chip, no Sync from Reference, and
