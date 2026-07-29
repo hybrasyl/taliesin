@@ -35,10 +35,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
-- **The Archive page no longer hangs the dev build.** Switching between archives while running
-  from source could freeze the window and exhaust memory. The open archive now lives outside the
-  component props that React's development-only profiler inspects. Packaged builds were never
-  affected.
+- **The dev build no longer freezes on large Dark Ages files.** Switching archives, editing a map,
+  or opening the Static Tile Manager could stall the window or exhaust its memory. React's
+  development-only render profiler was inspecting the game binaries held in component state, one
+  row per byte. That profiler is now off by default when running from source (set
+  `VITE_REACT_PERF_TRACK=1` to turn it back on), and the Archive page keeps its archive out of
+  reach of it regardless. **Packaged builds were never affected.**
 - **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).
   Tileset previews no longer punch holes where a tile uses palette index 0, and no longer show
   stray padding bytes as garbage outside the isometric diamond. SPF sprite previews honour each

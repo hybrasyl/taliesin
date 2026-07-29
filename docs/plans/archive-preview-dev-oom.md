@@ -1,17 +1,26 @@
 # Archive preview: dev-only OOM when the DataArchive is passed as a prop
 
-> **Status: fixed for the Archive page (2026-07-29).** The archive, its palette
-> siblings and the resolver moved into `src/renderer/src/store/archiveStore.ts`;
-> `ArchivePreview` and `ArchiveEntryList` now take an **index** into
-> `archive.entries` instead of the entry object. See "What actually explodes"
-> below — the mechanism turned out to be more specific than this plan first
-> assumed, and the trigger is switching archives, not previewing a `.tbl`.
+> **Status: fixed app-wide (2026-07-29), two layers.**
 >
-> **`MapAssets` is a second, unfixed instance of the same bug.** It is passed as
-> a prop by `StaticTileManagerPage.tsx:776` and inside `ThemeEditorDialog.tsx`,
-> and it carries `groundPixels` (all of `TILEA.BMP`), `sotpTable`, and
-> `iaArchive` (whose raw buffer is `ia.dat`). Same walk, same explosion, whenever
-> that prop's identity changes while the component stays mounted.
+> 1. **`src/renderer/src/devPerfTrack.ts` turns the track off.** React
+>    feature-detects it once at module scope via `console.timeStamp`; removing
+>    that hook before `react-dom` evaluates makes every call site a no-op. This
+>    is the layer that fixes the whole app, because **the Archive page was not
+>    the only site** — `MapAssets` (all of `TILEA.BMP` plus the `ia.dat` archive)
+>    reaches `StaticTileManagerPage` and `ThemeEditorDialog`, `fileBuffer`
+>    reaches the map canvases, and `mapFile` changes identity on every Map Maker
+>    stroke. A bare `Uint8Array` prop cannot be shielded any other way: its
+>    indices are exotic own enumerable properties. Re-enable with
+>    `VITE_REACT_PERF_TRACK=1` to profile, and expect the old symptoms.
+> 2. **`src/renderer/src/store/archiveStore.ts` keeps the worst object out of
+>    props structurally**, so the Archive page survives even with the track
+>    switched back on. `ArchivePreview` and `ArchiveEntryList` take an **index**
+>    into `archive.entries`, never the entry or archive object.
+>
+> Layer 1 is a feature-detect that React could change; layer 2 does not depend on
+> React's behaviour at all. That is why both exist. See "What actually explodes"
+> below — the mechanism is more specific than this plan first assumed, and the
+> trigger is switching archives, not previewing a `.tbl`.
 
 ## What actually explodes
 

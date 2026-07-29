@@ -1,3 +1,6 @@
+// MUST stay first: it disables React's dev-only component performance track,
+// and it only works if it runs before react-dom is evaluated. See the module.
+import './devPerfTrack'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
