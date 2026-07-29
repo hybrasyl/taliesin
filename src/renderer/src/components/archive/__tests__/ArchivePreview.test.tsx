@@ -71,6 +71,7 @@ const renderer = vi.hoisted(() => ({
 vi.mock('../../../utils/archiveRenderer', () => renderer)
 
 import ArchivePreview from '../ArchivePreview'
+import { useArchiveStore } from '../../../store/archiveStore'
 import { installMockApi, type MockApi } from '../../../__tests__/setup/mockApi'
 import { seedSettings, resetStores } from '../../../__tests__/setup/storeWrapper'
 
@@ -97,6 +98,19 @@ function makeArchive(buf = new Uint8Array([1, 2, 3, 4])): FakeArchive {
   return { getEntryBuffer: () => buf }
 }
 
+/**
+ * ArchivePreview takes only an index; the archive and entry come from the store
+ * (see archiveStore.ts for why they must not be props). This harness keeps the
+ * tests reading as "render this entry from this archive" while seeding the
+ * store, which is where the component now looks.
+ */
+const PreviewHarness: React.FC<{ entry: unknown; archive: unknown }> = ({ entry, archive }) => {
+  useArchiveStore
+    .getState()
+    .open(Object.assign({ entries: [entry] }, archive) as never, 'test.dat', new Map())
+  return <ArchivePreview entryIndex={0} />
+}
+
 let api: MockApi
 
 beforeEach(() => {
@@ -120,10 +134,9 @@ describe('ArchivePreview header', () => {
   it('shows entry name, formatted size, and the classified type', () => {
     renderer.classifyEntry.mockReturnValue('text')
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'readme.txt', fileSize: 100 }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     expect(screen.getByText('readme.txt')).toBeInTheDocument()
@@ -133,25 +146,13 @@ describe('ArchivePreview header', () => {
 
   it('hides Export-as-PNG button for non-renderable types (text, audio, hex)', () => {
     renderer.classifyEntry.mockReturnValue('text')
-    render(
-      <ArchivePreview
-        entry={makeEntry() as never}
-        archive={makeArchive() as never}
-        archiveName="test.dat"
-      />
-    )
+    render(<PreviewHarness entry={makeEntry() as never} archive={makeArchive() as never} />)
     expect(screen.queryByRole('button', { name: /export as png/i })).toBeNull()
   })
 
   it('shows Export-as-PNG button for sprite/palette/image types', () => {
     renderer.classifyEntry.mockReturnValue('sprite')
-    render(
-      <ArchivePreview
-        entry={makeEntry() as never}
-        archive={makeArchive() as never}
-        archiveName="test.dat"
-      />
-    )
+    render(<PreviewHarness entry={makeEntry() as never} archive={makeArchive() as never} />)
     expect(screen.getByRole('button', { name: /export as png/i })).toBeInTheDocument()
   })
 })
@@ -163,10 +164,9 @@ describe('ArchivePreview type dispatch', () => {
     renderer.classifyEntry.mockReturnValue('text')
     const buf = new TextEncoder().encode('hello world')
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'a.txt' }) as never}
         archive={{ getEntryBuffer: () => buf } as never}
-        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/hello world/)).toBeInTheDocument()
@@ -176,10 +176,9 @@ describe('ArchivePreview type dispatch', () => {
     renderer.classifyEntry.mockReturnValue('hex')
     const buf = new Uint8Array([0xab, 0xcd, 0xef, 0x01])
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry() as never}
         archive={{ getEntryBuffer: () => buf } as never}
-        archiveName="test.dat"
       />
     )
     // Hex address column starts with 8-zero offset
@@ -192,13 +191,7 @@ describe('ArchivePreview type dispatch', () => {
     renderer.renderEntry.mockReturnValue({
       frames: [{ data: new Uint8ClampedArray(4), width: 1, height: 1 }]
     })
-    render(
-      <ArchivePreview
-        entry={makeEntry() as never}
-        archive={makeArchive() as never}
-        archiveName="test.dat"
-      />
-    )
+    render(<PreviewHarness entry={makeEntry() as never} archive={makeArchive() as never} />)
     // Palette select renders as a combobox
     expect(await screen.findByRole('combobox')).toBeInTheDocument()
   })
@@ -213,10 +206,9 @@ describe('Extract Raw', () => {
     api.writeBytes.mockResolvedValue(undefined)
 
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'sample.epf' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /extract raw/i }))
@@ -232,13 +224,7 @@ describe('Extract Raw', () => {
   it('aborts cleanly when the save dialog is cancelled', async () => {
     const user = userEvent.setup()
     api.saveFile.mockResolvedValue(null)
-    render(
-      <ArchivePreview
-        entry={makeEntry() as never}
-        archive={makeArchive() as never}
-        archiveName="test.dat"
-      />
-    )
+    render(<PreviewHarness entry={makeEntry() as never} archive={makeArchive() as never} />)
     await user.click(screen.getByRole('button', { name: /extract raw/i }))
     await new Promise((r) => setTimeout(r, 0))
     expect(api.writeBytes).not.toHaveBeenCalled()
@@ -256,10 +242,9 @@ describe('SpritePreview palette resolution', () => {
       frames: [{ data: new Uint8ClampedArray(4), width: 1, height: 1 }]
     })
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'mba00101.epf' }) as never}
         archive={makeArchive() as never}
-        archiveName="khanmi.dat"
       />
     )
   }
@@ -347,10 +332,9 @@ describe('Export as PNG', () => {
     api.writeBytes.mockResolvedValue(undefined)
 
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'icon.epf' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /export as png/i }))
@@ -378,10 +362,9 @@ describe('Export as PNG', () => {
     api.writeBytes.mockResolvedValue(undefined)
 
     render(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'walk.mpf' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /export as png/i }))
@@ -400,13 +383,7 @@ describe('Export as PNG', () => {
     renderer.classifyEntry.mockReturnValue('sprite')
     renderer.getPaletteNames.mockReturnValue([])
     renderer.renderEntry.mockReturnValue(null)
-    render(
-      <ArchivePreview
-        entry={makeEntry() as never}
-        archive={makeArchive() as never}
-        archiveName="test.dat"
-      />
-    )
+    render(<PreviewHarness entry={makeEntry() as never} archive={makeArchive() as never} />)
     await user.click(screen.getByRole('button', { name: /export as png/i }))
     await new Promise((r) => setTimeout(r, 0))
     expect(api.saveFile).not.toHaveBeenCalled()
@@ -433,10 +410,9 @@ describe('BikPreview', () => {
       audioTrackCount: 1
     })
     renderWithRecoil(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'intro.bik' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/640 × 480/)).toBeInTheDocument()
@@ -463,10 +439,9 @@ describe('BikPreview', () => {
 
     const entryBytes = new Uint8Array([0x42, 0x49, 0x4b, 0x69])
     renderWithRecoil(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'intro.bik', toUint8Array: () => entryBytes }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />,
       '/usr/bin/ffmpeg'
     )
@@ -497,10 +472,9 @@ describe('BikPreview', () => {
     api.bikConvert.mockRejectedValue(new Error('ffmpeg not found'))
 
     renderWithRecoil(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'broken.bik' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
 
@@ -513,10 +487,9 @@ describe('BikPreview', () => {
     renderer.classifyEntry.mockReturnValue('bik')
     renderer.parseBikHeader.mockReturnValue(null)
     renderWithRecoil(
-      <ArchivePreview
+      <PreviewHarness
         entry={makeEntry({ entryName: 'broken.bik' }) as never}
         archive={makeArchive() as never}
-        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/Not a recognizable BIK file/)).toBeInTheDocument()

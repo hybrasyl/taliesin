@@ -35,6 +35,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The Archive page no longer hangs the dev build.** Switching between archives while running
+  from source could freeze the window and exhaust memory. The open archive now lives outside the
+  component props that React's development-only profiler inspects. Packaged builds were never
+  affected.
 - **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).
   Tileset previews no longer punch holes where a tile uses palette index 0, and no longer show
   stray padding bytes as garbage outside the isometric diamond. SPF sprite previews honour each

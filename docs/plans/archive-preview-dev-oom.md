@@ -1,11 +1,56 @@
 # Archive preview: dev-only OOM when the DataArchive is passed as a prop
 
+> **Status: fixed for the Archive page (2026-07-29).** The archive, its palette
+> siblings and the resolver moved into `src/renderer/src/store/archiveStore.ts`;
+> `ArchivePreview` and `ArchiveEntryList` now take an **index** into
+> `archive.entries` instead of the entry object. See "What actually explodes"
+> below — the mechanism turned out to be more specific than this plan first
+> assumed, and the trigger is switching archives, not previewing a `.tbl`.
+>
+> **`MapAssets` is a second, unfixed instance of the same bug.** It is passed as
+> a prop by `StaticTileManagerPage.tsx:776` and inside `ThemeEditorDialog.tsx`,
+> and it carries `groundPixels` (all of `TILEA.BMP`), `sotpTable`, and
+> `iaArchive` (whose raw buffer is `ia.dat`). Same walk, same explosion, whenever
+> that prop's identity changes while the component stays mounted.
+
+## What actually explodes
+
+Read `addObjectDiffToProperties` and `addValueToProperties` in
+`node_modules/react-dom/cjs/react-dom-client.development.js` (~lines 3789-4095).
+Three facts decide everything:
+
+1. The diff runs **only for props whose identity changed**. An identity-stable
+   prop is skipped no matter how large it is. This is why previewing entries
+   within one archive was survivable and **switching archives was not**.
+2. Recursion is capped at depth 3 — but **breadth is not capped**.
+3. Enumeration is `for (var key in object)` with a `hasOwnProperty` guard. A
+   `Uint8Array` has own enumerable index properties, so **every byte becomes a
+   row**.
+
+The fatal path was `ArchiveEntryList`'s `selected` prop, because that component
+stays mounted across archive switches. When `selected` goes from an entry to
+`null`, the object-to-object branch does not apply, so React calls
+`addValueToProperties(REMOVED, oldEntry, indent 0)`, which walks
+`entry → archive → buffer` and enumerates the whole `.dat` at indent 3. For
+`ia.dat` that is tens of millions of rows.
+
+`entry` is therefore exactly as dangerous as `archive`; it just reaches the
+buffer one level deeper. The rule is: **no `DataArchive` and no
+`DataArchiveEntry` in any prop.**
+
+Sub-components *inside* `ArchivePreview.tsx` still receive `entry`/`archive`
+objects. That is safe for a stated reason: `ArchivePage` clears the selection
+before storing a new archive, so the whole preview subtree unmounts on an
+archive switch, and a mount has no previous props to diff. While mounted, the
+archive is identity-stable, so entry-to-entry diffs stop at the equal
+`entry.archive` reference.
+
 ## Context
 
 Previewing archive entries in `npm run dev` (e.g. selecting `stc0006.tbl` or any
 `.tbl` in `ia.dat`) hangs and then crashes the renderer with:
 
-```
+```text
 Uncaught DataCloneError: Failed to execute 'measure' on 'Performance':
 Data cannot be cloned, out of memory.
     at logComponentRender (react-dom_client.js …)
@@ -61,6 +106,7 @@ Instead:
   huge/circular to serialise.
 
 Critical files:
+
 - `src/renderer/src/pages/ArchivePage.tsx` — provide the context; pass a string key.
 - `src/renderer/src/components/archive/ArchivePreview.tsx` — consume context;
   change `Props` from `{ entry, archive, auxArchives }` to `{ entryName }` (or

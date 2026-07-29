@@ -15,8 +15,9 @@ import {
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
-import { DataArchive, type ArchiveProvider, type DataArchiveEntry } from '@eriscorp/dalib-ts'
+import { DataArchive } from '@eriscorp/dalib-ts'
 import { useSettingsStore } from '../store/settingsStore'
+import { useArchiveStore } from '../store/archiveStore'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
 
@@ -30,14 +31,17 @@ const ArchivePage: React.FC = () => {
   const clientPath = useSettingsStore((s) => s.clientPath)
 
   const [archivePath, setArchivePath] = useState<string | null>(null)
-  const [archive, setArchive] = useState<DataArchive | null>(null)
-  // Sibling archives loaded from beside the open one, keyed by lower-cased file
-  // name. Feeds both the palette dropdown and the resolver's ArchiveProvider.
-  const [siblings, setSiblings] = useState<Map<string, DataArchive>>(() => new Map())
+  // The archive, its palette siblings and the resolver live in a store, never in
+  // props — see the header comment on archiveStore.ts.
+  const archive = useArchiveStore((s) => s.archive)
+  const openArchive = useArchiveStore((s) => s.open)
+  const closeArchive = useArchiveStore((s) => s.close)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
-  const [selected, setSelected] = useState<DataArchiveEntry | null>(null)
+  // Index into `archive.entries`, not the entry itself. A DataArchiveEntry prop
+  // back-references the whole archive and its raw buffer.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const [extracting, setExtracting] = useState(false)
@@ -46,72 +50,64 @@ const ArchivePage: React.FC = () => {
   // Stored as relative paths so `npc/npc.dat` and `legend.dat` are distinguishable.
   const [datFiles, setDatFiles] = useState<string[]>([])
 
-  const entries = useMemo(() => archive?.entries ?? [], [archive])
+  const entryCount = archive?.entries.length ?? 0
 
   // Empty when nothing is open. Empty is falsy, so the header guard below still
-  // reads naturally, and the preview gets a plain string with no fallback.
+  // reads naturally.
   const archiveName = useMemo(() => {
     if (!archivePath) return ''
     const parts = archivePath.replace(/\\/g, '/').split('/')
     return parts[parts.length - 1] ?? archivePath
   }, [archivePath])
 
-  // Palette sources for the manual dropdown: the open archive plus its siblings.
-  const auxArchives = useMemo(() => [...siblings.values()], [siblings])
+  const loadArchive = useCallback(
+    async (filePath: string) => {
+      setLoading(true)
+      setError(null)
+      setSelectedIndex(null)
+      setFilter('')
+      setExpandedGroups(new Set())
 
-  // The resolver's only route to a sibling archive. It takes a name, never a
-  // path — the renderer has no filesystem.
-  const paletteProvider = useCallback<ArchiveProvider>(
-    (name) => siblings.get(name.toLowerCase()) ?? null,
-    [siblings]
-  )
+      try {
+        const buf = await window.api.readFile(filePath)
+        const arc = DataArchive.fromBuffer(new Uint8Array(buf))
 
-  const loadArchive = useCallback(async (filePath: string) => {
-    setLoading(true)
-    setError(null)
-    setSelected(null)
-    setFilter('')
-    setExpandedGroups(new Set())
-
-    try {
-      const buf = await window.api.readFile(filePath)
-      const arc = DataArchive.fromBuffer(new Uint8Array(buf))
-      setArchive(arc)
-      setArchivePath(filePath)
-
-      // Load the sibling archives the palette rules reach for. A missing sibling
-      // is not an error: the rules that need it go unresolved and every other
-      // rule still works.
-      const sep = filePath.includes('\\') ? '\\' : '/'
-      const lastSep = filePath.lastIndexOf(sep)
-      const openName = filePath.slice(lastSep + 1).toLowerCase()
-      const loaded = new Map<string, DataArchive>()
-      if (lastSep > 0) {
-        const parentDir = filePath.slice(0, lastSep)
-        for (const name of PALETTE_SIBLINGS) {
-          // Opening legend.dat itself would otherwise parse it a second time.
-          if (name === openName) {
-            loaded.set(name, arc)
-            continue
-          }
-          try {
-            const sibBuf = await window.api.readFile(`${parentDir}${sep}${name}`)
-            loaded.set(name, DataArchive.fromBuffer(new Uint8Array(sibBuf)))
-          } catch {
-            // Not present alongside this archive — fine.
+        // Load the sibling archives the palette rules reach for. A missing
+        // sibling is not an error: the rules that need it go unresolved and
+        // every other rule still works.
+        const sep = filePath.includes('\\') ? '\\' : '/'
+        const lastSep = filePath.lastIndexOf(sep)
+        const openName = filePath.slice(lastSep + 1).toLowerCase()
+        const loaded = new Map<string, DataArchive>()
+        if (lastSep > 0) {
+          const parentDir = filePath.slice(0, lastSep)
+          for (const name of PALETTE_SIBLINGS) {
+            // Opening legend.dat itself would otherwise parse it a second time.
+            if (name === openName) {
+              loaded.set(name, arc)
+              continue
+            }
+            try {
+              const sibBuf = await window.api.readFile(`${parentDir}${sep}${name}`)
+              loaded.set(name, DataArchive.fromBuffer(new Uint8Array(sibBuf)))
+            } catch {
+              // Not present alongside this archive — fine.
+            }
           }
         }
+
+        openArchive(arc, openName, loaded)
+        setArchivePath(filePath)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to open archive')
+        closeArchive()
+        setArchivePath(null)
+      } finally {
+        setLoading(false)
       }
-      setSiblings(loaded)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to open archive')
-      setArchive(null)
-      setArchivePath(null)
-      setSiblings(new Map())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [openArchive, closeArchive]
+  )
 
   const handleOpenFile = useCallback(async () => {
     const path = await window.api.openFile([{ name: 'DA Archives', extensions: ['dat'] }])
@@ -258,7 +254,7 @@ const ArchivePage: React.FC = () => {
                 color: 'text.disabled'
               }}
             >
-              {entries.length} entries
+              {entryCount} entries
             </Typography>
             <Tooltip title="Extract All to Directory">
               <Button
@@ -344,25 +340,18 @@ const ArchivePage: React.FC = () => {
               }}
             >
               <ArchiveEntryList
-                entries={entries}
                 filter={filter}
-                selected={selected}
+                selectedIndex={selectedIndex}
                 expandedGroups={expandedGroups}
-                onSelect={setSelected}
+                onSelect={setSelectedIndex}
                 onToggleGroup={handleToggleGroup}
               />
             </Box>
 
             {/* Right: preview */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
-              {selected ? (
-                <ArchivePreview
-                  entry={selected}
-                  archive={archive}
-                  archiveName={archiveName}
-                  auxArchives={auxArchives}
-                  paletteProvider={paletteProvider}
-                />
+              {selectedIndex !== null ? (
+                <ArchivePreview entryIndex={selectedIndex} />
               ) : (
                 <Box
                   sx={{

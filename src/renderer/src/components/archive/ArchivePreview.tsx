@@ -30,7 +30,6 @@ import {
   ColorTable,
   renderTile,
   renderDarknessOverlay,
-  type ArchiveProvider,
   type DataArchive,
   type DataArchiveEntry
 } from '@eriscorp/dalib-ts'
@@ -47,16 +46,29 @@ import {
 } from '../../utils/archiveRenderer'
 import { formatBytes } from '../../utils/format'
 import { useAudioPreview } from '../../hooks/useAudioPreview'
+import { useArchiveEntry, useArchiveStore } from '../../store/archiveStore'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
+/**
+ * Index into `archive.entries` — never the entry or the archive itself.
+ *
+ * React 19.2's dev build diffs the props of every re-rendered component and
+ * walks any prop whose identity changed, enumerating own keys with `for...in`.
+ * A `DataArchive` prop reaches the raw `.dat` buffer, whose byte indices are own
+ * enumerable properties, and the walk emits one row per byte. See
+ * archiveStore.ts and `docs/plans/archive-preview-dev-oom.md`.
+ *
+ * Inside this file the sub-components still take `entry`/`archive` objects, and
+ * that is safe for a specific reason: **this subtree unmounts whenever the open
+ * archive changes**, because `ArchivePage` clears the selection before the new
+ * archive is stored. A mount has no previous props to diff against. While it
+ * stays mounted the archive is identity-stable, so entry-to-entry diffs stop at
+ * the equal `entry.archive` reference and never reach a buffer. Do not lift
+ * either object into this component's own props.
+ */
 interface Props {
-  entry: DataArchiveEntry
-  archive: DataArchive
-  /** File name of the open archive (e.g. `setoa.dat`) — the resolver keys rules on it. */
-  archiveName: string
-  auxArchives?: DataArchive[]
-  paletteProvider?: ArchiveProvider
+  entryIndex: number
 }
 
 /**
@@ -64,8 +76,6 @@ interface Props {
  * MUI Select controlled while no named palette is chosen.
  */
 const AUTO_PALETTE = ''
-
-const NO_SIBLINGS: ArchiveProvider = () => null
 
 // ── Sprite preview ───────────────────────────────────────────────────────────
 
@@ -1315,21 +1325,14 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
 
 // ── Main preview dispatcher ──────────────────────────────────────────────────
 
-const ArchivePreview: React.FC<Props> = ({
-  entry,
-  archive,
-  archiveName,
-  auxArchives = [],
-  paletteProvider = NO_SIBLINGS
-}) => {
-  const type = classifyEntry(entry)
+const ArchivePreview: React.FC<Props> = ({ entryIndex }) => {
+  const { archive, entry } = useArchiveEntry(entryIndex)
+  const auxArchives = useArchiveStore((s) => s.auxArchives)
+  const resolver = useArchiveStore((s) => s.resolver)
 
-  // One resolver per open archive, not per entry: it caches every palette source
-  // it builds (including failed builds) for the life of the instance.
-  const resolver = useMemo(
-    () => new PaletteResolver(archiveName, archive, paletteProvider),
-    [archiveName, archive, paletteProvider]
-  )
+  if (!archive || !entry || !resolver) return null
+
+  const type = classifyEntry(entry)
   const isRenderable =
     type === 'sprite' ||
     type === 'palette' ||
