@@ -23,12 +23,14 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import {
   Palette,
+  PaletteResolver,
   TilesetView,
   HeaFile,
   FntFile,
   ColorTable,
   renderTile,
   renderDarknessOverlay,
+  type ArchiveProvider,
   type DataArchive,
   type DataArchiveEntry
 } from '@eriscorp/dalib-ts'
@@ -51,8 +53,19 @@ import { useAudioPreview } from '../../hooks/useAudioPreview'
 interface Props {
   entry: DataArchiveEntry
   archive: DataArchive
+  /** File name of the open archive (e.g. `setoa.dat`) — the resolver keys rules on it. */
+  archiveName: string
   auxArchives?: DataArchive[]
+  paletteProvider?: ArchiveProvider
 }
+
+/**
+ * Dropdown value meaning "use the resolved palette". An empty string keeps the
+ * MUI Select controlled while no named palette is chosen.
+ */
+const AUTO_PALETTE = ''
+
+const NO_SIBLINGS: ArchiveProvider = () => null
 
 // ── Sprite preview ───────────────────────────────────────────────────────────
 
@@ -60,22 +73,34 @@ const SpritePreview: React.FC<{
   entry: DataArchiveEntry
   archive: DataArchive
   auxArchives: DataArchive[]
-}> = ({ entry, archive, auxArchives }) => {
+  resolver: PaletteResolver
+}> = ({ entry, archive, auxArchives, resolver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paletteNames, setPaletteNames] = useState<string[]>([])
-  const [selectedPalette, setSelectedPalette] = useState<string>('')
+  const [selectedPalette, setSelectedPalette] = useState<string>(AUTO_PALETTE)
   const [rendered, setRendered] = useState<RenderedEntry | null>(null)
   const [frameIndex, setFrameIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Load palette names on archive change
+  // Load palette names on archive change. The list is the manual override; the
+  // resolved palette is what the preview starts on.
   useEffect(() => {
-    const names = getPaletteNames([archive, ...auxArchives])
-    setPaletteNames(names)
-    if (names.length > 0 && !selectedPalette) setSelectedPalette(names[0])
+    setPaletteNames(getPaletteNames([archive, ...auxArchives]))
   }, [archive, auxArchives])
+
+  // The rule-resolved palette for this entry, or null when no rule matched.
+  // `legend/item` varies its palette per frame; frame 0 is what the preview and
+  // the dropdown label report. Stepping frames does not re-resolve — the manual
+  // picker covers that case.
+  const resolved = useMemo(() => resolver.resolve(entry), [resolver, entry])
+
+  // A new entry returns to automatic. An explicit choice is per-entry, not sticky:
+  // the right palette for one sprite is rarely the right one for the next.
+  useEffect(() => {
+    setSelectedPalette(AUTO_PALETTE)
+  }, [entry])
 
   // Render entry when it changes or palette changes
   useEffect(() => {
@@ -83,10 +108,10 @@ const SpritePreview: React.FC<{
     setPlaying(false)
     setError(null)
 
-    let palette: Palette | null = null
-    if (selectedPalette) {
-      palette = loadPaletteByName([archive, ...auxArchives], selectedPalette)
-    }
+    const palette: Palette | null =
+      selectedPalette === AUTO_PALETTE
+        ? (resolved?.palette ?? null)
+        : loadPaletteByName([archive, ...auxArchives], selectedPalette)
 
     try {
       const result = renderEntry(entry, palette)
@@ -96,7 +121,7 @@ const SpritePreview: React.FC<{
       setError(e instanceof Error ? e.message : 'Render failed')
       setRendered(null)
     }
-  }, [entry, archive, auxArchives, selectedPalette])
+  }, [entry, archive, auxArchives, selectedPalette, resolved])
 
   // Draw current frame to canvas
   useEffect(() => {
@@ -139,18 +164,34 @@ const SpritePreview: React.FC<{
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-      {/* Palette picker */}
-      {needsPalette && paletteNames.length > 0 && (
-        <FormControl size="small" fullWidth>
-          <InputLabel>Palette</InputLabel>
-          <Select value={selectedPalette} label="Palette" onChange={handlePaletteChange}>
-            {paletteNames.map((name) => (
-              <MenuItem key={name} value={name}>
-                {name}
+      {/* Palette picker — starts on the resolved palette, overridable by hand */}
+      {needsPalette && (paletteNames.length > 0 || resolved) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Palette</InputLabel>
+            <Select value={selectedPalette} label="Palette" onChange={handlePaletteChange}>
+              <MenuItem value={AUTO_PALETTE}>
+                {resolved ? 'Automatic' : 'Automatic (no matching rule)'}
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              {paletteNames.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {selectedPalette === AUTO_PALETTE && resolved && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {resolved.ruleId} · palette {resolved.paletteNumber} · {resolved.kind}
+              {resolved.luminanceBlended && ' · luminance-blended'}
+            </Typography>
+          )}
+          {selectedPalette === AUTO_PALETTE && !resolved && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              No rule matched this entry — pick a palette by hand.
+            </Typography>
+          )}
+        </Box>
       )}
       {error && (
         <Typography variant="caption" color="error">
@@ -511,32 +552,45 @@ const TilesetPreview: React.FC<{
   entry: DataArchiveEntry
   archive: DataArchive
   auxArchives: DataArchive[]
-}> = ({ entry, archive, auxArchives }) => {
+  resolver: PaletteResolver
+}> = ({ entry, archive, auxArchives, resolver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paletteNames, setPaletteNames] = useState<string[]>([])
-  const [selectedPalette, setSelectedPalette] = useState<string>('')
+  const [selectedPalette, setSelectedPalette] = useState<string>(AUTO_PALETTE)
   const [page, setPage] = useState(0)
   const [tileCount, setTileCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const names = getPaletteNames([archive, ...auxArchives])
-    setPaletteNames(names)
-    if (names.length > 0) setSelectedPalette((prev) => prev || names[0])
+    setPaletteNames(getPaletteNames([archive, ...auxArchives]))
     setPage(0)
   }, [archive, auxArchives])
 
+  // Tile 0's rule, used to label the dropdown. Every tile shares the rule; only
+  // the palette number varies.
+  const resolvedFirst = useMemo(() => resolver.resolve(entry, 0), [resolver, entry])
+
   useEffect(() => {
     setError(null)
-    if (!selectedPalette) return
     const canvas = canvasRef.current
     if (!canvas) return
+
+    const auto = selectedPalette === AUTO_PALETTE
+    if (auto && !resolvedFirst) {
+      setError('No palette rule matched this tileset — pick a palette by hand.')
+      return
+    }
+
     try {
-      const palette = loadPaletteByName([archive, ...auxArchives], selectedPalette)
-      if (!palette) {
+      // A named palette applies to every tile. Automatic resolves per tile,
+      // which is the point: a tileset's palette is keyed by tile index, so one
+      // palette across the sheet is wrong for most of it.
+      const manual = auto ? null : loadPaletteByName([archive, ...auxArchives], selectedPalette)
+      if (!auto && !manual) {
         setError('Palette not found')
         return
       }
+
       const view = TilesetView.fromEntry(entry)
       setTileCount(view.count)
       const startTile = page * TILES_PER_PAGE
@@ -549,6 +603,8 @@ const TilesetPreview: React.FC<{
       if (!ctx) return
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       for (let i = startTile; i < endTile; i++) {
+        const palette = manual ?? resolver.resolve(entry, i)?.palette
+        if (!palette) continue
         const tile = view.get(i)
         const frame = renderTile(tile, palette)
         const col = (i - startTile) % cols
@@ -558,27 +614,37 @@ const TilesetPreview: React.FC<{
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to render tileset')
     }
-  }, [entry, archive, auxArchives, selectedPalette, page])
+  }, [entry, archive, auxArchives, selectedPalette, page, resolver, resolvedFirst])
 
   const totalPages = Math.max(1, Math.ceil(tileCount / TILES_PER_PAGE))
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-      {paletteNames.length > 0 && (
-        <FormControl size="small" fullWidth>
-          <InputLabel>Palette</InputLabel>
-          <Select
-            value={selectedPalette}
-            label="Palette"
-            onChange={(e: SelectChangeEvent) => setSelectedPalette(e.target.value)}
-          >
-            {paletteNames.map((name) => (
-              <MenuItem key={name} value={name}>
-                {name}
+      {(paletteNames.length > 0 || resolvedFirst) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Palette</InputLabel>
+            <Select
+              value={selectedPalette}
+              label="Palette"
+              onChange={(e: SelectChangeEvent) => setSelectedPalette(e.target.value)}
+            >
+              <MenuItem value={AUTO_PALETTE}>
+                {resolvedFirst ? 'Automatic (per tile)' : 'Automatic (no matching rule)'}
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              {paletteNames.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {selectedPalette === AUTO_PALETTE && resolvedFirst && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {resolvedFirst.ruleId} · one palette per tile index
+            </Typography>
+          )}
+        </Box>
       )}
 
       {error && (
@@ -1249,8 +1315,21 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
 
 // ── Main preview dispatcher ──────────────────────────────────────────────────
 
-const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) => {
+const ArchivePreview: React.FC<Props> = ({
+  entry,
+  archive,
+  archiveName,
+  auxArchives = [],
+  paletteProvider = NO_SIBLINGS
+}) => {
   const type = classifyEntry(entry)
+
+  // One resolver per open archive, not per entry: it caches every palette source
+  // it builds (including failed builds) for the life of the instance.
+  const resolver = useMemo(
+    () => new PaletteResolver(archiveName, archive, paletteProvider),
+    [archiveName, archive, paletteProvider]
+  )
   const isRenderable =
     type === 'sprite' ||
     type === 'palette' ||
@@ -1304,13 +1383,23 @@ const ArchivePreview: React.FC<Props> = ({ entry, archive, auxArchives = [] }) =
       </Box>
       {/* Format-specific preview */}
       {type === 'sprite' && (
-        <SpritePreview entry={entry} archive={archive} auxArchives={auxArchives} />
+        <SpritePreview
+          entry={entry}
+          archive={archive}
+          auxArchives={auxArchives}
+          resolver={resolver}
+        />
       )}
       {type === 'palette' && <PalettePreview entry={entry} archive={archive} />}
       {type === 'text' && <TextPreview entry={entry} archive={archive} />}
       {type === 'audio' && <AudioPreview entry={entry} archive={archive} />}
       {type === 'tileset' && (
-        <TilesetPreview entry={entry} archive={archive} auxArchives={auxArchives} />
+        <TilesetPreview
+          entry={entry}
+          archive={archive}
+          auxArchives={auxArchives}
+          resolver={resolver}
+        />
       )}
       {type === 'pcx' && <PcxPreview entry={entry} archive={archive} />}
       {type === 'darkness' && <DarknessPreview entry={entry} archive={archive} />}

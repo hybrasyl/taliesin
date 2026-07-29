@@ -15,19 +15,25 @@ import {
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
-import { DataArchive, type DataArchiveEntry } from '@eriscorp/dalib-ts'
+import { DataArchive, type ArchiveProvider, type DataArchiveEntry } from '@eriscorp/dalib-ts'
 import { useSettingsStore } from '../store/settingsStore'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
+
+// Sibling archives the palette-resolution rules reach for. Khan sprite archives
+// keep their palettes in khanpal.dat; national.dat, misc.dat and khan pants read
+// legend.pal / color0.tbl out of legend.dat. See the document repo:
+// docs/architecture/palette-resolution.md §3.
+const PALETTE_SIBLINGS = ['khanpal.dat', 'legend.dat'] as const
 
 const ArchivePage: React.FC = () => {
   const clientPath = useSettingsStore((s) => s.clientPath)
 
   const [archivePath, setArchivePath] = useState<string | null>(null)
   const [archive, setArchive] = useState<DataArchive | null>(null)
-  // Auxiliary archives loaded from siblings of the open archive (e.g. khanpal.dat
-  // for khan*.dat sprites whose palettes live in a separate file).
-  const [auxArchives, setAuxArchives] = useState<DataArchive[]>([])
+  // Sibling archives loaded from beside the open one, keyed by lower-cased file
+  // name. Feeds both the palette dropdown and the resolver's ArchiveProvider.
+  const [siblings, setSiblings] = useState<Map<string, DataArchive>>(() => new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -42,11 +48,23 @@ const ArchivePage: React.FC = () => {
 
   const entries = useMemo(() => archive?.entries ?? [], [archive])
 
+  // Empty when nothing is open. Empty is falsy, so the header guard below still
+  // reads naturally, and the preview gets a plain string with no fallback.
   const archiveName = useMemo(() => {
-    if (!archivePath) return null
+    if (!archivePath) return ''
     const parts = archivePath.replace(/\\/g, '/').split('/')
     return parts[parts.length - 1] ?? archivePath
   }, [archivePath])
+
+  // Palette sources for the manual dropdown: the open archive plus its siblings.
+  const auxArchives = useMemo(() => [...siblings.values()], [siblings])
+
+  // The resolver's only route to a sibling archive. It takes a name, never a
+  // path — the renderer has no filesystem.
+  const paletteProvider = useCallback<ArchiveProvider>(
+    (name) => siblings.get(name.toLowerCase()) ?? null,
+    [siblings]
+  )
 
   const loadArchive = useCallback(async (filePath: string) => {
     setLoading(true)
@@ -61,27 +79,35 @@ const ArchivePage: React.FC = () => {
       setArchive(arc)
       setArchivePath(filePath)
 
-      // Khan sprites (.epf) live in khan*.dat / setoa.dat / roh.dat / etc., but their
-      // palettes (.pal) all live in a sibling khanpal.dat. Load it as an auxiliary
-      // archive so the palette dropdown is populated when viewing those sprites.
+      // Load the sibling archives the palette rules reach for. A missing sibling
+      // is not an error: the rules that need it go unresolved and every other
+      // rule still works.
       const sep = filePath.includes('\\') ? '\\' : '/'
       const lastSep = filePath.lastIndexOf(sep)
-      const aux: DataArchive[] = []
+      const openName = filePath.slice(lastSep + 1).toLowerCase()
+      const loaded = new Map<string, DataArchive>()
       if (lastSep > 0) {
         const parentDir = filePath.slice(0, lastSep)
-        try {
-          const auxBuf = await window.api.readFile(`${parentDir}${sep}khanpal.dat`)
-          aux.push(DataArchive.fromBuffer(new Uint8Array(auxBuf)))
-        } catch {
-          // khanpal.dat not present alongside this archive — fine
+        for (const name of PALETTE_SIBLINGS) {
+          // Opening legend.dat itself would otherwise parse it a second time.
+          if (name === openName) {
+            loaded.set(name, arc)
+            continue
+          }
+          try {
+            const sibBuf = await window.api.readFile(`${parentDir}${sep}${name}`)
+            loaded.set(name, DataArchive.fromBuffer(new Uint8Array(sibBuf)))
+          } catch {
+            // Not present alongside this archive — fine.
+          }
         }
       }
-      setAuxArchives(aux)
+      setSiblings(loaded)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to open archive')
       setArchive(null)
       setArchivePath(null)
-      setAuxArchives([])
+      setSiblings(new Map())
     } finally {
       setLoading(false)
     }
@@ -330,7 +356,13 @@ const ArchivePage: React.FC = () => {
             {/* Right: preview */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
               {selected ? (
-                <ArchivePreview entry={selected} archive={archive} auxArchives={auxArchives} />
+                <ArchivePreview
+                  entry={selected}
+                  archive={archive}
+                  archiveName={archiveName}
+                  auxArchives={auxArchives}
+                  paletteProvider={paletteProvider}
+                />
               ) : (
                 <Box
                   sx={{

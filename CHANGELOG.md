@@ -23,6 +23,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **The Archive Viewer picks the right palette by itself.** Opening a sprite, tile sheet or
+  foreground tile no longer starts on whichever palette happened to sort first — it starts on the
+  one the client would use, worked out from the archive and entry name. The picker is still there
+  and still switches palettes by hand; it now begins on the correct answer and names the rule it
+  used, so a wrong guess is reportable. Tile sheets resolve **per tile**, which a single palette
+  never could. Entries with no matching rule say so instead of showing something plausible and
+  wrong.
+
 ### Fixed
 
 - **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).

@@ -77,7 +77,38 @@ mostly for WP0.
 
 ## WP1 — Auto-resolve palettes in the Archive Viewer
 
-**Size: S.** Depends on dalib-ts **3.1.0** (written, not yet published).
+**Size: S.** Depends on dalib-ts **3.1.0**. **Build against the local checkout — do not wait for
+the npm publish** (Sabrael, 2026-07-28). Publishing 3.1.0 after Taliesin has exercised it is the
+point: this is the integration test.
+
+### Developing against local dalib-ts
+
+```bash
+cd <repos>/dalib-ts && npm run build && npm link      # dist/, then register
+cd <repos>/taliesin  && npm link @eriscorp/dalib-ts   # symlink node_modules entry
+```
+
+Verified working 2026-07-28: `node_modules/@eriscorp/dalib-ts` resolves to the checkout at 3.1.0,
+Taliesin typechecks, all 1061 tests pass, and `npm run build` succeeds against it.
+
+Four things about this setup that will otherwise cost someone an afternoon:
+
+1. **`npm link` does not touch `package.json`.** That is the reason to prefer it over a `file:`
+   dependency — there is no bad version spec to accidentally commit. It also means the manifest
+   still says `^3.0.0` while you are building against 3.1.0, so **the manifest is lying for the
+   duration**. WP1 does not merge until 3.1.0 is published and the manifest says `^3.1.0`.
+2. **The link points at `dist/`, not `src/`.** Re-run `npm run build` in dalib-ts after every
+   change there, or Taliesin keeps compiling against the previous build.
+3. **Any `npm install` or `npm ci` in Taliesin silently drops the link** and restores registry
+   3.0.0. The symptom is a confusing "`PaletteResolver` is not exported" at a point where nothing
+   you changed touches the import. Re-run the second command above. Check with
+   `node -e "console.log(require('fs').realpathSync('node_modules/@eriscorp/dalib-ts'))"`.
+4. **CI has no link.** WP1 will fail CI until 3.1.0 publishes. That is expected, not a defect —
+   keep WP1 out of a merge queue until then.
+
+Before publishing 3.1.0, verify the *packaged* artifact rather than the symlink: `npm pack` in
+dalib-ts and install the tarball into Taliesin once. A symlink reads the working tree, so it
+cannot catch a `files`/`exports` mistake that would ship a broken tarball.
 
 The specification is the document repo's `docs/architecture/palette-resolution.md`. Taliesin
 consumes the resolver; it does not implement the rules. The shipped API matches the spec:

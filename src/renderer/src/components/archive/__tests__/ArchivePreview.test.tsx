@@ -3,6 +3,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+// Palette resolution is dalib-ts's job and is covered by its own conformance
+// fixture. Here we only care that the preview honours whatever it returns, so
+// the resolver is a single controllable stub: null means "no rule matched".
+const resolverStub = vi.hoisted(() => ({
+  resolve: vi.fn<(...args: unknown[]) => unknown>(() => null)
+}))
+
 // Mock dalib-ts BEFORE importing ArchivePreview so the component picks up our stub.
 // The real Palette class touches binary buffers; we only need a constructor + buffer entrypoint.
 vi.mock('@eriscorp/dalib-ts', () => {
@@ -39,6 +46,9 @@ vi.mock('@eriscorp/dalib-ts', () => {
       }
     },
     ColorTable: FakeColorTable,
+    PaletteResolver: class {
+      resolve = resolverStub.resolve
+    },
     renderTile: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
     renderDarknessOverlay: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 })
   }
@@ -96,6 +106,7 @@ beforeEach(() => {
   renderer.classifyEntry.mockReturnValue('hex')
   renderer.getPaletteNames.mockReturnValue([])
   renderer.renderEntry.mockReturnValue(null)
+  resolverStub.resolve.mockReturnValue(null)
   renderer.renderPaletteGrid.mockReturnValue({
     data: new Uint8ClampedArray(4),
     width: 1,
@@ -112,6 +123,7 @@ describe('ArchivePreview header', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'readme.txt', fileSize: 100 }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     expect(screen.getByText('readme.txt')).toBeInTheDocument()
@@ -121,13 +133,25 @@ describe('ArchivePreview header', () => {
 
   it('hides Export-as-PNG button for non-renderable types (text, audio, hex)', () => {
     renderer.classifyEntry.mockReturnValue('text')
-    render(<ArchivePreview entry={makeEntry() as never} archive={makeArchive() as never} />)
+    render(
+      <ArchivePreview
+        entry={makeEntry() as never}
+        archive={makeArchive() as never}
+        archiveName="test.dat"
+      />
+    )
     expect(screen.queryByRole('button', { name: /export as png/i })).toBeNull()
   })
 
   it('shows Export-as-PNG button for sprite/palette/image types', () => {
     renderer.classifyEntry.mockReturnValue('sprite')
-    render(<ArchivePreview entry={makeEntry() as never} archive={makeArchive() as never} />)
+    render(
+      <ArchivePreview
+        entry={makeEntry() as never}
+        archive={makeArchive() as never}
+        archiveName="test.dat"
+      />
+    )
     expect(screen.getByRole('button', { name: /export as png/i })).toBeInTheDocument()
   })
 })
@@ -142,6 +166,7 @@ describe('ArchivePreview type dispatch', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'a.txt' }) as never}
         archive={{ getEntryBuffer: () => buf } as never}
+        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/hello world/)).toBeInTheDocument()
@@ -154,6 +179,7 @@ describe('ArchivePreview type dispatch', () => {
       <ArchivePreview
         entry={makeEntry() as never}
         archive={{ getEntryBuffer: () => buf } as never}
+        archiveName="test.dat"
       />
     )
     // Hex address column starts with 8-zero offset
@@ -166,7 +192,13 @@ describe('ArchivePreview type dispatch', () => {
     renderer.renderEntry.mockReturnValue({
       frames: [{ data: new Uint8ClampedArray(4), width: 1, height: 1 }]
     })
-    render(<ArchivePreview entry={makeEntry() as never} archive={makeArchive() as never} />)
+    render(
+      <ArchivePreview
+        entry={makeEntry() as never}
+        archive={makeArchive() as never}
+        archiveName="test.dat"
+      />
+    )
     // Palette select renders as a combobox
     expect(await screen.findByRole('combobox')).toBeInTheDocument()
   })
@@ -184,6 +216,7 @@ describe('Extract Raw', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'sample.epf' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /extract raw/i }))
@@ -199,10 +232,103 @@ describe('Extract Raw', () => {
   it('aborts cleanly when the save dialog is cancelled', async () => {
     const user = userEvent.setup()
     api.saveFile.mockResolvedValue(null)
-    render(<ArchivePreview entry={makeEntry() as never} archive={makeArchive() as never} />)
+    render(
+      <ArchivePreview
+        entry={makeEntry() as never}
+        archive={makeArchive() as never}
+        archiveName="test.dat"
+      />
+    )
     await user.click(screen.getByRole('button', { name: /extract raw/i }))
     await new Promise((r) => setTimeout(r, 0))
     expect(api.writeBytes).not.toHaveBeenCalled()
+  })
+})
+
+// ── Automatic palette resolution ──────────────────────────────────────────────
+
+describe('SpritePreview palette resolution', () => {
+  const RESOLVED_PALETTE = { marker: 'resolved' }
+
+  function renderSprite(): void {
+    renderer.classifyEntry.mockReturnValue('sprite')
+    renderer.renderEntry.mockReturnValue({
+      frames: [{ data: new Uint8ClampedArray(4), width: 1, height: 1 }]
+    })
+    render(
+      <ArchivePreview
+        entry={makeEntry({ entryName: 'mba00101.epf' }) as never}
+        archive={makeArchive() as never}
+        archiveName="khanmi.dat"
+      />
+    )
+  }
+
+  it('renders with the resolved palette without the user choosing one', () => {
+    resolverStub.resolve.mockReturnValue({
+      palette: RESOLVED_PALETTE,
+      paletteNumber: 42,
+      luminanceBlended: false,
+      kind: 'table',
+      ruleId: 'khan/letter'
+    })
+    renderer.getPaletteNames.mockReturnValue(['pala001.pal', 'palb001.pal'])
+
+    renderSprite()
+
+    // The palette handed to the renderer is the resolved one, NOT the first
+    // name in the dropdown — that default was the bug this replaced.
+    expect(renderer.renderEntry).toHaveBeenCalledWith(expect.anything(), RESOLVED_PALETTE)
+    expect(renderer.loadPaletteByName).not.toHaveBeenCalled()
+  })
+
+  it('shows which rule fired, the palette number, and the source kind', () => {
+    resolverStub.resolve.mockReturnValue({
+      palette: RESOLVED_PALETTE,
+      paletteNumber: 42,
+      luminanceBlended: true,
+      kind: 'table',
+      ruleId: 'khan/letter'
+    })
+    renderSprite()
+
+    expect(screen.getByText(/khan\/letter/)).toBeInTheDocument()
+    expect(screen.getByText(/palette 42/)).toBeInTheDocument()
+    expect(screen.getByText(/luminance-blended/)).toBeInTheDocument()
+  })
+
+  it('lets a hand-picked palette override the resolved one', async () => {
+    const user = userEvent.setup()
+    resolverStub.resolve.mockReturnValue({
+      palette: RESOLVED_PALETTE,
+      paletteNumber: 42,
+      luminanceBlended: false,
+      kind: 'table',
+      ruleId: 'khan/letter'
+    })
+    const manual = { marker: 'manual' }
+    renderer.getPaletteNames.mockReturnValue(['palb001.pal'])
+    renderer.loadPaletteByName.mockReturnValue(manual as never)
+
+    renderSprite()
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'palb001.pal' }))
+
+    await waitFor(() =>
+      expect(renderer.renderEntry).toHaveBeenLastCalledWith(expect.anything(), manual)
+    )
+    // The rule caption belongs to the automatic choice and goes away with it.
+    expect(screen.queryByText(/khan\/letter/)).toBeNull()
+  })
+
+  it('says so plainly when no rule matches, and still offers the manual list', () => {
+    resolverStub.resolve.mockReturnValue(null)
+    renderer.getPaletteNames.mockReturnValue(['palb001.pal'])
+
+    renderSprite()
+
+    expect(screen.getByText(/no rule matched/i)).toBeInTheDocument()
+    expect(renderer.renderEntry).toHaveBeenCalledWith(expect.anything(), null)
   })
 })
 
@@ -224,6 +350,7 @@ describe('Export as PNG', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'icon.epf' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /export as png/i }))
@@ -254,6 +381,7 @@ describe('Export as PNG', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'walk.mpf' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     await user.click(screen.getByRole('button', { name: /export as png/i }))
@@ -272,7 +400,13 @@ describe('Export as PNG', () => {
     renderer.classifyEntry.mockReturnValue('sprite')
     renderer.getPaletteNames.mockReturnValue([])
     renderer.renderEntry.mockReturnValue(null)
-    render(<ArchivePreview entry={makeEntry() as never} archive={makeArchive() as never} />)
+    render(
+      <ArchivePreview
+        entry={makeEntry() as never}
+        archive={makeArchive() as never}
+        archiveName="test.dat"
+      />
+    )
     await user.click(screen.getByRole('button', { name: /export as png/i }))
     await new Promise((r) => setTimeout(r, 0))
     expect(api.saveFile).not.toHaveBeenCalled()
@@ -302,6 +436,7 @@ describe('BikPreview', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'intro.bik' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/640 × 480/)).toBeInTheDocument()
@@ -331,6 +466,7 @@ describe('BikPreview', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'intro.bik', toUint8Array: () => entryBytes }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />,
       '/usr/bin/ffmpeg'
     )
@@ -364,6 +500,7 @@ describe('BikPreview', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'broken.bik' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
 
@@ -379,6 +516,7 @@ describe('BikPreview', () => {
       <ArchivePreview
         entry={makeEntry({ entryName: 'broken.bik' }) as never}
         archive={makeArchive() as never}
+        archiveName="test.dat"
       />
     )
     expect(screen.getByText(/Not a recognizable BIK file/)).toBeInTheDocument()
