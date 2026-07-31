@@ -12,7 +12,6 @@ export type Page =
   | 'statictiles'
   | 'uiforge'
   | 'palettes'
-  | 'fonteditor'
   | 'music'
   | 'sfx'
   | 'settings'

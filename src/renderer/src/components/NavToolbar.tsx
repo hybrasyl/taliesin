@@ -11,7 +11,6 @@ import {
   GiCardboardBox,
   GiHexes,
   GiPaintBrush,
-  GiRuneStone,
   GiMusicalNotes,
   GiSoundWaves,
   GiSettingsKnobs,
@@ -145,11 +144,6 @@ const NavToolbar: React.FC = () => {
       <Tooltip title="Palettes & Duotone">
         <IconButton sx={sx('palettes')} onClick={nav('palettes')}>
           <GiPaintBrush />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Font Editor">
-        <IconButton sx={sx('fonteditor')} onClick={nav('fonteditor')}>
-          <GiRuneStone />
         </IconButton>
       </Tooltip>
       <Tooltip title="Music Manager">
