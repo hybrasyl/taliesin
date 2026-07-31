@@ -3,12 +3,20 @@ productName: Taliesin
 icon: resources/taliesin.png
 directories:
   buildResources: build
+# An ALLOWLIST, not the scaffold's denylist. electron-builder includes the whole
+# project directory by default and `files` subtracts from it, so a denylist leaks
+# every time a new top-level directory appears -- .claude, coverage, docs, e2e,
+# scripts and the tsconfig/*.tsbuildinfo files were all shipping inside app.asar
+# because they postdate the scaffold's list. Naming what belongs instead means
+# the next new directory is excluded by default. Anything added here shows up in
+# `npx asar list dist/win-unpacked/resources/app.asar`, which is the only
+# reliable check. See the document repo's ecosystem-rollout-checklist.md R-005.
+#
+# `build/` needs no entry: it is directories.buildResources and never packaged.
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - 'out/**'
+  - 'resources/**'
+  - 'package.json'
 asarUnpack:
   - resources/**
 win:
