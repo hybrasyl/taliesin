@@ -38,6 +38,14 @@ nsis:
   createDesktopShortcut: always
 portable:
   artifactName: ${name}-${version}-portable.${ext}
+  # The portable exe is an NSIS self-extracting archive that decompresses to
+  # %TEMP% before electron exists, so no in-app splash can cover it. Without
+  # this the stub runs silent and the user gets several seconds of nothing.
+  # A frozen frame of resources/splash.html at the same 420x260 as the splash
+  # BrowserWindow, so the two images read as one boot rather than two screens.
+  # Regenerate with `node scripts/make-portable-splash.mjs` after changing the
+  # splash design or the logo master. build/ is never packaged.
+  splashImage: build/portable-splash.bmp
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.icns
