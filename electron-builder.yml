@@ -1,14 +1,29 @@
 appId: co.eris.taliesin
 productName: Taliesin
-icon: resources/taliesin.png
+# The 1024px master, build-time only: electron-builder generates the app icons
+# from it. It lives in build/ (directories.buildResources), which is never
+# packaged -- in resources/ it would ship despite nothing reading it at run time.
+icon: build/icon.png
 directories:
   buildResources: build
+# An ALLOWLIST, not the scaffold's denylist. electron-builder includes the whole
+# project directory by default and `files` subtracts from it, so a denylist leaks
+# every time a new top-level directory appears -- .claude, coverage, docs, e2e,
+# scripts and the tsconfig/*.tsbuildinfo files were all shipping inside app.asar
+# because they postdate the scaffold's list. Naming what belongs instead means
+# the next new directory is excluded by default. Anything added here shows up in
+# `npx asar list dist/win-unpacked/resources/app.asar`, which is the only
+# reliable check. See the document repo's ecosystem-rollout-checklist.md R-005.
+#
+# `build/` needs no entry: it is directories.buildResources and never packaged.
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - 'out/**'
+  - 'resources/**'
+  - 'package.json'
+  # Rendered in-app by the "What's new" dialog, so it is a runtime asset here
+  # rather than repo documentation. Main reads it from the app root, next to
+  # package.json (see readChangelog in src/main/handlers.ts).
+  - 'CHANGELOG.md'
 asarUnpack:
   - resources/**
 win:
@@ -27,6 +42,14 @@ nsis:
   createDesktopShortcut: always
 portable:
   artifactName: ${name}-${version}-portable.${ext}
+  # The portable exe is an NSIS self-extracting archive that decompresses to
+  # %TEMP% before electron exists, so no in-app splash can cover it. Without
+  # this the stub runs silent and the user gets several seconds of nothing.
+  # A frozen frame of resources/splash.html at the same 420x260 as the splash
+  # BrowserWindow, so the two images read as one boot rather than two screens.
+  # Regenerate with `node scripts/make-portable-splash.mjs` after changing the
+  # splash design or the logo master. build/ is never packaged.
+  splashImage: build/portable-splash.bmp
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.icns

@@ -5,6 +5,11 @@ import RemoveIcon from '@mui/icons-material/Remove'
 import CropSquareIcon from '@mui/icons-material/CropSquare'
 import CloseIcon from '@mui/icons-material/Close'
 import { useSettingsStore, PLAIN_CHROME_THEMES } from '../store/settingsStore'
+// Imported, not a `./taliesin.png` string: an import is hashed into the bundle
+// by vite, while a bare string resolved through the renderer's publicDir, which
+// copied the whole resources/ tree into out/renderer on top of asarUnpack
+// shipping it. See the document repo's ecosystem-rollout-checklist.md R-002.
+import logoUrl from '../assets/taliesin.webp'
 
 // Shared shadow vocabulary for the title bar (ported from Oghma). KEYLINE is the
 // crisp four-way #000 outline; DEPTH is the soft layer that lifts the glyph off
@@ -73,7 +78,7 @@ const TitleBar: React.FC = () => {
       sx={{ bgcolor: 'secondary.main', minHeight: 36, px: 1.5 }}
     >
       <img
-        src="./taliesin.png"
+        src={logoUrl}
         alt="Taliesin"
         style={{
           height: 28,

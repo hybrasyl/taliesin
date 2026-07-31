@@ -50,6 +50,7 @@ describe('Preload ↔ Main IPC contract', () => {
     const all = [...preloadInvoke, ...preloadSend].sort()
     expect(all).toMatchInlineSnapshot(`
       [
+        "app:changelog",
         "app:getVersion",
         "app:launchCompanion",
         "app:ready",

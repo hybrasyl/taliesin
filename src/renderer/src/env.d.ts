@@ -85,6 +85,8 @@ declare global {
     maximizeWindow: () => void
     closeWindow: () => void
     getAppVersion: () => Promise<string>
+    /** The bundled CHANGELOG.md for the "What's new" dialog; null if not shipped. */
+    getChangelog: () => Promise<string | null>
     getUserDataPath: () => Promise<string>
     revealSettings: () => Promise<void>
     appReady: () => void
