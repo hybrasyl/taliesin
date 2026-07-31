@@ -12,6 +12,10 @@ permissions:
   contents: write
 
 env:
+  # Kept deliberately. Every actions/* pin below is now Node 24 native, so this
+  # would otherwise be removable -- but sslcom/esigner-codesign@v1.3.2 still
+  # declares `using: node20`, and this forces it onto Node 24 until it ships a
+  # Node 24 release. Drop this env only when that action is updated or removed.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -22,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -45,8 +49,8 @@ jobs:
     if: github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -76,11 +80,16 @@ jobs:
           override: true
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-portable
           path: dist/*-portable.exe
           if-no-files-found: error
+          # The release job consumes this minutes later and the published
+          # Release keeps its own copy, which does not count against Actions
+          # storage. At the 90-day default, three releases exhausted the quota
+          # on oghma and every build job failed to upload, publishing nothing.
+          retention-days: 1
 
   build-linux:
     runs-on: ubuntu-latest
@@ -88,8 +97,8 @@ jobs:
     if: github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -103,13 +112,14 @@ jobs:
         run: npx electron-builder --linux --publish never
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-packages
           path: |
             dist/*.AppImage
             dist/*.deb
           if-no-files-found: error
+          retention-days: 1
 
   build-mac:
     runs-on: macos-latest
@@ -117,8 +127,8 @@ jobs:
     if: github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -191,11 +201,12 @@ jobs:
           xcrun stapler validate "$DMG"
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: dist/*.dmg
           if-no-files-found: error
+          retention-days: 1
 
   release:
     runs-on: ubuntu-latest
@@ -205,10 +216,10 @@ jobs:
     steps:
       # Checkout (the release job otherwise only downloads artifacts) so the
       # CHANGELOG + extract script are on disk.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -218,7 +229,7 @@ jobs:
         run: node scripts/changelog-extract.mjs "${{ github.ref_name }}" > RELEASE_NOTES.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             artifacts/**/*-portable.exe
