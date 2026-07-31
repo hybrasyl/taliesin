@@ -20,6 +20,10 @@ files:
   - 'out/**'
   - 'resources/**'
   - 'package.json'
+  # Rendered in-app by the "What's new" dialog, so it is a runtime asset here
+  # rather than repo documentation. Main reads it from the app root, next to
+  # package.json (see readChangelog in src/main/handlers.ts).
+  - 'CHANGELOG.md'
 asarUnpack:
   - resources/**
 win:

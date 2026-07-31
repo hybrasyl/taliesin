@@ -34,10 +34,12 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
+import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
 import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
+import WhatsNewDialog from '../components/WhatsNewDialog'
 import logoUrl from '../assets/taliesin.webp'
 
 // Settings sections are Paper cards laid out in a responsive grid (mirrors the
@@ -278,6 +280,7 @@ function CompanionCard() {
 
 function AboutCard({ onOpen }: { onOpen: () => void }) {
   const [version, setVersion] = useState('')
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Matches the Installed Asset Packs link.
@@ -349,14 +352,18 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
         >
           Reveal settings folder
         </Button>
+        {/* Replaces a "Reveal logs folder" button. The logs stay reachable from
+            the Report Issue dialog, which is the context they belong in; this
+            slot is better spent on the release notes. */}
         <Button
           variant="text"
-          startIcon={<FolderOpenIcon />}
-          onClick={() => window.api.revealLogs()}
+          startIcon={<NewReleasesOutlinedIcon />}
+          onClick={() => setWhatsNewOpen(true)}
         >
-          Reveal logs folder
+          What&apos;s new?
         </Button>
       </Stack>
+      <WhatsNewDialog open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </Paper>
   )
 }

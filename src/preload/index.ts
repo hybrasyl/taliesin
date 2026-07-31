@@ -60,6 +60,8 @@ const api = {
 
   // App
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  /** The bundled CHANGELOG.md for the "What's new" dialog; null if not shipped. */
+  getChangelog: (): Promise<string | null> => ipcRenderer.invoke('app:changelog'),
   getUserDataPath: (): Promise<string> => ipcRenderer.invoke('get-user-data-path'),
   // Opens the OS file manager with settings.json highlighted.
   revealSettings: (): Promise<void> => ipcRenderer.invoke('app:revealSettings'),
