@@ -97,7 +97,10 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     frame: false,
-    icon: join(__dirname, '../../resources/taliesin.png'),
+    // 256px PNG is the largest size any consumer of this option asks for; the
+    // 1024px master would be decoded in full for nothing. PNG, not WebP -- this
+    // one goes through nativeImage rather than Chromium.
+    icon: join(__dirname, '../../resources/taliesin-icon-256.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

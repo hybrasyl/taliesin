@@ -1,6 +1,9 @@
 appId: co.eris.taliesin
 productName: Taliesin
-icon: resources/taliesin.png
+# The 1024px master, build-time only: electron-builder generates the app icons
+# from it. It lives in build/ (directories.buildResources), which is never
+# packaged -- in resources/ it would ship despite nothing reading it at run time.
+icon: build/icon.png
 directories:
   buildResources: build
 # An ALLOWLIST, not the scaffold's denylist. electron-builder includes the whole

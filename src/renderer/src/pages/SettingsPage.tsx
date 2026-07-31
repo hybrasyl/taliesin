@@ -38,6 +38,7 @@ import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
+import logoUrl from '../assets/taliesin.webp'
 
 // Settings sections are Paper cards laid out in a responsive grid (mirrors the
 // creidhne/oghma pattern). Full-height flex column so cards sharing a grid row
@@ -295,7 +296,7 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
         <Box
           component="img"
-          src="./taliesin.png"
+          src={logoUrl}
           alt=""
           aria-hidden
           sx={{ height: 48, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}
