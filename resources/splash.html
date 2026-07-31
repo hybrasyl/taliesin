@@ -72,7 +72,9 @@
   </head>
   <body>
     <div class="card">
-      <img class="logo" src="./taliesin.png" alt="" />
+      <!-- 256px for an 88px render at 2x DPR. Regenerate from the master with:
+           magick build/icon.png -resize 256x256 -strip -quality 90 resources/taliesin-splash.webp -->
+      <img class="logo" src="./taliesin-splash.webp" alt="" />
       <div class="title">TALIESIN</div>
       <div class="subtitle">Loading…</div>
       <div class="spinner"></div>

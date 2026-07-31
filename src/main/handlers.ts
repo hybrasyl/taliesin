@@ -231,6 +231,26 @@ export async function getAppVersion(ctx: HandlerContext): Promise<string> {
   }
 }
 
+/**
+ * The bundled CHANGELOG.md, for the in-app "What's new" dialog.
+ *
+ * Shipped with the app rather than fetched from GitHub: the dialog then works
+ * with no network, shows the notes for the version actually installed rather
+ * than whatever is on main, and needs no HTTP request at all.
+ *
+ * Path is relative to the compiled main bundle (out/main), the same idiom
+ * getAppVersion uses to reach package.json. Returns null when the file is not
+ * there (an unexpected packaging change) rather than throwing, so the dialog
+ * can say so instead of the app erroring.
+ */
+export async function readChangelog(): Promise<string | null> {
+  try {
+    return await fs.readFile(join(__dirname, '../../CHANGELOG.md'), 'utf-8')
+  } catch {
+    return null
+  }
+}
+
 // ── Report Issue / diagnostics ─────────────────────────────────────────────────
 //
 // Backing bodies for the diagnostics:* channels (see src/main/report/). Payloads
@@ -1397,6 +1417,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
   ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
+  ipcMain.handle('app:changelog', () => readChangelog())
   // Reveal settings.json in the OS file manager. Handled in index.ts, which
   // owns the electron `shell` reference.
   ipcMain.handle('app:revealSettings', () => {

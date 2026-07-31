@@ -12,7 +12,15 @@ export default defineConfig(({ command }) => ({
   renderer: {
     // './' is required for file:// in production; '/' is required for HMR in dev
     base: command === 'build' ? './' : '/',
-    publicDir: resolve('resources'),
+    // No publicDir. The scaffold pointed it at resources/, which copied that
+    // whole tree verbatim into out/renderer -- and because electron-builder also
+    // asarUnpacks resources/**, every file in it shipped twice. The renderer
+    // references nothing there: splash.html and the window icon are loaded by
+    // the MAIN process via join(__dirname, '../../resources/...'), which reads
+    // the asarUnpacked copy, and the renderer's own logo is imported from
+    // src/renderer/src/assets/ and hashed into the bundle by vite.
+    // Do not re-add a publicDir pointed at resources/ -- it silently restores
+    // the double-ship. See the document repo's ecosystem-rollout-checklist.md R-002.
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src')

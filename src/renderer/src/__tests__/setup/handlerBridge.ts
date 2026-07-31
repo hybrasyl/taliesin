@@ -210,6 +210,7 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
 
     // App
     getAppVersion: () => handlers.getAppVersion(handlerCtx),
+    getChangelog: () => handlers.readChangelog(),
     getUserDataPath: async () => handlers.getUserDataPath(handlerCtx),
     revealSettings: async () => undefined,
     appReady: () => undefined,

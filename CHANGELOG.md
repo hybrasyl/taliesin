@@ -32,6 +32,15 @@ record; where they disagree with this file, the git history was taken as authori
   used, so a wrong guess is reportable. Tile sheets resolve **per tile**, which a single palette
   never could. Entries with no matching rule say so instead of showing something plausible and
   wrong.
+- **What's new.** Settings → About has a **What's new?** button that shows the release notes for
+  the version you are running. The notes ship inside the app, so the dialog needs no network and
+  always matches the build you have rather than whatever is newest.
+
+### Changed
+
+- **Reveal logs folder moved out of Settings.** The button is gone from the About card; the logs
+  are still one click away from **Report an issue**, which is where you need them. Its old slot
+  now holds **What's new?**.
 
 ### Removed
 

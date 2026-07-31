@@ -19,6 +19,7 @@ export function createMockApi(): MockApi {
     'closeWindow',
     // App
     'getAppVersion',
+    'getChangelog',
     'getUserDataPath',
     'appReady',
     'launchCompanion',
