@@ -33,6 +33,14 @@ record; where they disagree with this file, the git history was taken as authori
   never could. Entries with no matching rule say so instead of showing something plausible and
   wrong.
 
+### Removed
+
+- **The Font Editor is gone.** It authored 8×12 `.fnt` glyph files, which nothing consumes: Dark
+  Ages does not read `.fnt` for its own text, and the Brigid client uses TrueType fonts. The page
+  therefore offered edits that could never reach a client, which was misleading. Reading `.fnt`
+  entries is unaffected — the Archive Viewer still previews them, so legacy fonts inside `.dat`
+  archives remain inspectable.
+
 ### Fixed
 
 - **The dev build no longer freezes on large Dark Ages files.** Switching archives, editing a map,

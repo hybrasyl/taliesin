@@ -11,7 +11,6 @@ import AssetPackPage from '../pages/AssetPackPage'
 import StaticTileManagerPage from '../pages/StaticTileManagerPage'
 import UiForgePage from '../pages/UiForgePage'
 import PalettePage from '../pages/PalettePage'
-import FontEditorPage from '../pages/FontEditorPage'
 import MusicPage from '../pages/MusicPage'
 import SfxPage from '../pages/SfxPage'
 import SettingsPage from '../pages/SettingsPage'
@@ -42,8 +41,6 @@ const PageRenderer: React.FC = () => {
       return <UiForgePage />
     case 'palettes':
       return <PalettePage />
-    case 'fonteditor':
-      return <FontEditorPage />
     case 'music':
       return <MusicPage />
     case 'sfx':
