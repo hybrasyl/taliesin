@@ -2,12 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { pathToFileURL } from 'url'
 import {
   initWindowSecurity,
-  registerTrustedWindow,
   hardenWindow,
-  isSenderAllowed,
   guardIpc,
   __resetWindowSecurityForTests
 } from '../windowSecurity'
+import { makeSender, trust, allowed } from './windowSecurityFixtures'
 
 // Both variants carry a SPACE, so the percent-encoding round-trip through
 // pathToFileURL is exercised on Windows and on a Linux CI runner alike. A
@@ -20,20 +19,12 @@ const PROD_HTML =
 const PROD_URL = pathToFileURL(PROD_HTML).href
 const DEV_URL = 'http://127.0.0.1:5173/'
 
-/** A fake webContents + the event shape ipcMain hands a listener. */
-function makeSender(opts: { id?: number; url?: string; destroyed?: boolean } = {}) {
-  const mainFrame = { url: opts.url ?? PROD_URL }
-  const contents = {
-    id: opts.id ?? 1,
-    mainFrame,
-    isDestroyed: () => opts.destroyed ?? false,
-    once: vi.fn()
-  }
-  return { contents, mainFrame, event: { sender: contents, senderFrame: mainFrame } }
-}
-
-type SenderEvent = Parameters<typeof isSenderAllowed>[0]
 type HardenTarget = Parameters<typeof hardenWindow>[0]
+
+/** Every isSenderAllowed case wants a sender at our own prod location. */
+function prodSender(opts: { id?: number; url?: string; destroyed?: boolean } = {}) {
+  return makeSender({ url: PROD_URL, ...opts })
+}
 
 /** A fake BrowserWindow that records the handlers hardenWindow installs. */
 function makeWindow(id = 1) {
@@ -70,68 +61,66 @@ beforeEach(() => {
 describe('isSenderAllowed', () => {
   it('accepts the top frame of a registered window at our own location', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender()
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(true)
+    const { contents, event } = prodSender()
+    trust(contents)
+    expect(allowed(event)).toBe(true)
   })
 
   it('fails closed before init -- nothing is trusted until initWindowSecurity runs', () => {
-    const { contents, event } = makeSender()
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+    const { contents, event } = prodSender()
+    trust(contents)
+    expect(allowed(event)).toBe(false)
   })
 
   it('rejects a window that was never registered', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { event } = makeSender()
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+    const { event } = prodSender()
+    expect(allowed(event)).toBe(false)
   })
 
   it('rejects a subframe even at our own URL', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender()
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
+    const { contents, event } = prodSender()
+    trust(contents)
     // Same URL, different frame object -- an iframe inheriting the preload.
     const subframe = { url: PROD_URL }
-    expect(isSenderAllowed({ ...event, senderFrame: subframe } as unknown as SenderEvent)).toBe(
-      false
-    )
+    expect(allowed({ ...event, senderFrame: subframe })).toBe(false)
   })
 
   it('rejects a null senderFrame', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender()
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed({ ...event, senderFrame: null } as unknown as SenderEvent)).toBe(false)
+    const { contents, event } = prodSender()
+    trust(contents)
+    expect(allowed({ ...event, senderFrame: null })).toBe(false)
   })
 
   it.each(['https://attacker.example/', 'about:blank'])(
     'rejects a registered window that navigated to %s',
     (url) => {
       initWindowSecurity(undefined, PROD_HTML)
-      const { contents, event } = makeSender({ url })
-      registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-      expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+      const { contents, event } = prodSender({ url })
+      trust(contents)
+      expect(allowed(event)).toBe(false)
     }
   )
 
   it('rejects a destroyed sender', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender({ destroyed: true })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+    const { contents, event } = prodSender({ destroyed: true })
+    trust(contents)
+    expect(allowed(event)).toBe(false)
   })
 
   it('forgets a window when its webContents is destroyed', () => {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender()
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(true)
+    const { contents, event } = prodSender()
+    trust(contents)
+    expect(allowed(event)).toBe(true)
 
     // Fire the 'destroyed' listener registerTrustedWindow installed.
     const [, onDestroyed] = contents.once.mock.calls[0]
     ;(onDestroyed as () => void)()
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+    expect(allowed(event)).toBe(false)
   })
 
   it('matches a production path containing a space', () => {
@@ -139,36 +128,36 @@ describe('isSenderAllowed', () => {
     // every single IPC is refused.
     expect(PROD_URL).toContain('%20')
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender({ url: PROD_URL })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(true)
+    const { contents, event } = prodSender({ url: PROD_URL })
+    trust(contents)
+    expect(allowed(event)).toBe(true)
   })
 
   it('ignores query and hash when matching', () => {
     initWindowSecurity(DEV_URL, PROD_HTML)
-    const { contents, event } = makeSender({ url: `${DEV_URL}?v=2#/packs` })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(true)
+    const { contents, event } = prodSender({ url: `${DEV_URL}?v=2#/packs` })
+    trust(contents)
+    expect(allowed(event)).toBe(true)
   })
 
   it('trusts the dev URL when one is given', () => {
     initWindowSecurity(DEV_URL, PROD_HTML)
-    const { contents, event } = makeSender({ url: DEV_URL })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(true)
+    const { contents, event } = prodSender({ url: DEV_URL })
+    trust(contents)
+    expect(allowed(event)).toBe(true)
   })
 
   it('drops a malformed dev URL instead of trusting everything', () => {
     initWindowSecurity('not a url', PROD_HTML)
-    const { contents, event } = makeSender({ url: 'http://127.0.0.1:5173/' })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(event as unknown as SenderEvent)).toBe(false)
+    const { contents, event } = prodSender({ url: 'http://127.0.0.1:5173/' })
+    trust(contents)
+    expect(allowed(event)).toBe(false)
 
     // ...and the prod location still works, so the malformed entry was skipped
     // rather than poisoning the whole list.
-    const prod = makeSender({ id: 2, url: PROD_URL })
-    registerTrustedWindow({ webContents: prod.contents } as unknown as HardenTarget)
-    expect(isSenderAllowed(prod.event as unknown as SenderEvent)).toBe(true)
+    const prod = prodSender({ id: 2, url: PROD_URL })
+    trust(prod.contents)
+    expect(allowed(prod.event)).toBe(true)
   })
 })
 
@@ -199,8 +188,8 @@ describe('guardIpc', () => {
 
   function trustedEvent(id = 1) {
     initWindowSecurity(undefined, PROD_HTML)
-    const { contents, event } = makeSender({ id })
-    registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
+    const { contents, event } = prodSender({ id })
+    trust(contents)
     return event
   }
 
@@ -220,7 +209,7 @@ describe('guardIpc', () => {
     guardIpc(ipcMain as unknown as Parameters<typeof guardIpc>[0]).handle('settings:load', impl)
 
     initWindowSecurity(undefined, PROD_HTML)
-    const { event } = makeSender() // registered nowhere
+    const { event } = prodSender() // registered nowhere
     expect(() => handlers.get('settings:load')!(event)).toThrow(/untrusted sender/)
     expect(impl).not.toHaveBeenCalled()
   })
@@ -231,7 +220,7 @@ describe('guardIpc', () => {
     guardIpc(ipcMain as unknown as Parameters<typeof guardIpc>[0]).on('app:ready', impl)
 
     initWindowSecurity(undefined, PROD_HTML)
-    const { event } = makeSender()
+    const { event } = prodSender()
     expect(() => listeners.get('app:ready')![0](event)).not.toThrow()
     expect(impl).not.toHaveBeenCalled()
   })
@@ -273,7 +262,7 @@ describe('hardenWindow', () => {
   it('denies every child window but hands a safe URL to the browser', () => {
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: true, openExternal })
+    hardenWindow(w.win, openExternal)
     expect(w.open('https://www.hybrasyl.com')).toEqual({ action: 'deny' })
     expect(openExternal).toHaveBeenCalledWith('https://www.hybrasyl.com')
   })
@@ -281,7 +270,7 @@ describe('hardenWindow', () => {
   it('denies a child window AND refuses to open a dangerous scheme', () => {
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: true, openExternal })
+    hardenWindow(w.win, openExternal)
     expect(w.open('file:///C:/Windows/System32/calc.exe')).toEqual({ action: 'deny' })
     expect(openExternal).not.toHaveBeenCalled()
   })
@@ -289,7 +278,7 @@ describe('hardenWindow', () => {
   it('never opens externally when allowExternal is false', () => {
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: false, openExternal })
+    hardenWindow(w.win)
     expect(w.open('https://www.hybrasyl.com')).toEqual({ action: 'deny' })
     expect(openExternal).not.toHaveBeenCalled()
   })
@@ -298,7 +287,7 @@ describe('hardenWindow', () => {
     initWindowSecurity(undefined, PROD_HTML)
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: true, openExternal })
+    hardenWindow(w.win, openExternal)
 
     const event = w.navigate('https://attacker.example/')
     expect(event.preventDefault).toHaveBeenCalled()
@@ -309,7 +298,7 @@ describe('hardenWindow', () => {
     initWindowSecurity(undefined, PROD_HTML)
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: true, openExternal })
+    hardenWindow(w.win, openExternal)
 
     const event = w.navigate('file:///C:/Windows/System32/calc.exe')
     expect(event.preventDefault).toHaveBeenCalled()
@@ -320,7 +309,7 @@ describe('hardenWindow', () => {
     initWindowSecurity(DEV_URL, PROD_HTML)
     const openExternal = vi.fn()
     const w = makeWindow()
-    hardenWindow(w.win, { allowExternal: true, openExternal })
+    hardenWindow(w.win, openExternal)
 
     const event = w.navigate(DEV_URL)
     expect(event.preventDefault).not.toHaveBeenCalled()

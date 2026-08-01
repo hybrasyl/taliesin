@@ -97,7 +97,9 @@ export function createSplashWindow(): SplashController {
   // fires only for renderer-initiated navigation, never for the loadFile below,
   // so this does not block the splash loading its own HTML -- which is
   // deliberately not a trusted location.
-  hardenWindow(splash, { allowExternal: false, openExternal: () => {} })
+  // No opener argument: the splash opens nothing, so there is no no-op function
+  // here whose only job is to satisfy a type.
+  hardenWindow(splash)
 
   // Mirrors the icon path convention in index.ts (`../../resources/...`).
   // resources/** is bundled + asarUnpacked, so this resolves in production too.
@@ -107,17 +109,18 @@ export function createSplashWindow(): SplashController {
 
   /** When the splash actually became visible, or null while it has not. */
   let shownAt: number | null = null
-  let fallbackTimer: NodeJS.Timeout | null = null
-  let selfDestructTimer: NodeJS.Timeout | null = null
-  let holdTimer: NodeJS.Timeout | null = null
+  /** Every pending timer. They are only ever cancelled together -- naming them
+   *  individually implied a selectivity that never existed. */
+  const timers: NodeJS.Timeout[] = []
   /** Held so `destroy()` on an abnormal path can still release the caller. */
   let pendingDone: (() => void) | null = null
 
+  function after(ms: number, fn: () => void): void {
+    timers.push(setTimeout(fn, ms))
+  }
+
   function clearTimers(): void {
-    if (fallbackTimer) clearTimeout(fallbackTimer)
-    if (selfDestructTimer) clearTimeout(selfDestructTimer)
-    if (holdTimer) clearTimeout(holdTimer)
-    fallbackTimer = selfDestructTimer = holdTimer = null
+    timers.splice(0).forEach(clearTimeout)
   }
 
   /** Idempotent, and safe on a destroyed window. Backstop 1. */
@@ -136,8 +139,8 @@ export function createSplashWindow(): SplashController {
   }
 
   splash.once('ready-to-show', show)
-  fallbackTimer = setTimeout(show, FALLBACK_SHOW_MS)
-  selfDestructTimer = setTimeout(teardown, SELF_DESTRUCT_MS)
+  after(FALLBACK_SHOW_MS, show)
+  after(SELF_DESTRUCT_MS, teardown)
   splash.once('closed', clearTimers)
 
   return {
@@ -151,9 +154,10 @@ export function createSplashWindow(): SplashController {
       // Backstop 4: show it first if it never got the chance, so the reveal
       // cannot destroy a splash the user never saw.
       show()
-      const elapsed = shownAt === null ? 0 : Date.now() - shownAt
-      const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed)
-      holdTimer = setTimeout(teardown, remaining)
+      // `show()` above guarantees shownAt is set: the window is not destroyed
+      // (checked at entry), so it either was already visible or just became so.
+      const elapsed = Date.now() - (shownAt ?? Date.now())
+      after(Math.max(0, MIN_VISIBLE_MS - elapsed), teardown)
     },
     destroy: teardown
   }

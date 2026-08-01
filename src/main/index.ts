@@ -92,24 +92,30 @@ function revealMainWindow(): void {
       mainWindow.focus()
     }
   }
-  const controller = splash
-  splash = null
-  if (controller) controller.dismiss(reveal)
+  // `mainWindowRevealed` above already makes this run-once, and `dismiss` guards
+  // its own re-entry, so there is no third guard to keep here.
+  if (splash) splash.dismiss(reveal)
   else reveal()
 }
 
+// WHERE THE RENDERER LIVES, derived once. Two things read these: the trusted
+// location set below, and createWindow's loader. They must agree, and the cost
+// of disagreeing is not a subtle bug -- the guard would reject the very window
+// it exists to allow, and the app would boot to a window in which every IPC
+// fails. Deriving once is what makes that impossible; a comment asking two
+// expressions to stay identical only asks nicely.
+//
+// `|| undefined` rather than `?? undefined`: an empty ELECTRON_RENDERER_URL must
+// fall through to the packaged path, not be trusted as an origin.
+// `is.dev` is `!app.isPackaged`, computed at import time, so module scope is
+// safe -- and it is the right scope, because registerHandlers below also runs
+// at module scope.
+const RENDERER_DEV_URL = (is.dev && process.env['ELECTRON_RENDERER_URL']) || undefined
+const RENDERER_INDEX_HTML = join(__dirname, '../renderer/index.html')
+
 // Record the renderer locations we trust, BEFORE any window loads. The IPC guard
-// fails closed against this list, so an empty or wrong list rejects every IPC --
-// the safe direction, but it makes this call load-bearing. The dev/prod
-// expression below MUST stay textually identical to createWindow's loader
-// branch; it sits here rather than 30 lines away so the two cannot drift apart
-// unnoticed. `is.dev` is `!app.isPackaged`, computed at import time, so module
-// scope is safe -- and it is the right scope, because registerHandlers below
-// also runs at module scope.
-initWindowSecurity(
-  is.dev && process.env['ELECTRON_RENDERER_URL'] ? process.env['ELECTRON_RENDERER_URL'] : undefined,
-  join(__dirname, '../renderer/index.html')
-)
+// fails closed against this list, so an empty or wrong list rejects every IPC.
+initWindowSecurity(RENDERER_DEV_URL, RENDERER_INDEX_HTML)
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -163,12 +169,14 @@ function createWindow(): void {
   // scheme registered on the machine, making it an OS-level open primitive
   // reachable from renderer content. Now: child windows denied, navigation away
   // from our own bundle denied, and only http/https/mailto handed to the OS.
-  hardenWindow(win, { allowExternal: true, openExternal: (url) => shell.openExternal(url) })
+  hardenWindow(win, (url) => shell.openExternal(url))
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  // Same two bindings initWindowSecurity was given, so the location we load and
+  // the location we trust cannot disagree.
+  if (RENDERER_DEV_URL) {
+    win.loadURL(RENDERER_DEV_URL)
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html')).catch((err) => {
+    win.loadFile(RENDERER_INDEX_HTML).catch((err) => {
       console.error('Failed to load file:', err)
     })
   }

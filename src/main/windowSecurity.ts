@@ -29,16 +29,20 @@ import type { BrowserWindow, IpcMain, IpcMainEvent, IpcMainInvokeEvent } from 'e
 import { pathToFileURL } from 'url'
 import { isSafeExternalUrl } from '../shared/externalUrl'
 
-/** A location we consider "our own content": origin + pathname, query and hash
- *  ignored, so a cache-busting or HMR query string still matches. */
-interface TrustedLocation {
-  origin: string
-  pathname: string
-}
+/**
+ * Locations we consider "our own content", each keyed as `origin + pathname` --
+ * query and hash deliberately excluded, so a cache-busting or HMR query string
+ * still matches.
+ *
+ * Set once at boot by `initWindowSecurity`. Empty until then, which fails
+ * closed: before init, nothing is trusted.
+ */
+let trustedLocations = new Set<string>()
 
-/** Set once at boot by `initWindowSecurity`. Empty until then, which fails
- *  closed: before init, nothing is trusted. */
-let trustedLocations: TrustedLocation[] = []
+/** The key form above. One place, so init and lookup cannot disagree. */
+function locationKey(url: URL): string {
+  return url.origin + url.pathname
+}
 
 /** webContents.id for windows we constructed. An IPC from a webContents absent
  *  from this set -- a rogue window, a devtools extension, anything unexpected --
@@ -51,11 +55,10 @@ const trustedWindows = new Set<number>()
  * `prodIndexHtml` is the absolute path to the built `renderer/index.html`.
  */
 export function initWindowSecurity(devUrl: string | undefined, prodIndexHtml: string): void {
-  const locations: TrustedLocation[] = []
+  const locations = new Set<string>()
   if (devUrl) {
     try {
-      const url = new URL(devUrl)
-      locations.push({ origin: url.origin, pathname: url.pathname })
+      locations.add(locationKey(new URL(devUrl)))
     } catch {
       /* malformed dev URL -- leave it out and fail closed */
     }
@@ -65,21 +68,18 @@ export function initWindowSecurity(devUrl: string | undefined, prodIndexHtml: st
   // form produces a different file URL. A trusted location that never matches
   // is a LOCKOUT -- every IPC rejected and the app dead on arrival -- not a
   // safety margin.
-  const prod = pathToFileURL(prodIndexHtml)
-  locations.push({ origin: prod.origin, pathname: prod.pathname })
+  locations.add(locationKey(pathToFileURL(prodIndexHtml)))
   trustedLocations = locations
 }
 
 /** True when `rawUrl` points at our own renderer content. Remote pages,
  *  `about:blank` and malformed URLs are all untrusted. */
 function isTrustedLocation(rawUrl: string): boolean {
-  let url: URL
   try {
-    url = new URL(rawUrl)
+    return trustedLocations.has(locationKey(new URL(rawUrl)))
   } catch {
-    return false
+    return false // unparseable -- untrusted, never repaired
   }
-  return trustedLocations.some((l) => l.origin === url.origin && l.pathname === url.pathname)
 }
 
 /**
@@ -99,27 +99,25 @@ export function registerTrustedWindow(win: BrowserWindow): void {
 /**
  * Deny top-level navigation and every child window.
  *
- * `allowExternal` is true only for the main window, where a link with
+ * `openExternal` is supplied only for the main window, where a link with
  * `target="_blank"` (About and Settings render four) is meant to reach the
- * user's browser. The splash passes false: it opens nothing.
+ * user's browser. Omit it -- as the splash does -- and the window opens nothing.
+ * One knob, so there is no "may open, but has no opener" state to reason about.
  *
  * `will-navigate` fires only for renderer-initiated navigation, never for a
  * main-process `loadFile`/`loadURL` -- so this does not block a window from
  * loading its own initial content, including the splash's deliberately
  * untrusted `resources/splash.html`.
  */
-export function hardenWindow(
-  win: BrowserWindow,
-  opts: { allowExternal: boolean; openExternal: (url: string) => void }
-): void {
+export function hardenWindow(win: BrowserWindow, openExternal?: (url: string) => void): void {
   win.webContents.setWindowOpenHandler((details) => {
-    if (opts.allowExternal && isSafeExternalUrl(details.url)) opts.openExternal(details.url)
+    if (openExternal && isSafeExternalUrl(details.url)) openExternal(details.url)
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (event, url) => {
     if (isTrustedLocation(url)) return // our own content -- e.g. a dev HMR full reload
     event.preventDefault()
-    if (opts.allowExternal && isSafeExternalUrl(url)) opts.openExternal(url)
+    if (openExternal && isSafeExternalUrl(url)) openExternal(url)
   })
 }
 
@@ -148,7 +146,9 @@ export function isSenderAllowed(event: IpcMainInvokeEvent | IpcMainEvent): boole
  * a handler registered on the raw `ipcMain` instead silently opts OUT.
  */
 export function guardIpc(ipcMain: IpcMain): IpcMain {
-  const wrappers = new WeakMap<(...args: never[]) => void, (...args: never[]) => void>()
+  // Keyed by `object` rather than a function type: functions are objects, so
+  // this typechecks with no casts at the set/get sites.
+  const wrappers = new WeakMap<object, (event: IpcMainEvent, ...args: unknown[]) => void>()
 
   return new Proxy(ipcMain, {
     get(target, prop, receiver) {
@@ -174,7 +174,7 @@ export function guardIpc(ipcMain: IpcMain): IpcMain {
             if (!isSenderAllowed(event)) return
             listener(event, ...args)
           }
-          wrappers.set(listener as never, wrapped as never)
+          wrappers.set(listener, wrapped)
           target.on(channel, wrapped)
           return receiver as IpcMain
         }
@@ -183,7 +183,7 @@ export function guardIpc(ipcMain: IpcMain): IpcMain {
       // removes nothing.
       if (prop === 'off' || prop === 'removeListener') {
         return (channel: string, listener: (...args: never[]) => void): IpcMain => {
-          const wrapped = wrappers.get(listener as never) ?? listener
+          const wrapped = wrappers.get(listener) ?? listener
           target.removeListener(channel, wrapped as (...args: unknown[]) => void)
           return receiver as IpcMain
         }
@@ -199,6 +199,6 @@ export function guardIpc(ipcMain: IpcMain): IpcMain {
 /** Test-only reset, so suites do not leak trusted windows or locations between
  *  cases. */
 export function __resetWindowSecurityForTests(): void {
-  trustedLocations = []
+  trustedLocations = new Set()
   trustedWindows.clear()
 }

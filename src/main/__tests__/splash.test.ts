@@ -86,10 +86,11 @@ describe('backstop 1 — ready-to-show is unreliable for transparent windows', (
 
   it('keeps the fallback SHORT, because a long one is what makes backstop 4 bite', () => {
     // At 500ms the splash only appears at 500ms, so a reveal shortly after is a
-    // sub-100ms flash that reads as no splash at all.
-    const { win } = makeSplash()
-    vi.advanceTimersByTime(200)
-    expect(win.isVisible()).toBe(true)
+    // sub-100ms flash that reads as no splash at all. Assert the CEILING, not a
+    // longer advance: advancing 200ms and asserting visible cannot fail unless
+    // the 150ms test above already has, so it would pin nothing. This fails if
+    // someone raises the constant, which is the regression worth catching.
+    expect(FALLBACK_SHOW_MS).toBeLessThanOrEqual(200)
   })
 
   it('show is idempotent — the fallback firing after ready-to-show is harmless', () => {
