@@ -23,6 +23,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-08-01
+
 ### Added
 
 - **The Archive Viewer picks the right palette by itself.** Opening a sprite, tile sheet or
