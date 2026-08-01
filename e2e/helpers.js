@@ -39,10 +39,13 @@ export async function launchApp({ seedSettings, localAppData: reuseDir } = {}) {
 // Find the real main window and wait until it's actually shown. The app pops a
 // splash window first, so `firstWindow()` can return the wrong one. The splash
 // has NO preload, so we identify the main window by the presence of a preload
-// bridge: `window.electron` (the @electron-toolkit bridge, exposed by every
-// sibling's preload) — bridge-name-independent, so this needs no per-app tweak.
-// `bridge` is an extra app-global to also accept (default 'api'); override it
-// only if your app both renames window.api AND drops the toolkit bridge.
+// bridge.
+//
+// The `window.electron` half of the probe is now dead for Taliesin: the
+// @electron-toolkit bridge was removed so the preload could run sandboxed, so
+// the live path here is the `window[bridge]` fallback, i.e. `window.api`. The
+// toolkit check is kept only because this helper is cribbed between siblings
+// that still expose it. Do not "simplify" it away without checking them.
 export async function getMainWindow(electronApp, { bridge = 'api' } = {}) {
   let page = null
   for (let i = 0; i < 120 && !page; i++) {

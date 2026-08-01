@@ -4,6 +4,27 @@ productName: Taliesin
 # from it. It lives in build/ (directories.buildResources), which is never
 # packaged -- in resources/ it would ship despite nothing reading it at run time.
 icon: build/icon.png
+# Turn off the escape hatches built into the shipped Electron binary. These land
+# on the PACKAGED binary only, so nothing in CI or the e2e suite exercises them
+# -- see SECURITY.md for the manual check. Native electron-builder config, never
+# an afterPack hook: mac.target below is a UNIVERSAL dmg, and a per-arch hook
+# corrupts the merge with an "identical SHAs" failure. See the document repo's
+# ecosystem-rollout-checklist.md R-006 part 4.
+electronFuses:
+  # ELECTRON_RUN_AS_NODE turns the app into a plain Node interpreter that will
+  # run whatever it is handed. Off, this variable becomes inert -- which also
+  # makes a failed launch honest rather than a silent exit 0.
+  runAsNode: false
+  enableNodeCliInspectArguments: false
+  enableNodeOptionsEnvironmentVariable: false
+  # Refuse to load app code from anywhere but the asar. Settled house-wide as
+  # compatible with an asarUnpack tree (epona, 2026-07-31), so `resources/**`
+  # below is unaffected.
+  onlyLoadAppFromAsar: true
+  # Flipping fuses rewrites the Electron Framework binary and invalidates its
+  # ad-hoc signature, which is mandatory on Apple Silicon; re-apply it before
+  # the real signing step in release.yml.
+  resetAdHocDarwinSignature: true
 directories:
   buildResources: build
 # An ALLOWLIST, not the scaffold's denylist. electron-builder includes the whole

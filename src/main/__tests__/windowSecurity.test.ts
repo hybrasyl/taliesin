@@ -93,9 +93,9 @@ describe('isSenderAllowed', () => {
     registerTrustedWindow({ webContents: contents } as unknown as HardenTarget)
     // Same URL, different frame object -- an iframe inheriting the preload.
     const subframe = { url: PROD_URL }
-    expect(
-      isSenderAllowed({ ...event, senderFrame: subframe } as unknown as SenderEvent)
-    ).toBe(false)
+    expect(isSenderAllowed({ ...event, senderFrame: subframe } as unknown as SenderEvent)).toBe(
+      false
+    )
   })
 
   it('rejects a null senderFrame', () => {
@@ -186,7 +186,10 @@ describe('guardIpc', () => {
           listeners.set(c, [...(listeners.get(c) ?? []), fn])
         },
         removeListener: (c: string, fn: (...args: unknown[]) => void) => {
-          listeners.set(c, (listeners.get(c) ?? []).filter((f) => f !== fn))
+          listeners.set(
+            c,
+            (listeners.get(c) ?? []).filter((f) => f !== fn)
+          )
         },
         removeHandler: (c: string) => handlers.delete(c),
         eventNames: () => [...handlers.keys()]

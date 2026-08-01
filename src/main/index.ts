@@ -5,15 +5,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { loadPacks } from './assetPacks'
-import { createSplashWindow } from './splash'
+import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
 import { installGlobalErrorHandlers } from './report/errorHandlers'
-import {
-  initWindowSecurity,
-  registerTrustedWindow,
-  hardenWindow,
-  guardIpc
-} from './windowSecurity'
+import { initWindowSecurity, registerTrustedWindow, hardenWindow, guardIpc } from './windowSecurity'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -80,18 +75,27 @@ settingsManager.load().then((s) => {
 // `app:ready` (settings hydrated) — see revealMainWindow() and the whenReady
 // block below. A safety timeout backstops a renderer that never signals.
 let mainWindow: BrowserWindow | null = null
-let splashWindow: BrowserWindow | null = null
+let splash: SplashController | null = null
 let mainWindowRevealed = false
 
+// The splash owns the swap, not this function: `dismiss` shows the splash if it
+// never got the chance, holds it for the remainder of a minimum-visible floor,
+// then destroys it and calls back here. Revealing from the callback means the
+// always-on-top splash is gone before the main window appears, rather than
+// hovering over a live window.
 function revealMainWindow(): void {
   if (mainWindowRevealed) return
   mainWindowRevealed = true
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.show()
-    mainWindow.focus()
+  const reveal = (): void => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
   }
-  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.destroy()
-  splashWindow = null
+  const controller = splash
+  splash = null
+  if (controller) controller.dismiss(reveal)
+  else reveal()
 }
 
 // Record the renderer locations we trust, BEFORE any window loads. The IPC guard
@@ -137,6 +141,11 @@ function createWindow(): void {
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
+    // Backstop 3: the main window can die before the reveal. Without this the
+    // splash is alwaysOnTop + skipTaskbar, so it strands as a floating window
+    // the user cannot focus, close, or find in the taskbar.
+    splash?.destroy()
+    splash = null
   })
 
   win.on('maximize', () => {
@@ -182,7 +191,7 @@ app.whenReady().then(() => {
 
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
-  splashWindow = createSplashWindow()
+  splash = createSplashWindow()
   createWindow()
 
   // Safety backstop: if the renderer errors before signalling `app:ready`, force
@@ -192,7 +201,7 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindowRevealed = false
-      splashWindow = createSplashWindow()
+      splash = createSplashWindow()
       createWindow()
       setTimeout(revealMainWindow, 15000)
     }
