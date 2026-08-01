@@ -46,9 +46,9 @@ Per settled decision 4, palette resolution rules live in dalib-ts and are specif
 
 **Trigger:** it fails a run that matters, or someone is in that file anyway. `packImport — basics > extracts a compiled .datf into a fresh project + asset files` intermittently exceeds vitest's 5 s default. Observed 2026-08-01 at 5429 ms in a full `test:coverage` run; the same test passes in **684 ms** when run alone (`npx vitest run --project node src/main/__tests__/packImport.test.ts`). It builds real `.datf` bytes through `archiver` and reads them back through `unzipper`, so it is genuinely the slowest node test and loses to contention rather than to a defect. The fix is a per-test timeout, not a global one.
 
-### `lint:check --max-warnings 0`
+### `loadFiles` should be a `useCallback` in the two file-list pages
 
-**Trigger:** none — this is scheduled work, not a deferral, and it is listed here only so it is not lost. The house standard (`electron-app-skeleton.md` §3) requires the flag; Taliesin's `lint:check` is bare `eslint .` and the repo carries 15 warnings, mostly `react-hooks/exhaustive-deps` in the map and world-map canvases. Each needs auditing individually — several are deliberate and want a justified `eslint-disable` rather than a dependency added.
+**Trigger:** the next substantial change to either page's loading path. `MapEditorPage.tsx` and `WorldMapPage.tsx` both call a body-declared `loadFiles()` from an effect keyed on `activeLibrary`. Listing `loadFiles` as a dependency would re-scan the library filesystem on **every render**, so both carry a justified `eslint-disable` instead. Satisfying the rule honestly means wrapping `loadFiles` in `useCallback` with its own dependency set, which reaches into how each page tracks selection and editing state — worth doing, not worth doing blind. `MapCatalogEditor.tsx` carries a third disable that is **not** this: reading `entry.width`/`entry.height` without depending on them is correct there, because the picker writes those values back and the effect would re-read the file.
 
 ---
 

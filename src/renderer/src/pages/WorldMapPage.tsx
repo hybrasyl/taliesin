@@ -289,6 +289,10 @@ export default function WorldMapPage() {
       return
     }
     loadFiles()
+    // Same as MapEditorPage: `loadFiles` is a fresh function each render, so
+    // listing it would re-scan the filesystem every render. See
+    // docs/plans/00a-backlog.md.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLibrary])
 
   // Both lists arrive from one listSection call, so revealing templates is

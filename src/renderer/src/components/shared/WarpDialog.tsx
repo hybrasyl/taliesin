@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Autocomplete,
   Box,
@@ -94,7 +94,9 @@ export default function WarpDialog({
   const clientPath = useSettingsStore((s) => s.clientPath)
   const mapDirectory = useMapFilesDirectory()
   const { index } = useWorldIndex()
-  const mapDetails = index?.mapDetails ?? []
+  // Memoised because the `?? []` fallback is a fresh array on every render,
+  // which would re-run the effect below on every render while no index is loaded.
+  const mapDetails = useMemo(() => index?.mapDetails ?? [], [index])
 
   const effectiveDefault = lockType ?? initial?.targetType ?? defaultType ?? 'map'
 

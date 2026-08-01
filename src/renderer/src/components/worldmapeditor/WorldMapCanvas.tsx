@@ -229,7 +229,10 @@ export default function WorldMapCanvas({
       ctx.textBaseline = 'middle'
       ctx.fillText(fieldName || '(no field selected)', s.cw / 2, s.ch / 2)
     }
-  }, [renderTick, loading])
+    // fieldName only reaches the placeholder text above, and a change to it
+    // already bumps renderTick through the loader effect -- so this is a
+    // correctness nicety (no stale label for a frame), not a behaviour change.
+  }, [renderTick, loading, fieldName])
 
   // ── Overlay draw — points + hover ───────────────────────────────────────────
 
