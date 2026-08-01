@@ -66,10 +66,10 @@ describe('buildSpecMarkdown', () => {
   })
 
   it('picks a type-appropriate binding snippet', () => {
-    expect(buildSpecMarkdown({ ...base, type: 'bool' })).toContain('bind-visible="player.ext.critdmg"')
-    expect(buildSpecMarkdown({ ...base, type: 'sprite' })).toContain(
-      'bind="player.ext.critdmg"'
+    expect(buildSpecMarkdown({ ...base, type: 'bool' })).toContain(
+      'bind-visible="player.ext.critdmg"'
     )
+    expect(buildSpecMarkdown({ ...base, type: 'sprite' })).toContain('bind="player.ext.critdmg"')
     expect(buildSpecMarkdown({ ...base, type: 'float' })).toContain('format="{value:0.0}"')
   })
 })

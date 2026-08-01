@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,9 +17,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Fast validation gate — runs on every PR to main (and before any release
-  # build). Keeps typecheck / lint / tests green so they can't silently rot
-  # (these are not otherwise enforced anywhere).
+  # Re-runs the PR gate on the tag itself, so a release can never be cut from a
+  # commit that does not pass. ci.yml is the same gate on every PR and every
+  # push to main; this one exists because a tag is neither.
   validate:
     runs-on: ubuntu-latest
 
@@ -46,7 +44,6 @@ jobs:
   build-windows:
     runs-on: windows-latest
     needs: validate
-    if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v7
@@ -94,7 +91,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     needs: validate
-    if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v7
@@ -124,7 +120,6 @@ jobs:
   build-mac:
     runs-on: macos-latest
     needs: validate
-    if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v7

@@ -1,0 +1,55 @@
+name: CI
+
+# Split out of release.yml, which carried the only gate this repo had. Two
+# reasons it belongs in its own file: release.yml fires on a `v*` tag, so its
+# PR trigger was doing unrelated work in a workflow named "Release", and a
+# tag-triggered run cannot usefully cancel in-flight while a CI run can.
+on:
+  pull_request:
+  # Gate every route into main, not just PRs. A PR-only gate is a gate with a
+  # documented bypass -- a direct push to main was previously unchecked until
+  # the next release tag.
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push cancels the in-flight run for the same branch/PR. Safe here and
+  # wasteful nowhere -- unlike release.yml, a cancelled check loses nothing.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # No native addon, so ubuntu is fine and finishes faster than windows.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # --max-warnings 0 lives in the script, not here, so `npm run lint:check`
+      # means the same thing locally and in CI.
+      - name: Lint
+        run: npm run lint:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test + coverage gate
+        run: npm run test:coverage
+
+      # Production dependencies only, high and above. Both narrowings are
+      # load-bearing: eslint and electron-builder do not ship, so an advisory in
+      # one is something to schedule rather than something that should red an
+      # unrelated PR. A gate that cries wolf gets deleted, and then there is no
+      # gate. The dev tree is handled by hand -- see SECURITY.md.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
