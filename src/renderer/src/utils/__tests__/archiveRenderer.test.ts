@@ -34,15 +34,15 @@ describe('classifyEntry', () => {
     ['npc01.pcx', 'pcx'],
     // Darkness layer
     ['mileth.hea', 'darkness'],
-    // Font
+    // Fonts — dormant fixed-cell .fnt, and the .lft the client actually renders with
     ['legend.fnt', 'font'],
+    ['da.lft', 'lft'],
     // BIK video
     ['intro.bik', 'bik'],
     // JPF (JPEG with 4-byte JPF\0 prefix)
     ['logo.jpf', 'jpf'],
     // Hex fallback for anything else
     ['data.bin', 'hex'],
-    ['unknown.lft', 'hex'],
     ['weird.fak', 'hex']
   ]
 

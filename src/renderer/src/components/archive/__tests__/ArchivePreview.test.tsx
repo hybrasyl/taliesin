@@ -46,6 +46,19 @@ vi.mock('@eriscorp/dalib-ts', () => {
       }
     },
     ColorTable: FakeColorTable,
+    // LFT symbols reached through LftPreview and its two children. No test here
+    // renders the font browser — components/archive/__tests__/LftPreview.test.tsx
+    // covers it against a synthetic LftFile — so these only satisfy the import.
+    LftFile: class {
+      static fromBuffer() {
+        return { nominalWidth: 0, nominalHeight: 0, glyphs: [], getGlyph: () => undefined }
+      }
+    },
+    lftGlyphKeys: () => [],
+    measureLftText: () => ({ advanceWidth: 0, ink: { left: 0, top: 0, right: 0, bottom: 0 } }),
+    renderLftText: () => ({ width: 0, height: 0, data: new Uint8ClampedArray() }),
+    lftGlyphWidth: () => 0,
+    lftGlyphHeight: () => 0,
     // Table classes reached through TblPreview → utils/tblTables. No test here
     // renders a typed table (utils/__tests__/tblTables.test.ts covers the
     // reading against the real classes), so these only satisfy the import.

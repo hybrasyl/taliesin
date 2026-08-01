@@ -34,7 +34,7 @@ Taliesin has no Tier-1 design doc of its own; it predates the tier system. The n
 
 ## Milestone — palette resolution, LFT fonts, SOTP adoption, ambient packs
 
-**Baseline 2.8.0. Scope agreed 2026-07-28. Four of seven WPs shipped.**
+**Baseline 2.8.0. Scope agreed 2026-07-28. Five of seven WPs shipped.**
 
 Taliesin used to show a legacy sprite in the wrong colours until the user guessed a palette, show the client's real font as a hex dump, and ship an editor for a font format the client stopped calling. This milestone makes the Archive Viewer tell the truth about what is in a `.dat`, and retires the part that lies. Five of the seven WPs are read/decode work on legacy client formats; one adds a pack kind.
 
@@ -42,25 +42,25 @@ Taliesin used to show a legacy sprite in the wrong colours until the user guesse
 
 The milestone was written against dalib-ts 2.2.0 and gated three WPs on a release. **That gate is gone** — Taliesin is on `^3.1.0`, so nothing in the milestone is blocked on a dependency.
 
-| Needs | Ships in | State |
-| --- | --- | --- |
-| `LftFile` + `renderLftText`/`measureLftText`/`drawLftGlyph`/`lftGlyphKeys` | 3.0.0 | installed |
-| `SotpFile`, `Tile`, the `renderTile` ground fix, `renderPalettized` `colorKey` | 3.0.0 | installed |
-| `PaletteResolver`, `matchPaletteRule`, `PaletteLookup.getResolvedPaletteForId` | 3.1.0 | installed |
+| Needs                                                                          | Ships in | State     |
+| ------------------------------------------------------------------------------ | -------- | --------- |
+| `LftFile` + `renderLftText`/`measureLftText`/`drawLftGlyph`/`lftGlyphKeys`     | 3.0.0    | installed |
+| `SotpFile`, `Tile`, the `renderTile` ground fix, `renderPalettized` `colorKey` | 3.0.0    | installed |
+| `PaletteResolver`, `matchPaletteRule`, `PaletteLookup.getResolvedPaletteForId` | 3.1.0    | installed |
 
 ### Work packages
 
-| WP | Title | Size | Depends on | State |
-| --- | --- | --- | --- | --- |
-| WP0 | [Bump dalib-ts 2.2.0 → 3.0.0](complete/00-dalib-ts-3-bump.md) | S–M | — | ✅ shipped |
-| WP1 | [Auto-resolve palettes in the Archive Viewer](complete/01-palette-auto-resolution.md) | S | WP0 | ✅ shipped 2026-07-31 |
-| WP2 | [LFT glyph browser](02-lft-glyph-browser.md) | M | WP0 | planned |
-| WP3 | [Remove the FNT editor](complete/03-remove-fnt-editor.md) | S | — | ✅ shipped (PR #25) |
-| WP4 | [Typed `.tbl` views](complete/04-typed-tbl-views.md) | S | — | ✅ shipped |
-| WP5 | [Adopt dalib `SotpFile` + `renderTile`](05-sotp-tile-adoption.md) | M | WP0 | planned |
-| WP6 | [`ambient_sounds` pack kind](06-ambient-sounds-pack-kind.md) | S | — | planned |
+| WP  | Title                                                                                 | Size | Depends on | State                 |
+| --- | ------------------------------------------------------------------------------------- | ---- | ---------- | --------------------- |
+| WP0 | [Bump dalib-ts 2.2.0 → 3.0.0](complete/00-dalib-ts-3-bump.md)                         | S–M  | —          | ✅ shipped            |
+| WP1 | [Auto-resolve palettes in the Archive Viewer](complete/01-palette-auto-resolution.md) | S    | WP0        | ✅ shipped 2026-07-31 |
+| WP2 | [LFT glyph browser](complete/02-lft-glyph-browser.md)                                 | M    | WP0        | ✅ shipped            |
+| WP3 | [Remove the FNT editor](complete/03-remove-fnt-editor.md)                             | S    | —          | ✅ shipped (PR #25)   |
+| WP4 | [Typed `.tbl` views](complete/04-typed-tbl-views.md)                                  | S    | —          | ✅ shipped            |
+| WP5 | [Adopt dalib `SotpFile` + `renderTile`](05-sotp-tile-adoption.md)                     | M    | WP0        | planned               |
+| WP6 | [`ambient_sounds` pack kind](06-ambient-sounds-pack-kind.md)                          | S    | —          | planned               |
 
-WP2, WP4, WP5 and WP6 are mutually independent and can land in any order.
+WP5 and WP6 are independent of each other and can land in either order. WP2 and WP4 shipped together, ahead of them, on 2026-08-01.
 
 ### What the build learned that the plan could not have
 
@@ -68,7 +68,8 @@ WP2, WP4, WP5 and WP6 are mutually independent and can land in any order.
 - **The ground-tile appearance change belongs to WP0, not WP5.** The `renderTile` diamond/index-0 fix ships in dalib-ts 3.0.0, so ground tiles changed on the bump, whether or not `mapRenderer.ts` was touched. WP5 Part B is therefore pure deduplication, not a visual change.
 - **WP0 found a live defect it deliberately did not fix.** `stcani.tbl` is being merged into the wall palette table by `PaletteTable.fromArchive('stc', …)`, silently overriding `stcpal.tbl` for animated walls. Fixing it changes map rendering, which would have contaminated WP0's verification. WP5 owns `mapRenderer.ts` and owns the fix.
 - **The archive-preview dev-only OOM was fixed app-wide, not just in the Archive page.** The milestone listed it as a rider on WP1 and WP2. It shipped 2026-07-29 as two independent layers — see `complete/archive-preview-dev-oom.md`.
-- **"Try each parser in turn" cannot identify a `.tbl`, and WP4 found a fourth format.** Three of the table formats are whitespace-separated integers, so the same line parses cleanly as all three; identification has to lead with the entry name and fall back to line shape, naming the rule it used. WP4 also added a **palette cycling** view its own file map did not list. The dye-table check had to move *after* the typed reader, not before it — see `complete/04-typed-tbl-views.md`.
+- **"Keep the `LftFile` out of props" needed a mechanism, not just a rule.** WP2's grid and inspector are separate files and both need the font, so a prop is the ordinary way to pass it. A context (`lftFontContext.ts`) carries it instead and the children take only primitives — the same shape `archiveStore.ts` uses for the `DataArchive`, for the same reason. Filtering to populated glyphs first also made virtualisation unnecessary: a few hundred glyphs page cleanly at 256 a time.
+- **"Try each parser in turn" cannot identify a `.tbl`, and WP4 found a fourth format.** Three of the table formats are whitespace-separated integers, so the same line parses cleanly as all three; identification has to lead with the entry name and fall back to line shape, naming the rule it used. WP4 also added a **palette cycling** view its own file map did not list. The dye-table check had to move _after_ the typed reader, not before it — see `complete/04-typed-tbl-views.md`.
 - **`PaletteTable` has the same unbounded-allocation hazard `ColorTable` has.** `parseText` expands a `min max palette` line into one map entry per id with no cap, so `1 999999999 5` exhausts the heap. WP4 guards it the same way, by counting the expansion before the parser sees the bytes.
 
 ### Milestone verification
