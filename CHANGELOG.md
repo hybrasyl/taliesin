@@ -32,6 +32,13 @@ record; where they disagree with this file, the git history was taken as authori
   used, so a wrong guess is reportable. Tile sheets resolve **per tile**, which a single palette
   never could. Entries with no matching rule say so instead of showing something plausible and
   wrong.
+- **The client's real font is browsable.** `.lft` entries — `da.lft` and `lod.lft`, both inside
+  `national.dat` — used to show as a hex dump, which is the one thing a font is not. They now open
+  as a font: a header summary, every glyph that actually carries a bitmap, and any one glyph's
+  pixels and metrics on demand. There is also a box where you type a string and see it drawn in the
+  client's own font at its real spacing, which is what tells you whether a label will fit. Glyphs
+  are labelled by key, never by character name: a key is a raw byte value, and what it means depends
+  on the code page the client had selected. Reading only — Taliesin does not write `.lft`.
 - **What's new.** Settings → About has a **What's new?** button that shows the release notes for
   the version you are running. The notes ship inside the app, so the dialog needs no network and
   always matches the build you have rather than whatever is newest.

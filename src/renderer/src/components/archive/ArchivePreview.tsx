@@ -47,6 +47,7 @@ import {
 import { formatBytes } from '../../utils/format'
 import { useAudioPreview } from '../../hooks/useAudioPreview'
 import { useArchiveEntry, useArchiveStore } from '../../store/archiveStore'
+import LftPreview from './LftPreview'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -1407,6 +1408,7 @@ const ArchivePreview: React.FC<Props> = ({ entryIndex }) => {
       {type === 'pcx' && <PcxPreview entry={entry} archive={archive} />}
       {type === 'darkness' && <DarknessPreview entry={entry} archive={archive} />}
       {type === 'font' && <FontPreview entry={entry} archive={archive} />}
+      {type === 'lft' && <LftPreview entry={entry} archive={archive} />}
       {type === 'bik' && <BikPreview entry={entry} archive={archive} />}
       {type === 'jpf' && <JpfPreview entry={entry} archive={archive} />}
       {type === 'hex' && <HexPreview entry={entry} archive={archive} />}

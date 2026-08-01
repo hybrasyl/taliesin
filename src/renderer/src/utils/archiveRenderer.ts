@@ -245,6 +245,7 @@ export type PreviewType =
   | 'pcx'
   | 'darkness'
   | 'font'
+  | 'lft'
   | 'bik'
   | 'jpf'
   | 'hex'
@@ -278,6 +279,8 @@ export function classifyEntry(entry: DataArchiveEntry): PreviewType {
       return 'darkness'
     case '.fnt':
       return 'font'
+    case '.lft':
+      return 'lft'
     case '.bik':
       return 'bik'
     case '.jpf':
