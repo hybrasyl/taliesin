@@ -78,7 +78,7 @@ record; where they disagree with this file, the git history was taken as authori
   row per byte. That profiler is now off by default when running from source (set
   `VITE_REACT_PERF_TRACK=1` to turn it back on), and the Archive page keeps its archive out of
   reach of it regardless. **Packaged builds were never affected.**
-- **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.0.0).
+- **Legacy asset decoding is more faithful across the board** (`@eriscorp/dalib-ts` 2.2.0 → 3.1.0).
   Tileset previews no longer punch holes where a tile uses palette index 0, and no longer show
   stray padding bytes as garbage outside the isometric diamond. SPF sprite previews honour each
   frame's placement and row pitch instead of ignoring them. The darkness overlay masks its run
