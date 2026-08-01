@@ -19,9 +19,10 @@ describe('classifyEntry', () => {
     ['mpt001.pal', 'palette'],
     // Text
     ['readme.txt', 'text'],
-    ['palette.tbl', 'text'],
     ['debug.log', 'text'],
     ['credits.nfo', 'text'],
+    // Tables — typed views, falling back to text when unidentified
+    ['palette.tbl', 'tbl'],
     // Audio
     ['theme.mp3', 'audio'],
     ['ambient.wav', 'audio'],
