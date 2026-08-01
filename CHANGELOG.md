@@ -50,8 +50,28 @@ record; where they disagree with this file, the git history was taken as authori
   entries is unaffected — the Archive Viewer still previews them, so legacy fonts inside `.dat`
   archives remain inspectable.
 
+### Security
+
+- **Links can only open a browser.** Taliesin previously handed any URL a page asked to open
+  straight to the operating system. That is more than a browser handoff — Windows will act on
+  `file:`, on a network share, and on whatever else has registered a handler on the machine.
+  Only `http`, `https` and `mailto` are now passed on; anything else is refused rather than
+  guessed at. The links in About and Settings are unaffected.
+- **The window can no longer be navigated away from the app.** Any attempt to load a page that
+  is not Taliesin's own is refused, and a safe address is handed to your browser instead of
+  being silently dropped. No page can open a second window.
+- **The app checks where its own internal messages come from.** Every request the interface makes
+  of the file system is now accepted only from Taliesin's real window. This closes a gap rather
+  than fixing an observed problem — there is no known way it was reachable.
+- **The interface runs in a sandbox,** and the shipped build no longer honours the developer
+  switches that let an Electron program be used as a general-purpose script runner.
+
 ### Fixed
 
+- **The splash screen behaves on every boot.** It could fail to appear at all, appear for a
+  fraction of a second, or — if startup failed — be left floating on top of everything with no
+  way to close it, since it has no taskbar entry. It now always appears, always stays up long
+  enough to read, and always goes away.
 - **The dev build no longer freezes on large Dark Ages files.** Switching archives, editing a map,
   or opening the Static Tile Manager could stall the window or exhaust its memory. React's
   development-only render profiler was inspecting the game binaries held in component state, one
