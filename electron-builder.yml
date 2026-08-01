@@ -73,6 +73,12 @@ portable:
   splashImage: build/portable-splash.bmp
 mac:
   category: public.app-category.developer-tools
+  # macOS gets its OWN artwork, not the shared `icon` above. Its icon is a
+  # full-bleed rounded square and the OS does not mask it, so the corners have to
+  # be transparent in the file itself. Generated from the document repo's
+  # mac-specific master by `node scripts/make-mac-icon.mjs`, which also
+  # reconstructs the alpha channel that master is exported without -- see that
+  # script's header. build/icon-mac.png beside this is the 1024px RGBA result.
   icon: build/icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
