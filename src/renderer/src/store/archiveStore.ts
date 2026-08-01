@@ -29,7 +29,7 @@ import {
  *
  * Production is unaffected — the instrumentation is compiled out — so this is
  * purely about `npm run dev` being usable. See
- * `docs/plans/archive-preview-dev-oom.md`.
+ * `docs/plans/complete/archive-preview-dev-oom.md`.
  */
 interface ArchiveState {
   archive: DataArchive | null

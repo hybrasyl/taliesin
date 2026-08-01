@@ -1,0 +1,62 @@
+# Backlog — the deferral register
+
+Not a work package, and it never becomes one. This file accrues for the life of the project. Read `00-overview.md` first.
+
+Three kinds of entry: work **owed to another repo** (real, but not this repo's code), work **parked behind a named trigger**, and **non-goals with no trigger** (recorded so they are not re-proposed as cleanups).
+
+**Owed is not parked.** An item is owed — and belongs in a milestone section of `00-overview.md`, not here — if it was promised to a date or specified by a shipped WP and never built. Everything else is parked.
+
+---
+
+## Owed to another repo
+
+### Folder picker on save → Creidhne
+
+Taliesin's map XML and world map editors do recursive `listSection` enumeration, folder-grouped file lists and subfolder-preserving rename/archive — matching Creidhne's `feat/recursive-subdirectory-support` — **plus** a destination folder picker on save, which Creidhne deliberately left out. The Taliesin side is shipped; the handoff for grafting the last part onto Creidhne's 14 editor pages is `complete/folder-picker-on-save.md`. Three small pieces: `folderOptions(files)`, `normalizeFolder(input)` and the `FolderSelect` component. **This can never be a Taliesin WP** — the code lives in Creidhne.
+
+### Server-side SOTP overlay → hybrasyl-server
+
+The SOTP overlay, bounds-check and native tile attributes on the server side. Named as out of scope by [WP5](05-sotp-tile-adoption.md); it is `hybrasyl-server`'s code.
+
+### Palette rule corrections → dalib-ts and the document repo
+
+Per settled decision 4, palette resolution rules live in dalib-ts and are specified by the document repo's `docs/architecture/palette-resolution.md`. A rule that fires wrongly is a dalib-ts fix plus a spec correction, never a Taliesin patch.
+
+---
+
+## Parked behind a named trigger
+
+### Custom-SOTP authoring UI and the Brigid client consumer
+
+**Trigger:** [WP5](05-sotp-tile-adoption.md) lands and its Part C seam exists. WP5 records where the layer plugs in — the `static_tiles` covers schema, a `packResolveSotp` IPC method, and the merge point in `loadMapAssets` — and stops there. Deliberately unnumbered: it is a feature on top of the foundation, and its shape depends on what WP5 finds.
+
+### Ambient interval scheduling
+
+**Trigger:** the document repo's `docs/plans/hybrasyl.client/ambient-audio-pipeline.md` promotes it past §4. [WP6](06-ambient-sounds-pack-kind.md) ships the `Loop` flag only, but shapes the `covers` blob so `{ "mode": "interval", "play": 180, "silence": 120 }` needs no schema bump.
+
+### The remaining `.datf` pack kinds
+
+**Trigger:** the release after the current milestone. `effects`, `projectiles`, `display_sprites`, `aisling_body`, `bundle`, `fonts`, `cutscenes` and `skeletal_animations` are scoped in the document repo with no Taliesin kind yet. They are candidates, not scope creep for the current milestone.
+
+### 2× static tiles
+
+**Trigger:** the Brigid client's virtual-resolution rebase. Recorded in `complete/static-tile-manager.md`; the Static Tile Manager shipped at 1×.
+
+### `packImport.test.ts` flakes under full-suite load
+
+**Trigger:** it fails a run that matters, or someone is in that file anyway. `packImport — basics > extracts a compiled .datf into a fresh project + asset files` intermittently exceeds vitest's 5 s default. Observed 2026-08-01 at 5429 ms in a full `test:coverage` run; the same test passes in **684 ms** when run alone (`npx vitest run --project node src/main/__tests__/packImport.test.ts`). It builds real `.datf` bytes through `archiver` and reads them back through `unzipper`, so it is genuinely the slowest node test and loses to contention rather than to a defect. The fix is a per-test timeout, not a global one.
+
+### `lint:check --max-warnings 0`
+
+**Trigger:** none — this is scheduled work, not a deferral, and it is listed here only so it is not lost. The house standard (`electron-app-skeleton.md` §3) requires the flag; Taliesin's `lint:check` is bare `eslint .` and the repo carries 15 warnings, mostly `react-hooks/exhaustive-deps` in the map and world-map canvases. Each needs auditing individually — several are deliberate and want a justified `eslint-disable` rather than a dependency added.
+
+---
+
+## Non-goals with no trigger
+
+- **No LFT writing.** The 7.41 client contains no confirmed LFT writer (`lft.md:159`). If one is ever wanted, the bar is: preserve all 65,535 records, recalculate every offset, keep the 4-byte row alignment, and round-trip every mask before calling it compatible.
+- **No palette rule layer in Taliesin.** See _Owed_ above; this is the flip side of the same decision.
+- **No legacy binary editing.** Taliesin reads legacy archives and authors `.datf`. Writing back into `.dat`/`.pak` was dropped as a goal.
+- **No `tile_collision` content type.** Superseded by settled decision 5 — custom SOTP travels inside the `static_tiles` pack. Its design doc was deleted in `12c91b8`.
+- **No `dependabot.yml`.** A house-wide decision (`electron-app-skeleton.md` §7), not an oversight. It was tried and produced noise rather than signal; dependency and action bumps are done by hand when a deprecation or advisory surfaces one.
+- **No PR or issue templates.** A house-wide decision (Sabrael, 2026-07-31). Templates are overhead for a repo with one maintainer and an internal audience, and the in-app Report Issue module already builds a structured, scrubbed report.

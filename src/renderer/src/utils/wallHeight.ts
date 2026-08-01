@@ -5,7 +5,7 @@ import type { MapAssets } from './mapRenderer'
 //
 // When a minted wall REPLACES a legacy wall id, its PNG height must match the
 // legacy HPF's decoded pixel height (too tall floats above the floor, too short
-// leaves a gap — see docs/plans/static-tile-manager.md). The raw-size formula
+// leaves a gap — see docs/plans/complete/static-tile-manager.md). The raw-size formula
 // (fileSize−8)/28 is only valid for uncompressed HPFs and returns 0 for the
 // common compressed case, so we must DECODE the entry and read its pixelHeight —
 // exactly the path mapRenderer.getStcBitmap already uses to render walls.

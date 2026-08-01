@@ -53,7 +53,7 @@
  * A no-op. The instrumentation only exists in React's development build, and
  * `import.meta.env.DEV` is false in a packaged app, so this never runs there.
  *
- * See `docs/plans/archive-preview-dev-oom.md`.
+ * See `docs/plans/complete/archive-preview-dev-oom.md`.
  */
 
 // `lib.dom` types `timeStamp` as required, so narrow through a local view of the

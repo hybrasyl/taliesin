@@ -1,6 +1,6 @@
 // ── Wall (foreground) tile-ID allocation for minted static_tiles ──────────────
 //
-// Constraints (see docs/plans/static-tile-manager.md — "authoritative DA tile
+// Constraints (see docs/plans/complete/static-tile-manager.md — "authoritative DA tile
 // geometry" and "Server-side constraints"):
 //
 //  - Client render filter (Brigid IsRenderedTileIndex):

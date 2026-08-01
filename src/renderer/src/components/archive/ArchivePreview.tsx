@@ -57,7 +57,7 @@ import { useArchiveEntry, useArchiveStore } from '../../store/archiveStore'
  * walks any prop whose identity changed, enumerating own keys with `for...in`.
  * A `DataArchive` prop reaches the raw `.dat` buffer, whose byte indices are own
  * enumerable properties, and the walk emits one row per byte. See
- * archiveStore.ts and `docs/plans/archive-preview-dev-oom.md`.
+ * archiveStore.ts and `docs/plans/complete/archive-preview-dev-oom.md`.
  *
  * Inside this file the sub-components still take `entry`/`archive` objects, and
  * that is safe for a specific reason: **this subtree unmounts whenever the open

@@ -7,7 +7,7 @@ import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W, ISO_VTILE_STEP } fr
 // plain PixelBuffer ({ data, width, height }) so it is trivially unit-testable
 // and reusable by both the live preview and the commit path.
 //
-// Geometry is the DA ground/wall ground-truth (see docs/plans/static-tile-manager.md
+// Geometry is the DA ground/wall ground-truth (see docs/plans/complete/static-tile-manager.md
 // "Background: authoritative DA tile geometry") and is taken from mapRenderer.ts as
 // the single source of truth:
 //   - Floor  : 56 × 27 diamond, FULLY OPAQUE, filename floor{id:D5}.png.

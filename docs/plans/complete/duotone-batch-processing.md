@@ -4,7 +4,7 @@
 
 Audit of `docs/taliesin_duotone_scope.md` against the codebase shows Phases 1, 2, and 4 are shipped; only Phase 3 (batch processing) remains. Goal: complete the duotone pipeline so the success criteria in §11 of the scope doc can be met (20–30 form-swap icons × 17 elements processed in under an hour).
 
-This plan supersedes the §3 work in the original scope doc, which has been archived to `docs/completed/`.
+This plan supersedes the §3 work in the original scope doc, which has been archived to `docs/plans/complete/`.
 
 ## Status by Phase
 
