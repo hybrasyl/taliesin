@@ -240,6 +240,7 @@ export type PreviewType =
   | 'sprite'
   | 'palette'
   | 'text'
+  | 'tbl'
   | 'audio'
   | 'tileset'
   | 'pcx'
@@ -262,10 +263,11 @@ export function classifyEntry(entry: DataArchiveEntry): PreviewType {
     case '.pal':
       return 'palette'
     case '.txt':
-    case '.tbl':
     case '.log':
     case '.nfo':
       return 'text'
+    case '.tbl':
+      return 'tbl'
     case '.mp3':
     case '.wav':
     case '.ogg':

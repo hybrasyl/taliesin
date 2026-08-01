@@ -59,6 +59,24 @@ vi.mock('@eriscorp/dalib-ts', () => {
     renderLftText: () => ({ width: 0, height: 0, data: new Uint8ClampedArray() }),
     lftGlyphWidth: () => 0,
     lftGlyphHeight: () => 0,
+    // Table classes reached through TblPreview → utils/tblTables. No test here
+    // renders a typed table (utils/__tests__/tblTables.test.ts covers the
+    // reading against the real classes), so these only satisfy the import.
+    PaletteTable: class {
+      static fromBuffer() {
+        return { toText: () => '' }
+      }
+    },
+    TileAnimationTable: class {
+      static fromBuffer() {
+        return { toText: () => '' }
+      }
+    },
+    EffectTable: class {
+      static fromBuffer() {
+        return { count: 0, tryGetEntry: () => undefined }
+      }
+    },
     PaletteResolver: class {
       resolve = resolverStub.resolve
     },
