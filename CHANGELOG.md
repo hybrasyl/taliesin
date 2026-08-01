@@ -45,6 +45,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **macOS gets its own app icon.** The Mac build no longer reuses the shared logo. It now ships
+  artwork drawn to Apple's conventions — a full-bleed rounded square with properly transparent
+  corners, so it sits correctly in the Dock and the Finder next to every other app. Windows and
+  Linux are unchanged.
 - **Reveal logs folder moved out of Settings.** The button is gone from the About card; the logs
   are still one click away from **Report an issue**, which is where you need them. Its old slot
   now holds **What's new?**.
