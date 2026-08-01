@@ -133,6 +133,37 @@ describe('isSenderAllowed', () => {
     expect(allowed(event)).toBe(true)
   })
 
+  it('rejects a remote file:// host whose path mirrors our own', () => {
+    // A file: URL has the opaque origin "null", so an origin-based key carries
+    // NO host information and every file:// host compares equal. Without the
+    // host in the key, a page loaded from an attacker's SMB share at a matching
+    // path is accepted as our own content -- with our preload attached. The
+    // POSIX-style path is the one that matters: on Windows the trusted path
+    // starts with a drive letter and `C:` cannot be a UNC share name, so only
+    // the Linux/macOS builds are actually reachable this way.
+    initWindowSecurity(undefined, PROD_HTML)
+
+    // Build the adversary from the trusted URL's OWN pathname, so the two differ
+    // in host and nothing else. Spelling a path literal here instead would make
+    // the test pass for the wrong reason: on win32 `pathToFileURL('/opt/x')`
+    // resolves against the current drive and yields `/E:/opt/x`, which would
+    // never have matched regardless of the key.
+    const trustedUrl = new URL(PROD_URL)
+    const remote = `file://attacker.example${trustedUrl.pathname}`
+    expect(trustedUrl.origin).toBe('null') // the reason this is a trap
+    expect(new URL(remote).origin).toBe('null') // ...and why the two compared equal
+    expect(new URL(remote).pathname).toBe(trustedUrl.pathname) // differ only in host
+
+    const { contents, event } = makeSender({ url: remote })
+    trust(contents)
+    expect(allowed(event)).toBe(false)
+
+    // ...and the genuine local path still matches, so the fix did not overshoot.
+    const local = makeSender({ id: 2, url: PROD_URL })
+    trust(local.contents)
+    expect(allowed(local.event)).toBe(true)
+  })
+
   it('ignores query and hash when matching', () => {
     initWindowSecurity(DEV_URL, PROD_HTML)
     const { contents, event } = prodSender({ url: `${DEV_URL}?v=2#/packs` })

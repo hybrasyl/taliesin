@@ -30,18 +30,34 @@ import { pathToFileURL } from 'url'
 import { isSafeExternalUrl } from '../shared/externalUrl'
 
 /**
- * Locations we consider "our own content", each keyed as `origin + pathname` --
- * query and hash deliberately excluded, so a cache-busting or HMR query string
- * still matches.
+ * Locations we consider "our own content", keyed as `protocol//host + pathname`
+ * -- query and hash deliberately excluded, so a cache-busting or HMR query
+ * string still matches.
  *
  * Set once at boot by `initWindowSecurity`. Empty until then, which fails
  * closed: before init, nothing is trusted.
  */
 let trustedLocations = new Set<string>()
 
-/** The key form above. One place, so init and lookup cannot disagree. */
+/**
+ * The key form above. One place, so init and lookup cannot disagree.
+ *
+ * **`host` explicitly, NOT `origin`.** For a `file:` URL the WHATWG parser
+ * returns the opaque origin `"null"`, so an origin-based key carries no host
+ * information at all and every `file://` host compares equal. That makes
+ * `file://attacker.example/opt/Taliesin App/.../index.html` indistinguishable
+ * from the local `file:///opt/Taliesin App/.../index.html` we actually trust --
+ * a remote SMB path would satisfy both `will-navigate` and the IPC sender
+ * check. Windows happens to be spared because its install path starts with a
+ * drive letter and `C:` is not a legal UNC share name, but the Linux AppImage,
+ * the deb and the macOS dmg all install under a plain `/opt`- or
+ * `/Applications`-style path with no such accident protecting them.
+ *
+ * For `http`/`https` this is identical to `origin` (the parser normalises the
+ * default port away), so nothing is lost on the dev-server path.
+ */
 function locationKey(url: URL): string {
-  return url.origin + url.pathname
+  return `${url.protocol}//${url.host}${url.pathname}`
 }
 
 /** webContents.id for windows we constructed. An IPC from a webContents absent
