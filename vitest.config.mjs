@@ -162,6 +162,10 @@ export default defineConfig({
           include: [
             'src/main/**/__tests__/**/*.test.ts',
             'src/preload/**/__tests__/**/*.test.ts',
+            // src/shared holds electron-free predicates main and this project
+            // both use. Omitting this glob does not error -- the suite is simply
+            // never collected and vitest still reports success.
+            'src/shared/**/__tests__/**/*.test.ts',
             'src/renderer/src/utils/__tests__/**/*.test.ts',
             'src/renderer/src/packKinds/__tests__/**/*.test.ts',
             'src/renderer/src/uiforge/__tests__/**/*.test.ts',
