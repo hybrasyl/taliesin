@@ -59,7 +59,12 @@ Desktop.ini
 # =========================
 # IDEs
 # =========================
-.vscode/
+# .vscode/settings.json IS tracked, deliberately -- it carries the Action Buttons
+# script shortcuts, which are shared tooling rather than personal preference
+# (house standard: electron-app-skeleton.md section 3). Everything else under
+# .vscode/ is per-user and stays ignored.
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # =========================

@@ -110,8 +110,10 @@ const MapMakerPage: React.FC = () => {
   const mapFile = activeTab?.mapFile ?? null
   const filePath = activeTab?.filePath ?? null
   const dirty = activeTab?.dirty ?? false
-  const undoStack = activeTab?.undoStack ?? []
-  const redoStack = activeTab?.redoStack ?? []
+  // Memoised because the `?? []` fallbacks are fresh arrays on every render,
+  // which would rebuild the undo/redo callbacks below every time.
+  const undoStack = useMemo(() => activeTab?.undoStack ?? [], [activeTab])
+  const redoStack = useMemo(() => activeTab?.redoStack ?? [], [activeTab])
   const selection = activeTab?.selection ?? null
   const clipboard = activeTab?.clipboard ?? null
   const pasteMode = activeTab?.pasteMode ?? false

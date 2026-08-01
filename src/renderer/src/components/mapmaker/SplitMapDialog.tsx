@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -63,7 +63,9 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
     ? splitDimensions(mode, W, H)
     : { cols: 1, rows: 1, subW: W, subH: H }
   const count = cols * rows
-  const labels = mode ? getLabels(mode) : []
+  // Memoised because the ternary builds a fresh array on every render, which
+  // would re-run the label effect below every time.
+  const labels = useMemo(() => (mode ? getLabels(mode) : []), [mode])
 
   const canSplit = mode !== null && subW >= 1 && subH >= 1
 
@@ -206,7 +208,9 @@ const SplitMapDialog: React.FC<Props> = ({ open, mapFile, clientPath, onClose, o
     } finally {
       setSaving(false)
     }
-  }, [mapFile, mode, baseName, W, H, cols, rows, subW, subH, count, onStatus, onClose])
+    // `mode` is not referenced in the body -- cols/rows/subW/subH/count are
+    // already derived from it and listed here, so it was redundant.
+  }, [mapFile, baseName, W, H, cols, rows, subW, subH, count, onStatus, onClose])
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>

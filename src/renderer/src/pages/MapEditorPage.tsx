@@ -515,6 +515,12 @@ export default function MapEditorPage() {
       return
     }
     loadFiles()
+    // `loadFiles` is declared in the component body, so it is a new function on
+    // every render. Adding it here would re-scan the library filesystem on every
+    // render. Re-scanning when the active library changes is exactly the
+    // intent; wrapping loadFiles in useCallback to satisfy the rule honestly is
+    // a larger refactor, tracked in docs/plans/00a-backlog.md.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLibrary])
 
   // Re-populate mapName/mapId when the index is (re)built without re-scanning the filesystem

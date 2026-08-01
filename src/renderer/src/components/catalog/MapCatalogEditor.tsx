@@ -52,6 +52,11 @@ const MapCatalogEditor: React.FC<Props> = ({
         }
       })
       .catch(() => setFileBuffer(null))
+    // entry.width/height are read but deliberately NOT dependencies. This effect
+    // exists to load the map file when the file changes; the dimension check is
+    // a one-shot "open the picker if we don't know them yet". Adding them would
+    // re-read the file the moment the picker writes a dimension back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirPath, entry.filename])
 
   // Derive XML presence from the world index — lookup by map Id, not filename.
