@@ -152,36 +152,60 @@ export function isSenderAllowed(event: IpcMainInvokeEvent | IpcMainEvent): boole
   return isTrustedLocation(frame.url)
 }
 
+/** Every `ipcMain` method that registers a request-response handler. */
+const HANDLE_METHODS = new Set<string | symbol>(['handle', 'handleOnce'])
+
 /**
- * Wrap `ipcMain` so `.handle` / `.on` reject an untrusted sender before the real
- * handler runs. An `invoke` rejection surfaces as an error in the renderer; a
- * fire-and-forget `.on` is dropped silently.
+ * Every `ipcMain` method that registers a fire-and-forget listener.
+ *
+ * All of them, not just `on`. `once` and the `addListener`/`prepend*` aliases
+ * register real listeners too, and anything left out of this set would fall
+ * through the passthrough branch below and reach the raw `ipcMain` UNGUARDED --
+ * silently, and while the file header still claimed full coverage. Nothing uses
+ * them today; this is what keeps "covered by construction" true when something
+ * does.
+ */
+const LISTEN_METHODS = new Set<string | symbol>([
+  'on',
+  'once',
+  'addListener',
+  'prependListener',
+  'prependOnceListener'
+])
+
+/**
+ * Wrap `ipcMain` so every handler- and listener-registering method rejects an
+ * untrusted sender before the real handler runs. An `invoke` rejection surfaces
+ * as an error in the renderer; a fire-and-forget send is dropped silently.
  *
  * Installed at the single `registerHandlers` call site, so every handler is
  * covered by construction -- a new one cannot forget to opt in. The corollary:
  * a handler registered on the raw `ipcMain` instead silently opts OUT.
  */
 export function guardIpc(ipcMain: IpcMain): IpcMain {
-  // Keyed by `object` rather than a function type: functions are objects, so
-  // this typechecks with no casts at the set/get sites.
-  const wrappers = new WeakMap<object, (event: IpcMainEvent, ...args: unknown[]) => void>()
+  // listener -> channel -> the wrapper actually registered. Keyed by channel as
+  // well as by function, because the same listener registered on two channels
+  // produces two wrappers, and a single-level map would lose the first -- so a
+  // later removeListener would remove nothing.
+  const wrappers = new WeakMap<object, Map<string, (...args: never[]) => void>>()
 
   return new Proxy(ipcMain, {
     get(target, prop, receiver) {
-      if (prop === 'handle') {
+      if (HANDLE_METHODS.has(prop)) {
         return (
           channel: string,
           listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
         ): void => {
-          target.handle(channel, (event, ...args) => {
+          const guarded = (event: IpcMainInvokeEvent, ...args: unknown[]): unknown => {
             if (!isSenderAllowed(event)) {
               throw new Error(`IPC "${channel}" rejected: untrusted sender`)
             }
             return listener(event, ...args)
-          })
+          }
+          ;(target[prop as 'handle'] as IpcMain['handle'])(channel, guarded)
         }
       }
-      if (prop === 'on') {
+      if (LISTEN_METHODS.has(prop)) {
         return (
           channel: string,
           listener: (event: IpcMainEvent, ...args: unknown[]) => void
@@ -190,16 +214,21 @@ export function guardIpc(ipcMain: IpcMain): IpcMain {
             if (!isSenderAllowed(event)) return
             listener(event, ...args)
           }
-          wrappers.set(listener, wrapped)
-          target.on(channel, wrapped)
+          let byChannel = wrappers.get(listener)
+          if (!byChannel) {
+            byChannel = new Map()
+            wrappers.set(listener, byChannel)
+          }
+          byChannel.set(channel, wrapped as (...args: never[]) => void)
+          ;(target[prop as 'on'] as IpcMain['on'])(channel, wrapped)
           return receiver as IpcMain
         }
       }
-      // `.on` registers a wrapper, so removal has to be remapped or it silently
-      // removes nothing.
+      // The listen methods register a wrapper, so removal has to be remapped or
+      // it silently removes nothing.
       if (prop === 'off' || prop === 'removeListener') {
         return (channel: string, listener: (...args: never[]) => void): IpcMain => {
-          const wrapped = wrappers.get(listener) ?? listener
+          const wrapped = wrappers.get(listener)?.get(channel) ?? listener
           target.removeListener(channel, wrapped as (...args: unknown[]) => void)
           return receiver as IpcMain
         }

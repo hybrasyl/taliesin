@@ -205,6 +205,18 @@ describe('guardIpc', () => {
         on: (c: string, fn: (...args: unknown[]) => void) => {
           listeners.set(c, [...(listeners.get(c) ?? []), fn])
         },
+        once: (c: string, fn: (...args: unknown[]) => void) => {
+          listeners.set(c, [...(listeners.get(c) ?? []), fn])
+        },
+        addListener: (c: string, fn: (...args: unknown[]) => void) => {
+          listeners.set(c, [...(listeners.get(c) ?? []), fn])
+        },
+        prependListener: (c: string, fn: (...args: unknown[]) => void) => {
+          listeners.set(c, [...(listeners.get(c) ?? []), fn])
+        },
+        prependOnceListener: (c: string, fn: (...args: unknown[]) => void) => {
+          listeners.set(c, [...(listeners.get(c) ?? []), fn])
+        },
         removeListener: (c: string, fn: (...args: unknown[]) => void) => {
           listeners.set(
             c,
@@ -277,6 +289,42 @@ describe('guardIpc', () => {
 
     guarded.removeListener('app:ready', impl)
     expect(listeners.get('app:ready')).toHaveLength(0)
+  })
+
+  it.each(['once', 'addListener', 'prependListener', 'prependOnceListener'])(
+    'guards %s too, not just on',
+    (method) => {
+      // Any listener-registering method left unwrapped falls through the
+      // passthrough branch and reaches the raw ipcMain UNGUARDED -- silently,
+      // while the module header still claims full coverage.
+      const { ipcMain, listeners } = makeIpcMain()
+      const impl = vi.fn()
+      const guarded = guardIpc(ipcMain as unknown as Parameters<typeof guardIpc>[0])
+      ;(guarded as unknown as Record<string, (c: string, f: unknown) => void>)[method](
+        'app:ready',
+        impl
+      )
+
+      initWindowSecurity(undefined, PROD_HTML)
+      const { event } = makeSender({ url: PROD_URL }) // registered nowhere
+      listeners.get('app:ready')![0](event)
+      expect(impl).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps per-channel wrappers, so removing one listener does not miss', () => {
+    // One function registered on two channels produces two wrappers. A map
+    // keyed by function alone would keep only the second, and removing the
+    // first would silently remove nothing.
+    const { ipcMain, listeners } = makeIpcMain()
+    const guarded = guardIpc(ipcMain as unknown as Parameters<typeof guardIpc>[0])
+    const impl = vi.fn()
+    guarded.on('a:one', impl)
+    guarded.on('a:two', impl)
+
+    guarded.removeListener('a:one', impl)
+    expect(listeners.get('a:one')).toHaveLength(0)
+    expect(listeners.get('a:two')).toHaveLength(1)
   })
 
   it('passes other ipcMain members through, bound', () => {
