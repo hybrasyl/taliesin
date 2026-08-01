@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import { normalize as pathNormalize } from 'path'
+import { pathToFileURL } from 'url'
 // For the module-level in-flight build map, which outlives individual cases.
 import * as handlerModule from '../handlers'
+import { initWindowSecurity } from '../windowSecurity'
+import { makeSender, trust } from './windowSecurityFixtures'
 
 // Hoisted shared state — populated by the electron mock at registration time
 // and consumed by tests after import('../index') triggers the registrations.
@@ -308,7 +311,17 @@ vi.mock('@eriscorp/dalib-ts', () => dalib)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fakeEvent = { sender: { send: vi.fn() } }
+// index.ts now registers every handler through guardIpc, so these fakes have to
+// look like the top frame of a trusted window or each invoke throws "untrusted
+// sender". The shape comes from windowSecurityFixtures rather than being
+// hand-rolled here -- notably that `senderFrame` must be the SAME OBJECT as
+// `sender.mainFrame`, which the guard compares by identity.
+const TRUSTED_HTML = '/test/out/renderer/index.html'
+const TRUSTED_URL = pathToFileURL(TRUSTED_HTML).href
+const { contents: trustedSender, event: fakeEvent } = makeSender({
+  url: TRUSTED_URL,
+  withSend: true
+})
 function invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
   const fn = handlers.get(channel)
   if (!fn) throw new Error(`No handler registered for ${channel}`)
@@ -337,6 +350,12 @@ beforeAll(async () => {
   prevLocalAppData = process.env.LOCALAPPDATA
   process.env.LOCALAPPDATA = '/appdata'
   const indexModule = await import('../index')
+  // index.ts registers handlers through guardIpc, which fails closed. Own the
+  // trusted location here rather than mirroring index.ts's path expression,
+  // which would drift: `trustedLocations` is module state in a module both
+  // files share, so this call simply wins over the one index.ts made at import.
+  initWindowSecurity(undefined, TRUSTED_HTML)
+  trust(trustedSender)
   // Wide-open root for the in-memory test filesystem. assertInsideAnyRoot
   // accepts every absolute path when '/' is in the allowed set, which lets
   // existing handler tests keep using synthetic paths. Phase 3 dedicated
@@ -362,6 +381,14 @@ describe('IPC channel registration', () => {
     expect(listeners.has('maximize-window')).toBe(true)
     expect(listeners.has('close-window')).toBe(true)
     expect(handlers.size).toBeGreaterThanOrEqual(60)
+  })
+
+  it('registers them through the guarded proxy, not the raw ipcMain', () => {
+    // Proves the WIRING, which windowSecurity.test.ts cannot: a guard that is
+    // perfectly correct and never installed passes every test in that file.
+    // An unregistered sender at our own URL must still be refused.
+    const rogue = makeSender({ id: 99, url: TRUSTED_URL })
+    expect(() => handlers.get('settings:load')!(rogue.event)).toThrow(/untrusted sender/)
   })
 })
 

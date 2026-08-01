@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 
 export interface DirEntry {
   name: string
@@ -308,12 +307,17 @@ const api = {
   frameScan: (packDir: string): Promise<string[]> => ipcRenderer.invoke('frame:scan', packDir)
 }
 
-if (process.contextIsolated) {
-  contextBridge.exposeInMainWorld('electron', electronAPI)
-  contextBridge.exposeInMainWorld('api', api)
-} else {
-  // @ts-ignore -- contextIsolation disabled: assign the bridge onto window
-  window.electron = electronAPI
-  // @ts-ignore -- contextIsolation disabled: assign the bridge onto window
-  window.api = api
-}
+// contextIsolation is Electron's default and `sandbox: true` keeps it on, so the
+// contextBridge path is the only one -- the old `else` branch assigned straight
+// onto `window`, which is the insecure path, and is dropped rather than kept for
+// a configuration we do not ship.
+//
+// The `window.electron` toolkit bridge is gone too. Nothing read it: env.d.ts
+// never declared it, and the renderer has no reference. Its package import was
+// what blocked `sandbox: true` -- a sandboxed preload's loader resolves
+// `electron` and a handful of Node built-ins and nothing else, and
+// externalizeDepsPlugin leaves a bare `require('<pkg>')` in the built preload
+// for anything in `dependencies`. So a package import breaks the sandbox even
+// when nothing about it needs Node. Do not re-add one here without checking
+// `out/preload/index.js` still requires only `electron`.
+contextBridge.exposeInMainWorld('api', api)

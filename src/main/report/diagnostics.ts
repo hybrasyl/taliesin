@@ -6,6 +6,7 @@ import { buildDiagnosticsBlock } from './diagnosticsBlock'
 import { buildIssueUrl, truncateBodyForUrl } from './issueUrl'
 import { scrubText } from './scrub'
 import { getRecentErrors, getLogsDir } from './sessionLog'
+import { isSafeExternalUrl } from '../../shared/externalUrl'
 
 // Backing logic for the diagnostics:* IPC handlers. Pure-helper composition +
 // Electron clipboard/shell. `buildIssueUrl` is re-exported so tests and callers
@@ -54,7 +55,13 @@ export function openIssue({ title, body }: { title: string; body: string }): {
     { owner: appIdentity.intakeOwner, repo: appIdentity.intakeRepo, title, body, labels },
     MAX_URL_LEN
   )
-  void shell.openExternal(url)
+  // The URL is main-built (a hardcoded https origin plus URLSearchParams, which
+  // cannot alter the scheme), so this is not a live hole. It goes through the
+  // same predicate anyway so that externalUrl.ts really is the single gate on
+  // anything Taliesin hands the OS -- a claim worth being true rather than
+  // nearly true. The body is already on the clipboard, so a refusal degrades to
+  // "paste it yourself" rather than losing the report.
+  if (isSafeExternalUrl(url)) void shell.openExternal(url)
   return { ok: true, truncated }
 }
 

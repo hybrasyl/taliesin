@@ -44,7 +44,10 @@ src/
   main/       main process — the only code that touches disk. index.ts (lifecycle + userData
               path resolution), handlers.ts (+ registry), settingsManager.ts, jsonStore.ts,
               assetPacks.ts (.datf read/write), pathSafety.ts (assertInside*), schemas/ (Zod), splash.ts
-  preload/    index.ts — typed contextBridge contract exposed as window.api (+ window.electron toolkit bridge)
+  preload/    index.ts — typed contextBridge contract exposed as window.api. Imports `electron`
+              and NOTHING else — any package import here breaks `sandbox: true` in the packaged
+              app only (it builds and lints clean). See src/preload/index.ts.
+  shared/     electron-free predicates main and the vitest node project both use (externalUrl.ts)
   renderer/src/
     App.tsx       ThemeProvider + CssBaseline; hydrates settingsStore then calls window.api.appReady()
     components/ pages/ hooks/ utils/ data/
@@ -54,11 +57,24 @@ src/
     uiforge/      UI Layout Forge (ui_panels WYSIWYG editor)
 ```
 
-Alias: `@renderer` → `src/renderer/src`. There is **no `src/shared`** — cross-cutting types
-(e.g. `ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) live in `store/settingsStore.ts`.
+Alias: `@renderer` → `src/renderer/src`. **`src/shared/` holds only electron-free predicates**
+shared by main and the vitest **node** project (currently `externalUrl.ts`). Cross-cutting
+*renderer* types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in
+`store/settingsStore.ts` — do not migrate them. Adding a file there needs two glob edits:
+`tsconfig.node.json` (loud — TS6307) and `vitest.config.mjs`'s node project (**silent** — the
+suite is simply never collected and vitest still reports success).
 
 ## Load-bearing house patterns (don't reinvent)
 
+- **`windowSecurity.ts` single-sources the renderer-boundary policy** (R-006). Three guards:
+  a scheme allowlist on anything handed to `shell.openExternal`, a `will-navigate` guard that
+  denies navigation away from our own bundle and denies every child window, and an `ipcMain`
+  `Proxy` that accepts an IPC only from the top frame of a **registered** window at a **trusted**
+  location. Three things follow. `registerHandlers` is the **only** call site that takes
+  `guardIpc(ipcMain)` — a handler registered on the raw `ipcMain` silently opts out. Windows are
+  registered **before** they load, because the guard fails closed. Trusted locations are built
+  with `pathToFileURL`, never string concatenation — the failure mode is a **lockout** (every IPC
+  refused, app dead on arrival), and `e2e/ipc-guard.spec.js` is the only thing that catches it.
 - **Main owns all disk/IPC I/O; the renderer only calls the typed `window.api`.** The preload
   bridge is the contract — a new feature = handler → preload method → renderer call. `window.api`
   is **flat** (`window.api.loadSettings()`, `window.api.saveSettings()`, `window.api.appReady()`).

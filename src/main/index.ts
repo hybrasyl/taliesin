@@ -5,9 +5,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { loadPacks } from './assetPacks'
-import { createSplashWindow } from './splash'
+import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
 import { installGlobalErrorHandlers } from './report/errorHandlers'
+import { initWindowSecurity, registerTrustedWindow, hardenWindow, guardIpc } from './windowSecurity'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -74,19 +75,47 @@ settingsManager.load().then((s) => {
 // `app:ready` (settings hydrated) — see revealMainWindow() and the whenReady
 // block below. A safety timeout backstops a renderer that never signals.
 let mainWindow: BrowserWindow | null = null
-let splashWindow: BrowserWindow | null = null
+let splash: SplashController | null = null
 let mainWindowRevealed = false
 
+// The splash owns the swap, not this function: `dismiss` shows the splash if it
+// never got the chance, holds it for the remainder of a minimum-visible floor,
+// then destroys it and calls back here. Revealing from the callback means the
+// always-on-top splash is gone before the main window appears, rather than
+// hovering over a live window.
 function revealMainWindow(): void {
   if (mainWindowRevealed) return
   mainWindowRevealed = true
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.show()
-    mainWindow.focus()
+  const reveal = (): void => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
   }
-  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.destroy()
-  splashWindow = null
+  // `mainWindowRevealed` above already makes this run-once, and `dismiss` guards
+  // its own re-entry, so there is no third guard to keep here.
+  if (splash) splash.dismiss(reveal)
+  else reveal()
 }
+
+// WHERE THE RENDERER LIVES, derived once. Two things read these: the trusted
+// location set below, and createWindow's loader. They must agree, and the cost
+// of disagreeing is not a subtle bug -- the guard would reject the very window
+// it exists to allow, and the app would boot to a window in which every IPC
+// fails. Deriving once is what makes that impossible; a comment asking two
+// expressions to stay identical only asks nicely.
+//
+// `|| undefined` rather than `?? undefined`: an empty ELECTRON_RENDERER_URL must
+// fall through to the packaged path, not be trusted as an origin.
+// `is.dev` is `!app.isPackaged`, computed at import time, so module scope is
+// safe -- and it is the right scope, because registerHandlers below also runs
+// at module scope.
+const RENDERER_DEV_URL = (is.dev && process.env['ELECTRON_RENDERER_URL']) || undefined
+const RENDERER_INDEX_HTML = join(__dirname, '../renderer/index.html')
+
+// Record the renderer locations we trust, BEFORE any window loads. The IPC guard
+// fails closed against this list, so an empty or wrong list rejects every IPC.
+initWindowSecurity(RENDERER_DEV_URL, RENDERER_INDEX_HTML)
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -101,15 +130,28 @@ function createWindow(): void {
     // 1024px master would be decoded in full for nothing. PNG, not WebP -- this
     // one goes through nativeImage rather than Chromium.
     icon: join(__dirname, '../../resources/taliesin-icon-256.png'),
+    // Stated explicitly rather than inherited: contextIsolation and
+    // nodeIntegration are Electron's defaults, but a reader should not have to
+    // know that to audit this block. `sandbox: true` became reachable once the
+    // preload stopped importing @electron-toolkit/preload -- see the note in
+    // src/preload/index.ts. Adding any package import back there breaks the
+    // sandbox at run time in the PACKAGED app only; it builds and lints clean.
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
   mainWindow = win
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
+    // Backstop 3: the main window can die before the reveal. Without this the
+    // splash is alwaysOnTop + skipTaskbar, so it strands as a floating window
+    // the user cannot focus, close, or find in the taskbar.
+    splash?.destroy()
+    splash = null
   })
 
   win.on('maximize', () => {
@@ -117,15 +159,24 @@ function createWindow(): void {
     win.setBounds(workArea)
   })
 
-  win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  // Trusted before it loads: registerTrustedWindow is what lets this window's
+  // IPC through guardIpc, and the guard fails closed, so registering after the
+  // load would reject whatever the renderer sends during hydration.
+  registerTrustedWindow(win)
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  // Replaces an ungated setWindowOpenHandler that passed any URL straight to
+  // shell.openExternal -- which honours file:, smb:, ms-msdt: and any custom
+  // scheme registered on the machine, making it an OS-level open primitive
+  // reachable from renderer content. Now: child windows denied, navigation away
+  // from our own bundle denied, and only http/https/mailto handed to the OS.
+  hardenWindow(win, (url) => shell.openExternal(url))
+
+  // Same two bindings initWindowSecurity was given, so the location we load and
+  // the location we trust cannot disagree.
+  if (RENDERER_DEV_URL) {
+    win.loadURL(RENDERER_DEV_URL)
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html')).catch((err) => {
+    win.loadFile(RENDERER_INDEX_HTML).catch((err) => {
       console.error('Failed to load file:', err)
     })
   }
@@ -148,7 +199,7 @@ app.whenReady().then(() => {
 
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
-  splashWindow = createSplashWindow()
+  splash = createSplashWindow()
   createWindow()
 
   // Safety backstop: if the renderer errors before signalling `app:ready`, force
@@ -158,7 +209,7 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindowRevealed = false
-      splashWindow = createSplashWindow()
+      splash = createSplashWindow()
       createWindow()
       setTimeout(revealMainWindow, 15000)
     }
@@ -169,4 +220,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-registerHandlers({ ipcMain, BrowserWindow, dialog }, ctx)
+// Every handler registers through the guarded proxy, never the raw `ipcMain`,
+// so the sender check applies by construction rather than by each handler
+// remembering to ask for it. The corollary: a handler registered on the raw
+// `ipcMain` silently opts OUT of the check. Keep this the only call site.
+registerHandlers({ ipcMain: guardIpc(ipcMain), BrowserWindow, dialog }, ctx)
