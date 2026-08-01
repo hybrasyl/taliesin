@@ -58,6 +58,11 @@ record; where they disagree with this file, the git history was taken as authori
 - **Reveal logs folder moved out of Settings.** The button is gone from the About card; the logs
   are still one click away from **Report an issue**, which is where you need them. Its old slot
   now holds **What's new?**.
+- **The download is smaller and carries only what the app runs.** The packaged build was also
+  shipping the project's own documentation, test suite, scripts and tool configuration alongside
+  the program. Packaging now lists what belongs rather than what does not, so nothing internal
+  travels with a release. The logo artwork is stored at the sizes it is actually drawn at instead
+  of at full master resolution, which also makes the splash appear sooner.
 
 ### Removed
 
@@ -89,6 +94,10 @@ record; where they disagree with this file, the git history was taken as authori
   fraction of a second, or — if startup failed — be left floating on top of everything with no
   way to close it, since it has no taskbar entry. It now always appears, always stays up long
   enough to read, and always goes away.
+- **The portable build no longer opens with a blank pause.** The portable `.exe` unpacks itself to
+  a temporary folder before the app exists, and that stretch showed nothing at all — several
+  seconds in which a double-click appeared to have done nothing. It now shows the same artwork the
+  app opens with, so the unpack and the launch read as one boot rather than two.
 - **The dev build no longer freezes on large Dark Ages files.** Switching archives, editing a map,
   or opening the Static Tile Manager could stall the window or exhaust its memory. React's
   development-only render profiler was inspecting the game binaries held in component state, one
