@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'path'
+import { hardenWindow } from './windowSecurity'
 
 /**
  * Frameless, transparent splash window shown the instant the app boots — before
@@ -26,12 +27,23 @@ export function createSplashWindow(): BrowserWindow {
     center: true,
     skipTaskbar: true,
     show: false,
-    // The splash has no IPC needs; keep it isolated with no preload.
+    // The splash has no IPC needs; keep it isolated with no preload. With no
+    // preload there is nothing for the sandbox to break, so it is free here --
+    // and it is deliberately NOT registered as a trusted window, because a
+    // window with no bridge cannot send IPC and registering it would widen the
+    // trusted set for nothing.
     webPreferences: {
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   })
+
+  // Nothing here should ever open a window or navigate away. `will-navigate`
+  // fires only for renderer-initiated navigation, never for the loadFile below,
+  // so this does not block the splash loading its own HTML -- which is
+  // deliberately not a trusted location.
+  hardenWindow(splash, { allowExternal: false, openExternal: () => {} })
 
   // Mirrors the icon path convention in index.ts (`../../resources/...`).
   // resources/** is bundled + asarUnpacked, so this resolves in production too.

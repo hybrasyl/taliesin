@@ -8,6 +8,12 @@ import { loadPacks } from './assetPacks'
 import { createSplashWindow } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
 import { installGlobalErrorHandlers } from './report/errorHandlers'
+import {
+  initWindowSecurity,
+  registerTrustedWindow,
+  hardenWindow,
+  guardIpc
+} from './windowSecurity'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -88,6 +94,19 @@ function revealMainWindow(): void {
   splashWindow = null
 }
 
+// Record the renderer locations we trust, BEFORE any window loads. The IPC guard
+// fails closed against this list, so an empty or wrong list rejects every IPC --
+// the safe direction, but it makes this call load-bearing. The dev/prod
+// expression below MUST stay textually identical to createWindow's loader
+// branch; it sits here rather than 30 lines away so the two cannot drift apart
+// unnoticed. `is.dev` is `!app.isPackaged`, computed at import time, so module
+// scope is safe -- and it is the right scope, because registerHandlers below
+// also runs at module scope.
+initWindowSecurity(
+  is.dev && process.env['ELECTRON_RENDERER_URL'] ? process.env['ELECTRON_RENDERER_URL'] : undefined,
+  join(__dirname, '../renderer/index.html')
+)
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -117,10 +136,17 @@ function createWindow(): void {
     win.setBounds(workArea)
   })
 
-  win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  // Trusted before it loads: registerTrustedWindow is what lets this window's
+  // IPC through guardIpc, and the guard fails closed, so registering after the
+  // load would reject whatever the renderer sends during hydration.
+  registerTrustedWindow(win)
+
+  // Replaces an ungated setWindowOpenHandler that passed any URL straight to
+  // shell.openExternal -- which honours file:, smb:, ms-msdt: and any custom
+  // scheme registered on the machine, making it an OS-level open primitive
+  // reachable from renderer content. Now: child windows denied, navigation away
+  // from our own bundle denied, and only http/https/mailto handed to the OS.
+  hardenWindow(win, { allowExternal: true, openExternal: (url) => shell.openExternal(url) })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -169,4 +195,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-registerHandlers({ ipcMain, BrowserWindow, dialog }, ctx)
+// Every handler registers through the guarded proxy, never the raw `ipcMain`,
+// so the sender check applies by construction rather than by each handler
+// remembering to ask for it. The corollary: a handler registered on the raw
+// `ipcMain` silently opts OUT of the check. Keep this the only call site.
+registerHandlers({ ipcMain: guardIpc(ipcMain), BrowserWindow, dialog }, ctx)
