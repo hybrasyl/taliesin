@@ -18,6 +18,10 @@ Taliesin's map XML and world map editors do recursive `listSection` enumeration,
 
 The SOTP overlay, bounds-check and native tile attributes on the server side. Named as out of scope by [WP5](05-sotp-tile-adoption.md); it is `hybrasyl-server`'s code.
 
+### A public reader for one palette cycling file → dalib-ts
+
+`PaletteTable.parseCyclingText` is private and reachable only through `PaletteTable.fromArchive`, which merges a whole family of `.tbl` files and keys each one by the number in its name. There is no public entry point that takes one entry's bytes, so [WP4](complete/04-typed-tbl-views.md) reproduces the grammar — three integers per line — in `src/renderer/src/utils/tblTables.ts` to preview a single `mpt001.tbl`. A `PaletteCyclingTable.fromEntry` (or an exported parse) in dalib-ts would let Taliesin delete that reader. Small, and not blocking: the grammar is three integers and is covered by Taliesin's own tests.
+
 ### Palette rule corrections → dalib-ts and the document repo
 
 Per settled decision 4, palette resolution rules live in dalib-ts and are specified by the document repo's `docs/architecture/palette-resolution.md`. A rule that fires wrongly is a dalib-ts fix plus a spec correction, never a Taliesin patch.
