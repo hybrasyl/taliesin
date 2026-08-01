@@ -120,9 +120,17 @@ function createWindow(): void {
     // 1024px master would be decoded in full for nothing. PNG, not WebP -- this
     // one goes through nativeImage rather than Chromium.
     icon: join(__dirname, '../../resources/taliesin-icon-256.png'),
+    // Stated explicitly rather than inherited: contextIsolation and
+    // nodeIntegration are Electron's defaults, but a reader should not have to
+    // know that to audit this block. `sandbox: true` became reachable once the
+    // preload stopped importing @electron-toolkit/preload -- see the note in
+    // src/preload/index.ts. Adding any package import back there breaks the
+    // sandbox at run time in the PACKAGED app only; it builds and lints clean.
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
   mainWindow = win
