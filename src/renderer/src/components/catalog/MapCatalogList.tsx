@@ -39,7 +39,14 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
+        // `flex: 1`, not `height: 100%` — this list sits under a sibling toolbar
+        // in CatalogPage's left panel, so 100% resolves against the whole panel
+        // and overflows by exactly the toolbar's height (HTOO-354). `minHeight: 0`
+        // is not optional: a flex item defaults to `min-height: auto` and refuses
+        // to shrink below its content, and the virtualizer's sizer below is as
+        // tall as every row in the directory.
+        flex: 1,
+        minHeight: 0,
         borderRight: '1px solid',
         borderColor: 'divider'
       }}
