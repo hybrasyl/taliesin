@@ -24,7 +24,7 @@ npm run lint:check     # eslint, no writes
 npm run lint           # eslint --fix
 npm run format         # prettier --write .
 npm run build          # electron-vite build (main + preload + renderer)
-npm run e2e            # build, then Playwright-for-Electron specs (local only; needs a GUI)
+npm run e2e            # build, then Playwright-for-Electron specs (needs a GUI; CI: Windows only)
 npm run build:win:portable   # packaged portable Windows build
 ```
 
@@ -109,8 +109,8 @@ No edits to the editor/dialog/IPC layers are needed.
 
 `npm run dev` launches a real Electron window and **cannot run headless/sandboxed** — verify via
 `npm run test:coverage`, `npm run typecheck`, and `npm run build`; hand GUI click-throughs to the
-user, who runs the dev server themselves. `npm run e2e` (Playwright + Electron) also needs a GUI
-and is local-only.
+user, who runs the dev server themselves. `npm run e2e` (Playwright + Electron) also needs a GUI,
+so hand it to the user too — CI runs it in a Windows-only `e2e` job.
 
 ## Releasing
 

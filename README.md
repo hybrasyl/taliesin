@@ -162,7 +162,7 @@ npm run test
 npm run test:coverage   # enforces per-file coverage floors; run this before a PR
 ```
 
-Test files live alongside source under `src/` using the `*.test.ts` / `*.test.tsx` convention. A separate Playwright-for-Electron suite lives in `e2e/` and is local-only, because it needs a GUI:
+Test files live alongside source under `src/` using the `*.test.ts` / `*.test.tsx` convention. A separate Playwright-for-Electron suite lives in `e2e/`. It drives the built app, so it needs a GUI and a prior build; CI runs it in its own Windows job, because the temp-directory redirect that keeps the specs off your real profile only works on Windows:
 
 ```bash
 npm run e2e
