@@ -139,6 +139,8 @@ declare global {
     launchCompanion: () => Promise<CompanionLaunchResult>
     companionStatus: () => Promise<CompanionStatus>
     companionPickerFilters: () => Promise<{ name: string; extensions: string[] }[]>
+    /** A newer published release, or null when current / offline / rate-limited. */
+    checkForUpdate: () => Promise<{ version: string; url: string } | null>
     openFile: (
       filters?: { name: string; extensions: string[] }[],
       defaultPath?: string

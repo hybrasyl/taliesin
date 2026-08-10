@@ -17,6 +17,7 @@ import MainLayout from './components/MainLayout'
 import PageRenderer from './components/PageRenderer'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import ReportIssueDialog from './components/ReportIssueDialog'
+import UpdateSnackbar from './components/UpdateSnackbar'
 
 const themes: Record<ThemeName, Theme> = {
   hybrasyl: hybrasylTheme,
@@ -136,6 +137,9 @@ export default function App(): React.ReactElement {
         onCancel={handleNavCancel}
       />
       <ReportIssueDialog open={reportIssueOpen} onClose={() => setReportIssueOpen(false)} />
+      {/* Renders nothing unless a newer release exists, so it costs a mounted
+          component and one request per launch (HTOO-65). */}
+      <UpdateSnackbar />
     </ThemeProvider>
   )
 }

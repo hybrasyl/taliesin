@@ -2,7 +2,7 @@
 
 ## What Taliesin is
 
-An offline, single-user desktop tool. It reads legacy Dark Ages archives (`.dat`/`.pak`) off local disk and authors `.datf` asset packs. It has **no server, no account, no network listener, and no multi-user state**. The only outbound network traffic is a browser handoff — opening a link or a prefilled GitHub issue in the user's own browser.
+An offline, single-user desktop tool. It reads legacy Dark Ages archives (`.dat`/`.pak`) off local disk and authors `.datf` asset packs. It has **no server, no account, no network listener, and no multi-user state**. Outbound traffic is two things and no more: a browser handoff — opening a link or a prefilled GitHub issue in the user's own browser — and **one HTTPS GET to `api.github.com` per launch** asking for the latest published release, which sends no user data and no identifier beyond a `User-Agent`, reads three fields of the reply, and downloads nothing (HTOO-65, `src/main/updateCheck.ts`).
 
 That shape decides what a vulnerability in it can even be. There is no session to steal and no other user to reach. The realistic threat is a **malicious or malformed file**: a `.dat`, a `.datf` pack, or a world XML that the user opens, which then reaches something outside the directory it came from, or persuades the app to hand the operating system something it should not.
 
@@ -46,7 +46,7 @@ Recorded so an unguarded surface reads as pending work rather than as an oversig
 1. **Zod validation is applied at a minority of IPC handlers.** Six `parse`/`safeParse` call sites across ~85 handlers. Path arguments are covered everywhere by `pathSafety`, which is the surface that matters most, but structured payloads are not uniformly schema-checked. Widening this is worthwhile and untracked.
 2. **`mapRenderer.ts` still hand-decodes the SOTP collision nibble** rather than using dalib-ts's `SotpFile`, so one binary-parsing path is not delegated. Tracked as [WP5](docs/plans/05-sotp-tile-adoption.md).
 3. **`ColorTable.parseText` has no allocation cap**, so a crafted 40 KB `.tbl` can exhaust the heap. Currently mitigated by a sniff-before-parse guard at the one call site (`tryParseColorTable`); [WP4](docs/plans/04-typed-tbl-views.md) must apply the same shape to each new table parser it adds.
-4. **No auto-update.** `publish:` is configured for release publishing only; nothing in the app checks for or installs updates. A user on an old version stays there until they download a new one.
+4. **No auto-update.** `publish:` is configured for release publishing only, and nothing in the app downloads or installs anything. Taliesin _notices_ a newer release and says so — see the note above — but the user does the upgrade themselves, so there is no update channel to compromise and no code path that writes over the installation.
 
 ## Verifying the boundary
 

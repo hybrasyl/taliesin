@@ -219,6 +219,10 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     launchCompanion: () => handlers.launchCompanion(handlerCtx),
     companionStatus: () => handlers.companionStatus(handlerCtx),
     companionPickerFilters: async () => handlers.companionPickerFilters(handlerCtx),
+    // Never reaches the network in a test: integration specs assert page state
+    // machines, and an update check that made a real request would make every
+    // one of them depend on GitHub being up.
+    checkForUpdate: async () => null,
 
     // Report Issue / diagnostics — stubbed; integration tests exercise page
     // state machines, not the diagnostics flow (unit-tested in src/main/report).

@@ -29,6 +29,10 @@ record; where they disagree with this file, the git history was taken as authori
   a busy market — separate from sound effects, because a bed plays continuously underneath
   everything else rather than firing once. Add audio files and compile. Each sound gets a number
   that a map refers to. Beds loop by default; tick **One-shot** on any that must play once and stop.
+- **Taliesin tells you when a new version is out.** On launch it asks GitHub whether a newer
+  release exists and, if one does, shows a notice with a link to the release notes. It downloads
+  and installs nothing — the upgrade is still yours to do — and if you are offline or already
+  current, nothing appears. This is the app's only outbound request; it sends nothing about you.
 
 ### Changed
 

@@ -31,6 +31,7 @@ import {
   type CompanionLaunchResult,
   type CompanionProbe
 } from './companion'
+import { checkForUpdate as updateCheck, type UpdateInfo } from './updateCheck'
 import {
   loadPacks,
   listActivePacks,
@@ -246,6 +247,15 @@ export async function companionStatus(ctx: HandlerContext): Promise<CompanionSta
 export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLaunchResult> {
   const settings = await ctx.settingsManager.load()
   return companionLaunch(ctx.companionProbe ?? nodeProbe(), 'creidhne', settings.companionPath)
+}
+
+/**
+ * Best-effort "a newer release exists" check (HTOO-65). Null for every failure
+ * and for "already current" alike -- the renderer shows something only when
+ * there is something to show.
+ */
+export async function checkForUpdate(ctx: HandlerContext): Promise<UpdateInfo | null> {
+  return updateCheck(ctx.appGetVersion())
 }
 
 /** The file filters for the Settings "Change" picker, which differ per platform:
@@ -1481,6 +1491,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('app:launchCompanion', () => launchCompanion(ctx))
   ipcMain.handle('app:companionStatus', () => companionStatus(ctx))
   ipcMain.handle('app:companionPickerFilters', () => companionPickerFilters(ctx))
+  ipcMain.handle('app:checkForUpdate', () => checkForUpdate(ctx))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
   ipcMain.handle('app:changelog', () => readChangelog())
   // Reveal settings.json in the OS file manager. Handled in index.ts, which
