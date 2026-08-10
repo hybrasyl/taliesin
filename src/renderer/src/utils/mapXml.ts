@@ -12,11 +12,35 @@ import type {
   CardinalDirection
 } from '../data/mapData'
 import { escapeXml as esc, attr, childText, parseXmlDocument, HYBRASYL_NS } from './xmlUtils'
+import { extractComments, reinjectComments } from './xmlComments'
+
+/**
+ * The generic-name annotation, e.g. `<!-- Generic Name: Tagor Tavern -->`.
+ *
+ * A readable scalar rather than a JSON blob. It matches what the world XML
+ * already does for NPCs (`<!-- Location: -->`, `<!-- Comment: -->`), reads
+ * correctly to somebody opening the file by hand, and diffs as one line. A
+ * `taliesin:meta {...}` blob would earn its complexity only once there is a
+ * second field to put in it (HTOO-344).
+ */
+const GENERIC_NAME_RE = /^\s*Generic Name:\s*(.*?)\s*$/
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
 export function parseMapXml(xml: string): MapData {
   const root = parseXmlDocument(xml).documentElement
+
+  // Comments first: they are not in the DOM walk below, and the serializer
+  // emits only what the model carries, so anything not captured here is deleted
+  // by the next save. The generic-name annotation is pulled out of the same
+  // list — it is modelled, so re-injecting it too would duplicate it.
+  let genericName: string | undefined
+  const comments = extractComments(xml).filter((c) => {
+    const m = GENERIC_NAME_RE.exec(c.text)
+    if (!m || genericName !== undefined) return true
+    genericName = m[1]
+    return false
+  })
 
   // Flags — space/comma separated text inside <Flags>
   const flagsText = childText(root, 'Flags')
@@ -154,7 +178,9 @@ export function parseMapXml(xml: string): MapData {
     npcs,
     signs,
     reactors,
-    spawnGroup
+    spawnGroup,
+    genericName: genericName || undefined,
+    comments: comments.length > 0 ? comments : undefined
   }
 }
 
@@ -175,6 +201,11 @@ export function serializeMapXml(data: MapData): string {
   ].join(' ')
 
   lines.push(`<Map ${rootAttrs} xmlns="${HYBRASYL_NS}">`)
+  // Emitted only when set, so a map without one gains no annotation and its
+  // diff after a save stays empty.
+  if (data.genericName?.trim()) {
+    lines.push(`  <!-- Generic Name: ${data.genericName.trim()} -->`)
+  }
   lines.push(`  <Name>${esc(data.name)}</Name>`)
   if (data.description?.trim()) lines.push(`  <Description>${esc(data.description)}</Description>`)
   if (data.flags.length > 0) lines.push(`  <Flags>${data.flags.join(' ')}</Flags>`)
@@ -284,5 +315,8 @@ export function serializeMapXml(data: MapData): string {
   }
 
   lines.push('</Map>')
-  return lines.join('\n')
+  // Last, over the finished text: comments are addressed by where they sat
+  // among their container's element children, so every element has to be
+  // emitted before any of them can be placed. See utils/xmlComments.ts.
+  return reinjectComments(lines.join('\n'), data.comments ?? [])
 }

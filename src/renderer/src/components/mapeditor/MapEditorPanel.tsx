@@ -46,6 +46,7 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk'
 import GridOnIcon from '@mui/icons-material/GridOn'
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined'
 import EditorHeader from '../shared/EditorHeader'
 import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
@@ -692,7 +693,7 @@ function MapFieldsTab({
           Properties
         </Typography>
 
-        {/* Row 1: Name + Map ID (locked by default) */}
+        {/* Row 1: Name + Generic Name + Map ID (locked by default) */}
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'flex-start' }}>
           <TextField
             label="Name"
@@ -700,6 +701,28 @@ function MapFieldsTab({
             sx={{ flex: 1 }}
             value={data.name}
             onChange={(e) => set('name', e.target.value)}
+          />
+          <TextField
+            label="Generic Name"
+            size="small"
+            sx={{ flex: 1 }}
+            value={data.genericName ?? ''}
+            onChange={(e) => set('genericName', e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <Tooltip
+                    title={
+                      'What the map is — its location and building type, such as "Tagor Tavern". ' +
+                      'Used to build the filename. The player never sees it and the server never ' +
+                      'reads it; Name is the display name.'
+                    }
+                  >
+                    <HelpOutlineOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  </Tooltip>
+                )
+              }
+            }}
           />
           <TextField
             label="Map Id"
@@ -1599,16 +1622,24 @@ export default function MapEditorPanel({
   saveRef
 }: Props) {
   const [data, setData] = useState<MapData>(() => ({ ...DEFAULT_MAP, ...map }))
-  const [fileName, setFileName] = useState(initialFileName ?? computeMapFilename(map.id))
+  const [fileName, setFileName] = useState(
+    initialFileName ?? computeMapFilename(map.id, map.genericName)
+  )
   const [folder, setFolder] = useState(initialFolder)
   const [tab, setTab] = useState(0)
   const isDirtyRef = useRef(false)
 
-  const computedFileName = computeMapFilename(data.id)
+  // Feeds the regenerate button in EditorHeader, which is disabled while the
+  // field already equals this. Editing the generic name therefore re-enables it
+  // and offers the new filename — and, for the 1011 maps that carry neither a
+  // generic name nor the `id - name` convention, this is unchanged from before,
+  // so opening an old map still does not look like it wants renaming
+  // (HTOO-344).
+  const computedFileName = computeMapFilename(data.id, data.genericName)
 
   useEffect(() => {
     setData({ ...DEFAULT_MAP, ...map })
-    setFileName(initialFileName ?? computeMapFilename(map.id))
+    setFileName(initialFileName ?? computeMapFilename(map.id, map.genericName))
     setFolder(initialFolder)
     isDirtyRef.current = false
   }, [map, initialFileName, initialFolder])

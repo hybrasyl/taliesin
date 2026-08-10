@@ -338,3 +338,77 @@ describe('serializeMapXml — output well-formedness', () => {
     expect(data.signs[0].type).toBe('Sign')
   })
 })
+
+// ── Comments and the generic name (HTOO-344) ─────────────────────────────────
+
+describe('comment round trip', () => {
+  // The shape of a real production map: the note sits inside <Spawns>, beside
+  // the spawn it is about. Taliesin used to delete it on the first save.
+  const withNote = `<?xml version="1.0" encoding="utf-8"?>
+<Map Id="1" X="40" Y="40" IsEnabled="true" AllowCasting="true" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">
+  <Name>Dubhaim Castle East</Name>
+  <SpawnGroup Name="DubCastleEast4-2" BaseLevel="1">
+    <Spawns>
+      <!-- Needs new spawn group possibly after revamp -->
+      <Spawn Import="DubEast4-1" Flags="Active" />
+    </Spawns>
+  </SpawnGroup>
+</Map>`
+
+  it('captures a hand-written note onto the model', () => {
+    const data = parseMapXml(withNote)
+    expect(data.comments).toHaveLength(1)
+    expect(data.comments?.[0].text).toContain('Needs new spawn group')
+  })
+
+  it('writes the note back beside the spawn it describes', () => {
+    const out = serializeMapXml(parseMapXml(withNote))
+    expect(out).toContain(
+      '      <!-- Needs new spawn group possibly after revamp -->\n      <Spawn Import="DubEast4-1" Flags="Active" />'
+    )
+  })
+
+  it('survives a second round trip unchanged', () => {
+    const once = serializeMapXml(parseMapXml(withNote))
+    expect(serializeMapXml(parseMapXml(once))).toBe(once)
+  })
+
+  it('invents no annotation for a map that had none', () => {
+    const plain = `<?xml version="1.0" encoding="utf-8"?>
+<Map Id="1" X="40" Y="40" IsEnabled="true" AllowCasting="true" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">
+  <Name>Plain</Name>
+</Map>`
+    expect(serializeMapXml(parseMapXml(plain))).not.toContain('<!--')
+  })
+})
+
+describe('generic name', () => {
+  const tagor = `<?xml version="1.0" encoding="utf-8"?>
+<Map Id="30909" X="40" Y="40" IsEnabled="true" AllowCasting="true" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">
+  <!-- Generic Name: Tagor Tavern -->
+  <Name>The Crow &amp; Cask</Name>
+</Map>`
+
+  it('reads the annotation into its own field, not into Name', () => {
+    const data = parseMapXml(tagor)
+    expect(data.genericName).toBe('Tagor Tavern')
+    expect(data.name).toBe('The Crow & Cask')
+  })
+
+  // It is modelled, so it must not also come back as an unknown comment —
+  // that would emit it twice.
+  it('is not also carried as a preserved comment', () => {
+    expect(parseMapXml(tagor).comments).toBeUndefined()
+  })
+
+  it('round-trips without duplicating itself', () => {
+    const out = serializeMapXml(parseMapXml(tagor))
+    expect(out.match(/Generic Name:/g)).toHaveLength(1)
+    expect(parseMapXml(out).genericName).toBe('Tagor Tavern')
+  })
+
+  it('emits nothing when it is blank', () => {
+    const data = { ...parseMapXml(tagor), genericName: '  ' }
+    expect(serializeMapXml(data)).not.toContain('Generic Name')
+  })
+})
