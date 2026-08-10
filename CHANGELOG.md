@@ -23,6 +23,13 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Security
+
+- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
+  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
+  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
+  same pass; those never shipped to you.
+
 ### Fixed
 
 - **Warp destinations with an `&` in the name resolve again.** The world index recorded map names
