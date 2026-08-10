@@ -23,6 +23,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **Taliesin draws its own icon on Linux.** The application menu and taskbar showed the macOS
+  artwork instead — a different picture, drawn to a different platform's conventions. The Linux
+  build now installs the full standard set of icon sizes from the artwork meant for it, and
+  identifies its window so the desktop can match it to the installed entry. Windows and macOS are
+  unchanged.
+
 ## [2.9.0] - 2026-08-01
 
 ### Added
