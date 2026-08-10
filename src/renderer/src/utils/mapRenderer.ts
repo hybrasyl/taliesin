@@ -112,6 +112,55 @@ export function clearAllCaches(): void {
 
 export type ProgressCallback = (msg: string) => void
 
+/**
+ * Build the WALL palette table from `stcpal` alone, then bring the cycling
+ * definitions across from the numeric `stc###.tbl` files.
+ *
+ * `PaletteTable.fromArchive` routes each match by whether its name carries a
+ * numeric identifier: numeric names become cycling files, non-numeric names are
+ * merged as palette mapping tables. The `stc` pattern matches every `stc*.tbl`
+ * in ia.dat, and **two** of them are non-numeric — `stcpal.tbl`, the palette
+ * map, and `stcani.tbl`, the foreground ANIMATION table.
+ *
+ * All three formats are `min max value` triples, which is why this goes
+ * unnoticed: an animation line like `14457 14460 5` is perfectly well-formed as
+ * a palette range, and it silently maps ids 14457..14460 to "palette" 5.
+ *
+ * **Measured against a real ia.dat: on today's data this changes nothing, and
+ * that is worth stating plainly rather than claiming a fix that is not visible.**
+ * Across ids 0..20000 the resolved palette is identical before and after. Two
+ * independent accidents mask it:
+ *
+ * 1. `stcani.tbl` sorts BEFORE `stcpal.tbl` in the archive, so stcpal merges
+ *    last and wins all 486 ids the two share. stcani wins none.
+ * 2. The one id whose stcani entry does survive — 19386, mapped to "palette"
+ *    19390, where the real palettes run 0..201 — is *also* covered by a stcpal
+ *    single-value override, and `getPaletteNumber` is
+ *    `overrides ?? entries ?? 0`. The override outranks the contaminated entry.
+ *
+ * **So the fault is latent, not active, and the reason to fix it is that both
+ * accidents are properties of a data file nobody here controls.** Neither is a
+ * guarantee: a repack that reorders the two tables flips 486 wall ids to
+ * animation frame counts, and the unit tests pin exactly that — the broad
+ * pattern returns stcani's value under a reversed order, and this function does
+ * not.
+ *
+ * Ground is genuinely unaffected: `mpt` does not match `gndani.tbl`, confirmed
+ * against a real seo.dat.
+ */
+export function buildWallPaletteTable(iaArchive: DataArchive): PaletteTable {
+  const table = PaletteTable.fromArchive('stcpal', iaArchive)
+  // The cycling definitions live in the NUMERIC stc###.tbl files, which the
+  // `stcpal` pattern does not match, and `tileEligibility.isPaletteCycled`
+  // needs them. Take them from the broad table and leave its contaminated
+  // mapping behind. The second parse costs about 4ms, once, at asset load.
+  for (const [paletteNumber, cycling] of PaletteTable.fromArchive('stc', iaArchive)
+    .cyclingEntries) {
+    table.cyclingEntries.set(paletteNumber, cycling)
+  }
+  return table
+}
+
 export async function loadMapAssets(
   clientPath: string,
   onProgress?: ProgressCallback
@@ -139,7 +188,7 @@ export async function loadMapAssets(
   const groundPaletteTable = PaletteTable.fromArchive('mpt', seoArchive)
   const groundPalettes = Palette.fromArchive('mpt', seoArchive)
 
-  const stcPaletteTable = PaletteTable.fromArchive('stc', iaArchive)
+  const stcPaletteTable = buildWallPaletteTable(iaArchive)
   const stcPalettes = Palette.fromArchive('stc', iaArchive)
 
   // sotp.dat is packed inside ia.dat

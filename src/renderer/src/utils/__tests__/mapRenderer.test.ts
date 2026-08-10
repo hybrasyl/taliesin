@@ -1,5 +1,109 @@
 import { describe, it, expect, vi } from 'vitest'
-import { lruTouch, lruGet, _assetCacheSize, clearAllCaches, drawDiamond } from '../mapRenderer'
+import { PaletteTable, type DataArchive } from '@eriscorp/dalib-ts'
+import {
+  lruTouch,
+  lruGet,
+  _assetCacheSize,
+  clearAllCaches,
+  drawDiamond,
+  buildWallPaletteTable
+} from '../mapRenderer'
+
+// A fake archive that satisfies the only surface PaletteTable.fromArchive uses,
+// so the REAL dalib parser runs against it and no ia.dat is needed in CI.
+// Every one of the three .tbl formats is `min max value`, which is the whole
+// reason stcani parses cleanly as a palette map.
+function fakeIaArchive(files: Record<string, string>): DataArchive {
+  const entries = Object.entries(files).map(([entryName, text]) => ({
+    entryName,
+    // dalib routes on this: a numeric identifier means "cycling file".
+    tryGetNumericIdentifier: () => {
+      const m = /^[a-z]+(\d+)\.tbl$/i.exec(entryName)
+      return m ? parseInt(m[1], 10) : null
+    },
+    toUint8Array: () => new TextEncoder().encode(text)
+  }))
+  return {
+    getEntriesByPattern: (pattern: string, ext: string) =>
+      entries.filter((e) => e.entryName.startsWith(pattern) && e.entryName.endsWith(ext))
+  } as unknown as DataArchive
+}
+
+// Mirrors the real tables' shape: stcpal covers 14458 and does NOT cover 19386,
+// which is exactly the arrangement that makes 19386 the one id stcani wins.
+const STCPAL = '2 13 0\n14000 15000 7\n19000 19300 188\n'
+// Real stcani lines are `startTile endTile frameCount`. Read as a palette range,
+// `14457 14460 5` maps 14457..14460 to "palette" 5 — colliding with stcpal —
+// and `19386 19390 19390` lands where stcpal has nothing.
+const STCANI = '14457 14460 5\n19386 19390 19390\n'
+const STC0006 = '236 241 2\n'
+
+describe('buildWallPaletteTable (HTOO-151)', () => {
+  it('does not let stcani.tbl contribute palette mappings', () => {
+    const archive = fakeIaArchive({
+      'stcani.tbl': STCANI,
+      'stcpal.tbl': STCPAL,
+      'stc0006.tbl': STC0006
+    })
+    const table = buildWallPaletteTable(archive)
+    // 19386 is the id stcpal does not cover, so it is the one stcani used to
+    // win outright — with a "palette" number that does not exist.
+    expect(table.getPaletteNumber(19386)).not.toBe(19390)
+    // And the ids the two tables share still come from stcpal.
+    expect(table.getPaletteNumber(14458)).toBe(7)
+  })
+
+  it('keeps the cycling entries tileEligibility depends on', () => {
+    // The reason this is not a one-line pattern swap: `fromArchive('stcpal')`
+    // alone drops every numeric stc###.tbl, and isPaletteCycled reads them.
+    const archive = fakeIaArchive({
+      'stcani.tbl': STCANI,
+      'stcpal.tbl': STCPAL,
+      'stc0006.tbl': STC0006
+    })
+    expect(buildWallPaletteTable(archive).getCyclingEntries(6)).toBeDefined()
+  })
+
+  it('the old broad pattern really did admit stcani — the fault, pinned', () => {
+    // Without this, the two assertions above could pass against a fix that does
+    // nothing. This is the behaviour being corrected.
+    const archive = fakeIaArchive({
+      'stcani.tbl': STCANI,
+      'stcpal.tbl': STCPAL,
+      'stc0006.tbl': STC0006
+    })
+    const broad = PaletteTable.fromArchive('stc', archive)
+    expect(broad.getPaletteNumber(19386)).toBe(19390)
+  })
+
+  it('a stcpal single-value override masks the contamination entirely', () => {
+    // The second accident, and the one that makes this latent rather than
+    // active on the real ia.dat: getPaletteNumber is
+    // `overrides ?? entries ?? 0`, and stcpal carries a 2-token override line
+    // for 19386. So even the one id stcani reaches resolves to stcpal's answer.
+    // Measured: across ids 0..20000 the real archive shows ZERO differences.
+    const withOverride = fakeIaArchive({
+      'stcani.tbl': STCANI,
+      'stcpal.tbl': STCPAL + '19386 188\n', // 2 tokens = a single-value override
+      'stc0006.tbl': STC0006
+    })
+    expect(PaletteTable.fromArchive('stc', withOverride).getPaletteNumber(19386)).toBe(188)
+    expect(buildWallPaletteTable(withOverride).getPaletteNumber(19386)).toBe(188)
+  })
+
+  it('stcpal merging last is what limits the damage, and is not guaranteed', () => {
+    // Archive order is the only thing keeping stcpal on top. Reverse it and the
+    // shared ids flip to stcani's values — 486 of them in the real ia.dat.
+    const reversed = fakeIaArchive({
+      'stcpal.tbl': STCPAL,
+      'stcani.tbl': STCANI,
+      'stc0006.tbl': STC0006
+    })
+    expect(PaletteTable.fromArchive('stc', reversed).getPaletteNumber(14458)).toBe(5)
+    // The fix is order-independent, which is the actual point.
+    expect(buildWallPaletteTable(reversed).getPaletteNumber(14458)).toBe(7)
+  })
+})
 
 describe('drawDiamond', () => {
   function mockCtx() {
