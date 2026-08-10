@@ -404,6 +404,25 @@ describe('IPC channel registration', () => {
   })
 })
 
+describe('client filenames whose casing differs on disk', () => {
+  // HTOO-287. The memory fs is case-SENSITIVE, so this is the Linux case: the
+  // official installer writes `Legend.dat`, and the handler asks for
+  // `legend.dat` because that is how the format names it.
+  it('sfx:list finds Legend.dat as the installer writes it', async () => {
+    files.set('/client/Legend.dat', Buffer.from([1, 2, 3]))
+    // The archive stub yields no entries, so an empty list IS the success case —
+    // what the fix changes is throwing ENOENT versus reading the file at all.
+    await expect(invoke('sfx:list', '/client')).resolves.toEqual([])
+  })
+
+  it('still fails when the archive is genuinely absent', async () => {
+    // The resolver falls back to the requested name rather than inventing one,
+    // so a missing file stays a missing file and the error names what was asked
+    // for. A resolution step must not turn into an existence check.
+    await expect(invoke('sfx:list', '/client')).rejects.toThrow()
+  })
+})
+
 describe('the single-instance lock', () => {
   // HTOO-165. Two copies write the same settings.json under one userData
   // directory and the last writer wins, silently.

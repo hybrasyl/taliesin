@@ -56,6 +56,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The sound-effects browser and the world map find their client files on Linux and macOS.** Same
+  cause as the palette fix below: the installer writes `Legend.dat`, the app asked for
+  `legend.dat`, and a case-sensitive filesystem said the file was not there. Both now read whatever
+  the folder really contains. Windows was never affected.
 - **Sprites in the archive viewer get their palette on Linux and macOS.** The official installer
   writes `Legend.dat` while the palette rules ask for `legend.dat`, so on a case-sensitive
   filesystem the sibling archive was never found and khan, national and misc sprites fell back to

@@ -21,6 +21,7 @@ import {
 } from '@eriscorp/hybindex-ts'
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
+import { resolveClientFile } from './fsCase'
 import {
   loadPacks,
   listActivePacks,
@@ -745,7 +746,8 @@ export async function sfxList(
 ): Promise<{ entryName: string; sizeBytes: number }[]> {
   const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(safe, 'legend.dat')
+  // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
+  const legendPath = await resolveClientFile(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries
@@ -760,7 +762,8 @@ export async function sfxReadEntry(
 ): Promise<Buffer> {
   const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(safe, 'legend.dat')
+  // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
+  const legendPath = await resolveClientFile(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   const entry = archive.get(entryName)
