@@ -36,6 +36,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The Map Catalog loads its maps when you open it.** There is no Scan step before the page does
+  anything; the button is now **Rescan**, for files added to the directory since. If you keep more
+  than one map directory, a **Map source** picker in the toolbar switches between them without a
+  trip to Settings — the choice is the same active directory the rest of the app uses, so it sticks
+  across restarts. Switching source clears the selected map rather than carrying it over, because
+  the same filename exists in most directories. Unsaved catalog edits now prompt before they are
+  lost, whether you switch source, pick another map, or leave the page.
+
 - **Taliesin finds Creidhne by itself.** The Launch Creidhne button works without visiting
   Settings: Taliesin looks beside itself first, then at the installed application. Settings now
   shows where Creidhne was found, and picking one manually is only needed for an unusual install —
@@ -66,6 +74,9 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The Map Catalog list no longer runs off the bottom of the window.** It was exactly one toolbar
+  too tall, so the last rows and the end of the scrollbar sat below the window edge and could not
+  be reached.
 - **The sound-effects browser and the world map find their client files on Linux and macOS.** Same
   cause as the palette fix below: the installer writes `Legend.dat`, the app asked for
   `legend.dat`, and a case-sensitive filesystem said the file was not there. Both now read whatever

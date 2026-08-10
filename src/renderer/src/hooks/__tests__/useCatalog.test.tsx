@@ -86,7 +86,17 @@ describe('useCatalog', () => {
     await waitFor(() => expect(api.catalogLoad).toHaveBeenCalledWith('/maps'))
   })
 
-  it('scan() merges scanned files with catalog metadata, sorted by map number', async () => {
+  // HTOO-353: opening the page loads it. Scanning used to be a user action, so
+  // every visit began on an empty list behind a Scan button.
+  it('populates entries on open, with no rescan call', async () => {
+    api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
+    api.catalogLoad.mockResolvedValue({ 'lod00001.map': { name: 'Hut' } })
+    const { result } = renderHook(() => useCatalog('/maps'))
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
+    expect(result.current.entries[0].name).toBe('Hut')
+  })
+
+  it('merges scanned files with catalog metadata, sorted by map number', async () => {
     api.catalogScan.mockResolvedValue([
       { filename: 'lod00010.map', sizeBytes: 100 },
       { filename: 'lod00010-summer.map', sizeBytes: 100 },
@@ -97,11 +107,7 @@ describe('useCatalog', () => {
       'lod00010.map': { name: 'Town', notes: 'big' }
     })
     const { result } = renderHook(() => useCatalog('/maps'))
-    await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-
-    await act(async () => {
-      await result.current.scan()
-    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(3))
 
     expect(result.current.entries.map((e) => e.filename)).toEqual([
       'lod00005.map',
@@ -112,16 +118,71 @@ describe('useCatalog', () => {
     expect(result.current.entries[1].notes).toBe('big')
   })
 
+  it('rescan() re-reads the directory, picking up files added since', async () => {
+    api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
+    const { result } = renderHook(() => useCatalog('/maps'))
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
+
+    api.catalogScan.mockResolvedValue([
+      { filename: 'lod00001.map', sizeBytes: 100 },
+      { filename: 'lod00002.map', sizeBytes: 100 }
+    ])
+    await act(async () => {
+      await result.current.rescan()
+    })
+    expect(result.current.entries).toHaveLength(2)
+  })
+
+  // The selection is cleared rather than carried over, because filenames repeat
+  // across map directories — lod00500.map exists in most of them.
+  it('clears the selection and the draft when the source changes', async () => {
+    api.catalogScan.mockResolvedValue([{ filename: 'lod00500.map', sizeBytes: 100 }])
+    api.catalogLoad.mockResolvedValue({ 'lod00500.map': { name: 'From A' } })
+    const { result, rerender } = renderHook(({ dir }) => useCatalog(dir), {
+      initialProps: { dir: '/mapsA' }
+    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
+    act(() => result.current.select('lod00500.map'))
+    act(() => result.current.updateDraft({ name: 'edited' }))
+    expect(result.current.dirty).toBe(true)
+
+    api.catalogLoad.mockResolvedValue({ 'lod00500.map': { name: 'From B' } })
+    rerender({ dir: '/mapsB' })
+    expect(result.current.selectedFilename).toBeNull()
+    expect(result.current.draft).toEqual({})
+    expect(result.current.dirty).toBe(false)
+    await waitFor(() => expect(result.current.entries[0]?.name).toBe('From B'))
+  })
+
+  // Two sources switched quickly race. Without the sequence guard the slower
+  // first reply lands last and the list shows the directory the user left.
+  it('discards a load that a later source change has superseded', async () => {
+    let resolveA: (v: { filename: string; sizeBytes: number }[]) => void = () => {}
+    api.catalogScan.mockImplementationOnce(
+      () => new Promise<{ filename: string; sizeBytes: number }[]>((r) => (resolveA = r))
+    )
+    const { result, rerender } = renderHook(({ dir }) => useCatalog(dir), {
+      initialProps: { dir: '/mapsA' }
+    })
+
+    api.catalogScan.mockResolvedValue([{ filename: 'lod00002.map', sizeBytes: 100 }])
+    rerender({ dir: '/mapsB' })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
+
+    // A's listing arrives late and must not overwrite B's.
+    await act(async () => {
+      resolveA([{ filename: 'lod00001.map', sizeBytes: 100 }])
+    })
+    expect(result.current.entries.map((e) => e.filename)).toEqual(['lod00002.map'])
+  })
+
   it('select(filename) populates the draft from the matching entry', async () => {
     api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
     api.catalogLoad.mockResolvedValue({
       'lod00001.map': { name: 'Inn', notes: 'cozy', width: 20, height: 30 }
     })
     const { result } = renderHook(() => useCatalog('/maps'))
-    await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => {
-      await result.current.scan()
-    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
 
     act(() => result.current.select('lod00001.map'))
     expect(result.current.selectedFilename).toBe('lod00001.map')
@@ -149,10 +210,7 @@ describe('useCatalog', () => {
     api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
     api.catalogLoad.mockResolvedValue({})
     const { result } = renderHook(() => useCatalog('/maps'))
-    await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => {
-      await result.current.scan()
-    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
 
     act(() => result.current.select('lod00001.map'))
     act(() => result.current.updateDraft({ name: 'Saved Name' }))
@@ -170,10 +228,7 @@ describe('useCatalog', () => {
     api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
     api.catalogLoad.mockResolvedValue({})
     const { result } = renderHook(() => useCatalog('/maps'))
-    await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => {
-      await result.current.scan()
-    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
 
     act(() => result.current.select('lod00001.map'))
     act(() => result.current.updateDraft({ name: 'A' }))
@@ -190,10 +245,7 @@ describe('useCatalog', () => {
     api.catalogScan.mockResolvedValue([{ filename: 'lod00001.map', sizeBytes: 100 }])
     api.catalogLoad.mockResolvedValue({ 'lod00001.map': { notes: 'first' } })
     const { result } = renderHook(() => useCatalog('/maps'))
-    await waitFor(() => expect(api.catalogLoad).toHaveBeenCalled())
-    await act(async () => {
-      await result.current.scan()
-    })
+    await waitFor(() => expect(result.current.entries).toHaveLength(1))
 
     await act(async () => {
       await result.current.appendNote('lod00001.map', 'second')
