@@ -34,7 +34,9 @@ Taliesin has no Tier-1 design doc of its own; it predates the tier system. The n
 
 ## Milestone — palette resolution, LFT fonts, SOTP adoption, ambient packs
 
-**Baseline 2.8.0. Scope agreed 2026-07-28. Five of seven WPs shipped.**
+**Baseline 2.8.0. Scope agreed 2026-07-28. ✅ All seven WPs shipped.** The code is complete and on
+`main`; what remains is the on-screen pass in `npm run dev`, which is why HTOO-150, HTOO-151 and
+HTOO-152 sit in `needs-testing` rather than `done`. See "Milestone verification" below.
 
 Taliesin used to show a legacy sprite in the wrong colours until the user guessed a palette, show the client's real font as a hex dump, and ship an editor for a font format the client stopped calling. This milestone makes the Archive Viewer tell the truth about what is in a `.dat`, and retires the part that lies. Five of the seven WPs are read/decode work on legacy client formats; one adds a pack kind.
 
@@ -57,16 +59,17 @@ The milestone was written against dalib-ts 2.2.0 and gated three WPs on a releas
 | WP2 | [LFT glyph browser](complete/02-lft-glyph-browser.md)                                 | M    | WP0        | ✅ shipped            |
 | WP3 | [Remove the FNT editor](complete/03-remove-fnt-editor.md)                             | S    | —          | ✅ shipped (PR #25)   |
 | WP4 | [Typed `.tbl` views](complete/04-typed-tbl-views.md)                                  | S    | —          | ✅ shipped            |
-| WP5 | [Adopt dalib `SotpFile` + `renderTile`](05-sotp-tile-adoption.md)                     | M    | WP0        | planned               |
-| WP6 | [`ambient_sounds` pack kind](06-ambient-sounds-pack-kind.md)                          | S    | —          | planned               |
+| WP5 | [Adopt dalib `SotpFile` + `renderTile`](complete/05-sotp-tile-adoption.md)            | M    | WP0        | ✅ shipped 2026-08-10 |
+| WP6 | [`ambient_sounds` pack kind](complete/06-ambient-sounds-pack-kind.md)                 | S    | —          | ✅ shipped 2026-08-10 |
 
-WP5 and WP6 are independent of each other and can land in either order. WP2 and WP4 shipped together, ahead of them, on 2026-08-01.
+WP5 and WP6 were independent of each other and could land in either order. WP2 and WP4 shipped together, ahead of them, on 2026-08-01.
 
 ### What the build learned that the plan could not have
 
 - **WP3 deleted more than its plan scoped, and WP2 pays for it.** The milestone said `FontGlyphGrid` and `FontPixelEditor` would "survive into WP2" and be retargeted at LFT records. WP3 removed `src/renderer/src/components/font/` in full. WP2's glyph grid and glyph inspector are therefore new components, and its size moved from S–M to M. Verified against `main` on 2026-08-01.
-- **The ground-tile appearance change belongs to WP0, not WP5.** The `renderTile` diamond/index-0 fix ships in dalib-ts 3.0.0, so ground tiles changed on the bump, whether or not `mapRenderer.ts` was touched. WP5 Part B is therefore pure deduplication, not a visual change.
-- **WP0 found a live defect it deliberately did not fix.** `stcani.tbl` is being merged into the wall palette table by `PaletteTable.fromArchive('stc', …)`, silently overriding `stcpal.tbl` for animated walls. Fixing it changes map rendering, which would have contaminated WP0's verification. WP5 owns `mapRenderer.ts` and owns the fix.
+- **~~The ground-tile appearance change belongs to WP0, not WP5.~~ It belongs to WP5, and WP5 measured it.** This entry was written against the parsers and was wrong. Only the tileset **preview** moved to `renderTile` at 3.0.0; the **map** kept its local blit until WP5, so ground rendering changed there. Compared against a real client: walls are pixel-for-pixel identical across 7 tiles, and 2 of 5 ground tiles differ — alpha only, on palette-index-0 pixels inside the isometric diamond. **Walls** are the part that is pure deduplication.
+- **A claim derived from a parser is not a measurement, and this milestone got that wrong twice.** Both times the code was read correctly and the conclusion about what a user sees was still wrong, because a second data-file property masked it. The ground-tile attribution above is one. The other is `stcani.tbl`: WP0 recorded it as silently overriding `stcpal.tbl`, and it does not — archive order plus a `stcpal` single-value override mean the resolved palette is identical before and after the fix, on real data, for every id. It was worth fixing anyway, because both masking accidents belong to a file nobody here controls. The lesson is the cheap one: when the claim is about pixels, open the archive before writing it down.
+- **WP0 found a defect it deliberately did not fix — and it is latent, not live.** `stcani.tbl` is merged into the wall palette table by `PaletteTable.fromArchive('stc', …)`. WP5 owned `mapRenderer.ts` and owned the fix, and measuring it showed the override never reaches a rendered tile: `stcani` sorts before `stcpal`, so stcpal merges last and wins all 486 shared ids, and the one id stcani reaches is covered by a `stcpal` single-value override that outranks it. Fixed regardless — a repack that reorders the two tables flips those 486 wall ids to animation frame counts.
 - **The archive-preview dev-only OOM was fixed app-wide, not just in the Archive page.** The milestone listed it as a rider on WP1 and WP2. It shipped 2026-07-29 as two independent layers — see `complete/archive-preview-dev-oom.md`.
 - **"Keep the `LftFile` out of props" needed a mechanism, not just a rule.** WP2's grid and inspector are separate files and both need the font, so a prop is the ordinary way to pass it. A context (`lftFontContext.ts`) carries it instead and the children take only primitives — the same shape `archiveStore.ts` uses for the `DataArchive`, for the same reason. Filtering to populated glyphs first also made virtualisation unnecessary: a few hundred glyphs page cleanly at 256 a time.
 - **"Try each parser in turn" cannot identify a `.tbl`, and WP4 found a fourth format.** Three of the table formats are whitespace-separated integers, so the same line parses cleanly as all three; identification has to lead with the entry name and fall back to line shape, naming the rule it used. WP4 also added a **palette cycling** view its own file map did not list. The dye-table check had to move _after_ the typed reader, not before it — see `complete/04-typed-tbl-views.md`.
@@ -76,9 +79,11 @@ WP5 and WP6 are independent of each other and can land in either order. WP2 and 
 
 Most of this milestone changes pixels rather than return codes, so a green suite is necessary but not sufficient. The hand-to-user list in `npm run dev`:
 
-1. `da.lft` in `national.dat` browses without hanging, and a sample string renders (WP2).
-2. `mptpal.tbl`, `gndani.tbl`, `effect.tbl` and a numbered cycling file such as `stc0006.tbl` render as structured tables, and `color0.tbl` still shows dye swatches (WP4).
-3. Ground tiles in the Map Maker match the archive tileset preview; walls and the passability overlay are unchanged (WP5).
-4. An `ambient_sounds` pack compiles and its `covers` blob matches the contract (WP6).
+1. ✅ `da.lft` in `national.dat` browses without hanging, and a sample string renders (WP2).
+2. ✅ `mptpal.tbl`, `gndani.tbl`, `effect.tbl` and a numbered cycling file such as `stc0006.tbl` render as structured tables, and `color0.tbl` still shows dye swatches (WP4).
+3. **Outstanding** — ground tiles in the Map Maker match the archive tileset preview; walls and the passability overlay are unchanged (WP5). Ground tiles **do** change appearance here: empty parts of a tile were drawn as see-through holes and are now solid, matching the preview. HTOO-150, and HTOO-151 for the wall palettes.
+4. **Outstanding** — an `ambient_sounds` pack compiles and its `covers` blob matches the contract (WP6). Tick **One-shot** on one asset and confirm only that id appears, as `{ "loop": false }`. HTOO-152.
 
 The WP0 and WP1 items on this list are done; they are recorded in those WPs' own acceptance criteria.
+
+Items 3 and 4 are the only thing between this milestone and closed. Nothing in the repo is waiting on them.

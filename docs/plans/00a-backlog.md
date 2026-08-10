@@ -16,7 +16,7 @@ Taliesin's map XML and world map editors do recursive `listSection` enumeration,
 
 ### Server-side SOTP overlay → hybrasyl-server
 
-The SOTP overlay, bounds-check and native tile attributes on the server side. Named as out of scope by [WP5](05-sotp-tile-adoption.md); it is `hybrasyl-server`'s code.
+The SOTP overlay, bounds-check and native tile attributes on the server side. Named as out of scope by [WP5](complete/05-sotp-tile-adoption.md); it is `hybrasyl-server`'s code.
 
 ### A public reader for one palette cycling file → dalib-ts
 
@@ -32,11 +32,11 @@ Per settled decision 4, palette resolution rules live in dalib-ts and are specif
 
 ### Custom-SOTP authoring UI and the Brigid client consumer
 
-**Trigger:** [WP5](05-sotp-tile-adoption.md) lands and its Part C seam exists. WP5 records where the layer plugs in — the `static_tiles` covers schema, a `packResolveSotp` IPC method, and the merge point in `loadMapAssets` — and stops there. Deliberately unnumbered: it is a feature on top of the foundation, and its shape depends on what WP5 finds.
+**Trigger: FIRED.** [WP5](complete/05-sotp-tile-adoption.md) shipped 2026-08-10 and the Part C seam exists. WP5 records where the layer plugs in — the `static_tiles` covers schema, a `packResolveSotp` IPC method, and the merge point in `loadMapAssets` — and stopped there. Because Part A made `SotpFile` the single source, the merge is one localised change and every consumer reflects pack SOTP without being touched again. Deliberately unnumbered: it is a feature on top of the foundation, and its shape depends on what WP5 found. Tracked as HTOO-153; it needs a milestone and a WP number before it is work.
 
 ### Ambient interval scheduling
 
-**Trigger:** the document repo's `docs/plans/hybrasyl.client/ambient-audio-pipeline.md` promotes it past §4. [WP6](06-ambient-sounds-pack-kind.md) ships the `Loop` flag only, but shapes the `covers` blob so `{ "mode": "interval", "play": 180, "silence": 120 }` needs no schema bump.
+**Trigger:** the document repo's `docs/plans/hybrasyl.client/ambient-audio-pipeline.md` promotes it past §4. [WP6](complete/06-ambient-sounds-pack-kind.md) shipped the loop flag only, as the negative `no_loop` — beds loop by default, so only one-shots are written down. The `covers` blob is keyed by numeric id, which is what lets `{ "mode": "interval", "play": 180, "silence": 120 }` arrive with no schema bump, and `entrySchema` already accepts those fields without authoring them. A pack written by a later Taliesin therefore opens in this one rather than failing validation.
 
 ### The remaining `.datf` pack kinds
 

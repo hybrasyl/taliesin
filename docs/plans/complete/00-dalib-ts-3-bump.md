@@ -16,7 +16,7 @@ Move Taliesin onto dalib-ts 3.x so the rest of the milestone has the decode APIs
 
 Each of these touches something Taliesin draws:
 
-- **`renderTile` ground tiles.** Index 0 is now opaque and everything outside the isometric diamond is masked to transparent; padding no longer shows as garbage. dalib verified this against `TILEA.BMP`: ~417k index-0 pixels across 1,143 tiles, and 1,100 stray padding bytes across 65 tiles. **This lands in the archive `.bmp` tileset preview only** — `ArchivePreview.tsx` is Taliesin's sole `renderTile` caller. The map is unaffected, because `mapRenderer.ts` still uses its local `pixelsToImageData` for both ground and walls. Closing that divergence is [WP5](../05-sotp-tile-adoption.md) Part B.
+- **`renderTile` ground tiles.** Index 0 is now opaque and everything outside the isometric diamond is masked to transparent; padding no longer shows as garbage. dalib verified this against `TILEA.BMP`: ~417k index-0 pixels across 1,143 tiles, and 1,100 stray padding bytes across 65 tiles. **This lands in the archive `.bmp` tileset preview only** — `ArchivePreview.tsx` is Taliesin's sole `renderTile` caller. The map is unaffected, because `mapRenderer.ts` still uses its local `pixelsToImageData` for both ground and walls. Closing that divergence is [WP5](05-sotp-tile-adoption.md) Part B.
 - **SPF `left`/`top`/`pitch` are honoured.** Sprite previews that were subtly misplaced move.
 - **`ControlFile` no longer invents UI frames** — `<IMAGE>` is an ordered list. Affects UI Layout Forge prefab import (`uiforge/prefabImport.ts`).
 - **`HeaFile` masks run intensity with `& 0x3F`.** Affects the darkness preview.
@@ -25,7 +25,7 @@ Each of these touches something Taliesin draws:
 
 ## Non-goals (stop-lines)
 
-- **The `stcani.tbl` wall-palette defect found during this WP is not fixed here.** It is pre-existing and unrelated to the bump, and fixing it changes map rendering, which would contaminate this WP's verification. [WP5](../05-sotp-tile-adoption.md) owns `mapRenderer.ts` and owns that fix; the full finding is recorded there.
+- **The `stcani.tbl` wall-palette defect found during this WP is not fixed here.** It is pre-existing and unrelated to the bump, and fixing it changes map rendering, which would contaminate this WP's verification. [WP5](05-sotp-tile-adoption.md) owns `mapRenderer.ts` and owns that fix; the full finding is recorded there.
 
 ## Acceptance criteria
 
