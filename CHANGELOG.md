@@ -23,12 +23,11 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
-### Security
+### Changed
 
-- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
-  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
-  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
-  same pass; those never shipped to you.
+- The world index cache is rebuilt once on first run after this release, and the vendor directory
+  on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
+  derived from the world data and is rebuilt from it.
 
 ### Fixed
 
@@ -40,12 +39,20 @@ record; where they disagree with this file, the git history was taken as authori
   maps that share one name are a live fault. The world index now records the collisions it finds.
 - **Weapon damage reads the paired tags and a zero minimum.** The index scrape dropped both, so
   affected weapons showed no damage where they have some.
+- **Maps saved by Taliesin load on the server again.** Every map the editor wrote was rejected,
+  for two separate reasons and either one alone was enough. The root element lost its namespace,
+  which the server refuses outright — and because the map reader strips namespaces on the way in,
+  opening a valid map and saving it with no changes was enough to break it. Signs were also
+  written with a type the server has no name for, so a map with any sign failed even once the
+  namespace was right. The sign type is now `Sign`, which is what the server calls it, and the
+  editor no longer offers the invalid one.
 
-### Changed
+### Security
 
-- The world index cache is rebuilt once on first run after this release, and the vendor directory
-  on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
-  derived from the world data and is rebuilt from it.
+- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
+  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
+  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
+  same pass; those never shipped to you.
 
 ## [2.9.0] - 2026-08-01
 
