@@ -51,10 +51,11 @@ import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import { ItemsGroup } from '../shared/ItemsGroup'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
-import MapRenderCanvas, { type MapMarker, type MarkerKind } from './MapRenderCanvas'
+import MapRenderCanvas, { MARKER_COLOR, type MapMarker, type MarkerKind } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { normalizeFolder } from '../../utils/fileTree'
+import { isTypingTarget } from '../../utils/keyboard'
 import {
   ALL_BOARD_TYPES,
   ALL_DIRECTIONS,
@@ -967,7 +968,33 @@ function MapFieldsTab({
 // ── Tab 2: Placement canvas ───────────────────────────────────────────────────
 
 type PlaceMode = 'none' | 'warp-map' | 'warp-worldmap' | 'npc' | 'sign' | 'reactor'
+
+/**
+ * The key that arms each placement mode, and the label beside it.
+ *
+ * One table so the toolbar chips, the legend letters and the key handler cannot
+ * disagree — the legend advertising something the canvas did not draw is how
+ * HTOO-338 was found.
+ */
+const PLACE_MODES: { mode: Exclude<PlaceMode, 'none'>; label: string; key: string }[] = [
+  { mode: 'warp-map', label: 'Map Warp', key: 'm' },
+  { mode: 'warp-worldmap', label: 'World Warp', key: 'w' },
+  { mode: 'npc', label: 'NPC', key: 'n' },
+  { mode: 'sign', label: 'Sign', key: 's' },
+  { mode: 'reactor', label: 'Reactor', key: 'r' }
+]
 type SelMarker = { kind: MarkerKind; index: number } | null
+
+/**
+ * Whether a marker kind indexes into `data.warps`.
+ *
+ * Map warps and world warps are one collection with two `targetType` values,
+ * drawn as two marker kinds. Everything that resolves a marker back to its
+ * record goes through this, so the two never drift apart.
+ */
+function isWarpKind(kind: MarkerKind): boolean {
+  return kind === 'warp' || kind === 'worldwarp'
+}
 
 type DialogState =
   | { kind: 'npc'; tileX: number; tileY: number; editIndex?: number }
@@ -1015,7 +1042,16 @@ function MapPlacementTab({
   // stable across renders — it's a dep of the canvas's tile-iterating overlay effect.
   const markers: MapMarker[] = useMemo(
     () => [
-      ...data.warps.map((w, i): MapMarker => ({ kind: 'warp', index: i, x: w.x, y: w.y })),
+      // `index` stays the index into `data.warps` for both kinds — the two
+      // marker kinds are a drawing distinction, not a second collection.
+      ...data.warps.map(
+        (w, i): MapMarker => ({
+          kind: w.targetType === 'worldmap' ? 'worldwarp' : 'warp',
+          index: i,
+          x: w.x,
+          y: w.y
+        })
+      ),
       ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
       ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
       ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
@@ -1023,37 +1059,81 @@ function MapPlacementTab({
     [data.warps, data.npcs, data.signs, data.reactors]
   )
 
+  /** Arm a mode, or disarm it if it is already armed. Chips and keys share it. */
+  const toggleMode = useCallback((mode: Exclude<PlaceMode, 'none'>) => {
+    setPlaceMode((p) => (p === mode ? 'none' : mode))
+  }, [])
+
+  /**
+   * Placement hotkeys.
+   *
+   * The Placement tab had no keyboard handler at all, so this adds the first
+   * one — bound to the window, and guarded, rather than repeating the mistake
+   * HTOO-342 found in the Map Maker, where a `tabIndex` container nothing
+   * focused meant no shortcut worked until the user clicked inside the page.
+   *
+   * The tab is only mounted while it is the selected tab, so the listener is
+   * only live where the keys mean something.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      // This tab's dialogs are full of text fields, and every mode key is a
+      // letter. See utils/keyboard.ts — shared with the Map Maker's handler.
+      if (isTypingTarget(e.target)) return
+      if (dialogState) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'Escape') {
+        setPlaceMode('none')
+        return
+      }
+      const hit = PLACE_MODES.find((m) => m.key === e.key.toLowerCase())
+      if (!hit) return
+      e.preventDefault()
+      toggleMode(hit.mode)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dialogState, toggleMode])
+
+  /**
+   * Place one marker, and stay armed.
+   *
+   * Every exit used to clear `placeMode`, so placing ten NPCs meant clicking
+   * the NPC chip ten times (HTOO-338). The mode is turned off deliberately —
+   * click the armed chip again, press Escape, or press its key.
+   */
   const handleTileClick = (tx: number, ty: number) => {
     if (placeMode === 'none') return
     if (placeMode === 'warp-map') {
       setDialogState({ kind: 'warp', tileX: tx, tileY: ty, defaultType: 'map' })
-      setPlaceMode('none')
       return
     }
     if (placeMode === 'warp-worldmap') {
       setDialogState({ kind: 'warp', tileX: tx, tileY: ty, defaultType: 'worldmap' })
-      setPlaceMode('none')
       return
     }
     setDialogState({ kind: placeMode, tileX: tx, tileY: ty })
-    setPlaceMode('none')
   }
 
   const openEdit = (kind: MarkerKind, index: number) => {
-    const item =
-      kind === 'warp'
-        ? data.warps[index]
-        : kind === 'npc'
-          ? data.npcs[index]
-          : kind === 'sign'
-            ? data.signs[index]
-            : data.reactors[index]
+    const item = isWarpKind(kind)
+      ? data.warps[index]
+      : kind === 'npc'
+        ? data.npcs[index]
+        : kind === 'sign'
+          ? data.signs[index]
+          : data.reactors[index]
     if (!item) return
-    setDialogState({ kind, tileX: item.x, tileY: item.y, editIndex: index })
+    // Both warp kinds open the one warp dialog; it reads its own target type.
+    // Written as an explicit comparison rather than through `isWarpKind`, so
+    // the compiler can narrow away `'worldwarp'`, which is not a dialog kind.
+    const dialogKind: 'warp' | 'npc' | 'sign' | 'reactor' =
+      kind === 'warp' || kind === 'worldwarp' ? 'warp' : kind
+    setDialogState({ kind: dialogKind, tileX: item.x, tileY: item.y, editIndex: index })
   }
 
   const removeItem = (kind: MarkerKind, index: number) => {
-    if (kind === 'warp')
+    if (isWarpKind(kind))
       onChange((prev) => ({ ...prev, warps: prev.warps.filter((_, i) => i !== index) }))
     else if (kind === 'npc')
       onChange((prev) => ({ ...prev, npcs: prev.npcs.filter((_, i) => i !== index) }))
@@ -1061,7 +1141,13 @@ function MapPlacementTab({
       onChange((prev) => ({ ...prev, signs: prev.signs.filter((_, i) => i !== index) }))
     else if (kind === 'reactor')
       onChange((prev) => ({ ...prev, reactors: prev.reactors.filter((_, i) => i !== index) }))
-    if (selected?.kind === kind && selected.index === index) setSelected(null)
+    // Same record, not same kind: a world warp and a map warp are both
+    // `data.warps[index]`, so removing one must clear a selection on the other.
+    const sameRecord =
+      selected !== null &&
+      selected.index === index &&
+      (isWarpKind(kind) ? isWarpKind(selected.kind) : selected.kind === kind)
+    if (sameRecord) setSelected(null)
   }
 
   const confirmNpc = (npc: MapNpc) => {
@@ -1228,27 +1314,24 @@ function MapPlacementTab({
         >
           Place:
         </Typography>
-        {(
-          [
-            { mode: 'warp-map', label: 'Map Warp' },
-            { mode: 'warp-worldmap', label: 'World Warp' },
-            { mode: 'npc', label: 'NPC' },
-            { mode: 'sign', label: 'Sign' },
-            { mode: 'reactor', label: 'Reactor' }
-          ] as { mode: PlaceMode; label: string }[]
-        ).map(({ mode, label }) => (
-          <Chip
-            key={mode}
-            label={label}
-            size="small"
-            clickable
-            color={placeMode === mode ? 'primary' : 'default'}
-            onClick={() => setPlaceMode((p) => (p === mode ? 'none' : mode))}
-          />
+        {PLACE_MODES.map(({ mode, label, key }) => (
+          <Tooltip key={mode} title={`${label} — press ${key.toUpperCase()}`}>
+            <Chip
+              label={label}
+              size="small"
+              clickable
+              // `primary` is a real accent again since HTOO-341; on the Hybrasyl
+              // theme it used to be the page background, which made the armed
+              // chip the least prominent one on the row. No local override —
+              // patching this at the leaf is what that card removed.
+              color={placeMode === mode ? 'primary' : 'default'}
+              onClick={() => toggleMode(mode)}
+            />
+          </Tooltip>
         ))}
         {placeMode !== 'none' && (
           <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
-            Click map to place
+            Click map to place — stays armed, Esc to stop
           </Typography>
         )}
         <Box sx={{ ml: 'auto' }}>
@@ -1304,12 +1387,15 @@ function MapPlacementTab({
           {/* Legend */}
           <Paper variant="outlined" sx={{ p: 1, flexShrink: 0 }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+              {/* Colours come from the canvas's own table, not from copies.
+                  The legend used to advertise two near-identical blues for the
+                  two warp types while the canvas drew one colour for both. */}
               {[
-                { color: '#2196f3', label: 'Map Warp' },
-                { color: '#03a9f4', label: 'World Warp' },
-                { color: '#4caf50', label: 'NPC' },
-                { color: '#ffc107', label: 'Sign' },
-                { color: '#9c27b0', label: 'Reactor' }
+                { color: MARKER_COLOR.warp, label: 'Map Warp (M)' },
+                { color: MARKER_COLOR.worldwarp, label: 'World Warp (W)' },
+                { color: MARKER_COLOR.npc, label: 'NPC (N)' },
+                { color: MARKER_COLOR.sign, label: 'Sign (S)' },
+                { color: MARKER_COLOR.reactor, label: 'Reactor (R)' }
               ].map(({ color, label }) => (
                 <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Box
@@ -1329,7 +1415,7 @@ function MapPlacementTab({
           >
             <ItemsGroup
               label="Map Warps"
-              color="#2196f3"
+              color={MARKER_COLOR.warp}
               count={data.warps.filter((w) => w.targetType === 'map').length}
               onAdd={() => setPlaceMode('warp-map')}
               items={data.warps.flatMap((w, i) =>
@@ -1353,7 +1439,7 @@ function MapPlacementTab({
             <Divider />
             <ItemsGroup
               label="World Warps"
-              color="#03a9f4"
+              color={MARKER_COLOR.worldwarp}
               count={data.warps.filter((w) => w.targetType === 'worldmap').length}
               onAdd={() => setPlaceMode('warp-worldmap')}
               items={data.warps.flatMap((w, i) =>
@@ -1363,13 +1449,15 @@ function MapPlacementTab({
                       {
                         key: i,
                         label: `(${w.x},${w.y}) → ${w.worldMapTarget || '?'}`,
-                        selected: selected?.kind === 'warp' && selected.index === i,
+                        selected: selected?.kind === 'worldwarp' && selected.index === i,
                         onSelect: () =>
                           setSelected((s) =>
-                            s?.kind === 'warp' && s.index === i ? null : { kind: 'warp', index: i }
+                            s?.kind === 'worldwarp' && s.index === i
+                              ? null
+                              : { kind: 'worldwarp', index: i }
                           ),
-                        onEdit: () => openEdit('warp', i),
-                        onRemove: () => removeItem('warp', i)
+                        onEdit: () => openEdit('worldwarp', i),
+                        onRemove: () => removeItem('worldwarp', i)
                       }
                     ]
               )}
@@ -1377,7 +1465,7 @@ function MapPlacementTab({
             <Divider />
             <ItemsGroup
               label="NPCs"
-              color="#4caf50"
+              color={MARKER_COLOR.npc}
               count={data.npcs.length}
               onAdd={() => setPlaceMode('npc')}
               items={data.npcs.map((n, i) => ({
@@ -1395,7 +1483,7 @@ function MapPlacementTab({
             <Divider />
             <ItemsGroup
               label="Signs"
-              color="#ffc107"
+              color={MARKER_COLOR.sign}
               count={data.signs.length}
               onAdd={() => setPlaceMode('sign')}
               items={data.signs.map((s, i) => ({
@@ -1413,7 +1501,7 @@ function MapPlacementTab({
             <Divider />
             <ItemsGroup
               label="Reactors"
-              color="#9c27b0"
+              color={MARKER_COLOR.reactor}
               count={data.reactors.length}
               onAdd={() => setPlaceMode('reactor')}
               items={data.reactors.map((r, i) => ({

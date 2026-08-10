@@ -31,7 +31,7 @@ import type { SxProps } from '@mui/material'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
-export type MarkerKind = 'warp' | 'npc' | 'sign' | 'reactor'
+export type MarkerKind = 'warp' | 'worldwarp' | 'npc' | 'sign' | 'reactor'
 
 export interface MapMarker {
   kind: MarkerKind
@@ -90,11 +90,37 @@ interface CoordState {
 
 // ── Marker visual style ───────────────────────────────────────────────────────
 
-const MARKER: Record<MarkerKind, { fill: string; stroke: string; label: string }> = {
-  warp: { fill: 'rgba(33,150,243,0.85)', stroke: '#2196f3', label: 'W' },
+/**
+ * Marker colours, and the letter drawn inside each.
+ *
+ * Hardcoded hex rather than theme-derived, because these are drawn onto map art
+ * and have to stay legible on all six themes — so a change here needs checking
+ * against all six, not just the one in front of you.
+ *
+ * Map warps and world warps used to share a `warp` entry, so every warp drew
+ * blue with a `W` whatever its target, while the legend claimed two colours it
+ * never drew (HTOO-338). They are separate kinds now: blue `M` for a map warp,
+ * red `W` for a world warp. The red is Material red 600 rather than the theme's
+ * `error.main` (`#ff0000`), so it reads as a category and not as a fault.
+ *
+ * `MARKER_COLOR` is exported so the legend and the item lists cite these values
+ * instead of repeating them — the legend being wrong is how this was found.
+ */
+export const MARKER: Record<MarkerKind, { fill: string; stroke: string; label: string }> = {
+  warp: { fill: 'rgba(33,150,243,0.85)', stroke: '#2196f3', label: 'M' },
+  worldwarp: { fill: 'rgba(229,57,53,0.85)', stroke: '#e53935', label: 'W' },
   npc: { fill: 'rgba(76,175,80,0.85)', stroke: '#4caf50', label: 'N' },
   sign: { fill: 'rgba(255,193,7,0.85)', stroke: '#ffc107', label: 'S' },
   reactor: { fill: 'rgba(156,39,176,0.85)', stroke: '#9c27b0', label: 'R' }
+}
+
+/** The colour each marker kind is drawn in. The legend's single source. */
+export const MARKER_COLOR: Record<MarkerKind, string> = {
+  warp: MARKER.warp.stroke,
+  worldwarp: MARKER.worldwarp.stroke,
+  npc: MARKER.npc.stroke,
+  sign: MARKER.sign.stroke,
+  reactor: MARKER.reactor.stroke
 }
 
 // ── Helper: tile → screen centre ──────────────────────────────────────────────
