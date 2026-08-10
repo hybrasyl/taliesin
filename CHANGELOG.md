@@ -58,6 +58,14 @@ record; where they disagree with this file, the git history was taken as authori
   "remains (manual delete may be needed)", which reads as optional. A rename now moves the file, so
   one map ends up at the new name and nothing is left to tidy up. Renaming onto a name that already
   exists is refused and changes nothing on disk. The world map editor is fixed the same way.
+- **The Determine Map Dimensions dialog stops growing.** Stepping through candidate sizes made the
+  dialog taller on every step, without bound — it never settled and never came back down. The
+  preview asked for a scale that fit the box, but worked it out from a slightly shorter map than
+  the one actually drawn, so each render came back taller than the box it had just measured. The
+  box grew, and the next step measured the larger box. The preview is now a fixed size and the
+  scale comes from the renderer itself, so the same map size always draws the same picture.
+- **Stepping quickly through sizes no longer smears two previews together.** A slow render kept
+  drawing into the preview after the next one had started.
 
 ### Security
 
