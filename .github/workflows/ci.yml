@@ -27,6 +27,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # DEPTH 1, deliberately, and this is the recorded answer to HTOO-328 for
+      # this repo rather than an unexamined default.
+      #
+      # A shallow clone records no parents, so every commit CI sees reads as a
+      # ROOT commit: nothing is ever a merge and ancestry questions answer
+      # confidently and wrongly. That silently voided an e2e assertion in balor,
+      # which reads commit parents.
+      #
+      # Nothing in Taliesin reads git. No source, script, test or e2e spec shells
+      # out to it or parses its output; scripts/changelog-extract.mjs reads
+      # CHANGELOG.md, and release.yml's `generate_release_notes` is computed by
+      # GitHub from the API rather than from the clone. So a deeper fetch would
+      # buy nothing and cost a full clone on every run.
+      #
+      # Revisit this the moment anything here reads parents, merge-base,
+      # ahead/behind or `git describe` -- at that point the default stops being
+      # free and starts being a wrong answer.
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
