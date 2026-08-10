@@ -93,6 +93,28 @@ Define named color palettes and generate element-colored variants of grayscale i
 
 Pre-built releases for Windows are available on the [releases page](../../releases).
 
+## Remote Desktop
+
+Over Remote Desktop there is no GPU, so Taliesin drops to software rendering on its own and
+suppresses the themes' backdrop blur, which is the most expensive thing to draw without one. There
+is no setting: the choice has to be made before the app finishes starting, and the app adapts rather
+than asking.
+
+Detection reads `%SESSIONNAME%`, which Windows writes at logon and **never revises**. So if you
+reconnect over RDP to a session that was already open at the console, every process still reports
+`Console` and Taliesin will not notice. Set `TALIESIN_DISABLE_GPU=1` in that case.
+
+The variable answers in both directions, and is the only override there is:
+
+| Value | Effect |
+| --- | --- |
+| unset or empty | decide by detection |
+| `0` | force hardware acceleration on, even in a remote session |
+| anything else | force software rendering, even on a local machine |
+
+`TALIESIN_DISABLE_GPU=1` on a local machine is also how the remote-session behaviour is reproduced
+without a remote machine.
+
 ## Building from source
 
 ```bash
