@@ -23,6 +23,130 @@ export interface TileChange {
 
 export type ShapeMode = 'rect-outline' | 'rect-filled' | 'circle-outline' | 'circle-filled'
 
+/** The three tile layers, in draw order. */
+export const TILE_LAYERS: readonly TileLayerKey[] = [
+  'background',
+  'leftForeground',
+  'rightForeground'
+]
+
+/** Which layers the editor is currently drawing — the toolbar's eye toggles. */
+export type LayerVisibility = Record<TileLayerKey, boolean>
+
+// ── Selection capture and clear ──────────────────────────────────────────────
+
+/**
+ * The tiles inside a selection, with every hidden layer read as 0.
+ *
+ * Copy used to take all three layers unconditionally, so foregrounds you had
+ * switched off came with the region and reappeared on paste (HTOO-333).
+ *
+ * A hidden layer is captured as 0 rather than reshaping the clipboard: paste
+ * skips zero-valued layers, so a ground-only capture composites over existing
+ * foregrounds instead of erasing them, and prefab stamping — which reuses the
+ * same structure — is unaffected.
+ *
+ * Tiles outside the map read as empty, so the captured block is always
+ * `w × h` and pastes at the shape the user selected.
+ */
+export function captureSelection(
+  mapFile: MapFile,
+  rect: { x: number; y: number; w: number; h: number },
+  visible: LayerVisibility
+): { background: number; leftForeground: number; rightForeground: number }[] {
+  const tiles: { background: number; leftForeground: number; rightForeground: number }[] = []
+  for (let dy = 0; dy < rect.h; dy++) {
+    for (let dx = 0; dx < rect.w; dx++) {
+      const x = rect.x + dx
+      const y = rect.y + dy
+      if (x < 0 || y < 0 || x >= mapFile.width || y >= mapFile.height) {
+        tiles.push({ background: 0, leftForeground: 0, rightForeground: 0 })
+        continue
+      }
+      const tile = mapFile.getTile(x, y)
+      tiles.push({
+        background: visible.background ? tile.background : 0,
+        leftForeground: visible.leftForeground ? tile.leftForeground : 0,
+        rightForeground: visible.rightForeground ? tile.rightForeground : 0
+      })
+    }
+  }
+  return tiles
+}
+
+/**
+ * The changes that clear every *visible* layer inside a selection — you cannot
+ * delete what you cannot see.
+ *
+ * Cut and Delete share this with Copy's rule above. Hiding the foregrounds and
+ * losing them to a Delete anyway is the same surprise as copying them
+ * invisibly, and one rule across all three is easier to hold than a rule that
+ * covers Copy alone.
+ */
+export function clearSelectionChanges(
+  mapFile: MapFile,
+  rect: { x: number; y: number; w: number; h: number },
+  visible: LayerVisibility
+): TileChange[] {
+  const changes: TileChange[] = []
+  for (let dy = 0; dy < rect.h; dy++) {
+    for (let dx = 0; dx < rect.w; dx++) {
+      const x = rect.x + dx
+      const y = rect.y + dy
+      if (x < 0 || y < 0 || x >= mapFile.width || y >= mapFile.height) continue
+      const tile = mapFile.getTile(x, y)
+      for (const layer of TILE_LAYERS) {
+        if (!visible[layer]) continue
+        if (tile[layer] === 0) continue
+        changes.push({ x, y, layer, oldValue: tile[layer], newValue: 0 })
+      }
+    }
+  }
+  return changes
+}
+
+// ── Random fill ──────────────────────────────────────────────────────────────
+
+/**
+ * Scatter `tileIds` across a rectangle on one layer, and return the changes
+ * without mutating the map.
+ *
+ * The per-tile brush is the same rule applied one cell at a time; this exists so
+ * a marked-out area can be filled in a single undoable batch instead of by hand
+ * (HTOO-333).
+ *
+ * `overwrite` is off by default, matching the brush: an occupied cell is left
+ * alone, so the tool never silently changes what it already does. The pick is
+ * uniform — frequency weighting is a separate question, and `pickWeighted` in
+ * `utils/mapGenerator.ts` is where that would come from.
+ *
+ * `pick` is injected only so tests are not at the mercy of `Math.random`.
+ */
+export function randomFillRect(
+  mapFile: MapFile,
+  rect: { x: number; y: number; w: number; h: number },
+  layer: TileLayerKey,
+  tileIds: readonly number[],
+  options: { overwrite?: boolean; pick?: (ids: readonly number[]) => number } = {}
+): TileChange[] {
+  if (tileIds.length === 0) return []
+  const pick = options.pick ?? ((ids) => ids[Math.floor(Math.random() * ids.length)])
+  const changes: TileChange[] = []
+  for (let dy = 0; dy < rect.h; dy++) {
+    for (let dx = 0; dx < rect.w; dx++) {
+      const x = rect.x + dx
+      const y = rect.y + dy
+      if (x < 0 || y < 0 || x >= mapFile.width || y >= mapFile.height) continue
+      const oldValue = mapFile.getTile(x, y)[layer]
+      if (oldValue !== 0 && !options.overwrite) continue
+      const newValue = pick(tileIds)
+      if (newValue === oldValue) continue
+      changes.push({ x, y, layer, oldValue, newValue })
+    }
+  }
+  return changes
+}
+
 // ── Flood Fill ───────────────────────────────────────────────────────────────
 
 /**

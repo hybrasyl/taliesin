@@ -36,6 +36,15 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **Copy, Cut and Delete in the Map Maker now obey the layer toggles.** Hide the foregrounds and
+  copy a region and you get the ground only; the same region cut or deleted leaves the hidden
+  foregrounds where they were. Pasting a ground-only region drops it over existing foregrounds
+  without disturbing them. With all three layers shown, nothing changes.
+- **Random fill can fill a selection.** Mark out an area, pick the tiles, and one click with the
+  random fill tool scatters them across the whole area as a single undo step. Occupied tiles are
+  left alone as before; hold Shift while clicking to fill over them. With no selection the tool is
+  still the per-tile brush it was.
+
 - **The Map Catalog loads its maps when you open it.** There is no Scan step before the page does
   anything; the button is now **Rescan**, for files added to the directory since. If you keep more
   than one map directory, a **Map source** picker in the toolbar switches between them without a
@@ -74,6 +83,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Copy and paste in the Map Maker work across tabs.** The clipboard was per-tab, so copying in
+  one map and pasting into another pasted whatever that map had last copied — or nothing at all,
+  with no warning. There is now one clipboard for every tab, it survives closing the tab you copied
+  from, and the last copy wins.
 - **The Map Catalog list no longer runs off the bottom of the window.** It was exactly one toolbar
   too tall, so the last rows and the end of the scrollbar sat below the window edge and could not
   be reached.

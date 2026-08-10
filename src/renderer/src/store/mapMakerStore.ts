@@ -15,7 +15,12 @@ export interface MapTab {
   undoStack: UndoGroup[]
   redoStack: UndoGroup[]
   selection: Selection | null
-  clipboard: Clipboard | null
+  /**
+   * Whether this tab is currently placing the clipboard. A tool state, not
+   * clipboard content — it says the user is placing a paste *on this canvas* —
+   * so it stays per-tab while the payload is shared. Hoisting both together
+   * would arm paste mode on tabs the user has not touched.
+   */
   pasteMode: boolean
   canvasKey: number
   renderVersion: number
@@ -24,8 +29,21 @@ export interface MapTab {
 interface MapMakerState {
   tabs: MapTab[]
   activeTabId: string | null
+  /**
+   * One clipboard for the whole Map Maker, not one per tab.
+   *
+   * Copying a region from one map into another is the ordinary reason to have
+   * two maps open, and a per-tab clipboard made that silently inert: paste in
+   * tab B read B's own clipboard and did nothing (HTOO-339). Last write wins,
+   * matching every other application.
+   *
+   * `Clipboard` is plain numeric tile ids with no reference to its source map,
+   * so it is safe to move between maps as-is.
+   */
+  clipboard: Clipboard | null
 
   addTab: (tab: MapTab) => void
+  setClipboard: (clipboard: Clipboard | null) => void
   updateTab: (id: string, patch: Partial<MapTab>) => void
   removeTab: (id: string) => void
   setActiveTabId: (id: string | null) => void
@@ -48,7 +66,6 @@ export function createTab(
     undoStack: [],
     redoStack: [],
     selection: null,
-    clipboard: null,
     pasteMode: false,
     canvasKey: ++nextCanvasKey,
     renderVersion: 0
@@ -81,8 +98,11 @@ export function tabLabel(tab: MapTab): string {
 export const useMapMakerStore = create<MapMakerState>((set) => ({
   tabs: [],
   activeTabId: null,
+  clipboard: null,
 
   addTab: (tab) => set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id })),
+
+  setClipboard: (clipboard) => set({ clipboard }),
 
   updateTab: (id, patch) =>
     set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
@@ -101,10 +121,13 @@ export const useMapMakerStore = create<MapMakerState>((set) => ({
 
   setActiveTabId: (activeTabId) => set({ activeTabId }),
 
+  // The clipboard outlives the tabs on purpose: closing the tab you copied from
+  // is not a reason to lose what you copied. `closeAllTabs` is the release of
+  // the maps, not of the payload.
   closeAllTabs: () => set({ tabs: [], activeTabId: null })
 }))
 
 /** Test seam — drops all tabs so specs don't leak state into each other. */
 export function resetMapMakerStore(): void {
-  useMapMakerStore.setState({ tabs: [], activeTabId: null })
+  useMapMakerStore.setState({ tabs: [], activeTabId: null, clipboard: null })
 }

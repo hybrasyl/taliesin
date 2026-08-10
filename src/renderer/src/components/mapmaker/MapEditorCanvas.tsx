@@ -43,6 +43,7 @@ import {
   bresenhamLine,
   getShapeCoords,
   applyChanges,
+  randomFillRect,
   type TileChange,
   type TileCoord,
   type ShapeMode
@@ -653,6 +654,27 @@ const MapEditorCanvas: React.FC<Props> = ({
     [mapFile, activeLayer, selectedTileIds, queueRender]
   )
 
+  /**
+   * Scatter the selected tiles across the whole selection at once.
+   *
+   * `overwrite` comes from Shift, and is off by default so the batch keeps the
+   * brush's own rule — an occupied cell is left alone — and the tool never
+   * silently starts destroying work it used to skip.
+   */
+  const fillSelection = useCallback(
+    (overwrite: boolean) => {
+      if (!selection || selectedTileIds.length === 0) return
+      const changes = randomFillRect(mapFile, selection, activeLayer, selectedTileIds, {
+        overwrite
+      })
+      if (changes.length === 0) return
+      applyChanges(mapFile, changes)
+      onTileChange(changes)
+      queueRender()
+    },
+    [mapFile, selection, activeLayer, selectedTileIds, onTileChange, queueRender]
+  )
+
   const applyFill = useCallback(
     (tx: number, ty: number) => {
       const changes = floodFill(mapFile, tx, ty, activeLayer, selectedTileId)
@@ -781,6 +803,14 @@ const MapEditorCanvas: React.FC<Props> = ({
         return
       }
 
+      // Random fill into a marked-out area, in one undoable batch. Painting an
+      // area by hand is the work this tool exists to avoid (HTOO-333). With no
+      // selection it stays the per-tile brush below.
+      if (effectiveTool === 'randomFill' && selection) {
+        fillSelection(e.shiftKey)
+        return
+      }
+
       // Draw / erase / randomFill
       paintingRef.current = true
       batchRef.current = []
@@ -803,6 +833,7 @@ const MapEditorCanvas: React.FC<Props> = ({
       onSelectionChange,
       isInSelection,
       applyFill,
+      fillSelection,
       applyDrawOrErase,
       applyRandomFill,
       commitLineOrShape,
