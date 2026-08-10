@@ -175,7 +175,11 @@ const {
       // handler registrations at module load.
       whenReady: vi.fn(() => new Promise(() => undefined)),
       on: vi.fn(),
-      getVersion: vi.fn(() => '0.0.0-test')
+      getVersion: vi.fn(() => '0.0.0-test'),
+      // The single-instance lock, taken at module scope. `true` is the winning
+      // instance, which is the one that registers everything below.
+      requestSingleInstanceLock: vi.fn(() => true),
+      exit: vi.fn()
     },
     shell: { openExternal: vi.fn() },
     BrowserWindow: vi.fn(),
@@ -343,6 +347,11 @@ function reset() {
 // ── Setup: import index.ts to register handlers ───────────────────────────────
 
 let prevLocalAppData: string | undefined
+
+/** What index.ts did at module scope, snapshotted before `reset()`'s
+ *  `vi.clearAllMocks()` in beforeEach wipes the call record. */
+const boot = { lockRequests: 0, exits: 0, appEvents: [] as string[] }
+
 beforeAll(async () => {
   // Settings now resolve from %LOCALAPPDATA% on Windows; pin it to the same
   // base the electron mock returns for app.getPath('appData') so the in-memory
@@ -350,6 +359,9 @@ beforeAll(async () => {
   prevLocalAppData = process.env.LOCALAPPDATA
   process.env.LOCALAPPDATA = '/appdata'
   const indexModule = await import('../index')
+  boot.lockRequests = electronMock.app.requestSingleInstanceLock.mock.calls.length
+  boot.exits = electronMock.app.exit.mock.calls.length
+  boot.appEvents = electronMock.app.on.mock.calls.map((c) => c[0] as string)
   // index.ts registers handlers through guardIpc, which fails closed. Own the
   // trusted location here rather than mirroring index.ts's path expression,
   // which would drift: `trustedLocations` is module state in a module both
@@ -390,6 +402,29 @@ describe('IPC channel registration', () => {
     const rogue = makeSender({ id: 99, url: TRUSTED_URL })
     expect(() => handlers.get('settings:load')!(rogue.event)).toThrow(/untrusted sender/)
   })
+})
+
+describe('the single-instance lock', () => {
+  // HTOO-165. Two copies write the same settings.json under one userData
+  // directory and the last writer wins, silently.
+  // Asserted from the `boot` snapshot, not from the mocks: these happen once at
+  // import, and beforeEach's `vi.clearAllMocks()` wipes the call record.
+  it('is requested at module scope, and this instance won it', () => {
+    expect(boot.lockRequests).toBe(1)
+    expect(boot.exits).toBe(0)
+  })
+
+  it('registers a second-instance handler, so a second launch surfaces this window', () => {
+    expect(boot.appEvents).toContain('second-instance')
+  })
+
+  // The LOSING path is not unit-testable here, and it is worth saying why
+  // rather than leaving a gap that reads as an oversight. What makes it correct
+  // is that `app.exit(0)` terminates the process before the module-scope work
+  // below it runs — the migration, the session log, the settings manager, the
+  // handler registrations. A mocked `exit` returns, so a doubled instance would
+  // run all of it anyway and the test would assert the opposite of the truth.
+  // Proving it needs a real second process; SECURITY.md carries the check.
 })
 
 describe('settings handlers', () => {

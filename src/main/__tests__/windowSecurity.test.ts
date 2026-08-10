@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { pathToFileURL } from 'url'
 import {
   initWindowSecurity,
   hardenWindow,
   guardIpc,
+  installContentSecurityPolicy,
+  withContentSecurityPolicy,
+  RENDERER_CSP,
   __resetWindowSecurityForTests
 } from '../windowSecurity'
 import { makeSender, trust, allowed } from './windowSecurityFixtures'
@@ -393,5 +398,108 @@ describe('hardenWindow', () => {
     const event = w.navigate(DEV_URL)
     expect(event.preventDefault).not.toHaveBeenCalled()
     expect(openExternal).not.toHaveBeenCalled()
+  })
+})
+
+// The fourth protection (HTOO-164). A meta-tag CSP is applied by the document
+// once parsing reaches the tag; a header applies to the response, before any of
+// it runs. The meta tags stay as a second layer, so the thing worth pinning is
+// that all three copies of the policy still say the same words.
+describe('installContentSecurityPolicy', () => {
+  const REPO_ROOT = join(import.meta.dirname, '..', '..', '..')
+
+  /** The `content` of the one CSP meta tag in a static HTML file. */
+  function metaCsp(relPath: string): string | undefined {
+    const html = readFileSync(join(REPO_ROOT, relPath), 'utf8')
+    return /http-equiv="Content-Security-Policy"\s*\n?\s*content="([^"]+)"/.exec(html)?.[1]
+  }
+
+  it('sends the policy the renderer document already declares', () => {
+    // Not a style check. If these drift, the header silently becomes the only
+    // policy in force for one document and the meta tag for another, and the
+    // app then behaves differently depending on which layer got there first.
+    expect(metaCsp('src/renderer/index.html')).toBe(RENDERER_CSP)
+  })
+
+  it('sends the policy the splash document declares', () => {
+    // The splash had NO policy at all before this — it is a real document in a
+    // real window, and it was the only one with nothing.
+    expect(metaCsp('resources/splash.html')).toBe(RENDERER_CSP)
+  })
+
+  it('stamps the header on our own content, packaged and in dev', () => {
+    for (const url of [
+      'file:///opt/Taliesin%20App/resources/app.asar/out/renderer/index.html',
+      'http://127.0.0.1:5173/'
+    ]) {
+      expect(withContentSecurityPolicy(url, {})).toEqual({
+        'Content-Security-Policy': [RENDERER_CSP]
+      })
+    }
+  })
+
+  it('leaves Chromium\u2019s own internal responses alone', () => {
+    // devtools:// is not our content to police, and a `default-src 'self'` on it
+    // breaks the inspector in dev for no security gain.
+    expect(withContentSecurityPolicy('devtools://devtools/bundled/panel.js', {})).toBeUndefined()
+  })
+
+  it('polices a URL it cannot parse rather than letting it through', () => {
+    // Fails closed, like the rest of this file. The header can only restrict.
+    expect(withContentSecurityPolicy('not a url', {})).toEqual({
+      'Content-Security-Policy': [RENDERER_CSP]
+    })
+  })
+
+  it('replaces an existing policy whatever its casing, and drops report-only', () => {
+    // Two CSP headers INTERSECT rather than override, so leaving one in place
+    // would make the effective policy depend on whoever else set it. Header
+    // names are case-insensitive, so matching only the canonical casing would
+    // leave a lowercase one in force beside ours.
+    const headers = withContentSecurityPolicy('file:///app/index.html', {
+      'content-security-policy': ["default-src 'none'"],
+      'Content-Security-Policy-Report-Only': ['default-src *'],
+      'X-Frame-Options': ['DENY']
+    })
+    expect(headers).toEqual({
+      'X-Frame-Options': ['DENY'],
+      'Content-Security-Policy': [RENDERER_CSP]
+    })
+  })
+
+  it('registers one listener and answers with the stamped headers', () => {
+    let received: ((d: unknown, cb: (r: unknown) => void) => void) | undefined
+    const session = {
+      webRequest: {
+        onHeadersReceived: (fn: typeof received) => {
+          received = fn
+        }
+      }
+    }
+    installContentSecurityPolicy(session as never)
+    expect(received).toBeDefined()
+
+    const callback = vi.fn()
+    received!({ url: 'file:///app/index.html', responseHeaders: {} }, callback)
+    expect(callback).toHaveBeenCalledWith({
+      responseHeaders: { 'Content-Security-Policy': [RENDERER_CSP] }
+    })
+  })
+
+  it('answers an unpoliced response without rewriting its headers', () => {
+    // `callback({})` leaves the response as it was. Passing the headers back
+    // unchanged would be equivalent but claims an edit that did not happen.
+    let received: ((d: unknown, cb: (r: unknown) => void) => void) | undefined
+    installContentSecurityPolicy({
+      webRequest: {
+        onHeadersReceived: (fn: typeof received) => {
+          received = fn
+        }
+      }
+    } as never)
+
+    const callback = vi.fn()
+    received!({ url: 'devtools://devtools/x.js', responseHeaders: { A: ['b'] } }, callback)
+    expect(callback).toHaveBeenCalledWith({})
   })
 })

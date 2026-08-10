@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <title>Taliesin</title>
+    <!-- Same policy the renderer carries, and the same reason for carrying it
+         twice: installContentSecurityPolicy() in src/main/windowSecurity.ts
+         sends this as a response header, and windowSecurity.test.ts asserts this
+         copy still matches RENDERER_CSP there. Keep them identical by editing
+         that constant first. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src file: http: https: data: blob:; media-src blob:;"
+    />
     <style>
       /* Splash is shown in a frameless, transparent BrowserWindow before the
          renderer bundle loads. It is intentionally self-contained (no JS, no

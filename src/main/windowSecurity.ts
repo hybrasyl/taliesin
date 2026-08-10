@@ -3,7 +3,7 @@
 // both descend from mabon's WP18 pass, which answered a real static audit.
 // Tracked house-wide as R-006.
 //
-// Three protections, kept in ONE place so the policy is single-sourced and
+// Four protections, kept in ONE place so the policy is single-sourced and
 // auditable rather than scattered across window constructors:
 //
 //   1. hardenWindow()  -- deny top-level navigation away from our own content,
@@ -14,6 +14,9 @@
 //      location.
 //   3. initWindowSecurity()/registerTrustedWindow() -- the fail-closed trust
 //      set both of the above consult.
+//   4. installContentSecurityPolicy() -- put the CSP on the RESPONSE, so it is
+//      in force before a document runs rather than once parsing reaches a meta
+//      tag, and so it covers the splash, which carries no policy of its own.
 //
 // Taliesin has exactly one window that can send IPC. The splash has no preload,
 // so it has no bridge and cannot reach ipcMain at all -- which is why mabon's
@@ -25,9 +28,93 @@
 // (`assertInside*`) still contains every path that arrives, and the Zod schemas
 // in `schemas/` still validate every payload. Nothing here replaces them.
 
-import type { BrowserWindow, IpcMain, IpcMainEvent, IpcMainInvokeEvent } from 'electron'
+import type { BrowserWindow, IpcMain, IpcMainEvent, IpcMainInvokeEvent, Session } from 'electron'
 import { pathToFileURL } from 'url'
 import { isSafeExternalUrl } from '../shared/externalUrl'
+
+/**
+ * The renderer's Content-Security-Policy, single-sourced here.
+ *
+ * **This string is duplicated as a `<meta http-equiv>` in `src/renderer/index.html`
+ * and `resources/splash.html`, and the duplication is deliberate.** A static
+ * HTML file cannot import a TypeScript constant, and the meta tag is worth
+ * keeping as a second layer: it survives a session this code never touches --
+ * a document opened by a future window, or the packaged renderer loaded by
+ * anything that bypasses the header. `windowSecurity.test.ts` reads both files
+ * and asserts they still match this constant, so the copies cannot drift
+ * silently.
+ *
+ * Why the header matters when the meta tag exists: a meta policy is applied by
+ * the document once parsing reaches the tag, so anything the document does
+ * before that point is ungoverned. A header applies to the response itself,
+ * before any of it runs. The two are not interchangeable.
+ *
+ * The policy itself is unchanged from the meta tag that has shipped since the
+ * app was scaffolded -- `img-src` carries `file:` because the archive viewer
+ * renders decoded frames from the client install, and `blob:` because previews
+ * and audio are built in memory.
+ */
+export const RENDERER_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src file: http: https: data: blob:; media-src blob:;"
+
+/**
+ * Schemes our own documents and their subresources load over: `file:` packaged,
+ * `http:`/`https:` for the dev server.
+ *
+ * An allowlist rather than a denylist because the alternative stamps a policy on
+ * Chromium's own internal responses -- `devtools:` most of all, where a
+ * `default-src 'self'` breaks the inspector in dev for no security gain, since
+ * that content is not ours to police.
+ */
+const POLICED_PROTOCOLS = new Set(['file:', 'http:', 'https:'])
+
+/**
+ * The response headers to send back, or `undefined` to leave the response
+ * untouched. Exported for direct unit testing — the CSP is only worth having if
+ * the exact header that reaches the document is pinned.
+ *
+ * Any policy already on the response is REPLACED, header names being
+ * case-insensitive. Two CSP headers intersect rather than override, so leaving
+ * one in place would make the effective policy a function of whatever else set
+ * it — and the report-only variant is dropped for the same reason: a stale one
+ * reports against a policy we no longer send.
+ *
+ * A URL that will not parse gets the policy rather than escaping it. The rest of
+ * this file fails closed and so does this: the header can only restrict.
+ */
+export function withContentSecurityPolicy(
+  rawUrl: string,
+  responseHeaders: Record<string, string[] | string> | undefined
+): Record<string, string[] | string> | undefined {
+  try {
+    if (!POLICED_PROTOCOLS.has(new URL(rawUrl).protocol)) return undefined
+  } catch {
+    /* unparseable -- fall through and police it */
+  }
+  const next: Record<string, string[] | string> = {}
+  for (const [name, value] of Object.entries(responseHeaders ?? {})) {
+    const lower = name.toLowerCase()
+    if (lower === 'content-security-policy') continue
+    if (lower === 'content-security-policy-report-only') continue
+    next[name] = value
+  }
+  next['Content-Security-Policy'] = [RENDERER_CSP]
+  return next
+}
+
+/**
+ * Put `RENDERER_CSP` on every response this session serves for our own content.
+ *
+ * Call once, on `session.defaultSession`, before any window loads — the point of
+ * a header over a meta tag is that it is in force for the response itself, and a
+ * document already loading has passed it.
+ */
+export function installContentSecurityPolicy(session: Session): void {
+  session.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = withContentSecurityPolicy(details.url, details.responseHeaders)
+    callback(responseHeaders ? { responseHeaders } : {})
+  })
+}
 
 /**
  * Locations we consider "our own content", keyed as `protocol//host + pathname`
