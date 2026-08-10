@@ -223,6 +223,31 @@ describe('ArchivePage — round-trip integration', () => {
     expect(resolver.provider('national.dat')).toBeNull()
   })
 
+  // The official installer writes `Legend.dat`, while the palette rules name
+  // their siblings as lowercase literals. The memory fs is case-SENSITIVE, so
+  // this is the Linux case: reading the literal name misses, and the sibling
+  // goes silently unloaded while the archive still opens normally. See
+  // dalib-ts 3.1.1.
+  it('loads a sibling whose on-disk name is cased differently', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xde, 0xad]))
+    fs.files.set(`${CLIENT_PATH}/Legend.dat`, Buffer.from([0xbe, 0xef]))
+    dalib.setEntries([
+      { entryName: 'icon.epf', fileSize: 100, toUint8Array: () => new Uint8Array([1]) }
+    ])
+
+    const user = userEvent.setup()
+    await renderPage({ openFile: async () => `${CLIENT_PATH}/seo.dat` })
+    await user.click(await screen.findByRole('button', { name: /open archive/i }))
+    await user.click(await screen.findByText('.epf'))
+    await user.click(await screen.findByText('icon.epf'))
+
+    await waitFor(() => expect(dalib.lastResolver()).not.toBeNull())
+    // Keyed by the lowercase name the resolver asks for, whatever the file on
+    // disk is called.
+    expect(dalib.lastResolver()!.provider('legend.dat')).not.toBeNull()
+  })
+
   it('opens just as cleanly when no sibling palette archive exists', async () => {
     const fs = await memfs
     fs.files.set(`${CLIENT_PATH}/seo.dat`, Buffer.from([0xde, 0xad]))

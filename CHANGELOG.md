@@ -27,8 +27,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 - **Ambient sound packs.** A new asset pack type for looping background beds — wind, rain, a river,
   a busy market — separate from sound effects, because a bed plays continuously underneath
-  everything else rather than firing once. Add audio files, tick **Loop** on the ones that should
-  play continuously, and compile. Each sound gets a number that a map refers to.
+  everything else rather than firing once. Add audio files and compile. Each sound gets a number
+  that a map refers to. Beds loop by default; tick **One-shot** on any that must play once and stop.
 
 ### Changed
 
@@ -38,6 +38,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Sprites in the archive viewer get their palette on Linux and macOS.** The official installer
+  writes `Legend.dat` while the palette rules ask for `legend.dat`, so on a case-sensitive
+  filesystem the sibling archive was never found and khan, national and misc sprites fell back to
+  the manual palette picker. Taliesin now reads the real name off the directory, and the underlying
+  library (DALib 3.1.1) matches sibling names case-insensitively too. Windows was never affected.
+- **A corrupt palette table no longer hangs the archive viewer.** A damaged `.tbl` could ask for
+  billions of palette entries and be given them. Bad lines are now dropped and the rest of the file
+  still loads (DALib 3.1.1), which changes nothing for the 331 palette tables a stock client ships.
 - **Warp destinations with an `&` in the name resolve again.** The world index recorded map names
   without decoding XML entities, so `The Crow & Cask` reached the warp destination picker as
   `The Crow &amp; Cask`. Picking it wrote a doubly-escaped name into the map file and the warp
