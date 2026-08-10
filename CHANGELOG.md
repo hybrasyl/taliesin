@@ -31,6 +31,12 @@ record; where they disagree with this file, the git history was taken as authori
   which was the only visible sign. Unarchive had the same fault in reverse, and so did the world
   map editor's Move to Templates and Move to Active. All four now move the file instead of copying
   it, so it exists in exactly one place at every instant.
+- **Renaming a map renames it.** A rename used to leave three files behind: the new one, a copy
+  filed under `.ignore/`, and the original still sitting in `maps/`. Two of those were live and
+  carried the same `Id`, which the server indexes on — and the message said only that the old file
+  "remains (manual delete may be needed)", which reads as optional. A rename now moves the file, so
+  one map ends up at the new name and nothing is left to tidy up. Renaming onto a name that already
+  exists is refused and changes nothing on disk. The world map editor is fixed the same way.
 
 ## [2.9.0] - 2026-08-01
 

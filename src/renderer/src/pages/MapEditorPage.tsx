@@ -588,19 +588,30 @@ export default function MapEditorPage() {
       const newPath = isRename || !selectedFile ? `${mapsDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeMapXml(data)
+
+      if (isRename && selectedFile) {
+        // Refuse before anything is written, so a refused rename changes
+        // nothing on disk.
+        if (await window.api.exists(newPath)) {
+          setSnackbar({
+            message: `A map named "${fileName}" already exists here. Rename cancelled.`,
+            severity: 'error'
+          })
+          return
+        }
+        // Move, then write — not write, then archive the old one. Only one file
+        // exists at any instant, so an interrupted save cannot leave two active
+        // maps carrying the same Id. It also makes git see a rename with
+        // modification rather than an add beside an untouched original, so the
+        // map's history follows it.
+        await window.api.moveFile(selectedFile.path, newPath)
+      }
+
       await window.api.writeFile(newPath, xml)
       setEditingMap(data)
 
       if (isRename && selectedFile) {
-        // activeRel, not rel: keyed on the rel path this mirrors an active
-        // map's subfolder into the archive, but an already-archived map's rel
-        // still carries `.ignore/` and would double it into `.ignore/.ignore/`.
-        const archivePath = `${ignoreDir}/${activeRel(selectedFile.rel)}`
-        await window.api.copyFile(selectedFile.path, archivePath)
-        setSnackbar({
-          message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
-          severity: 'info'
-        })
+        setSnackbar({ message: `Renamed to "${fileName}".`, severity: 'success' })
         setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       } else if (!selectedFile) {
         setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
