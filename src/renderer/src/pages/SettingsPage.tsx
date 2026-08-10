@@ -1115,7 +1115,7 @@ const SettingsPage: React.FC = () => {
   const [aboutOpen, setAboutOpen] = useState(false)
 
   return (
-    <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
+    <Box data-testid="settings-page" sx={{ height: '100%', overflow: 'auto', p: 3 }}>
       <Typography variant="h5" gutterBottom sx={{ ...cardHeadingSx, mb: 3 }}>
         Settings
       </Typography>

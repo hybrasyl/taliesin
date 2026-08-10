@@ -78,6 +78,12 @@ const ThemePicker: React.FC<Props> = ({ value, onChange }) => {
         return (
           <ButtonBase
             key={name}
+            // Keyed on the ThemeName, not the label: the label carries a
+            // parenthetical ("Mundanes (light)") that is copy and may be
+            // rewritten, while the name is the value that reaches settings.json.
+            // The e2e specs select on this and read `aria-checked` for selection
+            // (HTOO-173/174).
+            data-testid={`theme-option-${name}`}
             role="radio"
             aria-checked={selected}
             aria-label={label}

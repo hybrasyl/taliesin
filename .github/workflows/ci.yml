@@ -70,3 +70,52 @@ jobs:
       # gate. The dev tree is handled by hand -- see SECURITY.md.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  # The Playwright/Electron specs drive the BUILT app. They are slower than the
+  # unit suite and fail for different reasons, so they run as their own job to
+  # keep the lint/typecheck/test signal fast and separable.
+  #
+  # WHY THIS JOB EXISTS. Two specs guard invariants that NOTHING else can fail:
+  #   - ipc-guard: building the trusted-location list with string concatenation
+  #     instead of pathToFileURL refuses every IPC and the app is dead on
+  #     arrival. It typechecks, lints and builds clean.
+  #   - preload-sandbox: a package import in src/preload/index.ts breaks
+  #     `sandbox: true` in the PACKAGED app only. Also clean everywhere else.
+  # Until now both were checked on a maintainer's machine or not at all.
+  #
+  # WHY WINDOWS AND NOT UBUNTU + XVFB. Not a preference, and not (as elsewhere in
+  # the house) a native addon -- this repo has none. src/main/index.ts resolves
+  # the userData directory from %LOCALAPPDATA% on win32 and from
+  # app.getPath('appData') everywhere else, so the LOCALAPPDATA redirect that
+  # makes e2e/helpers.js hermetic is a NO-OP off Windows: the specs would read
+  # and write the runner's real profile, and settings-persistence -- which seeds
+  # a settings.json into that temp dir and expects the app to load it -- would
+  # fail outright. windows-latest matches release.yml's Windows build job.
+  e2e:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # No `playwright install`: these specs launch the app's own Electron
+      # binary through Playwright's _electron API and never open a browser.
+      # `npm run e2e` builds first -- the specs load out/main/index.js.
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
