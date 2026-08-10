@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseMapXml, serializeMapXml } from '../mapXml'
+import { HYBRASYL_NS } from '../xmlUtils'
 import type { MapData } from '../../data/mapData'
 
 const MINIMAL: MapData = {
@@ -119,7 +120,7 @@ describe('parseMapXml', () => {
 
   it('parses signs with effect and message', () => {
     const xml = `<Map><Signs>
-      <Sign Type="Signpost" X="2" Y="3" BoardKey="welcome">
+      <Sign Type="Sign" X="2" Y="3" BoardKey="welcome">
         <Name>Welcome</Name>
         <Description>A sign</Description>
         <Message>Hello adventurer</Message>
@@ -131,7 +132,7 @@ describe('parseMapXml', () => {
     const data = parseMapXml(xml)
     expect(data.signs).toHaveLength(2)
     expect(data.signs[0]).toEqual({
-      type: 'Signpost',
+      type: 'Sign',
       x: 2,
       y: 3,
       boardKey: 'welcome',
@@ -205,7 +206,9 @@ describe('serializeMapXml', () => {
   it('serializes minimal map without Music attribute when unset', () => {
     const xml = serializeMapXml(build({ name: 'Test' }))
     expect(xml).toContain('<?xml version="1.0" encoding="utf-8"?>')
-    expect(xml).toContain('<Map Id="0" X="40" Y="40" IsEnabled="true" AllowCasting="true">')
+    expect(xml).toContain(
+      `<Map Id="0" X="40" Y="40" IsEnabled="true" AllowCasting="true" xmlns="${HYBRASYL_NS}">`
+    )
     expect(xml).not.toContain('Music=')
     expect(xml).toContain('<Name>Test</Name>')
     expect(xml).not.toContain('DynamicLighting')
@@ -265,7 +268,7 @@ describe('round-trip parse → serialize → parse', () => {
       npcs: [{ name: 'bob', x: 9, y: 9, direction: 'North', displayName: 'Bob' }],
       signs: [
         {
-          type: 'Signpost',
+          type: 'Sign',
           x: 7,
           y: 8,
           boardKey: 'k',
@@ -297,5 +300,41 @@ describe('round-trip parse → serialize → parse', () => {
     expect(reparsed.reactors).toEqual([])
     expect(reparsed.flags).toEqual([])
     expect(reparsed.spawnGroup).toBeUndefined()
+  })
+})
+
+// These assert the serialized STRING, not a re-parsed object. Every round-trip
+// test above is blind to a missing namespace by construction: parseXmlDocument
+// strips xmlns before parsing, so a serializer that omits it round-trips
+// perfectly while emitting a document the server refuses at (2, 2).
+describe('serializeMapXml — output well-formedness', () => {
+  it('writes the Hybrasyl default namespace on the root element', () => {
+    expect(serializeMapXml(build({ name: 'NS' }))).toContain(`xmlns="${HYBRASYL_NS}"`)
+  })
+
+  it('puts the namespace back on a map that was read with it stripped', () => {
+    // The regression that produced 37 broken files in `world`: open a valid
+    // existing map, change nothing, save. Writing a NEW map is not this case.
+    const onDisk = `<?xml version="1.0" encoding="utf-8"?>
+<Map xmlns="${HYBRASYL_NS}" Id="30905" Name="Tagor Trader" X="10" Y="10"><Name>Tagor Trader</Name></Map>`
+    const resaved = serializeMapXml(parseMapXml(onDisk))
+    expect(resaved).toContain(`xmlns="${HYBRASYL_NS}"`)
+  })
+
+  it('declares the namespace exactly once, on the root', () => {
+    const xml = serializeMapXml(build({ name: 'Once', signs: [{ type: 'Sign', x: 1, y: 1 }] }))
+    expect(xml.match(/xmlns=/g)).toHaveLength(1)
+    expect(xml.split('\n')[1]).toContain('xmlns=')
+  })
+
+  it('never writes Signpost, which the server enum has no member for', () => {
+    const xml = serializeMapXml(build({ signs: [{ type: 'Sign', x: 2, y: 3 }] }))
+    expect(xml).toContain('Type="Sign"')
+    expect(xml).not.toContain('Signpost')
+  })
+
+  it('defaults a Type-less sign to Sign rather than Signpost on read', () => {
+    const data = parseMapXml('<Map><Signs><Sign X="1" Y="1" /></Signs></Map>')
+    expect(data.signs[0].type).toBe('Sign')
   })
 })

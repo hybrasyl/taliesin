@@ -11,7 +11,7 @@ import type {
   MapSpawnGroup,
   CardinalDirection
 } from '../data/mapData'
-import { escapeXml as esc, attr, childText, parseXmlDocument } from './xmlUtils'
+import { escapeXml as esc, attr, childText, parseXmlDocument, HYBRASYL_NS } from './xmlUtils'
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ export function parseMapXml(xml: string): MapData {
   const signs: MapSign[] = []
   for (const signEl of root.querySelectorAll('Signs > Sign')) {
     const sign: MapSign = {
-      type: attr(signEl, 'Type', 'Signpost'),
+      type: attr(signEl, 'Type', 'Sign'),
       x: parseInt(attr(signEl, 'X', '0'), 10),
       y: parseInt(attr(signEl, 'Y', '0'), 10)
     }
@@ -174,7 +174,7 @@ export function serializeMapXml(data: MapData): string {
     ...(data.dynamicLighting ? [`DynamicLighting="true"`] : [])
   ].join(' ')
 
-  lines.push(`<Map ${rootAttrs}>`)
+  lines.push(`<Map ${rootAttrs} xmlns="${HYBRASYL_NS}">`)
   lines.push(`  <Name>${esc(data.name)}</Name>`)
   if (data.description?.trim()) lines.push(`  <Description>${esc(data.description)}</Description>`)
   if (data.flags.length > 0) lines.push(`  <Flags>${data.flags.join(' ')}</Flags>`)

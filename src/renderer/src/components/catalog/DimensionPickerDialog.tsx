@@ -16,7 +16,14 @@ import {
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import { MapFile } from '@eriscorp/dalib-ts'
-import { loadMapAssets, renderMap } from '../../utils/mapRenderer'
+import { loadMapAssets, renderMap, isoCanvasSize } from '../../utils/mapRenderer'
+
+/**
+ * Height of the preview box, in CSS pixels. Definite on purpose — see the
+ * comment on the box itself. The scale computation reads it as its fallback so
+ * the two cannot drift.
+ */
+export const PREVIEW_BOX_HEIGHT = 420
 
 /** Paint a small red error message onto the preview canvas. */
 function drawCanvasError(canvas: HTMLCanvasElement, msg: string): void {
@@ -155,19 +162,40 @@ const DimensionPickerDialog: React.FC<Props> = ({
             })
             if (signal.cancelled) return
 
-            // Compute scale to fit the canvas container
+            // Compute scale to fit the canvas container.
+            //
+            // Ask the renderer for its own geometry rather than re-deriving it.
+            // This used to hardcode the three constants and get the foreground
+            // pad wrong — 480 against the renderer's 512 — and an *underestimate*
+            // here does not merely make the preview 32px too big once. The box
+            // is measured, the scale is solved against it, and renderMap then
+            // sizes the canvas from the real constants, so every render emitted
+            // a canvas taller than the box it had just measured. The box grew,
+            // the next render measured the larger box, and it compounded until
+            // scale saturated at 1 — native size, thousands of pixels for a real
+            // map. The render's output fed the next render's input.
             const container = canvas.parentElement
             const maxW = (container?.clientWidth ?? 520) - 2
-            const maxH = (container?.clientHeight ?? 420) - 2
-            const nativeW = (selected.width + selected.height) * 28 + 56
-            const nativeH = (selected.width + selected.height) * 14 + 480
+            const maxH = (container?.clientHeight ?? PREVIEW_BOX_HEIGHT) - 2
+            const { w: nativeW, h: nativeH } = isoCanvasSize(selected.width, selected.height)
             const scale = Math.min(maxW / nativeW, maxH / nativeH, 1)
 
             setRenderStatus('Rendering…')
-            await renderMap(canvas, map, assets, { scale }, (msg) => {
+            // Render into a detached canvas, then blit if this render is still
+            // the current one. renderMap draws progressively and is awaited, so
+            // stepping quickly through sizes used to leave two renders
+            // interleaving on the one visible canvas — the cancel check happens
+            // before renderMap is entered, never during it. Giving each render
+            // its own canvas makes interleaving impossible: only the winner
+            // touches the visible one, in a single drawImage.
+            const offscreen = document.createElement('canvas')
+            await renderMap(offscreen, map, assets, { scale }, (msg) => {
               if (!signal.cancelled) setRenderStatus(msg)
             })
             if (!signal.cancelled) {
+              canvas.width = offscreen.width
+              canvas.height = offscreen.height
+              canvas.getContext('2d')?.drawImage(offscreen, 0, 0)
               setRendering(false)
               setRenderStatus(null)
             }
@@ -331,8 +359,16 @@ const DimensionPickerDialog: React.FC<Props> = ({
         {/* Canvas preview */}
         <Box
           sx={{
-            flex: 1,
-            minHeight: 380,
+            // A DEFINITE height, not `flex: 1` + `minHeight`. Exact constants
+            // stop the growth, but Math.ceil still rounds up by a pixel and a
+            // content-driven Dialog means what this box measures is partly what
+            // it last drew — one refactor away from ratcheting again. Pinning
+            // the height makes the feedback loop impossible rather than merely
+            // balanced. MapCanvas.tsx is the counter-example: it renders at
+            // native scale into a scrolling box and never measures its
+            // container, so it has no feedback path at all.
+            height: PREVIEW_BOX_HEIGHT,
+            minHeight: PREVIEW_BOX_HEIGHT,
             bgcolor: 'background.default',
             border: '1px solid',
             borderColor: 'divider',
