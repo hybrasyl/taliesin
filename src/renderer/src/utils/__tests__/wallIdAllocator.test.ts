@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { SotpFile } from '@eriscorp/dalib-ts'
 import {
   WALL_ID_MINT_MIN,
   WALL_ID_MINT_MAX,
@@ -42,12 +43,16 @@ describe('isMintableWallId — [10013, 20423] window', () => {
 })
 
 describe('wallWalkability — sotp.dat semantics', () => {
+  // The SAME fixture bytes as before the SotpFile adoption, now handed to the
+  // parser instead of indexed by hand. Identical expectations below are the
+  // evidence that the refactor preserved behaviour.
   // 1-based: byte for id N at [N-1]. Low nibble 0x0f == 0 → passable.
-  const sotp = new Uint8Array(20423)
-  sotp[10013 - 1] = 0x0f // blocking
-  sotp[10014 - 1] = 0x00 // passable
-  sotp[10015 - 1] = 0x80 // property bit only → passable (collision nibble is 0)
-  sotp[10016 - 1] = 0x8f // property bit + blocking nibble → blocking
+  const bytes = new Uint8Array(20423)
+  bytes[10013 - 1] = 0x0f // blocking
+  bytes[10014 - 1] = 0x00 // passable
+  bytes[10015 - 1] = 0x80 // property bit only → passable (collision nibble is 0)
+  bytes[10016 - 1] = 0x8f // property bit + blocking nibble → blocking
+  const sotp = SotpFile.fromBuffer(bytes)
 
   it('reads blocking vs passable from the low nibble', () => {
     expect(wallWalkability(sotp, 10013)).toBe('blocking')
@@ -61,6 +66,18 @@ describe('wallWalkability — sotp.dat semantics', () => {
     expect(wallWalkability(sotp, 999999)).toBe('unknown')
     expect(wallWalkability(sotp, 0)).toBe('unknown')
     expect(wallWalkability(null, 10013)).toBe('unknown')
+  })
+
+  it('does NOT let dalib turn an out-of-range id into passable', () => {
+    // The trap WP5 names. SotpFile.getFlags returns 0 past the end of the
+    // table, and 0 reads as passable — so deferring the range check to dalib
+    // would silently convert every 'unknown' into 'passable', and the allocator
+    // would hand out ids nothing knows anything about as free passable slots.
+    expect(sotp.getCollision(999999)).toBe(0) // dalib's answer: looks passable
+    expect(wallWalkability(sotp, 999999)).toBe('unknown') // ours: still unknown
+    expect(sotp.maxTileId).toBe(20423)
+    expect(wallWalkability(sotp, 20423)).not.toBe('unknown') // the last real id
+    expect(wallWalkability(sotp, 20424)).toBe('unknown') // one past it
   })
 })
 
@@ -78,9 +95,10 @@ describe('nextWallId — allocation', () => {
     expect(nextWallId({ min: 10013, max: 10013, used: [10013] })).toBeNull()
   })
   it('filters by requested walkability when a table is present', () => {
-    const sotp = new Uint8Array(20423)
-    sotp[10013 - 1] = 0x0f // blocking
-    sotp[10014 - 1] = 0x00 // passable
+    const bytes = new Uint8Array(20423)
+    bytes[10013 - 1] = 0x0f // blocking
+    bytes[10014 - 1] = 0x00 // passable
+    const sotp = SotpFile.fromBuffer(bytes)
     expect(nextWallId({ sotp, passability: 'passable' })).toBe(10014)
     expect(nextWallId({ sotp, passability: 'blocking' })).toBe(10013)
   })

@@ -15,7 +15,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, CircularProgress, Typography } from '@mui/material'
-import { MapFile } from '@eriscorp/dalib-ts'
+import { MapFile, type SotpFile } from '@eriscorp/dalib-ts'
 import {
   loadMapAssets,
   renderMap,
@@ -163,7 +163,7 @@ export default function MapRenderCanvas({
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const coordState = useRef<CoordState | null>(null)
   const mapFileRef = useRef<MapFile | null>(null)
-  const sotpRef = useRef<Uint8Array | null>(null)
+  const sotpRef = useRef<SotpFile | null>(null)
 
   const [renderTick, setRenderTick] = useState(0) // bumped after base render to trigger overlay
   const [loading, setLoading] = useState(false)
@@ -218,7 +218,7 @@ export default function MapRenderCanvas({
           if (cancelled) return
 
           mapFileRef.current = mapFile
-          sotpRef.current = assets.sotpTable
+          sotpRef.current = assets.sotp
 
           coordState.current = {
             mode: 'iso',
