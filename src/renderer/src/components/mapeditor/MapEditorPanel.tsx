@@ -1343,20 +1343,22 @@ function MapPlacementTab({
               label={label}
               size="small"
               clickable
-              // `primary` is a real accent again since HTOO-341; on the Hybrasyl
-              // theme it used to be the page background, which made the armed
-              // chip the least prominent one on the row. No local override —
-              // patching this at the leaf is what that card removed.
-              color={placeMode === mode ? 'primary' : 'default'}
+              /*
+               * `success`, not `primary`. The armed state is the only thing
+               * telling the user that clicking the map will place something, and
+               * it has to be unmistakable across all six themes — `success.main`
+               * is the brightest entry in every palette (`#38ff4f` on the four
+               * fantasy themes) where `primary` is a body accent that has to sit
+               * quietly behind ordinary text.
+               *
+               * The colour carries this on its own: there is no armed-state
+               * caption, deliberately.
+               */
+              color={placeMode === mode ? 'success' : 'default'}
               onClick={() => toggleMode(mode)}
             />
           </Tooltip>
         ))}
-        {placeMode !== 'none' && (
-          <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
-            Click map to place — stays armed, Esc to stop
-          </Typography>
-        )}
         <Box sx={{ ml: 'auto' }}>
           <Typography
             variant="caption"
