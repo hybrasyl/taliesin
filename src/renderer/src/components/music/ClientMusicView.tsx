@@ -28,7 +28,13 @@ interface ClientEntry {
 // rather than "this is not implemented" — the two are indistinguishable to
 // whoever is looking at it. Reinstating it is hybindex-ts work first: the map
 // XML already has `music`, and the indexer has to project it into mapDetails.
-// See HTOO-169; the column this replaced is in git history.
+//
+// Removed in HTOO-169; the column it replaced is in git history. The forward
+// work is tracked, not left to whoever reads this: HTOO-357 adds the field to
+// hybindex-ts and BLOCKS HTOO-358, which rebuilds the cross-reference here.
+// HTOO-358 also records the two mistakes not to repeat — hide the column when
+// the data is absent rather than drawing dashes, and never read music id 0 as
+// "no music", because 0 is an id.
 interface Props {
   clientPath: string | null
   /** Currently playing file path (to show stop icon) */
