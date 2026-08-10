@@ -24,12 +24,19 @@ export function useWorldIndex() {
   const buildError = useWorldIndexStore((s) => s.buildError)
   const ensure = useWorldIndexStore((s) => s.ensure)
   const doBuild = useWorldIndexStore((s) => s.build)
+  const doRefresh = useWorldIndexStore((s) => s.refresh)
 
   useEffect(() => {
     void ensure(activeLibrary)
   }, [activeLibrary, ensure])
 
   const build = useCallback(() => doBuild(activeLibrary), [activeLibrary, doBuild])
+  /**
+   * Call after writing into the active library — a map save, an archive, an
+   * export. Without it the index the pages read stays as it was at load, and
+   * everything derived from it goes quietly stale (HTOO-335).
+   */
+  const refresh = useCallback(() => doRefresh(activeLibrary), [activeLibrary, doRefresh])
 
-  return { index, loading, building, buildError, build }
+  return { index, loading, building, buildError, build, refresh }
 }

@@ -429,7 +429,7 @@ export default function MapEditorPage() {
     handleDialogCancel
   } = useUnsavedGuard('Map')
 
-  const { index: worldIndex } = useWorldIndex()
+  const { index: worldIndex, refresh: refreshWorldIndex } = useWorldIndex()
   const mapNames = worldIndex?.maps ?? []
   const npcNames = worldIndex?.npcs ?? []
   const worldMapNames = worldIndex?.worldmaps ?? []
@@ -619,6 +619,10 @@ export default function MapEditorPage() {
 
       markClean()
       await loadFiles()
+      // The file list is filesystem-derived, but its name and id subtitles —
+      // and every warp target, autocomplete and "XML exists" badge elsewhere —
+      // come from the world index, which nothing used to refresh (HTOO-335).
+      void refreshWorldIndex()
     } catch (err) {
       console.error('Failed to save map:', err)
       setSnackbar({
@@ -652,6 +656,7 @@ export default function MapEditorPage() {
       setSelectedFile(null)
       setEditingMap(null)
       await loadFiles()
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Archive failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -676,6 +681,7 @@ export default function MapEditorPage() {
       setSelectedFile(null)
       setEditingMap(null)
       await loadFiles()
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Unarchive failed: ${err instanceof Error ? err.message : String(err)}`,

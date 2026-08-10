@@ -97,6 +97,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **A map you just created is usable straight away.** Saving, archiving, unarchiving or exporting
+  anything into a world library now refreshes the world index, so the new map appears with its name
+  and id, can be picked as a warp destination, stops being offered as an unassigned binary, and
+  gets its "XML exists" badge — none of which used to happen until you pressed Rebuild on the
+  Dashboard. The refresh icon in Settings → Hybrasyl World Libraries now updates what the rest of
+  the app reads, instead of only rewriting the cache on disk and leaving every page stale.
 - **Map Maker keyboard shortcuts work as soon as the page opens.** Every shortcut needed a click
   inside the page first, and closing a dialog or switching away from the window silently took them
   away again. They now work wherever the pointer is, and stop working only while you are typing in

@@ -56,6 +56,31 @@ describe('useWorldIndex', () => {
     expect(result.current.buildError).toBeNull()
   })
 
+  // HTOO-335: pages call this after writing into the library, so the index they
+  // read stops being the one loaded when the page opened.
+  it('refresh() rebuilds for the active library', async () => {
+    api.indexRead.mockResolvedValue(fakeIndex)
+    const rebuilt = { ...fakeIndex, builtAt: '2025-03-03T00:00:00Z' } as WorldIndex
+    api.indexBuild.mockResolvedValue(rebuilt)
+
+    const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary('/lib') })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(api.indexBuild).toHaveBeenCalledWith('/lib')
+    expect(result.current.index).toBe(rebuilt)
+  })
+
+  it('refresh() is a no-op when no library is active', async () => {
+    const { result } = renderHook(() => useWorldIndex(), { wrapper: withLibrary(null) })
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(api.indexBuild).not.toHaveBeenCalled()
+  })
+
   it('build() sets buildError on failure', async () => {
     api.indexRead.mockResolvedValue(null)
     api.indexBuild.mockRejectedValue(new Error('parse failed'))

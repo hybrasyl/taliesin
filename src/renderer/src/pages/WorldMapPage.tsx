@@ -211,7 +211,7 @@ export default function WorldMapPage() {
     handleDialogCancel
   } = useUnsavedGuard('World Map')
 
-  const { index: worldIndex } = useWorldIndex()
+  const { index: worldIndex, refresh: refreshWorldIndex } = useWorldIndex()
   const mapNames = worldIndex?.maps ?? []
 
   // Both directories come back from fs:listSection rather than being rebuilt
@@ -323,6 +323,7 @@ export default function WorldMapPage() {
       setMeta(null)
       setReferencePoints(null)
       setLoadError(null)
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Failed to create reference set: ${err instanceof Error ? err.message : String(err)}`,
@@ -468,6 +469,8 @@ export default function WorldMapPage() {
 
       markClean()
       await loadFiles()
+      // Nothing used to refresh the index after a write — see HTOO-335.
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Save failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -498,6 +501,7 @@ export default function WorldMapPage() {
       setMeta(null)
       setReferencePoints(null)
       await loadFiles()
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Move failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -527,6 +531,7 @@ export default function WorldMapPage() {
       setMeta(null)
       setReferencePoints(null)
       await loadFiles()
+      void refreshWorldIndex()
     } catch (err) {
       setSnackbar({
         message: `Move failed: ${err instanceof Error ? err.message : String(err)}`,
