@@ -25,6 +25,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Maps can record a generic name.** A second name field beside the display name, for what the map
+  *is* — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
+  The generic name builds the filename: `hyb30909 - Tagor Tavern.xml`. It is stored as a comment in
+  the XML, the server never reads it, and a map without one keeps exactly the filename it had.
 - **Ambient sound packs.** A new asset pack type for looping background beds — wind, rain, a river,
   a busy market — separate from sound effects, because a bed plays continuously underneath
   everything else rather than firing once. Add audio files and compile. Each sound gets a number
@@ -97,6 +101,9 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Saving a map no longer deletes the comments in it.** Notes written by hand into a map XML were
+  removed the first time Taliesin saved that map. They are now kept, in the place they were
+  written — beside the spawn or the element they are about, not moved to the top of the file.
 - **A map you just created is usable straight away.** Saving, archiving, unarchiving or exporting
   anything into a world library now refreshes the world index, so the new map appears with its name
   and id, can be picked as a warp destination, stops being offered as an unassigned binary, and
