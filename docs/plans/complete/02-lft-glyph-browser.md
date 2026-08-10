@@ -65,10 +65,10 @@ None. **No parser work — dalib-ts 3.0.0 already ships `LftFile`,** and Taliesi
 
 ## File map
 
-- `src/renderer/src/utils/archiveRenderer.ts` *(edit)* — add `'lft'` to `PreviewType` and a `.lft` case to `classifyEntry`.
-- `src/renderer/src/components/archive/LftPreview.tsx` *(new)* — header summary, a jump-to-key box, a glyph grid, and a sample-text field driven by `renderLftText`.
-- `src/renderer/src/components/archive/LftGlyphGrid.tsx` *(new)* — virtualised or paged grid over populated glyphs. Was to be a retarget of the deleted `FontGlyphGrid`; see _Correction_.
-- `src/renderer/src/components/archive/LftGlyphInspector.tsx` *(new)* — one glyph's bitmap and metrics, read-only. Was to be a retarget of the deleted `FontPixelEditor`; see _Correction_.
+- `src/renderer/src/utils/archiveRenderer.ts` _(edit)_ — add `'lft'` to `PreviewType` and a `.lft` case to `classifyEntry`.
+- `src/renderer/src/components/archive/LftPreview.tsx` _(new)_ — header summary, a jump-to-key box, a glyph grid, and a sample-text field driven by `renderLftText`.
+- `src/renderer/src/components/archive/LftGlyphGrid.tsx` _(new)_ — virtualised or paged grid over populated glyphs. Was to be a retarget of the deleted `FontGlyphGrid`; see _Correction_.
+- `src/renderer/src/components/archive/LftGlyphInspector.tsx` _(new)_ — one glyph's bitmap and metrics, read-only. Was to be a retarget of the deleted `FontPixelEditor`; see _Correction_.
 
 ## Two things this format makes non-obvious
 

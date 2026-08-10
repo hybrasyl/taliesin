@@ -14,8 +14,8 @@ Taliesin shipped an editor for a font format the 7.41 client stopped calling. It
 
 ## File map
 
-- `src/renderer/src/pages/FontEditorPage.tsx` *(deleted)* — 363 lines.
-- `src/renderer/src/components/font/` *(deleted in full)* — `FontBlockView.tsx`, `AddGlyphDialog.tsx`, `glyph.ts`, **and also `FontGlyphGrid` and `FontPixelEditor`**.
+- `src/renderer/src/pages/FontEditorPage.tsx` _(deleted)_ — 363 lines.
+- `src/renderer/src/components/font/` _(deleted in full)_ — `FontBlockView.tsx`, `AddGlyphDialog.tsx`, `glyph.ts`, **and also `FontGlyphGrid` and `FontPixelEditor`**.
 - `src/renderer/src/store/uiStore.ts` — dropped `'fonteditor'` from `Page`.
 - `src/renderer/src/components/{NavToolbar,PageRenderer}.tsx` — dropped the nav button and the route arm.
 - `src/renderer/src/components/archive/ArchivePreview.tsx`, `utils/archiveRenderer.ts` — dropped the `'font'` preview type and its `FntFile` import.

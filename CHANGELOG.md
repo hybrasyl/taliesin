@@ -35,6 +35,12 @@ record; where they disagree with this file, the git history was taken as authori
 - **Opening Taliesin twice now brings the open window forward** instead of starting a second copy.
   Two copies shared one settings file and the last one to save won, so a preference changed in one
   window could disappear without a word when the other saved.
+- **Taliesin now runs properly over Remote Desktop.** A remote session has no graphics card, so the
+  app switches itself to software drawing and turns off the themes' background blur — the most
+  expensive thing to draw without one. Dragging the window and idle CPU both improve; nothing
+  changes on a local machine. There is no setting, because the choice has to be made before the app
+  finishes starting. Windows does not update `%SESSIONNAME%` when you reconnect to a session that
+  was already open, so set `TALIESIN_DISABLE_GPU=1` if that is you — see the README.
 - The world index cache is rebuilt once on first run after this release, and the vendor directory
   on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
   derived from the world data and is rebuilt from it.

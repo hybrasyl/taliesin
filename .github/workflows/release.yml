@@ -24,6 +24,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Depth 1 everywhere in this workflow, deliberately -- see the note on the
+      # checkout step in ci.yml for the reasoning (HTOO-328). Nothing in this
+      # repo reads git history, including the release notes: changelog-extract
+      # reads CHANGELOG.md, and `generate_release_notes` is computed by GitHub
+      # from the API rather than from the clone.
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:

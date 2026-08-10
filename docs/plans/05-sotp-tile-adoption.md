@@ -59,7 +59,7 @@ Found during WP0 and deliberately left unfixed there, because it is pre-existing
 
 `mapRenderer.ts` builds the wall palette table with `PaletteTable.fromArchive('stc', iaArchive)`. That pattern matches **every** `stc*.tbl` in `ia.dat`, and `PaletteTable.fromArchive` routes each match by whether its name has a numeric identifier: numeric names become cycling files, non-numeric names are **merged as palette mapping tables**.
 
-`stcani.tbl` has no numeric identifier. It is the foreground *animation* table, and it is being merged as if it were a palette table. Its lines are tile sequences, so `PaletteTable.parseText` reads a 3-plus-token line as a **range entry** and runs `for (i = min; i <= mid; i++) entries.set(i, third)` — assigning an arbitrary palette number to every wall id in the animation sequence's numeric span, silently overriding `stcpal.tbl`.
+`stcani.tbl` has no numeric identifier. It is the foreground _animation_ table, and it is being merged as if it were a palette table. Its lines are tile sequences, so `PaletteTable.parseText` reads a 3-plus-token line as a **range entry** and runs `for (i = min; i <= mid; i++) entries.set(i, third)` — assigning an arbitrary palette number to every wall id in the animation sequence's numeric span, silently overriding `stcpal.tbl`.
 
 Ground is unaffected: `fromArchive('mpt', seoArchive)` does not match `gndani.tbl`. **Only walls, and only animated ones**, which is why it has gone unnoticed.
 

@@ -34,10 +34,10 @@ Manifest stays `schema_version: 1`. This `covers.ambient_sounds` shape **is** th
 
 Follow the four-step recipe in `packKinds/index.ts` (also in `CLAUDE.md`):
 
-1. `src/renderer/src/packKinds/ambientSounds.ts` *(new)* — model on `soundEffects.ts` (flat numeric namespace). Emit `amb_{id:D4}.{ext}`, ids auto-assigned from 1.
-2. `src/renderer/src/packKinds/index.ts` *(edit)* — register in `PACK_KINDS`.
-3. `src/renderer/src/packKinds/types.ts` *(edit)* — add to the `ContentType` union **and** `ALL_CONTENT_TYPES`.
-4. `src/main/schemas/pack.ts` *(edit)* — add to `contentTypeSchema` for main-process validation.
+1. `src/renderer/src/packKinds/ambientSounds.ts` _(new)_ — model on `soundEffects.ts` (flat numeric namespace). Emit `amb_{id:D4}.{ext}`, ids auto-assigned from 1.
+2. `src/renderer/src/packKinds/index.ts` _(edit)_ — register in `PACK_KINDS`.
+3. `src/renderer/src/packKinds/types.ts` _(edit)_ — add to the `ContentType` union **and** `ALL_CONTENT_TYPES`.
+4. `src/main/schemas/pack.ts` _(edit)_ — add to `contentTypeSchema` for main-process validation.
 
 No edits to the editor/dialog/IPC layers are needed — the pack-kind system is data-driven.
 

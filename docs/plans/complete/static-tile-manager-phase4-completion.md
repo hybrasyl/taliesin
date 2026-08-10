@@ -47,7 +47,7 @@ IPC. Legacy tables come from `loadMapAssets(clientPath)` → `MapAssets`.
 as a **reusable util**, not page-local logic.
 
 **The exact Brigid rule (verified against `brigid/Brigid.Rendering/MapRenderer.cs` phase 2.5,
-~lines 520–540):** a tile's pack art is skipped when it **has legacy data** *and* its palette
+~lines 520–540):** a tile's pack art is skipped when it **has legacy data** _and_ its palette
 carries cycling entries:
 
 ```csharp
@@ -58,6 +58,7 @@ if (bgTileData.ContainsKey(tileId) &&
 ```
 
 Two nuances that must be honoured:
+
 - **`GetPaletteNumber(id + 1)`** — the same +1 offset `mapRenderer.getStcBitmap`/`getGroundBitmap`
   already use.
 - **Pack-only IDs are never skipped.** The cycling check is gated on `ContainsKey` (legacy data
@@ -67,14 +68,20 @@ Two nuances that must be honoured:
 **Data availability (confirmed):** `MapAssets` already carries `groundPaletteTable` /
 `stcPaletteTable` (dalib `PaletteTable`), which expose `getPaletteNumber(n)` and
 `getCyclingEntries(n): readonly PaletteCyclingEntry[] | undefined`. Legacy existence:
+
 - floor legacy ⇔ `id >= 1 && id <= assets.groundTileCount`
 - wall legacy ⇔ `assets.iaArchive.get('stc' + String(id).padStart(5,'0') + '.hpf')` is present
 
 **Work:**
+
 - Fold into a single **`tileEligibility.ts`** (or extend `tileAnimation.ts`):
   ```ts
   export type Ineligibility = 'animated' | 'cycled'
-  export interface TileEligibility { eligible: boolean; reason?: Ineligibility; sequence?: number[] }
+  export interface TileEligibility {
+    eligible: boolean
+    reason?: Ineligibility
+    sequence?: number[]
+  }
   export function checkTileEligibility(assets, layer, id): TileEligibility
   ```
   Order: frame-animated (existing `checkTileAnimatedForLayer`) first → else palette-cycled
@@ -103,11 +110,12 @@ animated/cycled IDs and won't render: 12, 84, 97"). Optionally mark them in the 
 ### 3. True batch import (approved)
 
 Current batch = one grid sheet → floors. Extend:
+
 - **Multi-file loose import.** Select many PNGs at once. `window.api.openFile` returns a single
   path — check the preload/`dialog:openFile` handler for a `multiSelections` variant; add a small
   `openFiles` dialog method if absent (dialog-only, still no data-path IPC). Commit each as its
   own tile.
-- **Wall batch.** *Proposed default (confirm at build time):* mint **sequential** wall IDs via
+- **Wall batch.** _Proposed default (confirm at build time):_ mint **sequential** wall IDs via
   `nextWallId` (respect 10013–20423 + the walkability-pref filter), per-cell height = source
   height (uniform for equal cells). **No replace-range in v1** — replace stays single-commit
   because each legacy ID wants its own decoded height. Surface item-2 eligibility on this path too.
@@ -120,6 +128,7 @@ Current batch = one grid sheet → floors. Extend:
 Most of the parent plan's load-time warnings (floor ≠ 56×27, floor transparency, wall width ≠ 28)
 are **moot** — the converter guarantees output geometry, and the floor-seam warning died with the
 square-floor removal. What remains worth surfacing:
+
 - **Can't-verify note:** when no `clientPath` is loaded, eligibility (and wall walkability) can't
   be checked — say so near the commit, don't imply "safe".
 - **Overwrite note:** committing over an existing pack ID (single commit already blocks non-replace

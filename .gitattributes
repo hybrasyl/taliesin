@@ -5,11 +5,21 @@
 * text=auto eol=lf
 
 # Binary asset types that may appear under packs/ or test fixtures.
+#
+# The list exists so classification is stated rather than guessed. Anything not
+# named here falls through to `text=auto` above and depends on git's NUL-byte
+# heuristic to escape normalization — which works, until it meets a file whose
+# first 8000 bytes happen to contain none.
 *.png   binary
 *.gif   binary
 *.jpg   binary
 *.jpeg  binary
+*.webp  binary
+*.bmp   binary
 *.ico   binary
+*.icns  binary
+*.woff  binary
+*.woff2 binary
 *.dat   binary
 *.lod   binary
 *.hyb   binary

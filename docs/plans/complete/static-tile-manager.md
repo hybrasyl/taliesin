@@ -2,8 +2,8 @@
 
 ## Motivation
 
-Taliesin can *author* a `static_tiles` `.datf` pack (floor/wall PNGs keyed by tile ID) and
-*consume* installed `static_tiles` packs in the map editors, but there is no tooling to
+Taliesin can _author_ a `static_tiles` `.datf` pack (floor/wall PNGs keyed by tile ID) and
+_consume_ installed `static_tiles` packs in the map editors, but there is no tooling to
 **produce** the tile art in the first place. Today an author has to hand-cut every
 `floor{id}.png` / `wall{id}.png` at the exact DA geometry, in isometric projection, one
 tile at a time. That is the bottleneck for anyone bringing external/orthogonal tilesets
@@ -31,7 +31,7 @@ individual ground tiles DA uses, and feeds the results straight into the existin
 
 - Animated / palette-cycled tiles (the Brigid client skips pack lookup for those — see
   [staticTiles.ts:8](../../src/renderer/src/packKinds/staticTiles.ts#L8); shipping them has no effect).
-- Autotile *runtime* logic (choosing which wang variant to place at map-edit time). This tool
+- Autotile _runtime_ logic (choosing which wang variant to place at map-edit time). This tool
   produces the tiles; placement stays in the map editors.
 - Editing legacy binary `seo.dat` / `ia.dat` archives in place (legacy binary editing was
   dropped project-wide).
@@ -44,15 +44,15 @@ Pulled from [mapRenderer.ts](../../src/renderer/src/utils/mapRenderer.ts) and th
 > **Terminology (classic DA vs the Brigid pack name).** In classic Dark Ages terms:
 > **ground = `TILEA.BMP`** (`seo.dat`, the 56-wide diamonds), and **"static tile" = wall
 > tile = `.hpf`** (`ia.dat`, the 28-wide foreground faces — "static" as opposed to the
-> animated/palette-cycled tiles). The Brigid client's **`static_tiles` *pack* is broader
-> than the classic term**: it bundles *both* `floor` (ground) and `wall` (static/.hpf)
+> animated/palette-cycled tiles). The Brigid client's **`static_tiles` _pack_ is broader
+> than the classic term**: it bundles _both_ `floor` (ground) and `wall` (static/.hpf)
 > art under one pack kind. This doc uses **ground/floor** and **wall/static** for the two
 > layers and reserves "`static_tiles`" for the Brigid pack that carries both.
 
-| Layer                    | Source (legacy)              | Pixel geometry                    | Palette | MapTile field                     | Pack asset            |
-| ------------------------ | ---------------------------- | --------------------------------- | ------- | --------------------------------- | --------------------- |
-| **Ground / floor**       | `seo.dat` → `TILEA.BMP`      | **56 × 27** diamond, 1512 B/tile  | `mpt`   | `Background`                      | `floor{id:D5}.png`    |
-| **Wall / static (.hpf)** | `ia.dat` → `stc{NNNNN}.hpf`  | **28** px wide (½), variable height | `stc`   | `LeftForeground` / `RightForeground` | `wall{id:D5}.png`     |
+| Layer                    | Source (legacy)             | Pixel geometry                      | Palette | MapTile field                        | Pack asset         |
+| ------------------------ | --------------------------- | ----------------------------------- | ------- | ------------------------------------ | ------------------ |
+| **Ground / floor**       | `seo.dat` → `TILEA.BMP`     | **56 × 27** diamond, 1512 B/tile    | `mpt`   | `Background`                         | `floor{id:D5}.png` |
+| **Wall / static (.hpf)** | `ia.dat` → `stc{NNNNN}.hpf` | **28** px wide (½), variable height | `stc`   | `LeftForeground` / `RightForeground` | `wall{id:D5}.png`  |
 
 Key facts that drive the conversion math:
 
@@ -84,10 +84,10 @@ Key facts that drive the conversion math:
 >   > revision of this doc claimed floors are "fully opaque, do not mask the corners" — that
 >   > is **wrong**. Authoritative evidence: DALib `RenderTile`
 >   > ([Graphics.cs](../../../dalib/DALib/Drawing/Graphics.cs) — `paletteIndex == 0 ?
->   > Transparent : palette[...]`) decodes legacy ground tiles with **index-0 corners
+Transparent : palette[...]`) decodes legacy ground tiles with **index-0 corners
 >   > transparent**; the same in Taliesin's own renderer
 >   > ([mapRenderer.ts:208](../../src/renderer/src/utils/mapRenderer.ts#L208)); **38,660
->   > extracted ground tiles** are diamonds (73% fully-opaque diamond *interior*, corner alpha
+>   > extracted ground tiles** are diamonds (73% fully-opaque diamond _interior_, corner alpha
 >   > ≈ 7/255); and Brigid's `TabMapRenderer` stencils on "only diamond-shaped pixels write to
 >   > stencil". Brigid's own authoring guide already hedges — "floors are fully opaque… **unless
 >   > the legacy tile already has transparent areas**" — and floors legitimately carry
@@ -96,22 +96,23 @@ Key facts that drive the conversion math:
 >   > translucent where the art is), AA'd diamond edge. There is **no opaque-square floor
 >   > option** — the target worlds have no orthogonal maps, only edge-to-edge diamonds.
 >   > Implemented in [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertFloor`.
+>
 > - **Wall:** `28` wide × **variable height**, transparent background; height must **match the
->   legacy HPF height** for the ID *when replacing a legacy wall* (too tall floats above the
+>   legacy HPF height** for the ID _when replacing a legacy wall_ (too tall floats above the
 >   floor, too short leaves a gap); brand-new pack-only IDs carry no height constraint — the
 >   renderer bottom-anchors whatever height it gets. Filename `wall{id:D5}.png`. Wall art
 >   taller than 512px is **silently skipped** by the atlas shelf packer
 >   (`MAX_SHELF_ENTRY_SIZE`, TextureAtlas.cs:24) — no warning, the tile just falls back to legacy.
 > - **Wall ID range:** the renderer's `IsRenderedTileIndex` filter is
 >   `(id > 10012) || ((id % 10000) > 12)` — so IDs `0–12` and `10000–10012` are sentinels that
->   never render, but `13–9999` *do* (they're the legacy wall range). New IDs should be minted
+>   never render, but `13–9999` _do_ (they're the legacy wall range). New IDs should be minted
 >   **> 10012** only to avoid colliding with legacy walls, not because the client gates there.
 >   Server-side the hard ceiling is **≤ 20423** (see
 >   [Server-side constraints](#server-side-constraints-hybrasyl) below), giving a mintable window
 >   of **10013–20423**. The ID allocator must enforce the server ceiling and the sentinel gaps.
 > - **Brand-new IDs render.** MapRenderer's pack preload (phase 2.5,
 >   [MapRenderer.cs:519–524](../../../brigid/Brigid.Rendering/MapRenderer.cs#L519)) iterates the
->   *map-scanned* ID sets, not the legacy dict keys, explicitly so pack-only IDs — tiles with no
+>   _map-scanned_ ID sets, not the legacy dict keys, explicitly so pack-only IDs — tiles with no
 >   legacy tileset/HPF counterpart — resolve as an **add**, not just a replace. Minting new tile
 >   IDs (the whole point of this tool) is a supported client path.
 >
@@ -123,7 +124,7 @@ Key facts that drive the conversion math:
 ## Server-side constraints (Hybrasyl)
 
 The server never sees a pack — it has **zero knowledge of `.datf` / asset packs** — but it
-*does* consume the tile IDs that maps carry, and that imposes hard constraints on the wall-ID
+_does_ consume the tile IDs that maps carry, and that imposes hard constraints on the wall-ID
 allocator (verified against the Hybrasyl source):
 
 - **Walkability is derived entirely from foreground (wall) tile IDs.** On map load the server
@@ -141,7 +142,7 @@ allocator (verified against the Hybrasyl source):
 - **Every wall ID's walkability is fixed by legacy `sotp.dat`.** An author minting a new wall ID
   inherits whatever passability byte that slot happens to hold — there is no way to declare it
   from the pack side. The manager should therefore read `sotp.dat` and **surface per-ID
-  walkability in the allocator** ("next free *blocking* wall ID" vs "next free *passable*"),
+  walkability in the allocator** ("next free _blocking_ wall ID" vs "next free _passable_"),
   otherwise authors will ship walls players walk straight through.
 - **Floor (background) IDs are unconstrained server-side.** The server parses and immediately
   discards the background value ([MapObject.cs:542](../../../server/hybrasyl/Objects/MapObject.cs#L542));
@@ -159,7 +160,7 @@ it for **local walk-blocking** (`TileFlags.Wall`,
 **render blend state** (`TileFlags.Transparent`,
 [MapRenderer.cs:402–408](../../../brigid/Brigid.Rendering/MapRenderer.cs#L402)). Unlike the
 server, the client bounds-checks gracefully — an ID past the table is simply "not a wall".
-Client and server agree today *only because both read the same legacy bytes*; any walkability
+Client and server agree today _only because both read the same legacy bytes_; any walkability
 override mechanism must keep the two in lockstep or players get split-brain movement
 (client blocks a walk the server would allow, or rubber-bands where the server rejects). See
 the paired override recommendation in
@@ -174,15 +175,15 @@ resource ([Game.cs:894](../../../server/hybrasyl/Game.cs#L894)), the client from
 `ia.dat` ([TileRepository.cs:44](../../../brigid/Brigid.Data/Repositories/TileRepository.cs#L44)).
 They agree **only because both are unmodified retail bytes** — the moment this tool mints a new
 wall ID, that coincidence breaks, and the two disagree (players rubber-band: the client predicts a
-walk the server rejects, or vice-versa). Worse, they disagree *asymmetrically*: the client
+walk the server rejects, or vice-versa). Worse, they disagree _asymmetrically_: the client
 bounds-checks gracefully (out-of-range → walkable), the server indexes unchecked and **crashes**.
 
 **Why not literally "defer to the client's SOTP" (verified constraint).** The server has **zero DA
-archive access** — the embedded `sotp.dat` resource is the *only* tile data it reads anywhere (no
+archive access** — the embedded `sotp.dat` resource is the _only_ tile data it reads anywhere (no
 `ia.dat`/`seo.dat` loading exists in the server). It is intentionally self-contained and headless.
 Pointing the server at the client's `ia.dat` at runtime would force every deployment to ship the DA
 data files (licensing + size) and couple the server to the client's data layout. And the server
-must never trust *live* client state for collision (security). So "defer to the client" is realized
+must never trust _live_ client state for collision (security). So "defer to the client" is realized
 at the **content-authoring** layer, not by a runtime dependency.
 
 **Recommended model — one authored source, two projections, layered resolution.**
@@ -191,17 +192,17 @@ at the **content-authoring** layer, not by a runtime dependency.
    existing Hybrasyl worlds keep working with **zero authoring** — the legacy bytes remain the
    default for every ID.
 2. **Override layer = per-world SOTP overlay.** A sparse world-data file (`{ id: collisionByte }`)
-   the server applies *over* the base at `LoadCollisions` time. Carries walkability for custom /
+   the server applies _over_ the base at `LoadCollisions` time. Carries walkability for custom /
    minted tiles only. Because minted IDs live in **10013–20423** — inside the existing 20,423-byte
    array — the overlay just **sets bytes in place**; no resize, no format change to the base.
 3. **Taliesin is the single authoring surface.** From one set of per-ID walkability declarations it
    emits **both** the client pack `tile_flags` (Brigid recommendation #5) **and** the server overlay
-   (#7). The two tables are then *projections of one source* and cannot drift — except by deploying
+   (#7). The two tables are then _projections of one source_ and cannot drift — except by deploying
    one artifact without the other, which the compiler should **warn** about. This is the real
    content-level "defer": client-effective SOTP (legacy + pack flags) and server-effective SOTP
    (legacy + overlay) are guaranteed equal because Taliesin generates them together.
 4. **Server adopts Brigid's graceful semantics.** Bounds-check `Game.Collisions[fg - 1]`; an
-   out-of-range ID degrades to *walkable* (matching Brigid's `sotpIndex >= Length → false`) instead
+   out-of-range ID degrades to _walkable_ (matching Brigid's `sotpIndex >= Length → false`) instead
    of crashing. This is the single highest-value change here — it fixes the crash **and** makes the
    two engines agree at the table boundary, which is exactly the "handle SOTP like the client does"
    goal, minus the runtime coupling. It's also correct independently of this whole feature.
@@ -209,7 +210,7 @@ at the **content-authoring** layer, not by a runtime dependency.
 **Retail vs Hybrasyl, summarized:** retail/legacy worlds → base layer only (no change, no
 authoring). Hybrasyl custom content → base + overlay, authored once in Taliesin and projected to
 both engines. The server stays authoritative at runtime (it still computes collision itself); only
-the *source of the table* becomes shared authored content instead of a silently-diverging baked
+the _source of the table_ becomes shared authored content instead of a silently-diverging baked
 copy. See Brigid/server recommendations [#5/#7](#recommended-brigid--server-improvements) (paired
 override) and [#6](#recommended-brigid--server-improvements) (the standalone crash fix).
 
@@ -217,7 +218,7 @@ override) and [#6](#recommended-brigid--server-improvements) (the standalone cra
 
 `sotp.dat` is **not ours** — it's a reverse-engineered retail blob: a headerless 20,423-byte array
 whose per-byte semantics (`& 0x0F == 0x0F` = wall) are inferred, not authored. Building Hybrasyl's
-collision model *on top of* it is backwards, and it's the root of every problem above: the crash
+collision model _on top of_ it is backwards, and it's the root of every problem above: the crash
 (fixed-size, unchecked), the client/server drift (two copies of the same guessed bytes), and
 "you inherit whatever byte the slot holds." The overlay (#7) is the pragmatic patch; the strategic
 answer is to stop treating a retail artifact as Hybrasyl's source of truth.
@@ -228,7 +229,7 @@ answer is to stop treating a retail artifact as Hybrasyl's source of truth.
   (schema `xml/src/Objects/Map.cs`; Ceridwen is the retail-clone world, the live Hybrasyl world
   shares the schema). Verified across the full 1,021-map corpus: elements are `Flags`, `Warps`,
   `Npcs`, `Reactors`, `Signs`, `SpawnGroup`, `Description` — **no collision/tile element at all**.
-  Walkability is the lone gameplay-critical property still *derived* from a binary blob rather than
+  Walkability is the lone gameplay-critical property still _derived_ from a binary blob rather than
   declared next to the rest.
 - The
   [modern-map-format](../../../Comhaigne/docs/plans/hybrasyl.client/modern-map-format-scoping.md)
@@ -244,8 +245,8 @@ answer is to stop treating a retail artifact as Hybrasyl's source of truth.
    the fallback. `sotp.dat` becomes a one-time **import seed** (convert legacy bytes → native
    attributes) and a runtime safety net, not the base.
 2. **Separate what sotp conflates.** `sotp.dat` crams two unrelated things into one byte:
-   **walkability** (server-authoritative, client-predicted — *shared*) and **transparency/blend**
-   (pure client render — *client/pack-only*). A native model splits them: walkability into shared
+   **walkability** (server-authoritative, client-predicted — _shared_) and **transparency/blend**
+   (pure client render — _client/pack-only_). A native model splits them: walkability into shared
    world/tile data, blend into the pack. Blend never needs to reach the server; walkability never
    needs to be re-guessed.
 3. **Keyed by tile ID for now, per-map later.** Keep the DA semantics (walkability is a property of
@@ -254,12 +255,12 @@ answer is to stop treating a retail artifact as Hybrasyl's source of truth.
    (walkable here, blocking there — where the z-axis ambition also points) is an extension, not a
    rewrite. Don't over-commit to per-map now.
 4. **Taliesin authors the native attributes directly** once this lands — the tool's walkability
-   surface graduates from *inherit-and-surface* (pick an ID whose legacy byte fits) to *declare*
+   surface graduates from _inherit-and-surface_ (pick an ID whose legacy byte fits) to _declare_
    (author states wall/passable, tool emits the native attribute for both engines). Same paired-
    compile discipline as #5/#7, just a modern format instead of a legacy-blob overlay.
 
 This is a **larger, cross-repo architectural move** (Hybrasyl server + Brigid + map format), well
-beyond this tool and not required for Phase 1–4. It's recorded here because it changes the *target*
+beyond this tool and not required for Phase 1–4. It's recorded here because it changes the _target_
 of the tool's walkability authoring, and because the overlay (#7) is deliberately the incremental
 first rung of this ladder — not a dead end. Until it lands, the tool stays on the overlay model.
 
@@ -272,7 +273,7 @@ server team). This plan stays canonical for the tool; that doc is canonical for 
 
 External art is almost never native DA resolution — it's high-res (256×256, 512×512, vector
 exports). It must be **resampled to an integer multiple of the DA base unit**, exactly like a
-Minecraft resource pack whose 512×512 texture is *logically* a 16×16 block. The DA base unit is
+Minecraft resource pack whose 512×512 texture is _logically_ a 16×16 block. The DA base unit is
 **28 px** — the iso half-tile width (`HTILE_W` in the renderer). A floor is `2 × 28` wide; a
 wall is `1 × 28` wide.
 
@@ -294,23 +295,23 @@ included — as the supplier of the higher-fidelity art the new resolution needs
 incrementally behind the pack-or-legacy fallback. So compile output targets a **closed set of two
 scales — 1× and 2×** (not an open integer factor):
 
-| Scale | Client virtual res | Floor output | Wall output | Status                                    |
-| ----- | ------------------ | ------------ | ----------- | ----------------------------------------- |
-| **1×** | 640×480           | 56 × 27      | 28 × N      | ships today; default                      |
-| **2×** | 1280×960          | 112 × 54     | 56 × 2N     | author-ahead opt-in; renders after rebase |
+| Scale  | Client virtual res | Floor output | Wall output | Status                                    |
+| ------ | ------------------ | ------------ | ----------- | ----------------------------------------- |
+| **1×** | 640×480            | 56 × 27      | 28 × N      | ships today; default                      |
+| **2×** | 1280×960           | 112 × 54     | 56 × 2N     | author-ahead opt-in; renders after rebase |
 
 **Second gate — the pack manifest has no scale field.** The manifest's coverage entry for this
 kind is an empty object (`covers: { "static_tiles": {} }`,
 [AssetPackManifest.cs](../../../brigid/Brigid.Data/AssetPacks/AssetPackManifest.cs)), and the
 registry/renderer have no scale awareness at all — a 2× pack today would just be "oversized art"
 (clipped/skipped, per above). So 2× output is gated on **two** Brigid-side changes: the
-virtual-resolution rebase *and* a manifest extension (e.g. `covers.static_tiles.scale`) so the
+virtual-resolution rebase _and_ a manifest extension (e.g. `covers.static_tiles.scale`) so the
 client can tell a 2× pack from a malformed 1× one. See
 [Recommended Brigid improvements](#recommended-brigid--server-improvements).
 
 **Why cap at 1×/2× rather than an open `Nx`:** these are the only two resolutions the client
-renders — 640×480 now, an *exact* 2× rebase (1280×960, 4:3 preserved) planned; there is no 3×/4×
-virtual-resolution target (the window multiplier scales the *stretch*, not the render target). A
+renders — 640×480 now, an _exact_ 2× rebase (1280×960, 4:3 preserved) planned; there is no 3×/4×
+virtual-resolution target (the window multiplier scales the _stretch_, not the render target). A
 closed `{1, 2}` enum gives a two-state toggle, two golden fixtures, trivial validation, and dodges
 fractional-pitch/odd-height edge cases. Because the source art is retained (below), lifting the cap
 later is a one-line enum extension + one fixture — no redraw. YAGNI until a higher virtual res is
@@ -318,9 +319,9 @@ real.
 
 **Non-destructive principle.** The project keeps the author's **high-res source art**; the
 compile step resamples it to the selected target scale (area/Lanczos down-filter, point-friendly
-for pixel art). Emitting at the other scale is a *recompile*, not a redraw — which is exactly
+for pixel art). Emitting at the other scale is a _recompile_, not a redraw — which is exactly
 what the rebase doc wants ("raise the canvas and let packs fill in over time"). Never bake the
-author down to 56×27 as the stored asset; 56×27 is only the *1× compile output*.
+author down to 56×27 as the stored asset; 56×27 is only the _1× compile output_.
 
 ## Input formats
 
@@ -331,6 +332,7 @@ author down to 56×27 as the stored asset; 56×27 is only the *1× compile outpu
    2-corner 16-tile "blob-lite", or 47-tile blob). Handled by the slicer (below).
 
 Orientation (orthogonal vs isometric) is **auto-detected** with a manual override:
+
 - Isometric-diamond source: non-transparent pixels form a diamond within each cell → treat
   as already-projected, skip the ortho→iso step (still normalize to target geometry).
 - Orthogonal source: cell is a filled square/rectangle → run ortho→iso projection.
@@ -369,7 +371,7 @@ Applied per tile cell when the source is orthogonal.
    > between the two directions, i.e. the ±slant is the canonical clean-wall roofline and the
    > two directions are the left/right faces; the remaining ~54% is detailed hand-drawn art
    > that carries its own top shape. So the converter: emits **output height = the target
-   > height exactly** (the iso slant is carved *inside* the box, never added — a replacement
+   > height exactly** (the iso slant is carved _inside_ the box, never added — a replacement
    > must match the legacy height or it floats/gaps), imposes the iso slant per the tile's
    > **intrinsic angled face (`left | right`)**, and preserves source alpha with premultiplied
    > averaging. Implemented in [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts)
@@ -377,7 +379,7 @@ Applied per tile cell when the source is orthogonal.
    >
    > **Every wall is a left- or right-angled face — there is no "flat/none" wall.** A tile is
    > half a floor's width and sits on one diagonal diamond edge, so it always angles one way;
-   > a tile that *looks* orthogonal is still a left/right half-tile face. The angle is a
+   > a tile that _looks_ orthogonal is still a left/right half-tile face. The angle is a
    > property of the **art**, independent of **placement**: a left-angled tile can be placed
    > in either the `LeftForeground` or `RightForeground` slot (the map author's choice), so
    > `WallFace` is "which way the art's roofline slopes", not "which half it goes on".
@@ -393,9 +395,9 @@ the renderer utils and is unit-tested against fixtures.
 
 Order of operations matters: **iso-convert first, then slice** (per the original idea) — the
 wang adjacency is defined on the orthogonal grid, so we project the whole sheet (or each cell)
-into iso space and *then* pull out the individual DA tiles, preserving edge continuity. This
+into iso space and _then_ pull out the individual DA tiles, preserving edge continuity. This
 ordering is also what makes the **opaque corners** correct for wang tiles: each sliced 56×27
-footprint overlaps its neighbors' diamonds, and slicing from the projected *sheet* (with overlap)
+footprint overlaps its neighbors' diamonds, and slicing from the projected _sheet_ (with overlap)
 fills the corner triangles from the actual adjacent cell that the wang mask says belongs there —
 slicing cells first and projecting each in isolation would leave the corners guessing.
 
@@ -434,11 +436,11 @@ per decision), roughly:
   off to the existing compile flow. For **wall** commits the ID allocator enforces the
   10013–20423 window and, when a `sotp.dat` is available, shows per-ID **walkability**
   (blocking/passable) with "next free blocking/passable ID" allocation; when a legacy world is
-  loaded, replacement wall IDs **auto-derive the target height** from the *decoded* `ia.dat` HPF
+  loaded, replacement wall IDs **auto-derive the target height** from the _decoded_ `ia.dat` HPF
   (raw-size math is invalid for compressed entries — see open questions) with manual entry as
   fallback. (If the paired tile-flags override
   ships in Brigid + Hybrasyl — [recommendations #5/#7](#recommended-brigid--server-improvements) — the
-  allocator upgrades from *inherit-and-surface* to letting the author **declare** walkability,
+  allocator upgrades from _inherit-and-surface_ to letting the author **declare** walkability,
   with the compile emitting both the pack `tile_flags` and the server overlay.)
 
 Add a nav entry alongside the other pages in
@@ -505,7 +507,7 @@ Resolved during scoping (kept for the record):
 
 - ~~Target floor geometry: 56×27 vs 28×28~~ → **56×27 opaque**, confirmed against Brigid.
 - ~~Wall = one PNG or separate left/right faces~~ → **keyed by ID, not side.** `wall{id}.png`
-  is looked up by the raw `LeftForeground` / `RightForeground` *value*; whichever foreground
+  is looked up by the raw `LeftForeground` / `RightForeground` _value_; whichever foreground
   ID a tile carries maps to its own PNG. No separate left/right art per ID.
 - ~~Palette handling~~ → pack PNGs are **RGBA truecolor, rendered as-is (no `mpt`/`stc` remap)**;
   imported truecolor art is faithful. Author must export RGBA8888, not indexed.
@@ -539,11 +541,11 @@ Still open:
 
 - **Wang schemes to support first** — 2-corner blob is the most common for ground autotiling;
   confirm which scheme(s) the target worlds actually use before building all three.
-- **`sotp.dat` sourcing** — mostly resolved by the client-side copy: `sotp.dat` is an *entry
-  inside `ia.dat`* (Brigid reads it from `DatArchives.Ia`), so when a legacy world is loaded
+- **`sotp.dat` sourcing** — mostly resolved by the client-side copy: `sotp.dat` is an _entry
+  inside `ia.dat`_ (Brigid reads it from `DatArchives.Ia`), so when a legacy world is loaded
   Taliesin gets the walkability table from the same archive it reads walls from — no server
   checkout needed. Residual question: whether to offer a file-picker override for a server
-  whose *embedded* copy has been patched away from the client's (the lockstep caveat above);
+  whose _embedded_ copy has been patched away from the client's (the lockstep caveat above);
   allocator degrades to range-only checks when no table is available.
 - ~~Corner treatment on ortho→iso floor projection~~ → **RESOLVED (2026-07): floors are
   diamonds with transparent corners, not opaque-with-neighbor-content.** Confirmed against
@@ -606,7 +608,7 @@ field blocks the 2× story outright, and the server bounds-check (#6) fixes an o
    Extend the coverage entry with per-ID flag declarations, e.g.
    `covers.static_tiles.tile_flags: { "<id>": { "wall": true, "transparent": false } }`, merged
    over the legacy `SotpData` after load with the same priority rules as art. This lets an
-   author *declare* walkability and blend state for minted wall IDs instead of inheriting
+   author _declare_ walkability and blend state for minted wall IDs instead of inheriting
    whatever legacy byte the slot holds. The `transparent` half is purely client-side (blend
    state) and safe on its own; the `wall` half is only safe **in lockstep with the server**
    (#7) — a client-only wall flag produces split-brain movement. Until both land, the manager's
@@ -615,7 +617,7 @@ field blocks the 2× story outright, and the server bounds-check (#6) fixes an o
 6. **(Server) Graceful SOTP bounds-check — fixes an outright crash.** The server indexes
    `Game.Collisions[fg - 1]` **unchecked** ([MapObject.cs:546](../../../server/hybrasyl/Objects/MapObject.cs#L546));
    a foreground ID > 20423 throws `IndexOutOfRangeException` and takes down map load. Guard it so
-   out-of-range degrades to *walkable*, matching Brigid's own graceful behavior
+   out-of-range degrades to _walkable_, matching Brigid's own graceful behavior
    ([WorldScreen.Map.cs:251](../../../brigid/Brigid/Screens/WorldScreen.Map.cs#L251)). This is
    independently correct and aligns the two engines at the table boundary — the safe, minimal
    realization of "handle SOTP like the client does." Do this regardless of the rest.

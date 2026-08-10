@@ -45,7 +45,7 @@ Kept because the next WP gated on an unreleased dalib-ts will need it. Four thin
 3. **Any `npm install` or `npm ci` in Taliesin silently drops the link.** The symptom is a confusing "X is not exported" at a point where nothing you changed touches the import. Check with `node -e "console.log(require('fs').realpathSync('node_modules/@eriscorp/dalib-ts'))"`.
 4. **CI has no link,** so such a WP fails CI until the dependency publishes. That is expected, not a defect.
 
-Before publishing, verify the *packaged* artifact rather than the symlink: `npm pack` in dalib-ts and install the tarball into Taliesin once. A symlink reads the working tree, so it cannot catch a `files`/`exports` mistake that would ship a broken tarball.
+Before publishing, verify the _packaged_ artifact rather than the symlink: `npm pack` in dalib-ts and install the tarball into Taliesin once. A symlink reads the working tree, so it cannot catch a `files`/`exports` mistake that would ship a broken tarball.
 
 ## Acceptance criteria
 

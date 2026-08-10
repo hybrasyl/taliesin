@@ -52,12 +52,12 @@ None. `PaletteTable`, `TileAnimationTable` and `EffectTable` shipped in dalib-ts
 
 ## File map
 
-- `src/renderer/src/components/archive/TblPreview.tsx` *(new)* — try each parser in turn and show the first that succeeds:
+- `src/renderer/src/components/archive/TblPreview.tsx` _(new)_ — try each parser in turn and show the first that succeeds:
   - **palette table** — id ranges → palette number, plus male/female overrides and cycling entries,
   - **tile animation table** — id → tile sequence + interval,
   - **effect table** — effect id → frame sequence,
   - falling back to the existing text view.
-- `src/renderer/src/components/archive/ArchivePreview.tsx` *(edit)* — route `.tbl` entries through it.
+- `src/renderer/src/components/archive/ArchivePreview.tsx` _(edit)_ — route `.tbl` entries through it.
 
 Discriminating by name is a reasonable first pass (`*pal.tbl`, `gndani.tbl`/`stcani.tbl`, `effect.tbl`), but sniff-and-try is what handles the archives that do not follow the convention.
 

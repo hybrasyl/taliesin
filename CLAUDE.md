@@ -59,7 +59,7 @@ src/
 
 Alias: `@renderer` → `src/renderer/src`. **`src/shared/` holds only electron-free predicates**
 shared by main and the vitest **node** project (currently `externalUrl.ts`). Cross-cutting
-*renderer* types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in
+_renderer_ types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in
 `store/settingsStore.ts` — do not migrate them. Adding a file there needs two glob edits:
 `tsconfig.node.json` (loud — TS6307) and `vitest.config.mjs`'s node project (**silent** — the
 suite is simply never collected and vitest still reports success).
@@ -126,7 +126,7 @@ Prop APIs differ from v5–v7 and fail typecheck cryptically:
 - `Stack`: `alignItems`/`justifyContent` go in `sx`, not top-level props.
 - Icons v9 drops deprecated base names (e.g. use `HelpOutlineOutlined`, not `HelpOutline`).
 - `Autocomplete`'s `renderInput` params carry **`slotProps`** (v5–v7 used `InputProps` +
-  `inputProps`). Setting your own `slotProps` on the inner `TextField` *replaces* that object and
+  `inputProps`). Setting your own `slotProps` on the inner `TextField` _replaces_ that object and
   silently drops the classes/refs Autocomplete styles itself through — the field renders ~12px
   taller than a plain `size="small"` one and the popup anchors wrong. Always spread:
   `slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps?.htmlInput, … } }}`.

@@ -19,14 +19,14 @@ app.
 Three pieces, all small:
 
 1. **`folderOptions(files)`** (`src/renderer/src/utils/fileTree.ts`) — the distinct folders a file
-   list occupies, ancestors included, sorted, root excluded. Pass the active *and* archived lists:
+   list occupies, ancestors included, sorted, root excluded. Pass the active _and_ archived lists:
    a folder whose files are all archived is still somewhere you might file something.
 2. **`normalizeFolder(input)`** (same file) — trims, forward-slashes, collapses repeats, drops
    `.`/`..` segments. Path safety still validates in main; this just makes a typo read as an
    unavailable option instead of an error dialog after the save.
 3. **`FolderSelect`** (`src/renderer/src/components/shared/FolderSelect.tsx`) — a MUI
    `Autocomplete freeSolo` over those options, `''` shown as the `(root)` placeholder. `freeSolo`
-   is the whole point: folders are not a data model, so typing a new one *is* how you create one.
+   is the whole point: folders are not a data model, so typing a new one _is_ how you create one.
    Nothing has to `mkdir` — the main-process write already `mkdir -p`s the parent.
 
 Wiring, in `EditorHeader`: four optional props — `folder`, `folderOptions`, `initialFolder`,
@@ -51,7 +51,9 @@ export function resolveSavePath(library, subdir, selectedFile, fileName, folder)
   const subDir = folder !== undefined ? normalizeFolder(folder) : relDir(selectedFile?.rel ?? '')
   const newRel = subDir ? `${subDir}/${fileName}` : fileName
   const newPath =
-    selectedFile && newRel === selectedFile.rel ? selectedFile.path : `${library}/${subdir}/${newRel}`
+    selectedFile && newRel === selectedFile.rel
+      ? selectedFile.path
+      : `${library}/${subdir}/${newRel}`
   return { newPath, newRel }
 }
 ```
@@ -70,7 +72,7 @@ Two things worth keeping as they are:
 
 ## Gotcha found while doing this
 
-A folder picker makes it possible to move a file into a folder *and* rename it in one save. Both the
+A folder picker makes it possible to move a file into a folder _and_ rename it in one save. Both the
 old and new path then differ, and the old file is archived rather than deleted — the same
 "Old file remains (manual delete may be needed)" caveat that already applies to renames, now
 reachable two ways. Neither app deletes on rename today; if that changes, it should change for both.
