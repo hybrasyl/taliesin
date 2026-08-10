@@ -47,6 +47,8 @@ record; where they disagree with this file, the git history was taken as authori
   on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
   derived from the world data and is rebuilt from it.
 
+## [2.9.0] - 2026-08-01
+
 ### Added
 
 - **The Archive Viewer picks the right palette by itself.** Opening a sprite, tile sheet or
