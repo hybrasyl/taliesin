@@ -1,11 +1,25 @@
-import React, { useState } from 'react'
-import { Box, Typography, Button, CircularProgress, Tooltip, Chip } from '@mui/material'
+import React, { useState, useEffect } from 'react'
+import {
+  Box,
+  Typography,
+  Button,
+  CircularProgress,
+  Tooltip,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  type SelectChangeEvent
+} from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SettingsIcon from '@mui/icons-material/Settings'
 import FileUploadIcon from '@mui/icons-material/FileUpload'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useCatalog, worldName } from '../hooks/useCatalog'
+import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapCatalogList from '../components/catalog/MapCatalogList'
 import MapCatalogEditor from '../components/catalog/MapCatalogEditor'
 import MapExportDialog from '../components/catalog/MapExportDialog'
@@ -16,6 +30,8 @@ const CatalogPage: React.FC = () => {
   const activeMapDir = useSettingsStore((s) => s.activeMapDirectory)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const clientPath = useSettingsStore((s) => s.clientPath)
+  const mapDirectories = useSettingsStore((s) => s.mapDirectories)
+  const setActiveMapDirectory = useSettingsStore((s) => s.setActiveMapDirectory)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   const {
@@ -25,7 +41,7 @@ const CatalogPage: React.FC = () => {
     draft,
     dirty,
     scanning,
-    scan,
+    rescan,
     select,
     updateDraft,
     save,
@@ -33,6 +49,28 @@ const CatalogPage: React.FC = () => {
   } = useCatalog(activeMapDir)
 
   const [exportOpen, setExportOpen] = useState(false)
+
+  // Unsaved-draft guard. `useCatalog` owns `dirty`, so this mirrors it into the
+  // shared guard rather than tracking it a second time; the guard is what gives
+  // the source picker and the list its prompt, and it registers the page with
+  // uiStore so cross-page navigation is intercepted too.
+  const { markDirty, markClean, saveRef, guard, dialogOpen, ...dialog } =
+    useUnsavedGuard('Map catalog')
+  saveRef.current = async () => {
+    await save()
+  }
+  useEffect(() => {
+    if (dirty) markDirty()
+    else markClean()
+  }, [dirty, markDirty, markClean])
+
+  const handleSourceChange = (e: SelectChangeEvent<string>): void => {
+    const next = e.target.value
+    if (next === activeMapDir) return
+    // Switching source is the same code path as opening the page: `dirPath`
+    // changes and useCatalog's effect reloads and clears the selection.
+    guard(() => setActiveMapDirectory(next))
+  }
 
   // ── Library context ───────────────────────────────────────────────────────────
   const importTarget = activeLibrary ? worldName(activeLibrary) : null
@@ -94,8 +132,28 @@ const CatalogPage: React.FC = () => {
             flexShrink: 0
           }}
         >
+          {/* Map source. Writes through to the global active map directory:
+              "which map directory am I working in" is a session-wide answer, and
+              a catalog-local override would leave the two silently disagreeing. */}
+          {mapDirectories.length > 1 && (
+            <FormControl size="small" fullWidth disabled={scanning}>
+              <InputLabel id="catalog-source-label">Map source</InputLabel>
+              <Select
+                labelId="catalog-source-label"
+                label="Map source"
+                value={mapDirectories.some((d) => d.path === activeMapDir) ? activeMapDir : ''}
+                onChange={handleSourceChange}
+              >
+                {mapDirectories.map((dir) => (
+                  <MenuItem key={dir.path} value={dir.path}>
+                    {dir.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Tooltip title="Scan directory for .map files">
+            <Tooltip title="Re-read the directory to pick up .map files added since the page loaded">
               <span>
                 <Button
                   size="small"
@@ -103,10 +161,10 @@ const CatalogPage: React.FC = () => {
                   startIcon={
                     scanning ? <CircularProgress size={14} color="inherit" /> : <RefreshIcon />
                   }
-                  onClick={scan}
+                  onClick={rescan}
                   disabled={scanning}
                 >
-                  {scanning ? 'Scanning…' : entries.length === 0 ? 'Scan' : 'Rescan'}
+                  {scanning ? 'Scanning…' : 'Rescan'}
                 </Button>
               </span>
             </Tooltip>
@@ -117,7 +175,7 @@ const CatalogPage: React.FC = () => {
                   color: 'text.secondary'
                 }}
               >
-                No maps loaded
+                No maps found
               </Typography>
             )}
           </Box>
@@ -146,7 +204,11 @@ const CatalogPage: React.FC = () => {
           )}
         </Box>
 
-        <MapCatalogList entries={entries} selectedFilename={selectedFilename} onSelect={select} />
+        <MapCatalogList
+          entries={entries}
+          selectedFilename={selectedFilename}
+          onSelect={(filename) => guard(() => select(filename))}
+        />
       </Box>
       {/* Right: editor panel */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -182,12 +244,20 @@ const CatalogPage: React.FC = () => {
               }}
             >
               {entries.length === 0
-                ? 'Scan a directory to load maps.'
+                ? 'No .map files in this directory.'
                 : 'Select a map from the list.'}
             </Typography>
           </Box>
         )}
       </Box>
+
+      <UnsavedChangesDialog
+        open={dialogOpen}
+        label={selectedEntry?.filename ?? null}
+        onSave={dialog.handleDialogSave}
+        onDiscard={dialog.handleDialogDiscard}
+        onCancel={dialog.handleDialogCancel}
+      />
     </Box>
   )
 }

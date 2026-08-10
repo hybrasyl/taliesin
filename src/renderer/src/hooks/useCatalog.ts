@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { HYBRASYL_NS } from '../utils/xmlUtils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -79,35 +79,58 @@ export function useCatalog(dirPath: string | null) {
   // Draft state for the currently selected entry
   const [draft, setDraft] = useState<CatalogMeta>({})
 
-  // Load catalog from disk when dirPath changes
-  useEffect(() => {
-    if (!dirPath) {
-      setEntries([])
-      setCatalog({})
-      setSelectedFilename(null)
-      return
-    }
-    window.api.catalogLoad(dirPath).then((raw) => {
-      const data = raw as CatalogData
-      setCatalog(data)
-    })
-  }, [dirPath])
+  /**
+   * Which load is current. Bumped by every `rescan` and by every `dirPath`
+   * change, so a reply from the directory the user just left cannot land on top
+   * of the one they switched to — the two loads race whenever a source is
+   * switched while the first is still in flight.
+   */
+  const loadSeq = useRef(0)
 
-  // Scan the directory for .map files
-  const scan = useCallback(async () => {
+  /**
+   * Read the directory listing and the catalog metadata, and merge them.
+   *
+   * This is how the page loads, not a user action — the button below is a
+   * *re*scan, for files added on disk since. The listing is one IPC call
+   * returning `{ filename, sizeBytes }`, which is cheap enough not to gate
+   * behind a click, and the page shows nothing at all without it (HTOO-353).
+   */
+  const rescan = useCallback(async () => {
     if (!dirPath) return
+    const seq = ++loadSeq.current
     setScanning(true)
     try {
       const [scanned, catalogData] = await Promise.all([
         window.api.catalogScan(dirPath),
         window.api.catalogLoad(dirPath).then((r) => r as CatalogData)
       ])
+      if (seq !== loadSeq.current) return
       setCatalog(catalogData)
       setEntries(mergeEntries(scanned, catalogData))
     } finally {
-      setScanning(false)
+      if (seq === loadSeq.current) setScanning(false)
     }
   }, [dirPath])
+
+  // Load on open, and reload on every source change.
+  useEffect(() => {
+    // The selection does not survive a source change. Filenames repeat across
+    // map directories — `lod00500.map` exists in most of them — so carrying
+    // `selectedFilename` across would silently rebind the editor to a different
+    // map with the same name, and MapCatalogEditor's file-load effect (keyed on
+    // dirPath + filename) would re-read the file and show the new content under
+    // the old selection.
+    setSelectedFilename(null)
+    setDraft({})
+    setDirty(false)
+    if (!dirPath) {
+      loadSeq.current++ // discard any load still in flight for the old directory
+      setEntries([])
+      setCatalog({})
+      return
+    }
+    void rescan()
+  }, [dirPath, rescan])
 
   // Re-merge entries when catalog changes (e.g. after save)
   const refreshEntries = useCallback(
@@ -204,7 +227,7 @@ export function useCatalog(dirPath: string | null) {
     draft,
     dirty,
     scanning,
-    scan,
+    rescan,
     select,
     updateDraft,
     save,
