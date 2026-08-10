@@ -20,6 +20,7 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useArchiveStore } from '../store/archiveStore'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
+import { resolveClientFile } from '../utils/fsCase'
 
 // Sibling archives the palette-resolution rules reach for. Khan sprite archives
 // keep their palettes in khanpal.dat; national.dat, misc.dat and khan pants read
@@ -82,21 +83,6 @@ const ArchivePage: React.FC = () => {
         if (lastSep > 0) {
           const parentDir = filePath.slice(0, lastSep)
 
-          // The palette rules name siblings as lowercase literals, but the
-          // official installer writes `Legend.dat`. On Windows that difference
-          // is invisible; on a case-sensitive filesystem the read fails and
-          // every khan / national / misc rule silently falls back to the manual
-          // picker. Ask the directory for the real casing rather than guessing
-          // at it — see dalib-ts 3.1.1.
-          const onDiskNames = new Map<string, string>()
-          try {
-            for (const dirEntry of await window.api.listDir(parentDir)) {
-              if (!dirEntry.isDirectory) onDiskNames.set(dirEntry.name.toLowerCase(), dirEntry.name)
-            }
-          } catch {
-            // Unreadable directory — fall through to the literal name.
-          }
-
           for (const name of PALETTE_SIBLINGS) {
             // Opening legend.dat itself would otherwise parse it a second time.
             if (name === openName) {
@@ -104,10 +90,13 @@ const ArchivePage: React.FC = () => {
               continue
             }
             try {
-              // Keyed by the lowercase name whatever the file is called: that is
+              // The palette rules name siblings as lowercase literals, but the
+              // installer writes `Legend.dat` — resolved rather than
+              // concatenated, see utils/fsCase.ts (HTOO-287). Keyed by the
+              // lowercase name whatever the file turns out to be called: that is
               // the name the resolver asks for.
               const sibBuf = await window.api.readFile(
-                `${parentDir}${sep}${onDiskNames.get(name) ?? name}`
+                await resolveClientFile(parentDir, name, sep)
               )
               loaded.set(name, DataArchive.fromBuffer(new Uint8Array(sibBuf)))
             } catch {

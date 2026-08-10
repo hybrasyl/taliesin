@@ -8,6 +8,7 @@
 
 import { DataArchive, EpfFile, Palette } from '@eriscorp/dalib-ts'
 import { resolveWithPackOverride, coveredIdSet } from './packOverride'
+import { resolveClientFile } from './fsCase'
 
 export const FIELD_NAMES = Array.from(
   { length: 11 },
@@ -38,7 +39,11 @@ async function loadArchive(clientPath: string): Promise<DataArchive> {
   const cached = archiveCache.get(clientPath)
   if (cached) return cached
 
-  const buf = await window.api.readFile(`${clientPath}/setoa.dat`)
+  // Resolved rather than concatenated: a stock install spells this lowercase,
+  // but that is a fact about today's installer rather than a guarantee, and a
+  // wrong-cased read on Linux throws into the caller's catch as "no world map".
+  // See utils/fsCase.ts (HTOO-287).
+  const buf = await window.api.readFile(await resolveClientFile(clientPath, 'setoa.dat'))
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   archiveCache.set(clientPath, archive)
   return archive

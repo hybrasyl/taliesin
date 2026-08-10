@@ -7,6 +7,34 @@ declare global {
   }
 
   /**
+   * Companion resolution (HTOO-292). Structurally identical to the types in
+   * `src/main/companion.ts`, declared here because the renderer's tsconfig does
+   * not include `src/main` — the same reason `DirEntry` is repeated above.
+   */
+  type CompanionKind = 'binary' | 'appBundle' | 'desktopEntry'
+  type CompanionSource = 'manual' | 'sibling' | 'installed'
+  interface CompanionStatus {
+    resolved: { target: string; kind: CompanionKind; source: CompanionSource } | null
+    /** A configured override that no longer exists. Discovery continued past it. */
+    staleOverride: boolean
+  }
+  /** Never collapsed to a boolean: each reason needs its own sentence, and three
+   *  of the four are things the user can fix. */
+  type CompanionLaunchResult =
+    | { ok: true; source: CompanionSource; target: string }
+    | {
+        ok: false
+        reason:
+          | 'not-found'
+          | 'stale-override'
+          | 'not-executable'
+          | 'launch-failed'
+          | 'not-configured'
+        target?: string
+        message?: string
+      }
+
+  /**
    * One world type's `.xml` files, listed recursively and split by whether they
    * are archived. `dir` is absolute and forward-slashed; each rel path is
    * type-relative and *is* the `<type>NamesByFilename` / `MapDetail.filename`
@@ -104,7 +132,15 @@ declare global {
     revealLogs: () => Promise<void>
     loadSettings: () => Promise<Record<string, unknown>>
     saveSettings: (settings: unknown) => Promise<void>
-    launchCompanion: (exePath: string) => Promise<boolean>
+    /**
+     * Companion app (HTOO-292). The renderer names no path — main resolves the
+     * companion by identity and decides what may be launched.
+     */
+    launchCompanion: () => Promise<CompanionLaunchResult>
+    companionStatus: () => Promise<CompanionStatus>
+    companionPickerFilters: () => Promise<{ name: string; extensions: string[] }[]>
+    /** A newer published release, or null when current / offline / rate-limited. */
+    checkForUpdate: () => Promise<{ version: string; url: string } | null>
     openFile: (
       filters?: { name: string; extensions: string[] }[],
       defaultPath?: string

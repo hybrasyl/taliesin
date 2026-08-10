@@ -29,9 +29,19 @@ record; where they disagree with this file, the git history was taken as authori
   a busy market — separate from sound effects, because a bed plays continuously underneath
   everything else rather than firing once. Add audio files and compile. Each sound gets a number
   that a map refers to. Beds loop by default; tick **One-shot** on any that must play once and stop.
+- **Taliesin tells you when a new version is out.** On launch it asks GitHub whether a newer
+  release exists and, if one does, shows a notice with a link to the release notes. It downloads
+  and installs nothing — the upgrade is still yours to do — and if you are offline or already
+  current, nothing appears. This is the app's only outbound request; it sends nothing about you.
 
 ### Changed
 
+- **Taliesin finds Creidhne by itself.** The Launch Creidhne button works without visiting
+  Settings: Taliesin looks beside itself first, then at the installed application. Settings now
+  shows where Creidhne was found, and picking one manually is only needed for an unusual install —
+  it is an override you can clear to go back to automatic. Choosing one works on macOS and Linux
+  for the first time; the picker only accepted `.exe` files before, so an application bundle or an
+  AppImage could not be selected at all. A launch that fails now says why instead of doing nothing.
 - **Opening Taliesin twice now brings the open window forward** instead of starting a second copy.
   Two copies shared one settings file and the last one to save won, so a preference changed in one
   window could disappear without a word when the other saved.
@@ -56,6 +66,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The sound-effects browser and the world map find their client files on Linux and macOS.** Same
+  cause as the palette fix below: the installer writes `Legend.dat`, the app asked for
+  `legend.dat`, and a case-sensitive filesystem said the file was not there. Both now read whatever
+  the folder really contains. Windows was never affected.
 - **Sprites in the archive viewer get their palette on Linux and macOS.** The official installer
   writes `Legend.dat` while the palette rules ask for `legend.dat`, so on a case-sensitive
   filesystem the sibling archive was never found and khan, national and misc sprites fell back to

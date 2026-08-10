@@ -51,6 +51,9 @@ describe('Preload ↔ Main IPC contract', () => {
     expect(all).toMatchInlineSnapshot(`
       [
         "app:changelog",
+        "app:checkForUpdate",
+        "app:companionPickerFilters",
+        "app:companionStatus",
         "app:getVersion",
         "app:launchCompanion",
         "app:ready",

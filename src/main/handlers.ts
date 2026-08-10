@@ -8,7 +8,7 @@
 import type { IpcMain, BrowserWindow as BrowserWindowType } from 'electron'
 import { join, dirname } from 'path'
 import { promises as fs } from 'fs'
-import { execFile, spawn } from 'child_process'
+import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { createHash } from 'crypto'
 import {
@@ -21,6 +21,17 @@ import {
 } from '@eriscorp/hybindex-ts'
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
+import { resolveClientFile } from './fsCase'
+import {
+  resolveCompanion,
+  launchCompanion as companionLaunch,
+  pickerFilters,
+  nodeProbe,
+  type CompanionStatus,
+  type CompanionLaunchResult,
+  type CompanionProbe
+} from './companion'
+import { checkForUpdate as updateCheck, type UpdateInfo } from './updateCheck'
 import {
   loadPacks,
   listActivePacks,
@@ -75,6 +86,13 @@ export interface HandlerContext {
    * index.ts, which owns the electron `shell` reference and settings path.
    */
   revealSettings?: () => void
+  /**
+   * Platform probe for companion discovery (HTOO-292). Injected only by tests —
+   * production falls back to `nodeProbe()`. Registry queries, Applications
+   * scans and `.desktop` lookups cannot run in a suite, and precedence rules
+   * that are only exercised on the author's own machine have one tested path.
+   */
+  companionProbe?: CompanionProbe
 }
 
 /**
@@ -204,21 +222,48 @@ export async function packTrackMeta(
   }
 }
 
-export async function launchCompanion(ctx: HandlerContext, exePath: string): Promise<boolean> {
-  // Whitelist: only the exe path explicitly configured in Settings may be
-  // launched. spawn() bypasses the file-read root check (a process is much
-  // bigger blast radius than a file read), so we lock it down to one
-  // settings-controlled target. Different launcher? Update Settings first.
+/**
+ * Resolve the companion without launching it, for the Settings card and the
+ * toolbar's enabled state (HTOO-292).
+ *
+ * The renderer names an identity; it never supplies a path. `companionPath` in
+ * settings is the user's explicit OVERRIDE rather than the only answer, so the
+ * launch button works before anyone visits Settings.
+ */
+export async function companionStatus(ctx: HandlerContext): Promise<CompanionStatus> {
   const settings = await ctx.settingsManager.load()
-  const allowed = settings.companionPath
-  if (!allowed || exePath !== allowed) return false
-  try {
-    await fs.access(exePath)
-    spawn(exePath, [], { detached: true, stdio: 'ignore' }).unref()
-    return true
-  } catch {
-    return false
-  }
+  return resolveCompanion(ctx.companionProbe ?? nodeProbe(), 'creidhne', settings.companionPath)
+}
+
+/**
+ * Launch the companion.
+ *
+ * Takes NO path. The old version accepted one from the renderer and allowlisted
+ * it against the configured value, which was the right instinct — a spawn has a
+ * far larger blast radius than a file read — but it could only ever launch a
+ * directly-spawnable binary, so macOS and Linux had no path at all. What may be
+ * launched is now decided in `companion.ts`, from sources this process controls.
+ */
+export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLaunchResult> {
+  const settings = await ctx.settingsManager.load()
+  return companionLaunch(ctx.companionProbe ?? nodeProbe(), 'creidhne', settings.companionPath)
+}
+
+/**
+ * Best-effort "a newer release exists" check (HTOO-65). Null for every failure
+ * and for "already current" alike -- the renderer shows something only when
+ * there is something to show.
+ */
+export async function checkForUpdate(ctx: HandlerContext): Promise<UpdateInfo | null> {
+  return updateCheck(ctx.appGetVersion())
+}
+
+/** The file filters for the Settings "Change" picker, which differ per platform:
+ *  a `.app` bundle and an AppImage are not `.exe` files. */
+export function companionPickerFilters(
+  ctx: HandlerContext
+): { name: string; extensions: string[] }[] {
+  return pickerFilters((ctx.companionProbe ?? nodeProbe()).platform)
 }
 
 export async function getAppVersion(ctx: HandlerContext): Promise<string> {
@@ -745,7 +790,8 @@ export async function sfxList(
 ): Promise<{ entryName: string; sizeBytes: number }[]> {
   const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(safe, 'legend.dat')
+  // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
+  const legendPath = await resolveClientFile(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries
@@ -760,7 +806,8 @@ export async function sfxReadEntry(
 ): Promise<Buffer> {
   const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
-  const legendPath = join(safe, 'legend.dat')
+  // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
+  const legendPath = await resolveClientFile(safe, 'legend.dat')
   const buf = await fs.readFile(legendPath)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   const entry = archive.get(entryName)
@@ -1441,7 +1488,10 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
     packTrackMeta(subtype, id)
   )
   ipcMain.handle('get-user-data-path', () => getUserDataPath(ctx))
-  ipcMain.handle('app:launchCompanion', (_, p) => launchCompanion(ctx, p))
+  ipcMain.handle('app:launchCompanion', () => launchCompanion(ctx))
+  ipcMain.handle('app:companionStatus', () => companionStatus(ctx))
+  ipcMain.handle('app:companionPickerFilters', () => companionPickerFilters(ctx))
+  ipcMain.handle('app:checkForUpdate', () => checkForUpdate(ctx))
   ipcMain.handle('app:getVersion', () => getAppVersion(ctx))
   ipcMain.handle('app:changelog', () => readChangelog())
   // Reveal settings.json in the OS file manager. Handled in index.ts, which

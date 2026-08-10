@@ -1,4 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
+// TYPE-ONLY, and it has to stay that way. This file may import `electron` and
+// nothing else at run time -- a value import from main breaks `sandbox: true` in
+// the PACKAGED app only, where it builds and lints clean. `import type` is
+// erased before the bundle exists, so the built preload still emits exactly one
+// `require`, which `e2e/preload-sandbox.spec.js` pins.
+import type { CompanionLaunchResult, CompanionStatus } from '../main/companion'
+import type { UpdateInfo } from '../main/updateCheck'
 
 export interface DirEntry {
   name: string
@@ -89,9 +96,16 @@ const api = {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings: unknown) => ipcRenderer.invoke('settings:save', settings),
 
-  // Companion app
-  launchCompanion: (exePath: string): Promise<boolean> =>
-    ipcRenderer.invoke('app:launchCompanion', exePath),
+  // Companion app. The renderer names no path: it asks for the companion, and
+  // main decides what may be launched (HTOO-292).
+  launchCompanion: (): Promise<CompanionLaunchResult> => ipcRenderer.invoke('app:launchCompanion'),
+  companionStatus: (): Promise<CompanionStatus> => ipcRenderer.invoke('app:companionStatus'),
+  companionPickerFilters: (): Promise<{ name: string; extensions: string[] }[]> =>
+    ipcRenderer.invoke('app:companionPickerFilters'),
+
+  // Update notification (HTOO-65). Null when current, offline, or anything else
+  // went wrong -- the check is best-effort by design.
+  checkForUpdate: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('app:checkForUpdate'),
 
   // Dialogs
   openFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>

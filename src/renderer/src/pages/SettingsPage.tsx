@@ -241,36 +241,112 @@ function BrigidAssetsCard() {
 
 // ── Card: Companion App ──────────────────────────────────────────────────────
 
+/** How a resolved companion is described to the user. `manual` is the only one
+ *  they chose; the other two are things the app worked out, and saying which is
+ *  the difference between "it works" and "it works for the reason you think". */
+const SOURCE_LABEL: Record<CompanionSource, string> = {
+  manual: 'Selected manually',
+  sibling: 'Found next to Taliesin',
+  installed: 'Found from the installed application'
+}
+
+/** One sentence per failure, because collapsing them all to "failed" hides that
+ *  three of the four are things the user can act on. */
+function launchMessage(result: CompanionLaunchResult): string {
+  if (result.ok) return `Launched Creidhne (${SOURCE_LABEL[result.source].toLowerCase()}).`
+  switch (result.reason) {
+    case 'stale-override':
+      return 'The selected file no longer exists, and Creidhne was not found anywhere else. Choose it again or clear the selection.'
+    case 'not-found':
+      return 'Creidhne was not found. Install it beside Taliesin, or choose it manually.'
+    case 'not-executable':
+      return `Creidhne was found at ${result.target} but is not executable.`
+    default:
+      return `Creidhne could not be started: ${result.message ?? 'the operating system refused to launch it'}.`
+  }
+}
+
 function CompanionCard() {
   const companionPath = useSettingsStore((s) => s.companionPath)
   const setCompanionPath = useSettingsStore((s) => s.setCompanionPath)
+  const [status, setStatus] = useState<CompanionStatus | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  // Re-resolved whenever the override changes: clearing it must fall back to
+  // discovery visibly rather than leaving the card describing the old answer.
+  useEffect(() => {
+    let cancelled = false
+    window.api
+      .companionStatus()
+      .then((s) => !cancelled && setStatus(s))
+      .catch(() => !cancelled && setStatus(null))
+    return () => {
+      cancelled = true
+    }
+  }, [companionPath])
+
+  const resolved = status?.resolved ?? null
+
   return (
     <Paper sx={cardSx}>
       <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         Companion App
       </Typography>
       <Typography variant="body2" sx={cardDescSx}>
-        Path to the Creidhne executable. Enables the "Launch Creidhne" button on the Dashboard.
+        Taliesin finds Creidhne on its own — beside itself, or from the installed application.
+        Choose it manually only for an unusual install.
       </Typography>
+
+      <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+        <Chip
+          size="small"
+          color={resolved ? 'primary' : 'default'}
+          label={resolved ? SOURCE_LABEL[resolved.source] : 'Not found'}
+        />
+        {status?.staleOverride && (
+          <Chip size="small" color="warning" label="Selected file is missing" />
+        )}
+      </Stack>
+      {resolved && (
+        <Typography variant="caption" sx={{ color: 'text.secondary', wordBreak: 'break-all' }}>
+          {resolved.target}
+        </Typography>
+      )}
+
       <PathInput
         value={companionPath ?? ''}
         onChange={(v) => setCompanionPath(v || null)}
-        placeholder="e.g. D:\tools\Creidhne.exe"
+        placeholder="Optional — leave empty to find Creidhne automatically"
         onBrowse={async () => {
-          const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe'] }])
+          // Filters come from main, because they differ per platform: a macOS
+          // bundle is a `.app` directory and a Linux install may be an AppImage
+          // or a desktop entry. Asking for `exe` everywhere is what stopped this
+          // setting from being populated at all off Windows.
+          const f = await window.api.openFile(await window.api.companionPickerFilters())
           if (f) setCompanionPath(f)
         }}
       />
-      {companionPath && (
+
+      <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1, mt: 2 }}>
         <Button
           variant="outlined"
           size="small"
           startIcon={<LaunchIcon />}
-          onClick={() => window.api.launchCompanion(companionPath)}
-          sx={{ mt: 2, alignSelf: 'flex-start' }}
+          disabled={!resolved}
+          onClick={async () => setMessage(launchMessage(await window.api.launchCompanion()))}
         >
           Test Launch
         </Button>
+        {companionPath && (
+          <Button variant="text" size="small" onClick={() => setCompanionPath(null)}>
+            Clear selection
+          </Button>
+        )}
+      </Stack>
+      {message && (
+        <Typography variant="caption" sx={{ mt: 1, color: 'text.secondary' }}>
+          {message}
+        </Typography>
       )}
     </Paper>
   )
