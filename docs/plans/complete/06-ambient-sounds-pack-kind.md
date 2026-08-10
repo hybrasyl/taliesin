@@ -1,8 +1,32 @@
 # WP6 — `ambient_sounds` pack kind
 
-**Size: S.** **Not started.**
+**Size: S. ✅ Shipped 2026-08-10** (`ace1cab`, then `e578bcc` for the loop default).
 
-**Depends on:** nothing. Read `00-overview.md` first.
+**Depends on:** nothing. Read `../00-overview.md` first.
+
+## What shipped, against this plan
+
+The four-step recipe and nothing else — no editor, dialog or IPC change, as predicted. One thing the
+plan could not have settled in advance, and it changed the `covers` shape after the first merge.
+
+**BRIG-16 never said what the client does when `covers.ambient_sounds` has no entry for an id.**
+`ace1cab` deliberately did not improvise it and wrote `{ "loop": true }` for flagged assets. That
+left the default undecided, and the wrong default is not a cosmetic error: the client already starts
+a bed with `Mix_PlayChannel(…, -1)`, so a default of "do not loop" would silence every pack that
+carries no metadata. Decided 2026-08-10 — **a missing entry means loop** — and `e578bcc` inverted
+the flag to match. It is now the negative `no_loop`, labelled "One-shot", which is the `no_dye` shape
+`item_icons` already uses, and only one-shots are written down.
+
+The negative flag also keeps `PackEditor` untouched, which is not incidental. It draws a boolean as
+`checked={assetMeta[key] === true}`, so unchecked-by-default is the only state it can render without
+adding a default to `AssetMetaField`.
+
+`entrySchema` did not change — `loop` was already optional. So `{ "loop": true }` still reads from a
+hand-edited pack, packs written by the first merge open and play identically, and no migration is
+needed. Decision 3 in this document was added at that point and records the same thing.
+
+Ids are 1-based because `Map/@AmbientSound` is an `unsignedByte` where 0 means "no ambient", so there
+is no id 0 to author.
 
 ## Goal
 
@@ -54,8 +78,8 @@ Kind registration and `covers` folding, modelled on the `itemIconsDye` tests.
 
 ## Acceptance criteria
 
-1. An `ambient_sounds` pack can be created, filled and compiled from the UI with no kind-specific editor code.
-2. Its `covers` blob matches the shape above exactly.
-3. Files are emitted as `amb_{id:D4}.{ext}` with ids auto-assigned from 1.
-4. The manifest validates against `contentTypeSchema` in main.
-5. All checks green.
+1. ✅ An `ambient_sounds` pack can be created, filled and compiled from the UI with no kind-specific editor code. **The on-screen pass is HTOO-152's `needs-testing` state.**
+2. ✅ Its `covers` blob matches the shape above exactly — one-shots only, keyed by numeric id.
+3. ✅ Files are emitted as `amb_{id:D4}.{ext}` with ids auto-assigned from 1.
+4. ✅ The manifest validates against `contentTypeSchema` in main.
+5. ✅ All checks green.

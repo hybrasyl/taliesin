@@ -1,10 +1,46 @@
 # WP5 — Adopt dalib `SotpFile` + `renderTile`
 
-**Size: M.** **Not started.** Foundation for pack-carried SOTP.
+**Size: M. ✅ Shipped 2026-08-10** (`7e07756`, and `3d5a8e4` for the `stcani.tbl` fault).
+Foundation for pack-carried SOTP.
 
-**Depends on:** [WP0](complete/00-dalib-ts-3-bump.md) (shipped, so this is unblocked). Read `00-overview.md` first.
+**Depends on:** [WP0](00-dalib-ts-3-bump.md) (shipped, so this was unblocked). Read `../00-overview.md` first.
 
-> **Commit `12c91b8` reads like this work and is docs-only.** Nothing has been adopted yet. That commit also deleted `docs/completed/tile-collision-asset-pack.md`, which earlier drafts of this plan linked to; the link is gone rather than moved, and the design it described is superseded by Decision 1 below.
+> **Commit `12c91b8` reads like this work and is docs-only.** That commit also deleted `docs/completed/tile-collision-asset-pack.md`, which earlier drafts of this plan linked to; the link is gone rather than moved, and the design it described is superseded by Decision 1 below.
+
+## What shipped, against this plan
+
+Parts A and B landed as written. Two things the plan asserted turned out to be wrong, and both were
+measured against a real client rather than argued:
+
+**1. The ground-tile appearance change belongs to this WP after all, not to WP0.** Part B below says
+the change "already shipped with the dalib-ts 3.0.0 bump". It did not. The tileset **preview** moved
+to `renderTile` at 3.0.0; the **map** kept the local blit until `7e07756`, so the map's ground
+rendering changes in this commit. Compared over a real client: walls are pixel-for-pixel identical
+across 7 tiles (`renderHpf` is pure deduplication, as claimed), while 2 of 5 ground tiles differ.
+Colour never changes — only alpha, only on palette-index-0 pixels, only inside the isometric
+diamond, where the preview drew a solid diamond and the map punched transparent holes. On ground
+tile 1, 783 of 1512 pixels gain opacity. That is acceptance criterion 4 being met, but it is a
+**visible** change and it is owned here. `CHANGELOG.md` carries it as a user-facing fix accordingly.
+
+**2. The `stcani.tbl` fault is latent, not live.** The section below — and HTOO-151 — say `stcani`
+"silently overrides `stcpal.tbl`". Measured across ids 0..20000 against a real `ia.dat`, the
+resolved palette is **identical before and after the fix**; not one rendered tile changes. Two
+independent accidents mask it. `stcani.tbl` sorts _before_ `stcpal.tbl` in the archive, so stcpal
+merges last and wins all 486 ids the two share — stcani wins none. And the single id whose stcani
+entry does survive (19386, mapped to "palette" 19390, where the real palettes run 0..201) is also
+covered by a `stcpal` single-value override, and `getPaletteNumber` is `overrides ?? entries ?? 0`.
+Comparing the raw `entries` maps shows a difference the public lookup never surfaces, which is why
+an earlier reading of this looked like a live one-tile fault.
+
+It was still worth fixing: both masking accidents are properties of a data file nobody here
+controls, and a repack that reorders the two tables flips 486 wall ids to animation frame counts.
+The fix is not the one-line pattern swap this plan warned against, for the reason it gives — the
+mapping now comes from `stcpal` and the cycling definitions are carried across from the broad table,
+whose contaminated mapping is discarded. It costs one extra parse, about 4 ms, once at asset load.
+Ground is genuinely unaffected: `mpt` does not match `gndani.tbl`, confirmed against a real `seo.dat`.
+
+Part C was recorded and not built, as scoped. `pixelsToImageData` is deleted; nothing else
+referenced it.
 
 ## Goal
 
@@ -45,6 +81,10 @@ Swap the local blit inside the legacy branches only. The `resolveWithPackOverrid
 
 **The ground-tile appearance change belongs to WP0, not to this WP.** Earlier drafts attributed it to Part B, but the `renderTile` fix shipped in dalib-ts 3.0.0 — ground tiles changed the moment the dependency was bumped, whether or not `mapRenderer.ts` was touched. It was confirmed during WP0. Part B is therefore what it should have been all along: **pure deduplication** of a local blit against the library.
 
+> **Wrong, and disproved by the build — see "What shipped" above.** Only the tileset preview moved
+> at 3.0.0. The map kept the local blit until this WP, so ground rendering changes here. Walls are
+> the part that is pure deduplication.
+
 ## Part C — the seam for pack-carried SOTP (direction only, not built here)
 
 Record where the future custom-SOTP layer plugs in, so Parts A and B are not re-touched:
@@ -57,6 +97,11 @@ Record where the future custom-SOTP layer plugs in, so Parts A and B are not re-
 
 Found during WP0 and deliberately left unfixed there, because it is pre-existing, unrelated to the bump, and fixing it changes map rendering, which would have contaminated WP0's verification.
 
+> **The impact stated below is wrong — see "What shipped" above.** The fault is **latent**: measured
+> against a real `ia.dat`, the resolved palette is identical before and after the fix, and no
+> rendered tile changes. Archive order and a `stcpal` override mask it. Fixed anyway, because both
+> masking accidents are properties of a data file nobody here controls.
+
 `mapRenderer.ts` builds the wall palette table with `PaletteTable.fromArchive('stc', iaArchive)`. That pattern matches **every** `stc*.tbl` in `ia.dat`, and `PaletteTable.fromArchive` routes each match by whether its name has a numeric identifier: numeric names become cycling files, non-numeric names are **merged as palette mapping tables**.
 
 `stcani.tbl` has no numeric identifier. It is the foreground _animation_ table, and it is being merged as if it were a palette table. Its lines are tile sequences, so `PaletteTable.parseText` reads a 3-plus-token line as a **range entry** and runs `for (i = min; i <= mid; i++) entries.set(i, third)` — assigning an arbitrary palette number to every wall id in the animation sequence's numeric span, silently overriding `stcpal.tbl`.
@@ -65,7 +110,7 @@ Ground is unaffected: `fromArchive('mpt', seoArchive)` does not match `gndani.tb
 
 The fix is not a straight pattern swap. `fromArchive('stcpal')` drops the numeric `stc###.tbl` cycling files, and `tileEligibility.ts` depends on those through `getCyclingEntries` / `isPaletteCycled`. Build the palette mapping from `stcpal` and merge the cycling files separately, or use the two-pattern form dalib's own resolver uses.
 
-**Confirm against a real `ia.dat` before changing anything:** the impact above is derived from the parsers, not yet observed on screen.
+**Confirm against a real `ia.dat` before changing anything:** the impact above is derived from the parsers, not yet observed on screen. — **Done, and it is what disproved the impact.**
 
 ## Non-goals (stop-lines)
 
@@ -81,12 +126,12 @@ Tests live under `src/renderer/src/utils/__tests__/`.
 
 ## Acceptance criteria
 
-1. `MapAssets` carries a `SotpFile`, and no consumer decodes the collision nibble by hand.
-2. `wallWalkability` still returns `'unknown'` past `sotp.maxTileId`.
-3. Ground and wall tiles render through `renderTile`/`renderHpf`, and the local `pixelsToImageData` is gone.
-4. Walls and the passability overlay are visually unchanged; ground tiles match the archive tileset preview.
-5. `stcani.tbl` no longer contributes palette entries to the wall palette table, and `tileEligibility.ts` still sees the cycling files.
-6. The SOTP unit tests assert identical results to the pre-refactor behaviour.
-7. All checks green.
+1. ✅ `MapAssets` carries a `SotpFile`, and no consumer decodes the collision nibble by hand.
+2. ✅ `wallWalkability` still returns `'unknown'` past `sotp.maxTileId`. A test pins it, asserting that dalib's answer and ours differ — dalib returns 0 past the end of the table, and 0 reads as passable, so deferring the range check would hand the allocator unknown ids as free passable slots.
+3. ✅ Ground and wall tiles render through `renderTile`/`renderHpf`, and the local `pixelsToImageData` is gone.
+4. ✅ Walls are pixel-for-pixel unchanged and ground tiles match the archive tileset preview — measured off-screen against a real client, per "What shipped". **Still owed: the on-screen confirmation in `npm run dev`, which is HTOO-150's `needs-testing` state.**
+5. ✅ `stcani.tbl` no longer contributes palette entries to the wall palette table, and `tileEligibility.ts` still sees the cycling files.
+6. ✅ The SOTP unit tests keep their fixture bytes and hand them to the parser instead of indexing by hand, so the identical expectations are the evidence the refactor preserved behaviour.
+7. ✅ All checks green.
 
-Criterion 4 is visual and must be handed to the user in `npm run dev`.
+Criterion 4 is visual and is handed to the user in `npm run dev`.
