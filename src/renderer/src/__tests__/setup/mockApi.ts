@@ -41,6 +41,7 @@ export function createMockApi(): MockApi {
     'listDir',
     'listSection',
     'copyFile',
+    'moveFile',
     'writeFile',
     'writeBytes',
     'exists',

@@ -23,6 +23,17 @@ export function childText(el: Element, tag: string): string {
 }
 
 /**
+ * The default namespace every Hybrasyl XML document must carry on its root
+ * element. `XmlSerializer` on the server rejects a document without it at
+ * (2, 2) — `<Map xmlns=''> was not expected`.
+ *
+ * It lives beside `parseXmlDocument` because that function is what strips it on
+ * read. Every writer must put it back; keeping one constant is what makes the
+ * pair symmetrical rather than two rules that happen to agree.
+ */
+export const HYBRASYL_NS = 'http://www.hybrasyl.com/XML/Hybrasyl/2020-02'
+
+/**
  * Parse Hybrasyl XML into a Document: strip namespace declarations (so
  * querySelector works on bare tag names) and throw on malformed input. Browsers
  * and jsdom return a document whose documentElement IS the <parsererror> for

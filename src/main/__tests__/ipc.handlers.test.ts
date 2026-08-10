@@ -502,6 +502,48 @@ describe('fs handlers', () => {
     await invoke('fs:copyFile', '/src/file.txt', '/dst/file.txt')
     expect(files.get('/dst/file.txt')?.toString('utf-8')).toBe('content')
   })
+
+  it('fs:moveFile creates the parent dir and REMOVES the source', async () => {
+    // The removal is the whole point. Archive used copyFile and left the map
+    // live in maps/ while the UI reported it archived.
+    files.set('/src/file.txt', Buffer.from('content'))
+    await invoke('fs:moveFile', '/src/file.txt', '/dst/file.txt')
+    expect(files.get('/dst/file.txt')?.toString('utf-8')).toBe('content')
+    expect(files.has('/src/file.txt')).toBe(false)
+  })
+
+  it('fs:moveFile uses rename, not copy-then-unlink, on the normal path', async () => {
+    // rename is atomic, so an interrupted move cannot leave two files claiming
+    // one map Id. If this ever regresses to copyFile + unlink the window is back.
+    files.set('/src/a.txt', Buffer.from('x'))
+    fsMock.promises.rename.mockClear()
+    fsMock.promises.copyFile.mockClear()
+    await invoke('fs:moveFile', '/src/a.txt', '/dst/a.txt')
+    expect(fsMock.promises.rename).toHaveBeenCalledTimes(1)
+    expect(fsMock.promises.copyFile).not.toHaveBeenCalled()
+  })
+
+  it('fs:moveFile falls back to copy-then-unlink when rename reports EXDEV', async () => {
+    files.set('/src/b.txt', Buffer.from('crossing'))
+    fsMock.promises.rename.mockRejectedValueOnce(
+      Object.assign(new Error('EXDEV'), { code: 'EXDEV' })
+    )
+    await invoke('fs:moveFile', '/src/b.txt', '/dst/b.txt')
+    expect(files.get('/dst/b.txt')?.toString('utf-8')).toBe('crossing')
+    expect(files.has('/src/b.txt')).toBe(false)
+  })
+
+  it('fs:moveFile propagates a rename failure that is not EXDEV', async () => {
+    // EXDEV is the one error that is recoverable. Swallowing any other one
+    // would reintroduce a silent failure with a confident success path.
+    files.set('/src/c.txt', Buffer.from('nope'))
+    fsMock.promises.rename.mockRejectedValueOnce(
+      Object.assign(new Error('EACCES'), { code: 'EACCES' })
+    )
+    await expect(invoke('fs:moveFile', '/src/c.txt', '/dst/c.txt')).rejects.toThrow('EACCES')
+    expect(files.has('/src/c.txt')).toBe(true)
+    expect(files.has('/dst/c.txt')).toBe(false)
+  })
 })
 
 describe('catalog handlers', () => {
@@ -1263,6 +1305,9 @@ describe('Category-A path-traversal rejection', () => {
     ['fs:readFile', ['/escape/x']],
     ['fs:listDir', ['/escape']],
     ['fs:copyFile', ['/escape/x', '/library/x']],
+    // Both directions: a move out of the roots and a move into them.
+    ['fs:moveFile', ['/escape/x', '/library/x']],
+    ['fs:moveFile', ['/library/x', '/escape/x']],
     ['fs:writeFile', ['/escape/x', 'data']],
     ['fs:writeBytes', ['/escape/x', new Uint8Array(0)]],
     ['fs:ensureDir', ['/escape/dir']],

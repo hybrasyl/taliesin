@@ -23,14 +23,62 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Changed
+
+- The world index cache is rebuilt once on first run after this release, and the vendor directory
+  on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
+  derived from the world data and is rebuilt from it.
+
 ### Fixed
 
+- **Warp destinations with an `&` in the name resolve again.** The world index recorded map names
+  without decoding XML entities, so `The Crow & Cask` reached the warp destination picker as
+  `The Crow &amp; Cask`. Picking it wrote a doubly-escaped name into the map file and the warp
+  went nowhere. The index now decodes the name it scrapes, and the picker offers the real one.
+- **Duplicate map names are visible instead of silent.** The server indexes maps by name, so two
+  maps that share one name are a live fault. The world index now records the collisions it finds.
+- **Weapon damage reads the paired tags and a zero minimum.** The index scrape dropped both, so
+  affected weapons showed no damage where they have some.
+- **Maps saved by Taliesin load on the server again.** Every map the editor wrote was rejected,
+  for two separate reasons and either one alone was enough. The root element lost its namespace,
+  which the server refuses outright — and because the map reader strips namespaces on the way in,
+  opening a valid map and saving it with no changes was enough to break it. Signs were also
+  written with a type the server has no name for, so a map with any sign failed even once the
+  namespace was right. The sign type is now `Sign`, which is what the server calls it, and the
+  editor no longer offers the invalid one.
+- **Archiving a map now takes it out of service.** Archive copied the file into `.ignore/` and
+  left the original in place, so the map you archived was still live and still served — while the
+  interface reported success and showed it under Archived. It also appeared in both lists at once,
+  which was the only visible sign. Unarchive had the same fault in reverse, and so did the world
+  map editor's Move to Templates and Move to Active. All four now move the file instead of copying
+  it, so it exists in exactly one place at every instant.
+- **Renaming a map renames it.** A rename used to leave three files behind: the new one, a copy
+  filed under `.ignore/`, and the original still sitting in `maps/`. Two of those were live and
+  carried the same `Id`, which the server indexes on — and the message said only that the old file
+  "remains (manual delete may be needed)", which reads as optional. A rename now moves the file, so
+  one map ends up at the new name and nothing is left to tidy up. Renaming onto a name that already
+  exists is refused and changes nothing on disk. The world map editor is fixed the same way.
+- **The Determine Map Dimensions dialog stops growing.** Stepping through candidate sizes made the
+  dialog taller on every step, without bound — it never settled and never came back down. The
+  preview asked for a scale that fit the box, but worked it out from a slightly shorter map than
+  the one actually drawn, so each render came back taller than the box it had just measured. The
+  box grew, and the next step measured the larger box. The preview is now a fixed size and the
+  scale comes from the renderer itself, so the same map size always draws the same picture.
+- **Stepping quickly through sizes no longer smears two previews together.** A slow render kept
+  drawing into the preview after the next one had started.
 - **On the Hybrasyl theme, the selected control is the one that stands out again.** Its accent
   colour was the same value as the page background, so anything marking itself active — a selected
   chip, a toggled tool, the "Active" library tag — painted itself the colour of the page and
   disappeared. The effect was backwards rather than merely faint: the unselected items were the
   visible ones. The accent is now a legible blue. The other five themes were checked and none had
   the same fault.
+
+### Security
+
+- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
+  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
+  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
+  same pass; those never shipped to you.
 
 ## [2.9.0] - 2026-08-01
 

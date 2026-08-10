@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { HYBRASYL_NS } from '../utils/xmlUtils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -242,7 +243,7 @@ export function buildMapXmlStub(
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
   return `<?xml version="1.0" encoding="utf-8"?>
-<Map xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02" Id="${mapNumber}" Name="${safeName}" X="${width}" Y="${height}">
+<Map xmlns="${HYBRASYL_NS}" Id="${mapNumber}" Name="${safeName}" X="${width}" Y="${height}">
 </Map>
 `
 }
