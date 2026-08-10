@@ -173,6 +173,76 @@ describe('MapEditorCanvas — context menu', () => {
   })
 })
 
+describe('MapEditorCanvas — random fill', () => {
+  // HTOO-333. Random fill was a brush only, so scattering into a marked-out
+  // area meant painting the area by hand — the work the tool exists to avoid.
+
+  /** An empty 2×2 map. originX = 2 * 28 = 56, so (56, 526) is tile (0,0). */
+  function emptyMap(): MapFile {
+    const mapFile = new MapFile(2, 2)
+    for (let y = 0; y < 2; y++)
+      for (let x = 0; x < 2; x++)
+        mapFile.setTile(x, y, { background: 0, leftForeground: 0, rightForeground: 0 })
+    return mapFile
+  }
+
+  async function clickWith(
+    overrides: Partial<React.ComponentProps<typeof MapEditorCanvas>>,
+    event: { shiftKey?: boolean } = {}
+  ) {
+    const onTileChange = vi.fn()
+    const props = makeProps({ tool: 'randomFill', onTileChange, ...overrides })
+    const { container } = render(<MapEditorCanvas {...props} />)
+    await waitFor(() => expect(screen.queryByText(/Rendering/)).toBeNull())
+    const overlay = container.querySelectorAll('canvas')[1]!
+    fireEvent.mouseDown(overlay, { button: 0, clientX: 56, clientY: 526, ...event })
+    return onTileChange
+  }
+
+  it('fills the whole selection in one batch', async () => {
+    const onTileChange = await clickWith({
+      mapFile: emptyMap(),
+      selection: { x: 0, y: 0, w: 2, h: 2 },
+      selectedTileIds: [9]
+    })
+    expect(onTileChange).toHaveBeenCalledTimes(1)
+    const changes = onTileChange.mock.calls[0][0]
+    expect(changes).toHaveLength(4)
+    expect(changes.every((c: { newValue: number }) => c.newValue === 9)).toBe(true)
+  })
+
+  it('leaves occupied tiles alone, and overwrites them on shift', async () => {
+    const occupied = (): MapFile => {
+      const m = emptyMap()
+      m.setTile(0, 0, { background: 3, leftForeground: 0, rightForeground: 0 })
+      return m
+    }
+    const plain = await clickWith({
+      mapFile: occupied(),
+      selection: { x: 0, y: 0, w: 2, h: 2 },
+      selectedTileIds: [9]
+    })
+    expect(plain.mock.calls[0][0]).toHaveLength(3)
+
+    const shifted = await clickWith(
+      { mapFile: occupied(), selection: { x: 0, y: 0, w: 2, h: 2 }, selectedTileIds: [9] },
+      { shiftKey: true }
+    )
+    expect(shifted.mock.calls[0][0]).toHaveLength(4)
+  })
+
+  // With no selection the tool is exactly the brush it was: it paints the one
+  // tile under the cursor and accumulates into the drag batch, which is
+  // dispatched on mouse-up rather than here.
+  it('paints only the clicked tile when there is no selection', async () => {
+    const mapFile = emptyMap()
+    const onTileChange = await clickWith({ mapFile, selection: null, selectedTileIds: [9] })
+    expect(mapFile.getTile(0, 0).background).toBe(9)
+    expect(mapFile.getTile(1, 1).background).toBe(0)
+    expect(onTileChange).not.toHaveBeenCalled()
+  })
+})
+
 describe('MapEditorCanvas — paste mode', () => {
   it('clicking in paste mode dispatches onRequestPaste with tile coords and shift flag', async () => {
     const onRequestPaste = vi.fn()

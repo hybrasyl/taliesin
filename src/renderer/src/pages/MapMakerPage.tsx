@@ -73,7 +73,10 @@ import GenerateMapDialog from '../components/mapmaker/GenerateMapDialog'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import {
   applyChanges,
+  captureSelection,
+  clearSelectionChanges,
   revertChanges,
+  type LayerVisibility,
   type ShapeMode,
   type TileCoord
 } from '../utils/mapEditorTools'
@@ -100,6 +103,10 @@ const MapMakerPage: React.FC = () => {
   const addTab = useMapMakerStore((s) => s.addTab)
   const updateTab = useMapMakerStore((s) => s.updateTab)
   const removeTab = useMapMakerStore((s) => s.removeTab)
+  // One clipboard for every tab — copying between two open maps is the reason
+  // to have two open. `pasteMode` stays per-tab; see mapMakerStore.
+  const clipboard = useMapMakerStore((s) => s.clipboard)
+  const setClipboard = useMapMakerStore((s) => s.setClipboard)
 
   const activeTab = useMemo(
     () => tabs.find((t) => t.id === activeTabId) ?? null,
@@ -115,7 +122,6 @@ const MapMakerPage: React.FC = () => {
   const undoStack = useMemo(() => activeTab?.undoStack ?? [], [activeTab])
   const redoStack = useMemo(() => activeTab?.redoStack ?? [], [activeTab])
   const selection = activeTab?.selection ?? null
-  const clipboard = activeTab?.clipboard ?? null
   const pasteMode = activeTab?.pasteMode ?? false
   const canvasKey = activeTab?.canvasKey ?? 0
   const renderVersion = activeTab?.renderVersion ?? 0
@@ -310,72 +316,47 @@ const MapMakerPage: React.FC = () => {
 
   // ── Clipboard ──────────────────────────────────────────────────────────────
 
+  /**
+   * The eye toggles, as a layer-keyed record.
+   *
+   * Copy, Cut and Delete all obey them (HTOO-333): hiding the foregrounds and
+   * then losing them to a Delete is the same surprise as copying them
+   * invisibly, and a rule that covers only Copy is harder to remember than one
+   * that covers all three.
+   *
+   * These are plain component state and reset to all-visible on every mount of
+   * this page, so a tester who navigates away and back will not reproduce it.
+   */
+  const layerVisibility: LayerVisibility = useMemo(
+    () => ({ background: showBg, leftForeground: showLfg, rightForeground: showRfg }),
+    [showBg, showLfg, showRfg]
+  )
+
   const copySelection = useCallback(() => {
-    if (!mapFile || !selection || !activeTabId) return
-    const tiles: MapTile[] = []
-    for (let dy = 0; dy < selection.h; dy++) {
-      for (let dx = 0; dx < selection.w; dx++) {
-        const tx = selection.x + dx
-        const ty = selection.y + dy
-        if (tx < mapFile.width && ty < mapFile.height) {
-          tiles.push({ ...mapFile.getTile(tx, ty) })
-        } else {
-          tiles.push({ background: 0, leftForeground: 0, rightForeground: 0 })
-        }
-      }
-    }
-    updateTab(activeTabId, { clipboard: { tiles, w: selection.w, h: selection.h } })
+    if (!mapFile || !selection) return
+    const tiles = captureSelection(mapFile, selection, layerVisibility)
+    setClipboard({ tiles, w: selection.w, h: selection.h })
     showStatus(`Copied ${selection.w}×${selection.h} tiles`)
-  }, [mapFile, selection, activeTabId, updateTab, showStatus])
+  }, [mapFile, selection, layerVisibility, setClipboard, showStatus])
+
+  /** Clear every visible layer inside the selection. Shared by Cut and Delete. */
+  const clearSelection = useCallback(() => {
+    if (!mapFile || !selection || !activeTabId) return
+    const changes = clearSelectionChanges(mapFile, selection, layerVisibility)
+    if (changes.length > 0) {
+      applyChanges(mapFile, changes)
+      handleTileChange(changes)
+      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
+    }
+    updateTab(activeTabId, { selection: null })
+  }, [mapFile, selection, activeTabId, layerVisibility, handleTileChange, updateTab, renderVersion])
 
   const cutSelection = useCallback(() => {
-    if (!mapFile || !selection || !activeTabId) return
     copySelection()
-    const changes: TileChange[] = []
-    for (let dy = 0; dy < selection.h; dy++) {
-      for (let dx = 0; dx < selection.w; dx++) {
-        const tx = selection.x + dx
-        const ty = selection.y + dy
-        if (tx >= mapFile.width || ty >= mapFile.height) continue
-        const tile = mapFile.getTile(tx, ty)
-        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
-          if (tile[layer] !== 0) {
-            changes.push({ x: tx, y: ty, layer, oldValue: tile[layer], newValue: 0 })
-          }
-        }
-      }
-    }
-    if (changes.length > 0) {
-      applyChanges(mapFile, changes)
-      handleTileChange(changes)
-      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
-    }
-    updateTab(activeTabId, { selection: null })
-  }, [mapFile, selection, activeTabId, copySelection, handleTileChange, updateTab, renderVersion])
+    clearSelection()
+  }, [copySelection, clearSelection])
 
-  const deleteSelection = useCallback(() => {
-    if (!mapFile || !selection || !activeTabId) return
-    const changes: TileChange[] = []
-    for (let dy = 0; dy < selection.h; dy++) {
-      for (let dx = 0; dx < selection.w; dx++) {
-        const tx = selection.x + dx
-        const ty = selection.y + dy
-        if (tx >= mapFile.width || ty >= mapFile.height) continue
-        const tile = mapFile.getTile(tx, ty)
-        for (const layer of ['background', 'leftForeground', 'rightForeground'] as const) {
-          if (tile[layer] !== 0) {
-            changes.push({ x: tx, y: ty, layer, oldValue: tile[layer], newValue: 0 })
-          }
-        }
-      }
-    }
-    if (changes.length > 0) {
-      applyChanges(mapFile, changes)
-      handleTileChange(changes)
-      updateTab(activeTabId, { renderVersion: renderVersion + 1 })
-    }
-    updateTab(activeTabId, { selection: null })
-  }, [mapFile, selection, activeTabId, handleTileChange, updateTab, renderVersion])
+  const deleteSelection = clearSelection
 
   const handleRequestPaste = useCallback(
     (tx: number, ty: number, keepPasting: boolean) => {
@@ -692,13 +673,13 @@ const MapMakerPage: React.FC = () => {
         leftForeground: t.leftForeground,
         rightForeground: t.rightForeground
       }))
-      updateTab(activeTabId, {
-        clipboard: { tiles: clipTiles, w: prefab.width, h: prefab.height },
-        pasteMode: true
-      })
+      // The payload is global, "you are now placing it" is not — so these are
+      // two writes, to two different places.
+      setClipboard({ tiles: clipTiles, w: prefab.width, h: prefab.height })
+      updateTab(activeTabId, { pasteMode: true })
       showStatus(`Stamping: ${prefab.name}`)
     },
-    [activeTabId, updateTab, showStatus]
+    [activeTabId, setClipboard, updateTab, showStatus]
   )
 
   // ── Directional resize ─────────────────────────────────────────────────────

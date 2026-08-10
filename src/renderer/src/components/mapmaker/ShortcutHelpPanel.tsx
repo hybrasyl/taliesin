@@ -18,6 +18,8 @@ const shortcuts = [
   { key: 'F', action: 'Toggle L-FG / R-FG' },
   { key: 'G', action: 'Toggle grid' },
   { key: 'Alt+click', action: 'Quick eyedropper' },
+  { key: 'R+click', action: 'Fill selection, empty tiles' },
+  { key: 'R+Shift+click', action: 'Fill selection, overwrite' },
   { key: '', action: '' },
   { key: 'Ctrl+C', action: 'Copy selection' },
   { key: 'Ctrl+X', action: 'Cut selection' },

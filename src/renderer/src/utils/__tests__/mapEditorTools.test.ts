@@ -11,6 +11,9 @@ import {
   applyChanges,
   revertChanges,
   clampTile,
+  captureSelection,
+  clearSelectionChanges,
+  randomFillRect,
   type TileLayerKey
 } from '../mapEditorTools'
 
@@ -277,5 +280,153 @@ describe('clampTile', () => {
 
   it('passes through valid values unchanged', () => {
     expect(clampTile(3, 4, 10, 10)).toEqual({ tx: 3, ty: 4 })
+  })
+})
+
+// ── randomFillRect ────────────────────────────────────────────────────────────
+
+describe('randomFillRect', () => {
+  // The pick is injected in every test below so the assertions are about the
+  // rectangle and the empty-only rule, not about Math.random.
+  const first = (ids: readonly number[]): number => ids[0]
+
+  it('fills the whole rectangle on the active layer', () => {
+    const m = makeMap(6, 6)
+    const changes = randomFillRect(m, { x: 1, y: 1, w: 3, h: 2 }, 'background', [9], {
+      pick: first
+    })
+    expect(changes).toHaveLength(6)
+    expect(changes.every((c) => c.layer === 'background' && c.newValue === 9)).toBe(true)
+    expect(changes.map((c) => `${c.x},${c.y}`).sort()).toEqual(
+      ['1,1', '1,2', '2,1', '2,2', '3,1', '3,2'].sort()
+    )
+  })
+
+  it('does not mutate the map — the caller applies the batch', () => {
+    const m = makeMap(4, 4)
+    randomFillRect(m, { x: 0, y: 0, w: 4, h: 4 }, 'background', [9], { pick: first })
+    expect(m.getTile(0, 0).background).toBe(0)
+  })
+
+  // The brush refuses to overwrite an occupied cell, and the batch keeps that
+  // rule so the tool never silently starts destroying work it used to skip.
+  it('skips occupied cells by default', () => {
+    const m = makeMap(4, 4)
+    paint(m, 'background', [[1, 1]], 3)
+    const changes = randomFillRect(m, { x: 0, y: 0, w: 2, h: 2 }, 'background', [9], {
+      pick: first
+    })
+    expect(changes.map((c) => `${c.x},${c.y}`)).not.toContain('1,1')
+    expect(changes).toHaveLength(3)
+  })
+
+  it('overwrites occupied cells when asked', () => {
+    const m = makeMap(4, 4)
+    paint(m, 'background', [[1, 1]], 3)
+    const changes = randomFillRect(m, { x: 0, y: 0, w: 2, h: 2 }, 'background', [9], {
+      overwrite: true,
+      pick: first
+    })
+    expect(changes).toHaveLength(4)
+    expect(changes.find((c) => c.x === 1 && c.y === 1)).toMatchObject({ oldValue: 3, newValue: 9 })
+  })
+
+  it('records no change where the pick matches what is already there', () => {
+    const m = makeMap(4, 4)
+    paint(m, 'background', [[0, 0]], 9)
+    const changes = randomFillRect(m, { x: 0, y: 0, w: 2, h: 1 }, 'background', [9], {
+      overwrite: true,
+      pick: first
+    })
+    expect(changes.map((c) => c.x)).toEqual([1])
+  })
+
+  it('clips to the map rather than running off the edge', () => {
+    const m = makeMap(3, 3)
+    const changes = randomFillRect(m, { x: 2, y: 2, w: 4, h: 4 }, 'background', [9], {
+      pick: first
+    })
+    expect(changes).toEqual([{ x: 2, y: 2, layer: 'background', oldValue: 0, newValue: 9 }])
+  })
+
+  it('does nothing with no tiles selected', () => {
+    const m = makeMap(3, 3)
+    expect(randomFillRect(m, { x: 0, y: 0, w: 3, h: 3 }, 'background', [])).toEqual([])
+  })
+
+  it('draws from every selected id', () => {
+    const m = makeMap(10, 10)
+    const changes = randomFillRect(m, { x: 0, y: 0, w: 10, h: 10 }, 'leftForeground', [1, 2, 3])
+    expect(new Set(changes.map((c) => c.newValue))).toEqual(new Set([1, 2, 3]))
+    expect(changes.every((c) => c.layer === 'leftForeground')).toBe(true)
+  })
+})
+
+// ── captureSelection / clearSelectionChanges ─────────────────────────────────
+
+describe('captureSelection and clearSelectionChanges', () => {
+  const ALL = { background: true, leftForeground: true, rightForeground: true }
+  const GROUND_ONLY = { background: true, leftForeground: false, rightForeground: false }
+
+  /** One 2×2 map with all three layers set on every tile. */
+  function threeLayerMap(): MapFile {
+    const m = new MapFile(2, 2)
+    for (let y = 0; y < 2; y++) {
+      for (let x = 0; x < 2; x++) {
+        m.setTile(x, y, { background: 1, leftForeground: 2, rightForeground: 3 })
+      }
+    }
+    return m
+  }
+
+  const rect = { x: 0, y: 0, w: 2, h: 2 }
+
+  it('captures all three layers when all three are visible', () => {
+    const tiles = captureSelection(threeLayerMap(), rect, ALL)
+    expect(tiles).toHaveLength(4)
+    expect(tiles[0]).toEqual({ background: 1, leftForeground: 2, rightForeground: 3 })
+  })
+
+  // The reported surprise: turn off both foregrounds, copy, paste, and the
+  // foregrounds you could not see come with it.
+  it('zeroes a hidden layer rather than capturing it', () => {
+    const tiles = captureSelection(threeLayerMap(), rect, GROUND_ONLY)
+    expect(tiles.every((t) => t.leftForeground === 0 && t.rightForeground === 0)).toBe(true)
+    expect(tiles.every((t) => t.background === 1)).toBe(true)
+  })
+
+  it('pads out-of-bounds tiles as empty, so the block keeps its shape', () => {
+    const tiles = captureSelection(threeLayerMap(), { x: 1, y: 1, w: 2, h: 2 }, ALL)
+    expect(tiles).toHaveLength(4)
+    expect(tiles[0]).toEqual({ background: 1, leftForeground: 2, rightForeground: 3 })
+    expect(tiles.slice(1)).toEqual([
+      { background: 0, leftForeground: 0, rightForeground: 0 },
+      { background: 0, leftForeground: 0, rightForeground: 0 },
+      { background: 0, leftForeground: 0, rightForeground: 0 }
+    ])
+  })
+
+  it('clears every visible layer', () => {
+    const changes = clearSelectionChanges(threeLayerMap(), rect, ALL)
+    expect(changes).toHaveLength(12) // 4 tiles × 3 layers
+    expect(changes.every((c) => c.newValue === 0)).toBe(true)
+  })
+
+  // Cut and Delete obey the toggles too: losing hidden foregrounds to a Delete
+  // is the same surprise as copying them invisibly.
+  it('leaves a hidden layer alone', () => {
+    const changes = clearSelectionChanges(threeLayerMap(), rect, GROUND_ONLY)
+    expect(changes).toHaveLength(4)
+    expect(changes.every((c) => c.layer === 'background')).toBe(true)
+  })
+
+  it('records nothing for an already empty layer', () => {
+    const changes = clearSelectionChanges(makeMap(2, 2), rect, ALL)
+    expect(changes).toEqual([])
+  })
+
+  it('stays inside the map', () => {
+    const changes = clearSelectionChanges(threeLayerMap(), { x: 1, y: 1, w: 4, h: 4 }, ALL)
+    expect(changes.every((c) => c.x === 1 && c.y === 1)).toBe(true)
   })
 })

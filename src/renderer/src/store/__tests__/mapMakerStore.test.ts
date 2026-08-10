@@ -145,3 +145,54 @@ describe('surviving navigation', () => {
     expect(store().activeTabId).toBe(tab.id)
   })
 })
+
+describe('the clipboard', () => {
+  // HTOO-339. The clipboard used to be a field on MapTab, so copying in tab A
+  // and pasting in tab B pasted whatever B last copied — or nothing, silently.
+  const region = {
+    tiles: [{ background: 7, leftForeground: 0, rightForeground: 0 }],
+    w: 1,
+    h: 1
+  }
+
+  it('is one payload for every tab', () => {
+    const [a, b] = openTabs(2)
+    store().setActiveTabId(a.id)
+    store().setClipboard(region)
+    store().setActiveTabId(b.id)
+    expect(store().clipboard).toEqual(region)
+  })
+
+  it('survives closing the tab it was copied from', () => {
+    const [a, b] = openTabs(2)
+    store().setActiveTabId(a.id)
+    store().setClipboard(region)
+    store().removeTab(a.id)
+    expect(store().activeTabId).toBe(b.id)
+    expect(store().clipboard).toEqual(region)
+  })
+
+  it('is last-write-wins, like every other application', () => {
+    const second = { tiles: region.tiles, w: 2, h: 2 }
+    store().setClipboard(region)
+    store().setClipboard(second)
+    expect(store().clipboard).toBe(second)
+  })
+
+  it('outlives closeAllTabs — that releases the maps, not the payload', () => {
+    openTabs(2)
+    store().setClipboard(region)
+    store().closeAllTabs()
+    expect(store().clipboard).toEqual(region)
+  })
+
+  // pasteMode stays per-tab: it is a tool state ("you are placing a paste on
+  // this canvas"), not clipboard content. Hoisting it would arm paste mode on
+  // tabs the user has not touched.
+  it('does not carry paste mode between tabs', () => {
+    const [a, b] = openTabs(2)
+    store().setClipboard(region)
+    store().updateTab(a.id, { pasteMode: true })
+    expect(store().tabs.find((t) => t.id === b.id)?.pasteMode).toBe(false)
+  })
+})
