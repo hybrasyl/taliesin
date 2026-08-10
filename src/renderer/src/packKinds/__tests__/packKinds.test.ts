@@ -343,11 +343,14 @@ describe('ambientSoundsKind', () => {
     ).toBe('amb_0004.ogg')
   })
 
-  it('exposes a loop boolean assetMetaField', () => {
-    expect(ambientSoundsKind.assetMetaFields?.().loop).toMatchObject({
+  it('exposes a no_loop boolean assetMetaField, not a positive loop one', () => {
+    // Negative flag on purpose: looping is the client default (BRIG-16), so the
+    // one-shot is the exception that gets written down.
+    expect(ambientSoundsKind.assetMetaFields?.().no_loop).toMatchObject({
       kind: 'boolean',
-      label: 'Loop'
+      label: 'One-shot'
     })
+    expect(ambientSoundsKind.assetMetaFields?.().loop).toBeUndefined()
   })
 
   it('reduceCoversFromMeta keys entries by ID, not by filename', () => {
@@ -360,14 +363,16 @@ describe('ambientSoundsKind', () => {
         { filename: 'amb_0001.wav', sourcePath: 'a' },
         { filename: 'amb_0007.ogg', sourcePath: 'b' }
       ],
-      assetMeta: { 'amb_0001.wav': { loop: true } }
+      assetMeta: { 'amb_0001.wav': { no_loop: true } }
     } as unknown as PackProject
     expect(ambientSoundsKind.reduceCoversFromMeta?.(draft)).toEqual({
-      ambient_sounds: { '1': { loop: true } }
+      ambient_sounds: { '1': { loop: false } }
     })
   })
 
-  it('omits unflagged entries rather than writing loop:false', () => {
+  it('omits looping entries rather than writing the default loop:true', () => {
+    // A missing entry means loop. A pack of ordinary looping beds therefore
+    // carries an empty covers map, and every bed in it still loops.
     const draft = {
       content_type: 'ambient_sounds',
       covers: { ambient_sounds: {} },
@@ -381,6 +386,11 @@ describe('ambientSoundsKind', () => {
     // Keying by id is what lets interval scheduling arrive without a schema
     // bump. Nothing here writes the interval fields; accepting them means a
     // pack authored by a later Taliesin still opens in this one.
+    expect(() =>
+      ambientSoundsKind.coversSchema.parse({ ambient_sounds: { '1': { loop: false } } })
+    ).not.toThrow()
+    // loop:true is the redundant statement of the default. Nothing writes it,
+    // but a hand-edited pack or a later tool may, so it has to still open.
     expect(() =>
       ambientSoundsKind.coversSchema.parse({ ambient_sounds: { '1': { loop: true } } })
     ).not.toThrow()

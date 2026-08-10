@@ -12,15 +12,21 @@ Add the `ambient_sounds` `.datf` content type so ambient audio can be authored i
 
 1. **`ambient_sounds` is in scope for this milestone,** although it is a pack kind rather than a legacy-format feature. It has an assigned phase and a gate in the document repo's `docs/plans/hybrasyl.client/ambient-audio-pipeline.md` §4.
 2. **v1 carries one field, `Loop`.** Interval scheduling is deferred — see `00a-backlog.md`.
+3. **Looping is the default (Sabrael, 2026-08-10).** A missing `covers` entry means the client loops
+   the bed. So the flag is written only for one-shots, as `loop: false`, and the UI field is the
+   negative `no_loop` ("One-shot") — the shape `item_icons` already uses for `no_dye`. Recorded as
+   the contract on the document repo's BRIG-16.
 
 ## Contract
 
 The contract is the document repo's `docs/plans/hybrasyl.client/ambient-audio-pipeline.md` §4. Shape the `covers` blob so the deferred interval fields need no schema bump:
 
 ```json
-{ "1": { "loop": true } }
+{ "1": { "loop": false } }
 { "1": { "mode": "interval", "play": 180, "silence": 120 } }
 ```
+
+`{ "loop": true }` is legal to read and states the default. Nothing writes it.
 
 Manifest stays `schema_version: 1`. This `covers.ambient_sounds` shape **is** the contract the client's `AmbientPack` reads — do not improvise it.
 

@@ -27,8 +27,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 - **Ambient sound packs.** A new asset pack type for looping background beds — wind, rain, a river,
   a busy market — separate from sound effects, because a bed plays continuously underneath
-  everything else rather than firing once. Add audio files, tick **Loop** on the ones that should
-  play continuously, and compile. Each sound gets a number that a map refers to.
+  everything else rather than firing once. Add audio files and compile. Each sound gets a number
+  that a map refers to. Beds loop by default; tick **One-shot** on any that must play once and stop.
 
 ### Changed
 

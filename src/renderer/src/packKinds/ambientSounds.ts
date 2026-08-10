@@ -14,7 +14,13 @@ const AUDIO_EXTENSIONS = ['wav', 'ogg', 'mp3', 'flac']
  * `covers.ambient_sounds` is a MAP KEYED BY ID, not a list of flagged ids, and
  * that shape is the contract rather than a style choice. v1 carries one field:
  *
- *   { "1": { "loop": true } }
+ *   { "1": { "loop": false } }
+ *
+ * LOOPING IS THE DEFAULT (BRIG-16, decided 2026-08-10). A missing entry means
+ * the client loops the bed — it starts it with Mix_PlayChannel(…, -1) and reads
+ * the flag as `entry?.loop != false`. So only one-shots are written down, the
+ * same way `item_icons` writes only `no_dye`. `{ "loop": true }` stays legal to
+ * read, and nothing here writes it.
  *
  * Interval scheduling is deferred in the client, and keying by id is what lets
  * it arrive without a schema bump:
@@ -60,22 +66,26 @@ export const ambientSoundsKind: PackKind = {
     const filename = `amb_${String(id).padStart(4, '0')}.${ext}`
     return { zipPath: filename, relPath: filename }
   },
+  // A NEGATIVE flag, like item_icons' no_dye, because the default is to loop.
+  // It also keeps PackEditor untouched: it draws a boolean as
+  // `checked={assetMeta[key] === true}`, so unchecked-by-default is the only
+  // state it can render without an AssetMetaField default.
   assetMetaFields: () => ({
-    loop: {
+    no_loop: {
       kind: 'boolean',
-      label: 'Loop',
-      help: 'Play this bed continuously. The only playback field in v1; interval scheduling is deferred.'
+      label: 'One-shot',
+      help: 'Play this bed once instead of looping. Beds loop unless you check this; interval scheduling is deferred.'
     }
   }),
   reduceCoversFromMeta(draft: PackProject) {
     const meta = draft.assetMeta ?? {}
-    const entries: Record<string, { loop: true }> = {}
+    const entries: Record<string, { loop: false }> = {}
     for (const asset of draft.assets) {
-      if (meta[asset.filename]?.loop !== true) continue
+      if (meta[asset.filename]?.no_loop !== true) continue
       const slot = parseSlot(asset.filename)
       // Keyed by the numeric id, NOT the filename: the client looks the entry up
       // by the ambient id the server sent, and never sees the zip-relative name.
-      if (slot) entries[String(slot.id)] = { loop: true }
+      if (slot) entries[String(slot.id)] = { loop: false }
     }
     return { ambient_sounds: entries }
   }
