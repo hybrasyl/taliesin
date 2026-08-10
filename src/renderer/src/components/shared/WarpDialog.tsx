@@ -190,11 +190,144 @@ export default function WarpDialog({
     onConfirm(warp)
   }
 
+  /**
+   * The destination map, big.
+   *
+   * Hoisted out of the form column so the two can sit side by side: picking a
+   * warp target means aiming at a tile, and the preview is the one part of this
+   * dialog that benefits from space (HTOO-340). It fills the free width and
+   * height of the right-hand column, while the fields keep a readable fixed
+   * width — so growing the window grows the map rather than the whitespace.
+   */
+  const destinationPreview =
+    targetType === 'map' && destDetail ? (
+      <Box
+        sx={{
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            px: 1,
+            py: 0.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: 'action.hover'
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              flex: 1
+            }}
+          >
+            Click map to set arrival tile
+          </Typography>
+          <Tooltip title="Zoom out">
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => setMiniZoomIdx((i) => Math.max(0, i - 1))}
+                disabled={miniZoomIdx === 0}
+              >
+                <ZoomOutIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Typography variant="caption" sx={{ minWidth: 36, textAlign: 'center' }}>
+            {Math.round(miniZoom * 100)}%
+          </Typography>
+          <Tooltip title="Zoom in">
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => setMiniZoomIdx((i) => Math.min(MINI_ZOOM_LEVELS.length - 1, i + 1))}
+                disabled={miniZoomIdx === MINI_ZOOM_LEVELS.length - 1}
+              >
+                <ZoomInIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <Tooltip title={miniGrid ? 'Hide grid' : 'Show grid'}>
+            <IconButton
+              size="small"
+              onClick={() => setMiniGrid((v) => !v)}
+              color={miniGrid ? 'info' : 'default'}
+            >
+              <GridOnIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={miniPassability ? 'Hide passability' : 'Show passability'}>
+            <IconButton
+              size="small"
+              onClick={() => setMiniPassability((v) => !v)}
+              color={miniPassability ? 'warning' : 'default'}
+            >
+              <DirectionsWalkIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <Tooltip title="Clear arrival point">
+            <IconButton
+              size="small"
+              onClick={() => {
+                setMapTargetX('0')
+                setMapTargetY('0')
+              }}
+            >
+              <DeleteIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <MapRenderCanvas
+          mapId={destDetail.id}
+          mapWidth={destDetail.x}
+          mapHeight={destDetail.y}
+          mapDirectory={mapDirectory}
+          clientPath={clientPath}
+          zoom={miniZoom}
+          markers={arrivalMarker}
+          showGrid={miniGrid}
+          showPassability={miniPassability}
+          placeMode
+          onTileClick={(tx, ty) => {
+            setMapTargetX(String(tx))
+            setMapTargetY(String(ty))
+          }}
+          sx={{ flex: 1, minHeight: 0, bgcolor: 'background.default' }}
+        />
+      </Box>
+    ) : null
+
   const canConfirm = targetType === 'map' ? !!mapTargetName.trim() : !!worldMapTarget.trim()
   const isWorldMapPoint = !!lockType
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      // Wide and tall only when there is a map to aim at. A world-map exit has
+      // no preview, and an xl dialog around four fields is just a large empty
+      // box. `90vh` rather than `fullScreen`: this stays a sub-task, so Cancel
+      // reads as dismissal rather than as navigation.
+      maxWidth={destinationPreview ? 'xl' : 'md'}
+      fullWidth
+      slotProps={
+        destinationPreview ? { paper: { sx: { height: '90vh', maxHeight: '90vh' } } } : undefined
+      }
+    >
       <DialogTitle>
         {initial
           ? isWorldMapPoint
@@ -213,8 +346,23 @@ export default function WarpDialog({
           ({tileX}, {tileY})
         </Typography>
       </DialogTitle>
-      <DialogContent>
-        <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* The content region is what scrolls, never the paper — on a short
+          window the actions below must stay above the fold. */}
+      <DialogContent sx={{ display: 'flex', gap: 2, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            pt: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            // A fixed, readable column beside the map; the whole dialog when
+            // there is no map. Its own scrollbar, so a long form cannot push
+            // the preview out of view.
+            width: destinationPreview ? 380 : '100%',
+            flexShrink: 0,
+            overflowY: 'auto'
+          }}
+        >
           {/* Optional display name (world map points) */}
           {onPointDisplayNameChange !== undefined && (
             <TextField
@@ -265,110 +413,6 @@ export default function WarpDialog({
                   />
                 )}
               />
-
-              {destDetail && (
-                <Box
-                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      px: 1,
-                      py: 0.5,
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      bgcolor: 'action.hover'
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'text.secondary',
-                        flex: 1
-                      }}
-                    >
-                      Click map to set arrival tile
-                    </Typography>
-                    <Tooltip title="Zoom out">
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => setMiniZoomIdx((i) => Math.max(0, i - 1))}
-                          disabled={miniZoomIdx === 0}
-                        >
-                          <ZoomOutIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Typography variant="caption" sx={{ minWidth: 36, textAlign: 'center' }}>
-                      {Math.round(miniZoom * 100)}%
-                    </Typography>
-                    <Tooltip title="Zoom in">
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            setMiniZoomIdx((i) => Math.min(MINI_ZOOM_LEVELS.length - 1, i + 1))
-                          }
-                          disabled={miniZoomIdx === MINI_ZOOM_LEVELS.length - 1}
-                        >
-                          <ZoomInIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                    <Tooltip title={miniGrid ? 'Hide grid' : 'Show grid'}>
-                      <IconButton
-                        size="small"
-                        onClick={() => setMiniGrid((v) => !v)}
-                        color={miniGrid ? 'info' : 'default'}
-                      >
-                        <GridOnIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={miniPassability ? 'Hide passability' : 'Show passability'}>
-                      <IconButton
-                        size="small"
-                        onClick={() => setMiniPassability((v) => !v)}
-                        color={miniPassability ? 'warning' : 'default'}
-                      >
-                        <DirectionsWalkIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                    <Tooltip title="Clear arrival point">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setMapTargetX('0')
-                          setMapTargetY('0')
-                        }}
-                      >
-                        <DeleteIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <MapRenderCanvas
-                    mapId={destDetail.id}
-                    mapWidth={destDetail.x}
-                    mapHeight={destDetail.y}
-                    mapDirectory={mapDirectory}
-                    clientPath={clientPath}
-                    zoom={miniZoom}
-                    markers={arrivalMarker}
-                    showGrid={miniGrid}
-                    showPassability={miniPassability}
-                    placeMode
-                    onTileClick={(tx, ty) => {
-                      setMapTargetX(String(tx))
-                      setMapTargetY(String(ty))
-                    }}
-                    sx={{ maxHeight: 420, bgcolor: 'background.default' }}
-                  />
-                </Box>
-              )}
 
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                 <TextField
@@ -477,6 +521,12 @@ export default function WarpDialog({
             </>
           )}
         </Box>
+
+        {destinationPreview && (
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', pt: 1 }}>
+            {destinationPreview}
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>

@@ -36,6 +36,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **Placing markers on a map no longer costs two clicks each.** Arming Map Warp, NPC, Sign or
+  Reactor now stays armed, so you can place ten in a row. Click the armed chip again, or press
+  Escape, to stop. Each mode also has a key: `M`, `W`, `N`, `S`, `R`.
+- **Map warps and world warps look different on the map.** They were drawn identically — the same
+  blue circle with the same letter — while the legend claimed two colours it never used. A map warp
+  is now blue `M` and a world warp red `W`, and the legend shows what is actually drawn.
+- **The warp dialog gives the destination map the screen.** Picking a warp target means aiming at a
+  tile, and the preview shared a 900px dialog with the form. The dialog is now nearly full screen
+  with the map beside the fields, so it grows with the window. World-map exits, which have no
+  preview, keep the smaller dialog.
 - **The Map Maker tile picker has a 1× / 2× / 4× zoom.** Ground tiles were always drawn at half
   size with no way to enlarge them; at 1× they now draw at their true size, and the grid drops to
   fewer, larger columns as you zoom in. Tiles stay pixel-crisp at every zoom, and the hover preview
