@@ -66,8 +66,16 @@ const CreatePackDialog: React.FC<Props> = ({ open, onClose, onCreate }) => {
             helperText="Lowercase identifier (e.g. hybicons, my-badges)"
           />
           <FormControl size="small" fullWidth>
-            <InputLabel>Content Type</InputLabel>
+            {/* `id` + `labelId` is what gives the Select an accessible NAME.
+                Without the pair, MUI renders the label as a floating sibling and
+                the combobox announces only its value -- a screen reader user
+                hears "Ability Icons" with no idea what it selects, and
+                getByRole('combobox', { name }) cannot find it either. The
+                `label` prop below is a separate job: it only sizes the notch in
+                the outline. */}
+            <InputLabel id="create-pack-content-type-label">Content Type</InputLabel>
             <Select
+              labelId="create-pack-content-type-label"
               value={contentType}
               label="Content Type"
               onChange={(e) => setContentType(e.target.value as ContentType)}
