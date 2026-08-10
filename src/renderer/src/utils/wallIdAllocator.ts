@@ -1,3 +1,5 @@
+import type { SotpFile } from '@eriscorp/dalib-ts'
+
 // ── Wall (foreground) tile-ID allocation for minted static_tiles ──────────────
 //
 // Constraints (see docs/plans/complete/static-tile-manager.md — "authoritative DA tile
@@ -42,23 +44,30 @@ export function isMintableWallId(id: number): boolean {
 export type Walkability = 'blocking' | 'passable' | 'unknown'
 
 /**
- * Per-id walkability from a raw sotp.dat table. Semantics match
- * mapRenderer.isTilePassable: the byte for id N lives at [N-1]; low nibble
- * (0x0f) == 0 → passable, non-zero → blocking. The property bit (0x80) does not
- * affect collision, so 0x80 alone is passable. Out-of-range or missing → unknown.
+ * Per-id walkability from a parsed sotp.dat. Semantics match
+ * mapRenderer.isTilePassable: collision is the low nibble (0x0f), 0 → passable,
+ * non-zero → blocking. The property bit (0x80) does not affect collision, so
+ * 0x80 alone is passable. Out-of-range or missing → unknown.
+ *
+ * The 1-based `id - 1` index now lives inside `SotpFile` rather than being
+ * repeated here.
  */
-export function wallWalkability(sotp: Uint8Array | null | undefined, id: number): Walkability {
+export function wallWalkability(sotp: SotpFile | null | undefined, id: number): Walkability {
   if (!sotp) return 'unknown'
-  const idx = id - 1
-  if (idx < 0 || idx >= sotp.length) return 'unknown'
-  return (sotp[idx] & 0x0f) === 0 ? 'passable' : 'blocking'
+  // KEEP this range check explicit. dalib's getFlags returns 0 — i.e. PASSABLE —
+  // for an id past the end of the table, so deferring to it would silently turn
+  // every 'unknown' into 'passable'. The allocator needs the distinction: it
+  // filters candidate ids by requested walkability, and an id nothing knows
+  // about must not read as a free passable slot.
+  if (id < 1 || id > sotp.maxTileId) return 'unknown'
+  return sotp.getCollision(id) === 0 ? 'passable' : 'blocking'
 }
 
 export interface NextWallIdOptions {
   /** Ids already taken (existing pack slots + any reserved this session). */
   used?: Iterable<number>
-  /** Raw sotp.dat bytes for walkability filtering. Omit to skip the filter. */
-  sotp?: Uint8Array | null
+  /** Parsed sotp.dat for walkability filtering. Omit to skip the filter. */
+  sotp?: SotpFile | null
   /** Require the allocated id to have this walkability. */
   passability?: 'blocking' | 'passable'
   /** Override the window (defaults to the mintable window). */

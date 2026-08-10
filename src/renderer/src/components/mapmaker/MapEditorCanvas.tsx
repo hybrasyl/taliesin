@@ -243,8 +243,8 @@ const MapEditorCanvas: React.FC<Props> = ({
 
     if (scale !== 1) ctx.restore()
 
-    if (showPassability && assets.sotpTable) {
-      const sotp = assets.sotpTable
+    if (showPassability && assets.sotp) {
+      const sotp = assets.sotp
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const tile = tiles[y * W + x]!

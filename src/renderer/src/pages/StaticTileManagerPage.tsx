@@ -293,7 +293,7 @@ const StaticTileManagerPage: React.FC = () => {
     if (layer !== 'wall' || wallMode !== 'mint') return
     const id = nextWallId({
       used: usedIds.wall,
-      sotp: assets?.sotpTable ?? null,
+      sotp: assets?.sotp ?? null,
       passability: passabilityPref === 'any' ? undefined : passabilityPref
     })
     if (id !== null) setWallId(id)
@@ -313,7 +313,7 @@ const StaticTileManagerPage: React.FC = () => {
     if (previewCell) setWallHeightField(previewCell.height)
   }, [layer, wallMode, wallId, assets, previewCell])
 
-  const wallWalk: Walkability = wallWalkability(assets?.sotpTable ?? null, wallId)
+  const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, wallId)
 
   // Pre-flight the commit target against the legacy tables — a pack PNG for a
   // frame-animated or palette-cycled id is silently ignored by the client.
@@ -479,7 +479,7 @@ const StaticTileManagerPage: React.FC = () => {
           if (layer === 'wall') {
             const next = nextWallId({
               used: mintedWalls,
-              sotp: assets?.sotpTable ?? null,
+              sotp: assets?.sotp ?? null,
               passability: passabilityPref === 'any' ? undefined : passabilityPref
             })
             if (next === null) {
@@ -904,7 +904,7 @@ const StaticTileManagerPage: React.FC = () => {
                       value={passabilityPref}
                       onChange={(e) => setPassabilityPref(e.target.value as PassabilityPref)}
                       helperText={
-                        assets?.sotpTable
+                        assets?.sotp
                           ? 'Picks the next free id whose legacy sotp byte matches.'
                           : 'No sotp.dat loaded — range-only allocation.'
                       }

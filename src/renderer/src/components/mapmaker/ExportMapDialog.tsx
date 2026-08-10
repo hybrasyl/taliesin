@@ -94,7 +94,7 @@ const ExportMapDialog: React.FC<Props> = ({
       await window.api.writeBytes(savePath, new Uint8Array(arrayBuf))
 
       // Export collision wireframe if requested
-      if (exportCollision && assets?.sotpTable) {
+      if (exportCollision && assets?.sotp) {
         const tabCanvas = document.createElement('canvas')
         tabCanvas.width = w
         tabCanvas.height = h
@@ -107,7 +107,7 @@ const ExportMapDialog: React.FC<Props> = ({
 
         const originX = mapFile.height * ISO_HTILE_W
         const originY = 512 // ISO_FOREGROUND_PAD
-        const sotp = assets.sotpTable
+        const sotp = assets.sotp
 
         // Draw passability diamonds
         for (let ty = 0; ty < mapFile.height; ty++) {

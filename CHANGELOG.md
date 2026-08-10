@@ -84,6 +84,10 @@ record; where they disagree with this file, the git history was taken as authori
   build now installs the full standard set of icon sizes from the artwork meant for it, and
   identifies its window so the desktop can match it to the installed entry. Windows and macOS are
   unchanged.
+- **Ground tiles in the map editor look like they do in the Archive Viewer.** The map drew empty
+  parts of a ground tile as see-through holes while the tileset preview drew a solid diamond, so
+  the same tile looked like two different things depending on where you opened it. The map now
+  matches the preview. Walls are pixel-for-pixel unchanged.
 
 ### Security
 

@@ -59,7 +59,7 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
     ctx.fillStyle = '#111'
     ctx.fillRect(0, 0, cw, ch)
 
-    const sotp = assets?.sotpTable
+    const sotp = assets?.sotp
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {

@@ -14,8 +14,13 @@ import {
   Palette,
   PaletteTable,
   MapFile,
-  TileAnimationTable
+  SotpFile,
+  Tile,
+  TileAnimationTable,
+  renderHpf,
+  renderTile
 } from '@eriscorp/dalib-ts'
+import { toImageData } from '@eriscorp/dalib-ts/helpers/imageData'
 import { resolveWithPackOverride, coveredIdSet } from './packOverride'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -44,10 +49,17 @@ export interface MapAssets {
   stcPalettes: Map<number, Palette>
 
   /**
-   * Raw sotp.dat bytes.  Index N → 0 means stc tile N is passable; non-zero means impassable.
-   * Null when sotp.dat is absent from the client directory.
+   * Parsed sotp.dat. `getCollision(id) === 0` means stc tile `id` is passable;
+   * non-zero means impassable. Ids are 1-based — the parser owns that offset,
+   * which used to be applied by hand at every call site.
+   *
+   * Null when sotp.dat is absent from the client directory. A consumer that
+   * genuinely needs the raw bytes calls `sotp.toUint8Array()`.
+   *
+   * This is the SINGLE SOTP source on purpose: pack-carried SOTP overlays here
+   * later, and every consumer picks it up without being touched again.
    */
-  sotpTable: Uint8Array | null
+  sotp: SotpFile | null
 
   /** Ground tile animation table (gndani.tbl from seo.dat). Null if absent. */
   groundAnimationTable: TileAnimationTable | null
@@ -112,6 +124,55 @@ export function clearAllCaches(): void {
 
 export type ProgressCallback = (msg: string) => void
 
+/**
+ * Build the WALL palette table from `stcpal` alone, then bring the cycling
+ * definitions across from the numeric `stc###.tbl` files.
+ *
+ * `PaletteTable.fromArchive` routes each match by whether its name carries a
+ * numeric identifier: numeric names become cycling files, non-numeric names are
+ * merged as palette mapping tables. The `stc` pattern matches every `stc*.tbl`
+ * in ia.dat, and **two** of them are non-numeric — `stcpal.tbl`, the palette
+ * map, and `stcani.tbl`, the foreground ANIMATION table.
+ *
+ * All three formats are `min max value` triples, which is why this goes
+ * unnoticed: an animation line like `14457 14460 5` is perfectly well-formed as
+ * a palette range, and it silently maps ids 14457..14460 to "palette" 5.
+ *
+ * **Measured against a real ia.dat: on today's data this changes nothing, and
+ * that is worth stating plainly rather than claiming a fix that is not visible.**
+ * Across ids 0..20000 the resolved palette is identical before and after. Two
+ * independent accidents mask it:
+ *
+ * 1. `stcani.tbl` sorts BEFORE `stcpal.tbl` in the archive, so stcpal merges
+ *    last and wins all 486 ids the two share. stcani wins none.
+ * 2. The one id whose stcani entry does survive — 19386, mapped to "palette"
+ *    19390, where the real palettes run 0..201 — is *also* covered by a stcpal
+ *    single-value override, and `getPaletteNumber` is
+ *    `overrides ?? entries ?? 0`. The override outranks the contaminated entry.
+ *
+ * **So the fault is latent, not active, and the reason to fix it is that both
+ * accidents are properties of a data file nobody here controls.** Neither is a
+ * guarantee: a repack that reorders the two tables flips 486 wall ids to
+ * animation frame counts, and the unit tests pin exactly that — the broad
+ * pattern returns stcani's value under a reversed order, and this function does
+ * not.
+ *
+ * Ground is genuinely unaffected: `mpt` does not match `gndani.tbl`, confirmed
+ * against a real seo.dat.
+ */
+export function buildWallPaletteTable(iaArchive: DataArchive): PaletteTable {
+  const table = PaletteTable.fromArchive('stcpal', iaArchive)
+  // The cycling definitions live in the NUMERIC stc###.tbl files, which the
+  // `stcpal` pattern does not match, and `tileEligibility.isPaletteCycled`
+  // needs them. Take them from the broad table and leave its contaminated
+  // mapping behind. The second parse costs about 4ms, once, at asset load.
+  for (const [paletteNumber, cycling] of PaletteTable.fromArchive('stc', iaArchive)
+    .cyclingEntries) {
+    table.cyclingEntries.set(paletteNumber, cycling)
+  }
+  return table
+}
+
 export async function loadMapAssets(
   clientPath: string,
   onProgress?: ProgressCallback
@@ -139,12 +200,12 @@ export async function loadMapAssets(
   const groundPaletteTable = PaletteTable.fromArchive('mpt', seoArchive)
   const groundPalettes = Palette.fromArchive('mpt', seoArchive)
 
-  const stcPaletteTable = PaletteTable.fromArchive('stc', iaArchive)
+  const stcPaletteTable = buildWallPaletteTable(iaArchive)
   const stcPalettes = Palette.fromArchive('stc', iaArchive)
 
   // sotp.dat is packed inside ia.dat
   const sotpEntry = iaArchive.get('sotp.dat')
-  const sotpTable: Uint8Array | null = sotpEntry ? sotpEntry.toUint8Array() : null
+  const sotp: SotpFile | null = sotpEntry ? SotpFile.fromEntry(sotpEntry) : null
 
   // Animation tables (optional)
   let groundAnimationTable: TileAnimationTable | null = null
@@ -178,7 +239,7 @@ export async function loadMapAssets(
     iaArchive,
     stcPaletteTable,
     stcPalettes,
-    sotpTable,
+    sotp,
     groundAnimationTable,
     stcAnimationTable,
     groundBitmapCache: new Map(),
@@ -195,26 +256,10 @@ export async function loadMapAssets(
 
 // ── Tile rendering helpers ────────────────────────────────────────────────────
 
-export function pixelsToImageData(
-  pixels: Uint8Array,
-  palette: Palette,
-  width: number,
-  height: number
-): ImageData {
-  const img = new ImageData(width, height)
-  const d = img.data
-  for (let i = 0; i < pixels.length; i++) {
-    const idx = pixels[i]!
-    if (idx === 0) continue // transparent
-    const c = palette.get(idx)
-    const dst = i * 4
-    d[dst] = c.r
-    d[dst + 1] = c.g
-    d[dst + 2] = c.b
-    d[dst + 3] = 255
-  }
-  return img
-}
+// The local `pixelsToImageData` blit that used to live here is gone. Ground and
+// wall tiles now go through dalib's `renderTile` / `renderHpf`, which is what
+// the archive tileset preview already used — the two had drifted apart, and one
+// of them was wrong. Nothing else referenced it (checked before deleting).
 
 export async function getGroundBitmap(
   tileIndex: number,
@@ -234,11 +279,12 @@ export async function getGroundBitmap(
       if (tileIndex > assets.groundTileCount) return null
       const start = (tileIndex - 1) * GROUND_TILE_BYTES
       const pixels = assets.groundPixels.subarray(start, start + GROUND_TILE_BYTES)
+      // The `+ 1` is a palette-TABLE quirk and is unrelated to tile indexing —
+      // do not "simplify" it against the `tileIndex - 1` above.
       const palNum = assets.groundPaletteTable.getPaletteNumber(tileIndex + 1)
       const palette = assets.groundPalettes.get(palNum)
       if (!palette) return null
-      const imgData = pixelsToImageData(pixels, palette, GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT)
-      return createImageBitmap(imgData)
+      return createImageBitmap(toImageData(renderTile(new Tile(pixels), palette)))
     }
   )
 }
@@ -269,8 +315,9 @@ export async function getStcBitmap(
       const palNum = assets.stcPaletteTable.getPaletteNumber(tileIndex + 1)
       const palette = assets.stcPalettes.get(palNum)
       if (!palette) return null
-      const imgData = pixelsToImageData(hpf.data, palette, hpf.pixelWidth, hpf.pixelHeight)
-      return createImageBitmap(imgData)
+      // `renderHpf` uses colorKey=true (index 0 transparent), which is what the
+      // local blit did, so walls are visually unchanged. Pure deduplication.
+      return createImageBitmap(toImageData(renderHpf(hpf, palette)))
     }
   )
 }
@@ -472,10 +519,13 @@ export function screenToTileCoords(
 export function isTilePassable(
   leftForeground: number,
   rightForeground: number,
-  sotpTable: Uint8Array
+  sotp: SotpFile
 ): boolean {
-  const lfOk = leftForeground <= 0 || ((sotpTable[leftForeground - 1] ?? 0) & 0x0f) === 0
-  const rfOk = rightForeground <= 0 || ((sotpTable[rightForeground - 1] ?? 0) & 0x0f) === 0
+  // `getCollision(id)` is `getFlags(id) & 0x0f` and getFlags owns the 1-based
+  // `id - 1` index, so this is the same arithmetic with the offset in one place
+  // instead of two. The 0x80 property bit still does not affect collision.
+  const lfOk = leftForeground <= 0 || sotp.getCollision(leftForeground) === 0
+  const rfOk = rightForeground <= 0 || sotp.getCollision(rightForeground) === 0
   return lfOk && rfOk
 }
 
