@@ -21,6 +21,14 @@ build/*
 # Mac icon rebuildable from this repo alone.
 !build/icon-mac.png
 !build/portable-splash.bmp
+# The Linux hicolor set (linux.icon points here). A DIRECTORY negation, and it
+# has to come as a pair: `build/*` excludes the directory itself, and git cannot
+# re-include a file whose parent directory is excluded, so `!build/icons/**`
+# alone matches nothing. Un-ignore the directory first, then its contents.
+# Regenerate with `node scripts/make-linux-icons.mjs` and commit the result --
+# CI has no ImageMagick and packages from a clean checkout.
+!build/icons/
+!build/icons/**
 dist/
 out/
 coverage/

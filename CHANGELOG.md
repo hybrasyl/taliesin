@@ -72,6 +72,11 @@ record; where they disagree with this file, the git history was taken as authori
   disappeared. The effect was backwards rather than merely faint: the unselected items were the
   visible ones. The accent is now a legible blue. The other five themes were checked and none had
   the same fault.
+- **Taliesin draws its own icon on Linux.** The application menu and taskbar showed the macOS
+  artwork instead — a different picture, drawn to a different platform's conventions. The Linux
+  build now installs the full standard set of icon sizes from the artwork meant for it, and
+  identifies its window so the desktop can match it to the installed entry. Windows and macOS are
+  unchanged.
 
 ### Security
 

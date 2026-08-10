@@ -97,6 +97,38 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  # MUST be explicit, and must be a DIRECTORY.
+  #
+  # electron-builder resolves the Linux icon as [linux.icon, mac.icon ?? icon]
+  # (app-builder-lib LinuxTargetHelper.js), so mac.icon OUTRANKS the top-level
+  # icon above. Leaving this unset shipped the macOS artwork on Linux --
+  # measured in taliesin_2.9.0_amd64.deb, not read off this file.
+  #
+  # A single PNG is also never resampled (iconConverter.js): one PNG in, one
+  # hicolor entry out, at its own size. hicolor's index.theme stops at 512, so
+  # pointing this at a 1024 master gives a directory nothing indexes and the
+  # desktop draws its generic blank document instead.
+  #
+  # Those two together are why the naive fix makes THIS repo worse. Taliesin is
+  # one of only two house apps currently shipping a full eight-size set, because
+  # the .icns fallback happens to contain one -- the wrong picture at the right
+  # sizes. Repointing at a raster master without generating a set first would
+  # take it from wrong-but-visible to blank.
+  #
+  # The set descends from the macros tile, which is the macOS/Linux artwork --
+  # NOT build/icon.png, which is the Windows one. Full-bleed already, so nothing
+  # is cropped. Regenerate with:
+  #   node scripts/make-linux-icons.mjs
+  icon: build/icons
+  # A correct hicolor set is only half of it, and this is the half that gets
+  # missed: oghma shipped the right sizes and still showed a generic taskbar
+  # icon. Electron derives its app_id / WM_CLASS from package.json's
+  # `desktopName` (taliesin.desktop -> "taliesin"), while electron-builder writes
+  # StartupWMClass into the .desktop entry from productName ("Taliesin") when
+  # this is unset. That case mismatch stops a desktop environment linking the
+  # running window to the installed entry, however correct build/icons/ is.
+  # Defaults to false in electron-builder 26 and becomes true in 27.
+  syncDesktopName: true
   target:
     - AppImage
     - deb
