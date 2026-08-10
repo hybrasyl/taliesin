@@ -23,7 +23,29 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
-## [2.9.0] - 2026-08-01
+### Security
+
+- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
+  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
+  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
+  same pass; those never shipped to you.
+
+### Fixed
+
+- **Warp destinations with an `&` in the name resolve again.** The world index recorded map names
+  without decoding XML entities, so `The Crow & Cask` reached the warp destination picker as
+  `The Crow &amp; Cask`. Picking it wrote a doubly-escaped name into the map file and the warp
+  went nowhere. The index now decodes the name it scrapes, and the picker offers the real one.
+- **Duplicate map names are visible instead of silent.** The server indexes maps by name, so two
+  maps that share one name are a live fault. The world index now records the collisions it finds.
+- **Weapon damage reads the paired tags and a zero minimum.** The index scrape dropped both, so
+  affected weapons showed no damage where they have some.
+
+### Changed
+
+- The world index cache is rebuilt once on first run after this release, and the vendor directory
+  on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
+  derived from the world data and is rebuilt from it.
 
 ### Added
 
