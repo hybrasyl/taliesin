@@ -2,7 +2,10 @@ export type MapFlag = 'Snow' | 'Rain' | 'Dark' | 'NoMap' | 'Winter'
 export type CardinalDirection = 'North' | 'South' | 'East' | 'West'
 // Casing matches the authoritative Hybrasyl XSD enumeration (Common.xsd) and the
 // server (IsMessageboard) — 'Messageboard', not 'MessageBoard'.
-export type BoardType = 'Signpost' | 'Messageboard'
+// 'Sign', not 'Signpost': the enum has exactly these two members, per
+// xml/src/Objects/BoardType.cs and the BoardType simple type in Map.xsd.
+// 'Signpost' does not deserialize, so a sign carrying it fails the whole map.
+export type BoardType = 'Sign' | 'Messageboard'
 
 export interface WarpRestrictions {
   level?: number
@@ -111,7 +114,7 @@ export const DEFAULT_MAP: MapData = {
 
 export const ALL_FLAGS: MapFlag[] = ['Snow', 'Rain', 'Dark', 'NoMap', 'Winter']
 export const ALL_DIRECTIONS: CardinalDirection[] = ['North', 'South', 'East', 'West']
-export const ALL_BOARD_TYPES: BoardType[] = ['Signpost', 'Messageboard']
+export const ALL_BOARD_TYPES: BoardType[] = ['Sign', 'Messageboard']
 
 /** lod/hyb filename prefix from map id — the single source of the 30000 rule. */
 export function xmlPrefix(id: number): 'lod' | 'hyb' {
