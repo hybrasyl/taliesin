@@ -32,9 +32,21 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **Opening Taliesin twice now brings the open window forward** instead of starting a second copy.
+  Two copies shared one settings file and the last one to save won, so a preference changed in one
+  window could disappear without a word when the other saved.
 - The world index cache is rebuilt once on first run after this release, and the vendor directory
   on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
   derived from the world data and is rebuilt from it.
+
+### Security
+
+- **The content policy is applied to the page before it loads, not partway through**, and the
+  startup splash is covered by it too — it previously had no policy at all. Nothing about the app
+  changes visibly.
+- **Each release build now proves the shipped binary really has its debug hatches switched off.**
+  This was a manual check on one platform; it is automatic on all three, macOS included, where the
+  application holds one set of settings per processor type and only one of them used to be read.
 
 ### Fixed
 

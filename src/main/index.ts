@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, screen } from 'electron'
+import { app, shell, session, BrowserWindow, ipcMain, dialog, screen } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -8,7 +8,13 @@ import { loadPacks } from './assetPacks'
 import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
 import { installGlobalErrorHandlers } from './report/errorHandlers'
-import { initWindowSecurity, registerTrustedWindow, hardenWindow, guardIpc } from './windowSecurity'
+import {
+  initWindowSecurity,
+  registerTrustedWindow,
+  hardenWindow,
+  guardIpc,
+  installContentSecurityPolicy
+} from './windowSecurity'
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -20,6 +26,24 @@ const localAppData =
 const settingsPath = join(localAppData, 'Erisco', 'Taliesin')
 const cachePath = join(localAppData, 'Erisco', 'Taliesin')
 app.setPath('userData', cachePath)
+
+// Single instance. Two copies write the same settings.json and the same caches
+// under userData, and the last writer wins -- jsonStore's crash-safe write keeps
+// the file well-formed, so the loss is silent: change a setting in window A,
+// change a different one in window B, and A's change is gone with no error.
+// settingsStore's hydration gate guards the first frame and HMR; it cannot see
+// a second process.
+//
+// The lock is keyed on the userData directory, so it must be requested AFTER the
+// setPath above -- ask first and two copies take two different locks.
+//
+// `app.exit(0)`, not `app.quit()`: quit() is async, so a losing instance would
+// run every module-scope side effect below -- the roaming migration, the session
+// log, the settings manager, handler registration -- against the winner's
+// directory before the event loop tore it down. exit() stops here. Keep this
+// immediately after setPath; the further down it drifts, the more work a doomed
+// instance does first.
+if (!app.requestSingleInstanceLock()) app.exit(0)
 
 // One-time roaming → local settings migration (Windows). Previously settings
 // lived in %APPDATA%/Erisco/Taliesin; carry a returning user's settings over so
@@ -97,6 +121,23 @@ function revealMainWindow(): void {
   if (splash) splash.dismiss(reveal)
   else reveal()
 }
+
+// The other half of the lock: a second launch surfaces the window we already
+// have instead of dying quietly, which is also what double-clicking the exe
+// twice is expected to do.
+//
+// It does NOT reveal a window that has not been revealed yet. Before `app:ready`
+// the main window is deliberately hidden behind the splash, which is alwaysOnTop
+// and already on screen -- so the user is looking at this app booting, and
+// forcing the unhydrated window forward would break the reveal handshake to
+// show them less.
+app.on('second-instance', () => {
+  if (!mainWindowRevealed) return
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
 
 // WHERE THE RENDERER LIVES, derived once. Two things read these: the trusted
 // location set below, and createWindow's loader. They must agree, and the cost
@@ -196,6 +237,12 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  // Before the first window, and it has to be: the header governs a RESPONSE, so
+  // a document already loading has gone past it. `session.defaultSession` does
+  // not exist until the app is ready, which is why this is here rather than at
+  // module scope beside initWindowSecurity.
+  installContentSecurityPolicy(session.defaultSession)
 
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
