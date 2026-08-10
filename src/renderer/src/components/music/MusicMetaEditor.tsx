@@ -20,8 +20,6 @@ interface Props {
   meta: MusicMeta | null
   draft: MusicMeta
   dirty: boolean
-  /** Map IDs that reference this track (from world index) */
-  usedByMaps: string[]
   onUpdate: (changes: Partial<MusicMeta>) => void
   onSave: () => void
   onPlay: () => void
@@ -52,7 +50,6 @@ const MusicMetaEditor: React.FC<Props> = ({
   meta,
   draft,
   dirty,
-  usedByMaps,
   onUpdate,
   onSave,
   onPlay,
@@ -270,27 +267,7 @@ const MusicMetaEditor: React.FC<Props> = ({
           </IconButton>
         </Box>
       </Box>
-      {/* Map cross-reference */}
-      {usedByMaps.length > 0 && (
-        <Box>
-          <Divider sx={{ mb: 1.5 }} />
-          <Typography
-            variant="caption"
-            sx={{
-              color: 'text.secondary',
-              mb: 0.5,
-              display: 'block'
-            }}
-          >
-            Used by {usedByMaps.length} map{usedByMaps.length !== 1 ? 's' : ''}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {usedByMaps.map((name) => (
-              <Chip key={name} label={name} size="small" variant="outlined" />
-            ))}
-          </Box>
-        </Box>
-      )}
+      {/* No map cross-reference — see the note in ClientMusicView.tsx and HTOO-169. */}
       <Box sx={{ flex: 1 }} />
       {dirty && (
         <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>

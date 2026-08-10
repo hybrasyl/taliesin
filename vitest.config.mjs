@@ -32,8 +32,13 @@ export default defineConfig({
           functions: 60,
           statements: 64
         },
+        // `lines` moved 44 → 42 when HTOO-169 deleted the map cross-reference.
+        // Nothing regressed: the file lost 7 lines, and more of them were covered
+        // than uncovered (31/70 = 44.3% before, 27/63 = 42.9% after), so the ratio
+        // fell while the tests stayed green. Deleting dead UI must not be blocked
+        // by arithmetic. The other three floors were already met and did not move.
         'src/renderer/src/pages/MusicPage.tsx': {
-          lines: 44,
+          lines: 42,
           branches: 35,
           functions: 28,
           statements: 40

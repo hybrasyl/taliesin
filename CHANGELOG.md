@@ -30,7 +30,7 @@ record; where they disagree with this file, the git history was taken as authori
   conventionally carries. It also says what the open map's own id means: map 30909 is town 09, slot
   09, the tavern.
 - **Maps can record a generic name.** A second name field beside the display name, for what the map
-  *is* — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
+  _is_ — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
   The generic name builds the filename: `hyb30909 - Tagor Tavern.xml`. It is stored as a comment in
   the XML, the server never reads it, and a map without one keeps exactly the filename it had.
 - **Renaming a map offers to fix the warps that point at it.** A warp finds its destination by
@@ -50,6 +50,11 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The Music Client View no longer claims no map uses a track.** Every row carried a "Used by maps"
+  column that showed a dash, always — the world index does not record which map plays which track,
+  so the lookup behind it could never find anything. An empty answer and an unasked question look
+  identical, and this one read as "nothing uses this". The column is gone until the index carries
+  the data.
 - **Placing markers on a map no longer costs two clicks each.** Arming Map Warp, NPC, Sign or
   Reactor now stays armed, so you can place ten in a row. Click the armed chip again, or press
   Escape, to stop. Each mode also has a key: `M`, `W`, `N`, `S`, `R`.

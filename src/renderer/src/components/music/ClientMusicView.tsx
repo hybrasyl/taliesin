@@ -10,9 +10,7 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  Chip,
-  IconButton,
-  Tooltip
+  IconButton
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
@@ -24,39 +22,25 @@ interface ClientEntry {
   musicId: number
 }
 
+// There is deliberately no "used by maps" cross-reference here. The world index
+// carries no `music` field on mapDetails, so the lookup could only ever return
+// nothing, and a permanently empty column reads as "no map uses this track"
+// rather than "this is not implemented" — the two are indistinguishable to
+// whoever is looking at it. Reinstating it is hybindex-ts work first: the map
+// XML already has `music`, and the indexer has to project it into mapDetails.
+// See HTOO-169; the column this replaced is in git history.
 interface Props {
   clientPath: string | null
-  /** mapDetails from world index for cross-reference */
-  mapDetails: Array<{ name: string; music?: number }> | null
   /** Currently playing file path (to show stop icon) */
   playingFile: string | null
   isPlaying: boolean
   onPlay: (filePath: string, trackName: string) => void
 }
 
-const ClientMusicView: React.FC<Props> = ({
-  clientPath,
-  mapDetails,
-  playingFile,
-  isPlaying,
-  onPlay
-}) => {
+const ClientMusicView: React.FC<Props> = ({ clientPath, playingFile, isPlaying, onPlay }) => {
   const [entries, setEntries] = useState<ClientEntry[]>([])
   const [scanned, setScanned] = useState(false)
   const [scanning, setScanning] = useState(false)
-
-  // Build a lookup: musicId → map names
-  const musicToMaps = React.useMemo(() => {
-    const map = new Map<number, string[]>()
-    if (!mapDetails) return map
-    for (const md of mapDetails) {
-      if (md.music == null) continue
-      const existing = map.get(md.music) ?? []
-      existing.push(md.name)
-      map.set(md.music, existing)
-    }
-    return map
-  }, [mapDetails])
 
   const handleScan = useCallback(async () => {
     if (!clientPath) return
@@ -147,13 +131,11 @@ const ClientMusicView: React.FC<Props> = ({
               <TableCell sx={{ width: 40 }} />
               <TableCell sx={{ width: 80 }}>ID</TableCell>
               <TableCell sx={{ width: 100 }}>File</TableCell>
-              <TableCell sx={{ width: 90 }}>Size</TableCell>
-              <TableCell>Used by maps</TableCell>
+              <TableCell>Size</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {entries.map((e) => {
-              const maps = musicToMaps.get(e.musicId) ?? []
               const filePath = `${clientPath}/music/${e.filename}`.replace(/\\/g, '/')
               const isThisPlaying = isPlaying && playingFile === filePath
               return (
@@ -180,29 +162,6 @@ const ClientMusicView: React.FC<Props> = ({
                     >
                       {formatBytes(e.sizeBytes)}
                     </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {maps.length === 0 ? (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: 'text.disabled'
-                        }}
-                      >
-                        —
-                      </Typography>
-                    ) : (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {maps.slice(0, 4).map((name) => (
-                          <Chip key={name} label={name} size="small" variant="outlined" />
-                        ))}
-                        {maps.length > 4 && (
-                          <Tooltip title={maps.slice(4).join(', ')}>
-                            <Chip label={`+${maps.length - 4}`} size="small" />
-                          </Tooltip>
-                        )}
-                      </Box>
-                    )}
                   </TableCell>
                 </TableRow>
               )
