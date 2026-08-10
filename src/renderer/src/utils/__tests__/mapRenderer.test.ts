@@ -1,5 +1,73 @@
 import { describe, it, expect, vi } from 'vitest'
-import { lruTouch, lruGet, _assetCacheSize, clearAllCaches, drawDiamond } from '../mapRenderer'
+import {
+  lruTouch,
+  lruGet,
+  _assetCacheSize,
+  clearAllCaches,
+  drawDiamond,
+  isoCanvasSize
+} from '../mapRenderer'
+import { PREVIEW_BOX_HEIGHT } from '../../components/catalog/DimensionPickerDialog'
+
+// The Dimension Picker measures its preview box, solves a scale to fit, and
+// hands that scale to renderMap — which sizes the canvas from its OWN
+// constants. If the two disagree the render's output feeds the next render's
+// input and the dialog grows without bound. The equality below is what broke.
+describe('isoCanvasSize ↔ the Dimension Picker scale computation', () => {
+  const BOX_W = 520
+
+  /** Exactly what DimensionPickerDialog.renderCanvas does. */
+  function previewScale(w: number, h: number): number {
+    const maxW = BOX_W - 2
+    const maxH = PREVIEW_BOX_HEIGHT - 2
+    const { w: nativeW, h: nativeH } = isoCanvasSize(w, h)
+    return Math.min(maxW / nativeW, maxH / nativeH, 1)
+  }
+
+  it.each([
+    [10, 10],
+    [40, 40],
+    [64, 32],
+    [100, 100],
+    [255, 255]
+  ])('a %ix%i map renders no larger than the box it was scaled to fit', (w, h) => {
+    const scale = previewScale(w, h)
+    const { w: cw, h: ch } = isoCanvasSize(w, h, scale)
+    // +1 each way for Math.ceil, which can only round up by under a pixel.
+    expect(ch).toBeLessThanOrEqual(PREVIEW_BOX_HEIGHT - 2 + 1)
+    expect(cw).toBeLessThanOrEqual(BOX_W - 2 + 1)
+  })
+
+  it('is idempotent — rendering the same size twice gives the same canvas', () => {
+    // "Pick the same size twice in a row. The canvas is byte-identical, not one
+    // row taller." The scale depends only on (w, h) and the box, never on what
+    // was last drawn, so there is no feedback path left.
+    const first = isoCanvasSize(80, 60, previewScale(80, 60))
+    const second = isoCanvasSize(80, 60, previewScale(80, 60))
+    expect(second).toEqual(first)
+  })
+
+  it('reproduces the ratchet if the foreground pad is understated', () => {
+    // Pins WHY this broke rather than only that it is fixed. The dialog used
+    // 480 where the renderer uses 512, so it solved scale against a shorter map
+    // than the one renderMap would draw, and the canvas came back taller than
+    // the box it had just measured — which then grew, and fed the next render.
+    //
+    // A SMALL map, because the fault only shows when height is the binding
+    // constraint. Native height is about half native width plus the pad, so on
+    // a large map width binds, the pad error never reaches the scale, and
+    // nothing ratchets. 10x10 is where the 512 pad dominates.
+    const [w, h] = [10, 10]
+    const maxH = PREVIEW_BOX_HEIGHT - 2
+    const wrongNativeH = (w + h) * 14 + 480 // the old hardcoded derivation
+    const wrongScale = Math.min((BOX_W - 2) / ((w + h) * 28 + 56), maxH / wrongNativeH, 1)
+    expect(wrongScale).toBe(maxH / wrongNativeH) // height really is binding
+    expect(isoCanvasSize(w, h, wrongScale).h).toBeGreaterThan(maxH + 1)
+
+    // And the corrected computation does not overshoot on the same map.
+    expect(isoCanvasSize(w, h, previewScale(w, h)).h).toBeLessThanOrEqual(maxH + 1)
+  })
+})
 
 describe('drawDiamond', () => {
   function mockCtx() {
