@@ -480,7 +480,8 @@ export default function WorldMapPage() {
         setSnackbar({ message: 'A template with this name already exists.', severity: 'error' })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      // move, not copy — see MapEditorPage.handleArchive
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
@@ -508,7 +509,8 @@ export default function WorldMapPage() {
         })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      // move, not copy — see MapEditorPage.handleArchive
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)

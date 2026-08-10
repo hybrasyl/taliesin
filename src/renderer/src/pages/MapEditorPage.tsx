@@ -633,7 +633,10 @@ export default function MapEditorPage() {
         })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      // move, not copy: a copy leaves the map live in `maps/` while the UI
+      // reports it archived, so the map the user took out of service is still
+      // being served.
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
@@ -657,7 +660,7 @@ export default function MapEditorPage() {
         setSnackbar({ message: 'An active map with this name already exists.', severity: 'error' })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)

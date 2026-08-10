@@ -23,6 +23,15 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **Archiving a map now takes it out of service.** Archive copied the file into `.ignore/` and
+  left the original in place, so the map you archived was still live and still served — while the
+  interface reported success and showed it under Archived. It also appeared in both lists at once,
+  which was the only visible sign. Unarchive had the same fault in reverse, and so did the world
+  map editor's Move to Templates and Move to Active. All four now move the file instead of copying
+  it, so it exists in exactly one place at every instant.
+
 ## [2.9.0] - 2026-08-01
 
 ### Added

@@ -109,6 +109,8 @@ const api = {
     ipcRenderer.invoke('fs:listSection', libraryPath, type),
   copyFile: (src: string, dst: string): Promise<void> =>
     ipcRenderer.invoke('fs:copyFile', src, dst),
+  moveFile: (src: string, dst: string): Promise<void> =>
+    ipcRenderer.invoke('fs:moveFile', src, dst),
   writeFile: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('fs:writeFile', filePath, content),
   writeBytes: (filePath: string, data: Uint8Array): Promise<void> =>
