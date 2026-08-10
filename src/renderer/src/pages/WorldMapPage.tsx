@@ -436,15 +436,25 @@ export default function WorldMapPage() {
       const newPath = isRename || !selectedFile ? `${baseDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeWorldMapXml(data)
+
+      if (isRename && selectedFile) {
+        // Refuse before anything is written — see MapEditorPage.handleSave.
+        if (await window.api.exists(newPath)) {
+          setSnackbar({
+            message: `A world map named "${fileName}" already exists here. Rename cancelled.`,
+            severity: 'error'
+          })
+          return
+        }
+        await window.api.moveFile(selectedFile.path, newPath)
+      }
+
       await window.api.writeFile(newPath, xml)
       setEditingMap(data)
 
       if (isRename || !selectedFile) {
         if (isRename) {
-          setSnackbar({
-            message: `Saved as "${fileName}". Old file remains (manual delete may be needed).`,
-            severity: 'info'
-          })
+          setSnackbar({ message: `Renamed to "${fileName}".`, severity: 'success' })
         }
         setSelectedFile({
           rel: isTemplate ? `.ignore/${targetRel}` : targetRel,
@@ -480,7 +490,8 @@ export default function WorldMapPage() {
         setSnackbar({ message: 'A template with this name already exists.', severity: 'error' })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      // move, not copy — see MapEditorPage.handleArchive
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
@@ -508,7 +519,8 @@ export default function WorldMapPage() {
         })
         return
       }
-      await window.api.copyFile(selectedFile.path, destPath)
+      // move, not copy — see MapEditorPage.handleArchive
+      await window.api.moveFile(selectedFile.path, destPath)
       markClean()
       setSelectedFile(null)
       setEditingMap(null)
