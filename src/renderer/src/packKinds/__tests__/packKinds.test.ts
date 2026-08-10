@@ -6,6 +6,7 @@ import { itemIconsKind } from '../itemIcons'
 import { uiSpriteOverridesKind } from '../uiSpriteOverrides'
 import { musicKind } from '../music'
 import { soundEffectsKind } from '../soundEffects'
+import { ambientSoundsKind } from '../ambientSounds'
 import { worldMapsKind } from '../worldMaps'
 import { townMapsKind } from '../townMaps'
 import { npcPortraitsKind } from '../npcPortraits'
@@ -16,9 +17,10 @@ import { getKind, listKinds, isKnownContentType, PACK_KINDS } from '../index'
 import type { PackAsset, PackProject } from '../types'
 
 describe('PACK_KINDS registry', () => {
-  it('has all 13 known content types', () => {
+  it('has all 14 known content types', () => {
     expect(Object.keys(PACK_KINDS).sort()).toEqual([
       'ability_icons',
+      'ambient_sounds',
       'creature_sprites',
       'item_icons',
       'legend_mark_icons',
@@ -35,9 +37,9 @@ describe('PACK_KINDS registry', () => {
   })
 
   it('listKinds returns each kind once', () => {
-    expect(listKinds()).toHaveLength(13)
+    expect(listKinds()).toHaveLength(14)
     const types = new Set(listKinds().map((k) => k.type))
-    expect(types.size).toBe(13)
+    expect(types.size).toBe(14)
   })
 
   it('getKind returns the matching kind', () => {
@@ -314,6 +316,87 @@ describe('soundEffectsKind', () => {
       soundEffectsKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'ogg' }).zipPath
     ).toBe('sfx_0004.ogg')
     expect(soundEffectsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('sfx_0001.wav')
+  })
+})
+
+describe('ambientSoundsKind', () => {
+  it('has no dimension rule and offers audio extensions', () => {
+    expect(ambientSoundsKind.dimension).toBeUndefined()
+    expect(ambientSoundsKind.fileExtensions).toEqual(['wav', 'ogg', 'mp3', 'flac'])
+  })
+
+  it('parseSlot reads amb_{id} entries, rejects non-matches', () => {
+    expect(ambientSoundsKind.parseSlot('amb_0001.wav')).toEqual({ namespace: 'amb', id: 1 })
+    expect(ambientSoundsKind.parseSlot('amb_42.ogg')).toEqual({ namespace: 'amb', id: 42 })
+    expect(ambientSoundsKind.parseSlot('amb0001.wav')).toBeNull() // missing underscore
+    expect(ambientSoundsKind.parseSlot('sfx_0001.wav')).toBeNull() // that is the sfx kind
+    expect(ambientSoundsKind.parseSlot('amb_0001.mus')).toBeNull() // .mus is music-only
+  })
+
+  it('nextAssetPath increments id, is 1-based, and defaults to wav', () => {
+    // 1-based because the server field is an unsignedByte where 0 means
+    // "no ambient", so there is no id 0 to author.
+    expect(ambientSoundsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('amb_0001.wav')
+    const existing: PackAsset[] = [{ filename: 'amb_0003.wav', sourcePath: 'a' }]
+    expect(
+      ambientSoundsKind.nextAssetPath({ existingAssets: existing, sourceExtension: 'ogg' }).zipPath
+    ).toBe('amb_0004.ogg')
+  })
+
+  it('exposes a loop boolean assetMetaField', () => {
+    expect(ambientSoundsKind.assetMetaFields?.().loop).toMatchObject({
+      kind: 'boolean',
+      label: 'Loop'
+    })
+  })
+
+  it('reduceCoversFromMeta keys entries by ID, not by filename', () => {
+    // This is the contract, not a style choice: the client looks an entry up by
+    // the ambient id the server sent and never sees the zip-relative name.
+    const draft = {
+      content_type: 'ambient_sounds',
+      covers: { ambient_sounds: {} },
+      assets: [
+        { filename: 'amb_0001.wav', sourcePath: 'a' },
+        { filename: 'amb_0007.ogg', sourcePath: 'b' }
+      ],
+      assetMeta: { 'amb_0001.wav': { loop: true } }
+    } as unknown as PackProject
+    expect(ambientSoundsKind.reduceCoversFromMeta?.(draft)).toEqual({
+      ambient_sounds: { '1': { loop: true } }
+    })
+  })
+
+  it('omits unflagged entries rather than writing loop:false', () => {
+    const draft = {
+      content_type: 'ambient_sounds',
+      covers: { ambient_sounds: {} },
+      assets: [{ filename: 'amb_0001.wav', sourcePath: 'a' }],
+      assetMeta: {}
+    } as unknown as PackProject
+    expect(ambientSoundsKind.reduceCoversFromMeta?.(draft)).toEqual({ ambient_sounds: {} })
+  })
+
+  it('coversSchema accepts the v1 shape AND the deferred interval shape', () => {
+    // Keying by id is what lets interval scheduling arrive without a schema
+    // bump. Nothing here writes the interval fields; accepting them means a
+    // pack authored by a later Taliesin still opens in this one.
+    expect(() =>
+      ambientSoundsKind.coversSchema.parse({ ambient_sounds: { '1': { loop: true } } })
+    ).not.toThrow()
+    expect(() =>
+      ambientSoundsKind.coversSchema.parse({
+        ambient_sounds: { '1': { mode: 'interval', play: 180, silence: 120 } }
+      })
+    ).not.toThrow()
+    expect(() => ambientSoundsKind.coversSchema.parse({ ambient_sounds: {} })).not.toThrow()
+    expect(() =>
+      ambientSoundsKind.coversSchema.parse({ ambient_sounds: { '1': { loop: 'yes' } } })
+    ).toThrow()
+  })
+
+  it('compiles at manifest schema_version 1 — covers-carried metadata needs no bump', () => {
+    expect(ambientSoundsKind.manifestSchemaVersion).toBeUndefined()
   })
 })
 

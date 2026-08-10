@@ -203,12 +203,9 @@ const TilePicker: React.FC<Props> = ({
           onChange={(_, v) => v && onLayerChange(v)}
           size="small"
           fullWidth
+          // No `Mui-selected` override — see MapMakerPage's toolBtnSx (HTOO-341).
           sx={{
-            '& .MuiToggleButton-root': { color: 'text.primary' },
-            '& .MuiToggleButton-root.Mui-selected': {
-              color: 'info.light',
-              bgcolor: 'action.selected'
-            }
+            '& .MuiToggleButton-root': { color: 'text.primary' }
           }}
         >
           <ToggleButton value="background" sx={{ fontSize: '0.7rem', py: 0.25 }}>

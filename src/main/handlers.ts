@@ -344,6 +344,32 @@ export async function copyFile(ctx: HandlerContext, src: string, dst: string): P
   await fs.copyFile(safeSrc, safeDst)
 }
 
+/**
+ * Move a file. `fs.rename` on the normal path, so the file exists at exactly
+ * one location at every instant — a copy-then-delete that is interrupted
+ * between its two halves leaves two files, and for a map that means two active
+ * files claiming one Id.
+ *
+ * `EXDEV` is the one failure that is not an error: rename cannot cross a device
+ * or filesystem boundary, so there we fall back to copy-then-unlink. That
+ * fallback has the window this function exists to avoid, and there is no way
+ * around it — it is the only way to cross the boundary at all.
+ *
+ * Both paths are checked against the allowed roots, as `copyFile` does.
+ */
+export async function moveFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
+  const safeSrc = assertInsideAnyRoot(allRoots(ctx), src)
+  const safeDst = assertInsideAnyRoot(allRoots(ctx), dst)
+  await fs.mkdir(dirname(safeDst), { recursive: true })
+  try {
+    await fs.rename(safeSrc, safeDst)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+    await fs.copyFile(safeSrc, safeDst)
+    await fs.unlink(safeSrc)
+  }
+}
+
 export async function writeFile(
   ctx: HandlerContext,
   filePath: string,
@@ -1486,6 +1512,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:listDir', (_, p) => listDir(ctx, p))
   ipcMain.handle('fs:listSection', (_, p, t) => listSection(ctx, p, t))
   ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(ctx, s, d))
+  ipcMain.handle('fs:moveFile', (_, s, d) => moveFile(ctx, s, d))
   ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))
   ipcMain.handle('fs:writeBytes', (_, p, d) => writeBytes(ctx, p, d))
   ipcMain.handle('fs:exists', (_, p) => exists(ctx, p))

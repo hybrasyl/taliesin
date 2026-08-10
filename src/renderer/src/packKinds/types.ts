@@ -9,6 +9,7 @@ export type ContentType =
   | 'item_icons'
   | 'music'
   | 'sound_effects'
+  | 'ambient_sounds'
   | 'world_maps'
   | 'town_maps'
   | 'npc_portraits'
@@ -24,6 +25,7 @@ export const ALL_CONTENT_TYPES: readonly ContentType[] = [
   'item_icons',
   'music',
   'sound_effects',
+  'ambient_sounds',
   'world_maps',
   'town_maps',
   'npc_portraits',

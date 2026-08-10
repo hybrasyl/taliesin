@@ -122,6 +122,7 @@ declare global {
     listDir: (dirPath: string) => Promise<DirEntry[]>
     listSection: (libraryPath: string, type: string) => Promise<SectionListing>
     copyFile: (src: string, dst: string) => Promise<void>
+    moveFile: (src: string, dst: string) => Promise<void>
     writeFile: (filePath: string, content: string) => Promise<void>
     writeBytes: (filePath: string, data: Uint8Array) => Promise<void>
     exists: (filePath: string) => Promise<boolean>

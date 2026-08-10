@@ -191,7 +191,11 @@ export default defineConfig({
             'src/renderer/src/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/hooks/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/store/__tests__/**/*.test.{ts,tsx}',
-            'src/renderer/src/components/**/__tests__/**/*.test.{ts,tsx}'
+            'src/renderer/src/components/**/__tests__/**/*.test.{ts,tsx}',
+            // Adding a test directory that matches NO glob here fails silently:
+            // vitest collects nothing and still reports success. themes/ was
+            // uncovered until HTOO-341.
+            'src/renderer/src/themes/__tests__/**/*.test.{ts,tsx}'
           ],
           setupFiles: ['./src/renderer/src/__tests__/setup/vitest.setup.ts']
         }

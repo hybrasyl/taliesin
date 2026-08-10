@@ -1,6 +1,7 @@
 {
   "name": "taliesin",
   "productName": "Taliesin",
+  "desktopName": "taliesin.desktop",
   "version": "2.9.0",
   "description": "Dark Ages client asset viewer — companion to Creidhne",
   "main": "./out/main/index.js",
@@ -29,7 +30,7 @@
   "//dependencies": "Only what the MAIN process requires at run time. electron-builder copies every entry here into app.asar verbatim, while vite already bundles the renderer's libraries into out/renderer -- so a renderer-only package listed here ships twice. Note main reaches several of these through dynamic `await import('pkg')`, which a static `from '...'` grep does not see: dalib-ts, music-metadata, archiver and unzipper are all runtime requirements despite having no static import. See the document repo's ecosystem-rollout-checklist.md R-003.",
   "dependencies": {
     "@eriscorp/dalib-ts": "^3.1.0",
-    "@eriscorp/hybindex-ts": "^0.4.1",
+    "@eriscorp/hybindex-ts": "^1.1.0",
     "archiver": "^7.0.1",
     "music-metadata": "^11.12.3",
     "unzipper": "^0.12.3",
