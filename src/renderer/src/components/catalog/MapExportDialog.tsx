@@ -14,6 +14,7 @@ import {
   Alert
 } from '@mui/material'
 import { CatalogEntry, xmlPrefix, worldName, buildMapXmlStub } from '../../hooks/useCatalog'
+import { useWorldIndex } from '../../hooks/useWorldIndex'
 
 interface Props {
   open: boolean
@@ -44,6 +45,7 @@ const MapExportDialog: React.FC<Props> = ({
   onClose,
   onExported
 }) => {
+  const { refresh: refreshWorldIndex } = useWorldIndex()
   const autoPrefix = xmlPrefix(entry.mapNumber)
   const [prefix, setPrefix] = useState<Prefix>(autoPrefix)
   const [mapNumberStr, setMapNumberStr] = useState(String(entry.mapNumber))
@@ -116,6 +118,10 @@ const MapExportDialog: React.FC<Props> = ({
       const note = `Exported to ${wn} as lod${mapNumber}.map — ${date}`
 
       onExported(entry.filename, note)
+      // The catalog's "XML exists" badge is derived from the world index, so
+      // without this the map just exported still reads as having no XML
+      // (HTOO-335).
+      void refreshWorldIndex()
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Export failed')

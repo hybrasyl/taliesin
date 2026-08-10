@@ -37,6 +37,7 @@ import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
 import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
+import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
 import WhatsNewDialog from '../components/WhatsNewDialog'
@@ -450,6 +451,7 @@ function LibrariesCard() {
   const libraries = useSettingsStore((s) => s.libraries)
   const setLibraries = useSettingsStore((s) => s.setLibraries)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
+  const { refresh: refreshWorldIndex } = useWorldIndex()
   const setActiveLibrary = useSettingsStore((s) => s.setActiveLibrary)
   const [selected, setSelected] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -488,11 +490,32 @@ function LibrariesCard() {
     if (!activeLibrary) setActiveLibrary(resolved)
   }
 
+  /**
+   * Rebuild one library's index from this page.
+   *
+   * Routed through the store rather than straight at `window.api.indexBuild`.
+   * Calling the IPC directly rewrote the on-disk cache and this page's local
+   * `indexStatuses`, while the in-memory index every other page reads stayed
+   * exactly as stale as before — so the two refresh controls disagreed, and
+   * this one looked like it had worked (HTOO-335).
+   *
+   * `refresh` only touches the shared index when `lib` is the active library;
+   * for any other library the on-disk rebuild is the whole point.
+   */
   const handleBuildIndex = async (lib: string) => {
     setBuilding((prev) => ({ ...prev, [lib]: true }))
     try {
-      const result = await window.api.indexBuild(lib)
-      setIndexStatuses((prev) => ({ ...prev, [lib]: { exists: true, builtAt: result.builtAt } }))
+      if (lib === activeLibrary) {
+        await refreshWorldIndex()
+        const status = await window.api.indexStatus(lib)
+        setIndexStatuses((prev) => ({
+          ...prev,
+          [lib]: { exists: true, builtAt: status?.builtAt }
+        }))
+      } else {
+        const result = await window.api.indexBuild(lib)
+        setIndexStatuses((prev) => ({ ...prev, [lib]: { exists: true, builtAt: result.builtAt } }))
+      }
     } finally {
       setBuilding((prev) => ({ ...prev, [lib]: false }))
     }

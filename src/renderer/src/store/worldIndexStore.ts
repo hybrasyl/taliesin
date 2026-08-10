@@ -28,6 +28,8 @@ interface WorldIndexState {
   ensure: (library: string | null) => Promise<void>
   /** Unconditional rebuild — what the Dashboard's "Rebuild" button calls. */
   build: (library: string | null) => Promise<void>
+  /** Bring the in-memory index up to date after a write into `library`. */
+  refresh: (library: string | null) => Promise<void>
 }
 
 const ensures = new Map<string, Promise<void>>()
@@ -119,6 +121,47 @@ export const useWorldIndexStore = create<WorldIndexState>((set, get) => ({
         if (isCurrent(library)) set({ building: false })
       }
     })
+  },
+
+  /**
+   * Bring the index up to date after the app has written into the library.
+   *
+   * Nothing used to do this. Every renderer write into a world library — a map
+   * XML save, an archive or unarchive, a world map save, an XML stub export —
+   * left the shared in-memory index untouched, and there is no file watcher, so
+   * a map you had just created could not be picked as a warp destination, and
+   * its name and id stayed blank in the list (HTOO-335). The only cure was the
+   * Dashboard's Rebuild button.
+   *
+   * Routed through `build`, not `ensure`. `ensure` short-circuits on
+   * `loadedFor === library`, so an `ensure`-based refresh is a silent no-op and
+   * the failure looks exactly like the bug being unfixed.
+   *
+   * **Incremental `buildIndex` rather than `saveSection`.** `buildIndex`
+   * compares per-section file signatures and copies unchanged sections across,
+   * so saving one map XML re-reads the map XMLs and nothing else. It needs no
+   * package or IPC change, works on the current `hybindex-ts`, and is the exact
+   * path the manual Rebuild button already takes. `saveSection` would be
+   * cheaper per call but needs the caller to say which section it touched —
+   * true of all five call sites today, and silently wrong the first time
+   * somebody adds a sixth.
+   *
+   * The real cost is `computeFileCache`, which `stat`s every file in the
+   * library. That is why the trigger is a save and never an edit.
+   *
+   * A build already in flight is waited out rather than joined: it may have
+   * scanned the tree before this write landed, so joining it would return a
+   * result that does not contain the change that prompted the refresh.
+   */
+  refresh: async (library) => {
+    if (!library) return
+    const inFlight = builds.get(library)
+    // `allSettled`, because how the earlier build ended is not this caller's
+    // business — a failed one must not stop the write that prompted this from
+    // being indexed. (`build` records its own failures and does not reject, so
+    // this is belt and braces rather than a live path.)
+    if (inFlight) await Promise.allSettled([inFlight])
+    return get().build(library)
   }
 }))
 

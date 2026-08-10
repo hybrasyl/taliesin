@@ -16,10 +16,12 @@ function activate(library: string | null) {
 /** A promise we can settle by hand, to make "concurrent" deterministic. */
 function deferred<T>() {
   let resolve!: (v: T) => void
-  const promise = new Promise<T>((res) => {
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
     resolve = res
+    reject = rej
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
 
 beforeEach(() => {
@@ -158,5 +160,107 @@ describe('build', () => {
   it('is a no-op with no library', async () => {
     await useWorldIndexStore.getState().build(null)
     expect(api.indexBuild).not.toHaveBeenCalled()
+  })
+})
+
+describe('refresh', () => {
+  // HTOO-335: no write path refreshed the index, so a map you had just created
+  // could not be picked as a warp destination and its name stayed blank.
+
+  it('rebuilds and republishes the index', async () => {
+    activate('/lib')
+    await useWorldIndexStore.getState().ensure('/lib')
+    expect(api.indexBuild).not.toHaveBeenCalled()
+
+    const rebuilt = { ...fakeIndex, builtAt: '2025-02-02T00:00:00Z' } as unknown as WorldIndex
+    api.indexBuild.mockResolvedValue(rebuilt)
+    await useWorldIndexStore.getState().refresh('/lib')
+
+    expect(api.indexBuild).toHaveBeenCalledWith('/lib')
+    expect(useWorldIndexStore.getState().index).toBe(rebuilt)
+  })
+
+  // The trap the card calls out: `ensure` short-circuits on `loadedFor`, so an
+  // ensure-based refresh is a silent no-op and looks exactly like the bug being
+  // unfixed. `refresh` must not inherit that.
+  it('is not short-circuited by the index already being loaded', async () => {
+    activate('/lib')
+    await useWorldIndexStore.getState().ensure('/lib')
+    expect(useWorldIndexStore.getState().loadedFor).toBe('/lib')
+
+    api.indexBuild.mockResolvedValue(fakeIndex)
+    await useWorldIndexStore.getState().refresh('/lib')
+    await useWorldIndexStore.getState().refresh('/lib')
+    expect(api.indexBuild).toHaveBeenCalledTimes(2)
+  })
+
+  // A build already running may have scanned the tree before this write landed,
+  // so joining it would return a result without the change that prompted the
+  // refresh.
+  it('waits out an in-flight build rather than joining it', async () => {
+    activate('/lib')
+    const first = deferred<WorldIndex>()
+    api.indexBuild.mockReturnValueOnce(first.promise)
+    const building = useWorldIndexStore.getState().build('/lib')
+    expect(api.indexBuild).toHaveBeenCalledTimes(1)
+
+    const after = { ...fakeIndex, builtAt: 'after-write' } as unknown as WorldIndex
+    api.indexBuild.mockResolvedValue(after)
+    const refreshing = useWorldIndexStore.getState().refresh('/lib')
+
+    first.resolve(fakeIndex)
+    await building
+    await refreshing
+    expect(api.indexBuild).toHaveBeenCalledTimes(2)
+    expect(useWorldIndexStore.getState().index).toBe(after)
+  })
+
+  it('collapses two saves during one build onto a single follow-up build', async () => {
+    activate('/lib')
+    const first = deferred<WorldIndex>()
+    api.indexBuild.mockReturnValueOnce(first.promise)
+    const building = useWorldIndexStore.getState().build('/lib')
+
+    api.indexBuild.mockResolvedValue(fakeIndex)
+    const a = useWorldIndexStore.getState().refresh('/lib')
+    const b = useWorldIndexStore.getState().refresh('/lib')
+
+    first.resolve(fakeIndex)
+    await Promise.all([building, a, b])
+    // One for the original build, one shared follow-up — not one per save.
+    expect(api.indexBuild).toHaveBeenCalledTimes(2)
+  })
+
+  it('does nothing without a library', async () => {
+    await useWorldIndexStore.getState().refresh(null)
+    expect(api.indexBuild).not.toHaveBeenCalled()
+  })
+
+  it('records a failed refresh instead of throwing at the caller', async () => {
+    activate('/lib')
+    api.indexBuild.mockRejectedValue(new Error('disk gone'))
+    await useWorldIndexStore.getState().refresh('/lib')
+    expect(useWorldIndexStore.getState().buildError).toBe('disk gone')
+    expect(useWorldIndexStore.getState().building).toBe(false)
+  })
+})
+
+describe('refresh after a failed build', () => {
+  // The in-flight build is waited out, not joined — including when it fails.
+  // A failed build must not stop the refresh that follows it from running.
+  it('still rebuilds when the build it waited on rejected', async () => {
+    activate('/lib')
+    const first = deferred<WorldIndex>()
+    api.indexBuild.mockReturnValueOnce(first.promise as unknown as Promise<WorldIndex>)
+    const building = useWorldIndexStore.getState().build('/lib')
+
+    api.indexBuild.mockResolvedValue(fakeIndex)
+    const refreshing = useWorldIndexStore.getState().refresh('/lib')
+
+    first.reject(new Error('first build failed'))
+    await building
+    await refreshing
+    expect(api.indexBuild).toHaveBeenCalledTimes(2)
+    expect(useWorldIndexStore.getState().index).toBe(fakeIndex)
   })
 })
