@@ -169,6 +169,12 @@ export default defineConfig({
             'src/renderer/src/utils/__tests__/**/*.test.ts',
             'src/renderer/src/packKinds/__tests__/**/*.test.ts',
             'src/renderer/src/uiforge/__tests__/**/*.test.ts',
+            // data/ holds pure model helpers (filename rules, the town subzone
+            // registry). It was added in HTOO-344 and matched no glob here, so
+            // its suite was collected by neither project and ran for the first
+            // time in HTOO-356 -- exactly the silent failure the notes on
+            // src/shared and themes/ warn about. Third time; read those notes.
+            'src/renderer/src/data/__tests__/**/*.test.ts',
             'scripts/**/*.test.mjs'
           ],
           // mapXml/worldMapXml/panelXml use DOMParser → jsdom project picks them up instead.
