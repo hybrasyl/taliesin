@@ -9,6 +9,7 @@ import {
   installContentSecurityPolicy,
   withContentSecurityPolicy,
   RENDERER_CSP,
+  DEV_RENDERER_CSP,
   __resetWindowSecurityForTests
 } from '../windowSecurity'
 import { makeSender, trust, allowed } from './windowSecurityFixtures'
@@ -436,6 +437,54 @@ describe('installContentSecurityPolicy', () => {
         'Content-Security-Policy': [RENDERER_CSP]
       })
     }
+  })
+
+  // Regression: the header CSP broke `npm run dev`. Vite's React plugin injects
+  // its refresh preamble as an INLINE script with `head-prepend` \u2014 before the
+  // meta tag \u2014 so the meta policy never governed it and the header did. The
+  // preamble is genuinely inline, so the dev policy has to allow it.
+  describe('the dev policy', () => {
+    /** Parse a policy string into directive \u2192 source list. */
+    function directives(policy: string): Record<string, string[]> {
+      const out: Record<string, string[]> = {}
+      for (const part of policy.split(';')) {
+        const [name, ...sources] = part.trim().split(/\s+/)
+        if (name) out[name] = sources
+      }
+      return out
+    }
+
+    it('allows the inline preamble the dev server injects', () => {
+      expect(directives(DEV_RENDERER_CSP)['script-src']).toContain("'unsafe-inline'")
+    })
+
+    it('allows the HMR websocket', () => {
+      expect(directives(DEV_RENDERER_CSP)['connect-src']).toContain('ws:')
+    })
+
+    // The whole point of relaxing it in dev is that the packaged app is not.
+    it('does not relax the packaged policy', () => {
+      expect(directives(RENDERER_CSP)['script-src']).toEqual(["'self'"])
+      expect(RENDERER_CSP).not.toContain('unsafe-eval')
+    })
+
+    // The two differ only where the dev server forces them to. A directive that
+    // quietly loosened in dev and nowhere else would hide a real violation.
+    it('differs from the packaged policy only in script-src and connect-src', () => {
+      const dev = directives(DEV_RENDERER_CSP)
+      const shipped = directives(RENDERER_CSP)
+      for (const [name, sources] of Object.entries(shipped)) {
+        if (name === 'script-src') continue
+        expect(dev[name]).toEqual(sources)
+      }
+      expect(Object.keys(dev).filter((d) => !(d in shipped))).toEqual(['connect-src'])
+    })
+
+    it('is what gets stamped when it is the policy passed in', () => {
+      expect(withContentSecurityPolicy('http://127.0.0.1:5173/', {}, DEV_RENDERER_CSP)).toEqual({
+        'Content-Security-Policy': [DEV_RENDERER_CSP]
+      })
+    })
   })
 
   it('leaves Chromium\u2019s own internal responses alone', () => {

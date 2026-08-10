@@ -58,6 +58,30 @@ export const RENDERER_CSP =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src file: http: https: data: blob:; media-src blob:;"
 
 /**
+ * The policy for `npm run dev`, where the renderer is served by Vite.
+ *
+ * **`script-src` is relaxed here and nowhere else.** Vite's React plugin injects
+ * its refresh preamble as an *inline* script, and injects it with
+ * `head-prepend` — before the meta tag in `index.html`. That is why the meta
+ * policy never blocked it and why the header does: a meta policy only governs
+ * what the parser reaches after it, and a header governs the whole response.
+ * Adding the header was correct and it correctly caught this; the preamble is
+ * genuinely inline, so the only way to run the dev server is to allow it.
+ *
+ * `'unsafe-eval'` and `ws:` go with it: dependency pre-bundling can emit `eval`,
+ * and HMR is a websocket to the dev server.
+ *
+ * **The two policies differ, so a `script-src` violation cannot surface in dev.**
+ * That is the cost of a dev server that injects inline scripts, and it is the
+ * reason the packaged policy is pinned by tests and by the meta tags rather than
+ * trusted to be exercised by hand.
+ */
+export const DEV_RENDERER_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+  "style-src 'self' 'unsafe-inline'; img-src file: http: https: data: blob:; " +
+  "media-src blob:; connect-src 'self' ws: http: https:;"
+
+/**
  * Schemes our own documents and their subresources load over: `file:` packaged,
  * `http:`/`https:` for the dev server.
  *
@@ -84,7 +108,8 @@ const POLICED_PROTOCOLS = new Set(['file:', 'http:', 'https:'])
  */
 export function withContentSecurityPolicy(
   rawUrl: string,
-  responseHeaders: Record<string, string[] | string> | undefined
+  responseHeaders: Record<string, string[] | string> | undefined,
+  policy: string = RENDERER_CSP
 ): Record<string, string[] | string> | undefined {
   try {
     if (!POLICED_PROTOCOLS.has(new URL(rawUrl).protocol)) return undefined
@@ -98,20 +123,27 @@ export function withContentSecurityPolicy(
     if (lower === 'content-security-policy-report-only') continue
     next[name] = value
   }
-  next['Content-Security-Policy'] = [RENDERER_CSP]
+  next['Content-Security-Policy'] = [policy]
   return next
 }
 
 /**
- * Put `RENDERER_CSP` on every response this session serves for our own content.
+ * Put `policy` on every response this session serves for our own content.
  *
  * Call once, on `session.defaultSession`, before any window loads — the point of
  * a header over a meta tag is that it is in force for the response itself, and a
  * document already loading has passed it.
+ *
+ * `policy` defaults to the packaged one. The caller passes `DEV_RENDERER_CSP`
+ * under the dev server, and only there; see that constant for why the two
+ * cannot be the same.
  */
-export function installContentSecurityPolicy(session: Session): void {
+export function installContentSecurityPolicy(
+  session: Session,
+  policy: string = RENDERER_CSP
+): void {
   session.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = withContentSecurityPolicy(details.url, details.responseHeaders)
+    const responseHeaders = withContentSecurityPolicy(details.url, details.responseHeaders, policy)
     callback(responseHeaders ? { responseHeaders } : {})
   })
 }

@@ -13,7 +13,9 @@ import {
   registerTrustedWindow,
   hardenWindow,
   guardIpc,
-  installContentSecurityPolicy
+  installContentSecurityPolicy,
+  DEV_RENDERER_CSP,
+  RENDERER_CSP
 } from './windowSecurity'
 import { shouldDisableHardwareAcceleration, REMOTE_SESSION_CSS } from './remoteSession'
 
@@ -272,7 +274,14 @@ app.whenReady().then(() => {
   // a document already loading has gone past it. `session.defaultSession` does
   // not exist until the app is ready, which is why this is here rather than at
   // module scope beside initWindowSecurity.
-  installContentSecurityPolicy(session.defaultSession)
+  // The dev server needs a looser script-src than the packaged app: Vite's React
+  // plugin injects its refresh preamble as an inline script. `RENDERER_DEV_URL`
+  // rather than `is.dev` alone, so a dev build that is NOT being served by Vite
+  // still gets the real policy. See DEV_RENDERER_CSP.
+  installContentSecurityPolicy(
+    session.defaultSession,
+    RENDERER_DEV_URL ? DEV_RENDERER_CSP : RENDERER_CSP
+  )
 
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
