@@ -27,6 +27,7 @@ export interface MemoryFs {
     promises: {
       readFile: ReturnType<typeof vi.fn>
       writeFile: ReturnType<typeof vi.fn>
+      appendFile: ReturnType<typeof vi.fn>
       copyFile: ReturnType<typeof vi.fn>
       mkdir: ReturnType<typeof vi.fn>
       unlink: ReturnType<typeof vi.fn>
@@ -104,6 +105,18 @@ export function createMemoryFs(): MemoryFs {
             ? Buffer.from(content, 'utf-8')
             : Buffer.from(content as Uint8Array)
         files.set(norm, buf)
+        ensureDir(dirOf(norm))
+      }),
+      // Needed by src/main/report/sessionLog.ts, which creates the session file
+      // with a zero-length append and then appends one line per captured error.
+      // Creates the file when absent, so it doubles as sessionLog's "touch".
+      appendFile: vi.fn(async (path: string, content: string | Buffer | Uint8Array) => {
+        const norm = path.replace(/\\/g, '/')
+        const add =
+          typeof content === 'string'
+            ? Buffer.from(content, 'utf-8')
+            : Buffer.from(content as Uint8Array)
+        files.set(norm, Buffer.concat([files.get(norm) ?? Buffer.alloc(0), add]))
         ensureDir(dirOf(norm))
       }),
       copyFile: vi.fn(async (src: string, dst: string) => {
@@ -224,13 +237,23 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // one of them depend on GitHub being up.
     checkForUpdate: async () => null,
 
-    // Report Issue / diagnostics — stubbed; integration tests exercise page
-    // state machines, not the diagnostics flow (unit-tested in src/main/report).
-    reportRendererError: async () => undefined,
-    buildDiagnostics: async () => '',
-    openIssue: async () => ({ ok: true as const, truncated: false }),
-    copyReport: async () => ({ ok: true as const }),
-    revealLogs: async () => undefined,
+    // Report Issue / diagnostics — routed to the real handler bodies like every
+    // other channel here. These were stubbed until HTOO-175, which meant the
+    // scrubber was exercised only by whatever a page happened to send. The
+    // scrubbing is the part that must not regress: it is what makes it safe to
+    // file a report into a PUBLIC repo, so it needs the cases that would
+    // embarrass us, not the incidental ones.
+    //
+    // `openIssue`, `copyReport` and `revealLogs` reach Electron's clipboard and
+    // shell. A test that drives them must mock 'electron' itself — see
+    // ReportIssue.integration.test.tsx. Without that mock the named imports are
+    // undefined and calling one throws, which is the loud failure we want rather
+    // than a test that silently proves nothing.
+    reportRendererError: async (payload) => handlers.reportRendererError(handlerCtx, payload),
+    buildDiagnostics: () => handlers.buildReport(handlerCtx),
+    openIssue: async (payload) => handlers.reportOpenIssue(handlerCtx, payload),
+    copyReport: async (payload) => handlers.reportCopy(handlerCtx, payload),
+    revealLogs: async () => handlers.revealLogs(),
 
     // Settings
     loadSettings: async () => (await handlers.loadSettings(handlerCtx)) as Record<string, unknown>,

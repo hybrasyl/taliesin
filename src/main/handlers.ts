@@ -325,6 +325,12 @@ export function reportCopy(ctx: HandlerContext, payload: unknown): { ok: true } 
   return copyReport(parseOrLog(ctx, 'diagnostics:copyReport', copyReportSchema, payload))
 }
 
+// Re-exported so every diagnostics:* channel is reachable by name on this module,
+// which is what lets the renderer test bridge route all five to the real bodies
+// instead of stubbing them (HTOO-175). It takes no payload and no ctx, so unlike
+// its four siblings it needs no wrapper.
+export { revealLogs }
+
 // ── File system ──────────────────────────────────────────────────────────────
 //
 // Category-A handlers: each path argument is renderer-supplied with no
