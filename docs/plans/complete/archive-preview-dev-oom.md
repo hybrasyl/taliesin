@@ -47,7 +47,7 @@ stays mounted across archive switches. When `selected` goes from an entry to
 buffer one level deeper. The rule is: **no `DataArchive` and no
 `DataArchiveEntry` in any prop.**
 
-Sub-components *inside* `ArchivePreview.tsx` still receive `entry`/`archive`
+Sub-components _inside_ `ArchivePreview.tsx` still receive `entry`/`archive`
 objects. That is safe for a stated reason: `ArchivePage` clears the selection
 before storing a new archive, so the whole preview subtree unmounts on an
 archive switch, and a mount has no previous props to diff. While mounted, the

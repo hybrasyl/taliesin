@@ -27,10 +27,10 @@ hybui-extstats.datf
 
 Naming conventions (all flat at the archive root):
 
-| File | Convention |
-|---|---|
-| Layout | `{panel_id}.xml` |
-| Background | `{panel_id}_bg.png` or `{panel_id}_{variant}_bg.png` |
+| File        | Convention                                                                       |
+| ----------- | -------------------------------------------------------------------------------- |
+| Layout      | `{panel_id}.xml`                                                                 |
+| Background  | `{panel_id}_bg.png` or `{panel_id}_{variant}_bg.png`                             |
 | Control art | `{panel_id}_{control_name}_{state}.png`, state ∈ `normal`, `pressed`, `disabled` |
 
 Control art coverage is emergent from shipped PNGs — the XML does not enumerate
@@ -112,17 +112,17 @@ directory only and is **never** compiled into the `.datf`.
 
 ### Control attributes
 
-| Attribute | Applies to | Required | Meaning |
-|---|---|---|---|
-| `name` | all | yes | `[a-z0-9_]+`, unique within its variant. Feeds the art filename convention and is the C#-side lookup key. |
-| `rect` | all | yes | `x,y,w,h` in logical pixels, relative to the anchor's coordinate space. |
-| `align` | label | no | `left` \| `center` \| `right` (default `left`). |
-| `max-length` | textbox | no | Maximum input length. |
-| `frames` | progressbar | no | Frame count of the bar's fill art (default 1 = continuous fill). |
-| `bind` | label, textbox, progressbar, image | no | Primary value path (see Variable namespace). Label/textbox: text source. Progressbar: current value. Image: numeric frame selector. |
-| `bind-max` | progressbar, label | no | Max-value path. Progressbar denominator; enables `{max}` in label formats. |
-| `bind-visible` | all | no | Boolean path; the control is hidden while the value is false. |
-| `format` | label, textbox | no | Template with `{value}` / `{max}` placeholders. Optional .NET-style numeric spec after a colon (`{value:0.0}`); Brigid renders via `string.Format`-compatible semantics. Absent → raw value. |
+| Attribute      | Applies to                         | Required | Meaning                                                                                                                                                                                      |
+| -------------- | ---------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | all                                | yes      | `[a-z0-9_]+`, unique within its variant. Feeds the art filename convention and is the C#-side lookup key.                                                                                    |
+| `rect`         | all                                | yes      | `x,y,w,h` in logical pixels, relative to the anchor's coordinate space.                                                                                                                      |
+| `align`        | label                              | no       | `left` \| `center` \| `right` (default `left`).                                                                                                                                              |
+| `max-length`   | textbox                            | no       | Maximum input length.                                                                                                                                                                        |
+| `frames`       | progressbar                        | no       | Frame count of the bar's fill art (default 1 = continuous fill).                                                                                                                             |
+| `bind`         | label, textbox, progressbar, image | no       | Primary value path (see Variable namespace). Label/textbox: text source. Progressbar: current value. Image: numeric frame selector.                                                          |
+| `bind-max`     | progressbar, label                 | no       | Max-value path. Progressbar denominator; enables `{max}` in label formats.                                                                                                                   |
+| `bind-visible` | all                                | no       | Boolean path; the control is hidden while the value is false.                                                                                                                                |
+| `format`       | label, textbox                     | no       | Template with `{value}` / `{max}` placeholders. Optional .NET-style numeric spec after a colon (`{value:0.0}`); Brigid renders via `string.Format`-compatible semantics. Absent → raw value. |
 
 Buttons take no `bind` — actions and events remain C#-owned (the `PrefabPanel`
 subclass wires behavior by control name). Controls without any `bind*`
@@ -143,15 +143,15 @@ Canonical dotted paths, lowercase. The machine-readable registry is
 section is the human summary). Types: `string`, `int`, `float`, `bool`,
 `sprite`.
 
-| Namespace | Source packet | Paths |
-|---|---|---|
-| `player.*` | 0x08 Attributes | `name`, `level`, `ability`, `hp`, `maxhp`, `mp`, `maxmp`, `stats.str/int/wis/con/dex`, `levelpoints`, `weight`, `maxweight`, `experience`, `abilityexp`, `gold`, `blinded`, `mailstatus`, `element.offense`, `element.defense`, `combat.mr/ac/dmg/hit` |
-| `player.ext.*` | 0xFF ExtendedStats | `mr`, `hit`, `dmg`, `crit`, `magiccrit`, `dodge`, `magicdodge` (all float) |
-| `player.profile.*` | 0x39 SelfProfile | `guild`, `class`, `nation`, `grouptext` |
-| `inventory.slot[n].*` | 0x0F/0x10 | `name`, `count`, `durability`, `sprite`, `color` — n: 1–59 |
-| `equipment.<slot>.*` | 0x37/0x38 | `name`, `sprite`, `durability` — 18 slot names per Brigid's equipment enum (e.g. `equipment.weapon.name`) |
-| `skills.slot[n].*`, `spells.slot[n].*` | 0x2C/0x2D, 0x17/0x18 | `name`, `sprite` — n: 1–90, holes at 35/71/89 |
-| `group.*` | 0x63 | `size` (int), `ingroup` (bool) |
+| Namespace                              | Source packet        | Paths                                                                                                                                                                                                                                                  |
+| -------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `player.*`                             | 0x08 Attributes      | `name`, `level`, `ability`, `hp`, `maxhp`, `mp`, `maxmp`, `stats.str/int/wis/con/dex`, `levelpoints`, `weight`, `maxweight`, `experience`, `abilityexp`, `gold`, `blinded`, `mailstatus`, `element.offense`, `element.defense`, `combat.mr/ac/dmg/hit` |
+| `player.ext.*`                         | 0xFF ExtendedStats   | `mr`, `hit`, `dmg`, `crit`, `magiccrit`, `dodge`, `magicdodge` (all float)                                                                                                                                                                             |
+| `player.profile.*`                     | 0x39 SelfProfile     | `guild`, `class`, `nation`, `grouptext`                                                                                                                                                                                                                |
+| `inventory.slot[n].*`                  | 0x0F/0x10            | `name`, `count`, `durability`, `sprite`, `color` — n: 1–59                                                                                                                                                                                             |
+| `equipment.<slot>.*`                   | 0x37/0x38            | `name`, `sprite`, `durability` — 18 slot names per Brigid's equipment enum (e.g. `equipment.weapon.name`)                                                                                                                                              |
+| `skills.slot[n].*`, `spells.slot[n].*` | 0x2C/0x2D, 0x17/0x18 | `name`, `sprite` — n: 1–90, holes at 35/71/89                                                                                                                                                                                                          |
+| `group.*`                              | 0x63                 | `size` (int), `ingroup` (bool)                                                                                                                                                                                                                         |
 
 Indexed templates use a literal 1-based index in the XML
 (`bind="inventory.slot[3].count"`).

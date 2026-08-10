@@ -106,11 +106,11 @@ reconnect over RDP to a session that was already open at the console, every proc
 
 The variable answers in both directions, and is the only override there is:
 
-| Value | Effect |
-| --- | --- |
-| unset or empty | decide by detection |
-| `0` | force hardware acceleration on, even in a remote session |
-| anything else | force software rendering, even on a local machine |
+| Value          | Effect                                                   |
+| -------------- | -------------------------------------------------------- |
+| unset or empty | decide by detection                                      |
+| `0`            | force hardware acceleration on, even in a remote session |
+| anything else  | force software rendering, even on a local machine        |
 
 `TALIESIN_DISABLE_GPU=1` on a local machine is also how the remote-session behaviour is reproduced
 without a remote machine.
