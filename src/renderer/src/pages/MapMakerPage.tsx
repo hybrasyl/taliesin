@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
+import { isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import {
@@ -196,6 +197,8 @@ const MapMakerPage: React.FC = () => {
   const [joinOpen, setJoinOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [showPrefabSidebar, setShowPrefabSidebar] = useState(false)
+  // Published upward by PrefabSidebar so the `P` hotkey has something to stamp.
+  const [loadedPrefab, setLoadedPrefab] = useState<Prefab | null>(null)
   const [showTabMap, setShowTabMap] = useState(false)
   const [dimPickerState, setDimPickerState] = useState<{
     open: boolean
@@ -766,8 +769,34 @@ const MapMakerPage: React.FC = () => {
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 
+  /**
+   * Whether a modal is up.
+   *
+   * A window-level handler outlives the page's own focus, so it would otherwise
+   * keep switching tools while a dialog is open — the keystrokes land on the
+   * dialog, not on the map, and the user cannot see the tool change.
+   *
+   * Enumerated rather than sniffed from the DOM: a `.MuiModal-root` query would
+   * be one MUI class rename away from silently letting every key through again.
+   * Add new dialogs here.
+   */
+  const anyDialogOpen =
+    newMapOpen ||
+    resizeOpen ||
+    exportOpen ||
+    createPrefabOpen ||
+    splitOpen ||
+    joinOpen ||
+    generateOpen ||
+    dimPickerState !== null ||
+    closingTabId !== null
+
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: KeyboardEvent) => {
+      // The page has a prefab filter box and several dialogs with text fields,
+      // and a bare `case 's'` would swallow the letter. See utils/keyboard.ts.
+      if (isTypingTarget(e.target)) return
+      if (anyDialogOpen) return
       if (e.ctrlKey && e.key === 'z') {
         e.preventDefault()
         handleUndo()
@@ -862,6 +891,12 @@ const MapMakerPage: React.FC = () => {
         case 'r':
           setTool('randomFill')
           break
+        case 'p':
+          // Advertised by ShortcutHelpPanel and by the Stamp button's own label
+          // since before it existed. Does nothing when the prefab sidebar is
+          // closed or nothing is loaded, which is the only sense it could make.
+          if (loadedPrefab) handleStampPrefab(loadedPrefab)
+          break
         case 'f':
           setActiveLayer((prev) =>
             prev === 'leftForeground'
@@ -900,9 +935,30 @@ const MapMakerPage: React.FC = () => {
       updateTab,
       handleCloseTab,
       activeLayer,
-      lastFgLayer
+      lastFgLayer,
+      anyDialogOpen,
+      loadedPrefab,
+      handleStampPrefab
     ]
   )
+
+  /**
+   * Bound to the window, not to the page container.
+   *
+   * `onKeyDown` on a `tabIndex={0}` Box is a bubbling DOM handler, so it fired
+   * only when the focused element was that Box or a descendant. Nothing focused
+   * it on mount, so on a fresh page load focus sat on `body` and **no hotkey
+   * worked until the user clicked inside the page**; focus moving to a dialog,
+   * or leaving the window and coming back, dropped them again (HTOO-342).
+   *
+   * The page is unmounted when it is not the current one — `PageRenderer` is a
+   * switch, not a router — so this listener only exists while the Map Maker is
+   * on screen.
+   */
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   // ── File name ──────────────────────────────────────────────────────────────
 
@@ -921,11 +977,7 @@ const MapMakerPage: React.FC = () => {
   } as const
 
   return (
-    <Box
-      sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
       <Box
         sx={{
@@ -1448,6 +1500,7 @@ const MapMakerPage: React.FC = () => {
               libraryPath={activeLibrary}
               onStampPrefab={handleStampPrefab}
               onStatus={showStatus}
+              onLoadedPrefabChange={setLoadedPrefab}
             />
           </Box>
         )}

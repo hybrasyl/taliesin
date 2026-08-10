@@ -36,6 +36,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The Map Maker tile picker has a 1× / 2× / 4× zoom.** Ground tiles were always drawn at half
+  size with no way to enlarge them; at 1× they now draw at their true size, and the grid drops to
+  fewer, larger columns as you zoom in. Tiles stay pixel-crisp at every zoom, and the hover preview
+  for tall tiles grows with the zoom instead of staying fixed.
 - **Copy, Cut and Delete in the Map Maker now obey the layer toggles.** Hide the foregrounds and
   copy a region and you get the ground only; the same region cut or deleted leaves the hidden
   foregrounds where they were. Pasting a ground-only region drops it over existing foregrounds
@@ -83,6 +87,13 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Map Maker keyboard shortcuts work as soon as the page opens.** Every shortcut needed a click
+  inside the page first, and closing a dialog or switching away from the window silently took them
+  away again. They now work wherever the pointer is, and stop working only while you are typing in
+  a field or a dialog is open.
+- **The `P` shortcut stamps a prefab.** It was printed on the Stamp button and listed in the
+  shortcut panel but had never been implemented. The shortcut panel also lists Ctrl+W, which was
+  missing from it.
 - **Copy and paste in the Map Maker work across tabs.** The clipboard was per-tab, so copying in
   one map and pasting into another pasted whatever that map had last copied — or nothing at all,
   with no warning. There is now one clipboard for every tab, it survives closing the tab you copied

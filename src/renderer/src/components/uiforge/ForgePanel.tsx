@@ -45,6 +45,7 @@ import ArtPickerDialog, { type ArtTarget } from './ArtPickerDialog'
 import SpecDialog, { type SpecDialogInitial } from './SpecDialog'
 import type { SpecPrefill } from './BindingEditor'
 import type { UiVariableType } from '../../uiforge/variableCatalog'
+import { isTypingTarget } from '../../utils/keyboard'
 
 export interface ForgePanelProps {
   project: PackProject
@@ -533,8 +534,8 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-      const typing = tag === 'input' || tag === 'textarea' || tag === 'select'
+      // Shared with the Map Maker's handler — see utils/keyboard.ts (HTOO-342).
+      const typing = isTypingTarget(e.target)
       const mod = e.ctrlKey || e.metaKey
 
       if (mod && (e.key === 'z' || e.key === 'Z')) {
