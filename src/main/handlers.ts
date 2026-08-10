@@ -22,6 +22,7 @@ import {
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import { resolveClientFile } from './fsCase'
+import { countWarpsTo, rewriteWarpTargets } from './warpTargets'
 import {
   resolveCompanion,
   launchCompanion as companionLaunch,
@@ -380,6 +381,84 @@ export async function listSection(
   // `selectedFile.path === file.path` silently false, which drops the file
   // list's selection highlight after a rename.
   return { dir: dir.replace(/\\/g, '/'), active, archived }
+}
+
+/** One map XML that points at the name being scanned for. */
+export interface WarpReferrer {
+  /** Path relative to the maps section, as `listSection` returns them. */
+  file: string
+  /** How many of its warps point at the name. */
+  count: number
+}
+
+/**
+ * Read every active map XML and count the warps pointing at `mapName`.
+ *
+ * Done on demand, in main, rather than out of the index: `hybindex-ts` does not
+ * record warps at all — `mapDetails` stops at `{ id, name, filename, x, y }` —
+ * so answering this from the index would mean a package change that cannot
+ * reach Taliesin until the hybindex upgrade lands, to serve one consumer. A
+ * scan of ~1045 files is real work, but it is one explicit user action at the
+ * moment a rename is being confirmed, not a background cost (HTOO-347).
+ *
+ * It reads in main rather than handing 1045 files to the renderer one IPC call
+ * at a time.
+ *
+ * Archived maps under `.ignore/` are not scanned. They are out of service, so
+ * their warps resolve against nothing either way; the trade is that unarchiving
+ * one later can surface a warp this pass did not fix.
+ */
+export async function scanWarpReferrers(
+  ctx: HandlerContext,
+  libraryPath: string,
+  mapName: string
+): Promise<WarpReferrer[]> {
+  const { dir, active } = await listSection(ctx, libraryPath, 'maps')
+  const referrers: WarpReferrer[] = []
+  for (const rel of active) {
+    let xml: string
+    try {
+      xml = await fs.readFile(join(dir, rel), 'utf8')
+    } catch {
+      continue // unreadable file: not a referrer we can report on
+    }
+    const count = countWarpsTo(xml, mapName)
+    if (count > 0) referrers.push({ file: rel, count })
+  }
+  return referrers
+}
+
+/**
+ * Repoint every warp from `oldName` to `newName`, and report what changed.
+ *
+ * Re-scans rather than trusting a file list from an earlier call, so a file
+ * edited between the preview and the confirmation is treated on its merits.
+ * The write is per file and cannot be made atomic across 40 of them, so the
+ * return value is what *actually* changed — a partial failure has to be
+ * reported precisely rather than implied.
+ */
+export async function updateWarpTargets(
+  ctx: HandlerContext,
+  libraryPath: string,
+  oldName: string,
+  newName: string
+): Promise<{ updated: WarpReferrer[]; failed: string[] }> {
+  const { dir, active } = await listSection(ctx, libraryPath, 'maps')
+  const updated: WarpReferrer[] = []
+  const failed: string[] = []
+  for (const rel of active) {
+    const path = join(dir, rel)
+    try {
+      const xml = await fs.readFile(path, 'utf8')
+      const result = rewriteWarpTargets(xml, oldName, newName)
+      if (result.changed === 0) continue
+      await fs.writeFile(path, result.xml, 'utf8')
+      updated.push({ file: rel, count: result.changed })
+    } catch {
+      failed.push(rel)
+    }
+  }
+  return { updated, failed }
 }
 
 export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
@@ -1561,6 +1640,8 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:readFile', (_, p) => readFile(ctx, p))
   ipcMain.handle('fs:listDir', (_, p) => listDir(ctx, p))
   ipcMain.handle('fs:listSection', (_, p, t) => listSection(ctx, p, t))
+  ipcMain.handle('maps:scanWarpReferrers', (_, p, n) => scanWarpReferrers(ctx, p, n))
+  ipcMain.handle('maps:updateWarpTargets', (_, p, o, n) => updateWarpTargets(ctx, p, o, n))
   ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(ctx, s, d))
   ipcMain.handle('fs:moveFile', (_, s, d) => moveFile(ctx, s, d))
   ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))

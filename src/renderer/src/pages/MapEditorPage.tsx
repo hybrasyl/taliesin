@@ -27,6 +27,7 @@ import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
+import RenameReferrersDialog from '../components/mapeditor/RenameReferrersDialog'
 import SectionFileList from '../components/shared/SectionFileList'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
@@ -409,13 +410,25 @@ export default function MapEditorPage() {
   const [archivedFiles, setArchivedFiles] = useState<FileEntry[]>([])
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null)
   const [editingMap, setEditingMap] = useState<MapData | null>(null)
+  /** A save held open while the user decides what to do about inbound warps. */
+  const [renamePrompt, setRenamePrompt] = useState<{
+    oldName: string
+    newName: string
+    referrers: { file: string; count: number }[]
+    data: MapData
+    fileName: string
+    folder: string
+  } | null>(null)
+  const [renameBusy, setRenameBusy] = useState(false)
   const [loadingMap, setLoadingMap] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [snackbar, setSnackbar] = useState<{
     message: string
-    severity: 'success' | 'error' | 'info'
+    // 'warning' is for outcomes that are neither a success nor a failure —
+    // "saved, but the inbound warps were left alone and here is why".
+    severity: 'success' | 'error' | 'info' | 'warning'
   } | null>(null)
 
   const {
@@ -573,7 +586,7 @@ export default function MapEditorPage() {
   }
   const handleSelect = (file: FileEntry) => guard(() => doSelect(file))
 
-  const handleSave = async (data: MapData, fileName: string, folder: string) => {
+  const writeMap = async (data: MapData, fileName: string, folder: string) => {
     // mapsDir arrives with the first listSection response, so it is null until
     // the list has loaded — there is nothing to save against before then.
     if (!activeLibrary || !mapsDir || !ignoreDir) return
@@ -629,6 +642,102 @@ export default function MapEditorPage() {
         message: `Save failed: ${err instanceof Error ? err.message : String(err)}`,
         severity: 'error'
       })
+    }
+  }
+
+  /**
+   * Save, and offer to repoint the warps that name this map when its Name has
+   * changed.
+   *
+   * A warp stores its destination as a name string and resolves it at traverse
+   * time, so a rename breaks every inbound warp immediately and silently. A
+   * rename is the moment that information is available and cheap to act on
+   * (HTOO-347).
+   *
+   * Nothing is written until the user answers, so the count they see is a
+   * statement about the files as they stand.
+   */
+  const handleSave = async (data: MapData, fileName: string, folder: string) => {
+    const oldName = editingMap?.name.trim() ?? ''
+    const newName = data.name.trim()
+    const renamed =
+      !!selectedFile && !!activeLibrary && !!oldName && !!newName && oldName !== newName
+    if (!renamed) {
+      await writeMap(data, fileName, folder)
+      return
+    }
+
+    // Names are not unique by construction (HTOO-346). With two maps sharing
+    // the old name there is no way to know which referrers meant this one, so
+    // the offer is declined rather than made on a guess.
+    const sharing = (worldIndex?.mapDetails ?? []).filter((m) => m.name.trim() === oldName)
+    if (sharing.length > 1) {
+      await writeMap(data, fileName, folder)
+      setSnackbar({
+        message:
+          `${sharing.length} maps are named "${oldName}", so inbound warps were left alone — ` +
+          'there is no way to tell which of them each warp meant.',
+        severity: 'warning'
+      })
+      return
+    }
+
+    let referrers: { file: string; count: number }[] = []
+    try {
+      referrers = await window.api.scanWarpReferrers(activeLibrary, oldName)
+    } catch {
+      // A failed scan must not block the save; it only costs the offer.
+      await writeMap(data, fileName, folder)
+      setSnackbar({
+        message: 'Could not check which warps point at this map. It was saved unchanged.',
+        severity: 'warning'
+      })
+      return
+    }
+    if (referrers.length === 0) {
+      await writeMap(data, fileName, folder)
+      return
+    }
+    setRenamePrompt({ oldName, newName, referrers, data, fileName, folder })
+  }
+
+  /** Save the pending map, then optionally repoint its referrers. */
+  const resolveRenamePrompt = async (updateReferrers: boolean) => {
+    const prompt = renamePrompt
+    if (!prompt || !activeLibrary) return
+    setRenameBusy(true)
+    try {
+      await writeMap(prompt.data, prompt.fileName, prompt.folder)
+      if (!updateReferrers) return
+      const { updated, failed } = await window.api.updateWarpTargets(
+        activeLibrary,
+        prompt.oldName,
+        prompt.newName
+      )
+      const total = updated.reduce((sum, r) => sum + r.count, 0)
+      // Report what changed, not what was intended: the write is per file and
+      // cannot be atomic across dozens of them.
+      setSnackbar(
+        failed.length > 0
+          ? {
+              message: `Updated ${total} warps in ${updated.length} maps. ${failed.length} could not be written: ${failed.join(', ')}`,
+              severity: 'warning'
+            }
+          : {
+              message: `Updated ${total} ${total === 1 ? 'warp' : 'warps'} in ${updated.length} ${updated.length === 1 ? 'map' : 'maps'}.`,
+              severity: 'success'
+            }
+      )
+      await loadFiles()
+      void refreshWorldIndex()
+    } catch (err) {
+      setSnackbar({
+        message: `Warp update failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    } finally {
+      setRenameBusy(false)
+      setRenamePrompt(null)
     }
   }
 
@@ -781,6 +890,16 @@ export default function MapEditorPage() {
         onSave={handleDialogSave}
         onDiscard={handleDialogDiscard}
         onCancel={handleDialogCancel}
+      />
+      <RenameReferrersDialog
+        open={!!renamePrompt}
+        oldName={renamePrompt?.oldName ?? ''}
+        newName={renamePrompt?.newName ?? ''}
+        referrers={renamePrompt?.referrers ?? []}
+        busy={renameBusy}
+        onUpdate={() => void resolveRenamePrompt(true)}
+        onSkip={() => void resolveRenamePrompt(false)}
+        onCancel={() => setRenamePrompt(null)}
       />
     </Box>
   )

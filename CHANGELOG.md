@@ -29,6 +29,12 @@ record; where they disagree with this file, the git history was taken as authori
   *is* — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
   The generic name builds the filename: `hyb30909 - Tagor Tavern.xml`. It is stored as a comment in
   the XML, the server never reads it, and a map without one keeps exactly the filename it had.
+- **Renaming a map offers to fix the warps that point at it.** A warp finds its destination by
+  name, so changing a map's name used to break every warp into it — silently, and in other files.
+  Taliesin now counts them before the save, lists which maps they are in, and offers to repoint
+  them. You can skip, and it says plainly that the warps stay broken if you do. Sign text that
+  mentions the old name is never touched. If two maps share the old name the offer is not made,
+  because there is no way to tell which warps meant which map.
 - **Ambient sound packs.** A new asset pack type for looping background beds — wind, rain, a river,
   a busy market — separate from sound effects, because a bed plays continuously underneath
   everything else rather than firing once. Add audio files and compile. Each sound gets a number

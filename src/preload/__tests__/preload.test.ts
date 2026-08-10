@@ -91,6 +91,8 @@ describe('Preload ↔ Main IPC contract', () => {
         "index:read",
         "index:status",
         "library:resolve",
+        "maps:scanWarpReferrers",
+        "maps:updateWarpTargets",
         "maximize-window",
         "minimize-window",
         "music:client:scan",

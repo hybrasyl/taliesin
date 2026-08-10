@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 // `require`, which `e2e/preload-sandbox.spec.js` pins.
 import type { CompanionLaunchResult, CompanionStatus } from '../main/companion'
 import type { UpdateInfo } from '../main/updateCheck'
+import type { WarpReferrer } from '../main/handlers'
 
 export interface DirEntry {
   name: string
@@ -121,6 +122,16 @@ const api = {
   listDir: (dirPath: string): Promise<DirEntry[]> => ipcRenderer.invoke('fs:listDir', dirPath),
   listSection: (libraryPath: string, type: string): Promise<SectionListing> =>
     ipcRenderer.invoke('fs:listSection', libraryPath, type),
+  /** Which active map XMLs have warps pointing at `mapName`. */
+  scanWarpReferrers: (libraryPath: string, mapName: string): Promise<WarpReferrer[]> =>
+    ipcRenderer.invoke('maps:scanWarpReferrers', libraryPath, mapName),
+  /** Repoint every warp from `oldName` to `newName`; reports what changed. */
+  updateWarpTargets: (
+    libraryPath: string,
+    oldName: string,
+    newName: string
+  ): Promise<{ updated: WarpReferrer[]; failed: string[] }> =>
+    ipcRenderer.invoke('maps:updateWarpTargets', libraryPath, oldName, newName),
   copyFile: (src: string, dst: string): Promise<void> =>
     ipcRenderer.invoke('fs:copyFile', src, dst),
   moveFile: (src: string, dst: string): Promise<void> =>
