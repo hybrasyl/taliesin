@@ -214,7 +214,11 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     getUserDataPath: async () => handlers.getUserDataPath(handlerCtx),
     revealSettings: async () => undefined,
     appReady: () => undefined,
-    launchCompanion: (p) => handlers.launchCompanion(handlerCtx, p),
+    // Takes no path since HTOO-292: the renderer names the companion, and main
+    // decides what may be launched.
+    launchCompanion: () => handlers.launchCompanion(handlerCtx),
+    companionStatus: () => handlers.companionStatus(handlerCtx),
+    companionPickerFilters: async () => handlers.companionPickerFilters(handlerCtx),
 
     // Report Issue / diagnostics — stubbed; integration tests exercise page
     // state machines, not the diagnostics flow (unit-tested in src/main/report).

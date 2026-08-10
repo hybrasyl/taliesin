@@ -32,6 +32,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **Taliesin finds Creidhne by itself.** The Launch Creidhne button works without visiting
+  Settings: Taliesin looks beside itself first, then at the installed application. Settings now
+  shows where Creidhne was found, and picking one manually is only needed for an unusual install —
+  it is an override you can clear to go back to automatic. Choosing one works on macOS and Linux
+  for the first time; the picker only accepted `.exe` files before, so an application bundle or an
+  AppImage could not be selected at all. A launch that fails now says why instead of doing nothing.
 - **Opening Taliesin twice now brings the open window forward** instead of starting a second copy.
   Two copies shared one settings file and the last one to save won, so a preference changed in one
   window could disappear without a word when the other saved.

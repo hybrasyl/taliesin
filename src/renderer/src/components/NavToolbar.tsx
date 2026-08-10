@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Toolbar, IconButton, Tooltip, Divider, Box, Typography } from '@mui/material'
 import {
   GiCastle,
@@ -57,6 +57,20 @@ const NavToolbar: React.FC = () => {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const companionPath = useSettingsStore((s) => s.companionPath)
+  // Resolved by main, not read from settings: the button must work before anyone
+  // visits Settings, because Creidhne is usually found without being configured
+  // (HTOO-292). Re-asked when the override changes so clearing it is visible.
+  const [companionFound, setCompanionFound] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    window.api
+      .companionStatus()
+      .then((s) => !cancelled && setCompanionFound(!!s.resolved))
+      .catch(() => !cancelled && setCompanionFound(false))
+    return () => {
+      cancelled = true
+    }
+  }, [companionPath])
 
   const nav = (page: Page) => () => setCurrentPage(page)
   const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)
@@ -175,12 +189,12 @@ const NavToolbar: React.FC = () => {
           <GiSettingsKnobs />
         </IconButton>
       </Tooltip>
-      <Tooltip title={companionPath ? 'Launch Creidhne' : 'Set Creidhne path in Settings'}>
+      <Tooltip title={companionFound ? 'Launch Creidhne' : 'Creidhne not found — see Settings'}>
         <span>
           <IconButton
             sx={btnSx}
-            disabled={!companionPath}
-            onClick={() => companionPath && window.api.launchCompanion(companionPath)}
+            disabled={!companionFound}
+            onClick={() => void window.api.launchCompanion()}
           >
             <GiAnvil />
           </IconButton>
