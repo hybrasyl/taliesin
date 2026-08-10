@@ -66,6 +66,12 @@ record; where they disagree with this file, the git history was taken as authori
   scale comes from the renderer itself, so the same map size always draws the same picture.
 - **Stepping quickly through sizes no longer smears two previews together.** A slow render kept
   drawing into the preview after the next one had started.
+- **On the Hybrasyl theme, the selected control is the one that stands out again.** Its accent
+  colour was the same value as the page background, so anything marking itself active — a selected
+  chip, a toggled tool, the "Active" library tag — painted itself the colour of the page and
+  disappeared. The effect was backwards rather than merely faint: the unselected items were the
+  visible ones. The accent is now a legible blue. The other five themes were checked and none had
+  the same fault.
 
 ### Security
 

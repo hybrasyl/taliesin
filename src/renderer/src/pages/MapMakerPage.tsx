@@ -929,9 +929,14 @@ const MapMakerPage: React.FC = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // The `Mui-selected` override that used to live here is gone. It was a local
+  // workaround for the Hybrasyl theme's `primary.main` being the page colour
+  // (HTOO-341) — patched at the leaf instead of the root, and duplicated in
+  // TilePicker. With the palette fixed, MUI's own selected styling is correct,
+  // and a second source of truth for what "selected" looks like is worse than
+  // none.
   const toolBtnSx = {
-    '& .MuiToggleButton-root': { color: 'text.primary', px: 0.75 },
-    '& .MuiToggleButton-root.Mui-selected': { color: 'info.light', bgcolor: 'action.selected' }
+    '& .MuiToggleButton-root': { color: 'text.primary', px: 0.75 }
   } as const
 
   return (
