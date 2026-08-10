@@ -27,6 +27,8 @@ const shortcuts = [
   { key: 'Delete', action: 'Clear selection' },
   { key: 'Escape', action: 'Cancel / deselect' },
   { key: '', action: '' },
+  { key: 'Ctrl+W', action: 'Close tab' },
+  { key: '', action: '' },
   { key: 'Ctrl+Z', action: 'Undo' },
   { key: 'Ctrl+Y', action: 'Redo' },
   { key: 'Ctrl+S', action: 'Save' },

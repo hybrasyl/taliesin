@@ -22,9 +22,23 @@ interface Props {
   libraryPath: string | null
   onStampPrefab: (prefab: Prefab) => void
   onStatus: (msg: string) => void
+  /**
+   * Reports which prefab is loaded, so the page's `P` hotkey can stamp it.
+   *
+   * The selection stays here — it is this list's own state — and only the
+   * loaded payload is published. The alternative was lifting `selected` and
+   * the load effect into the page, which moves more code to reach the same
+   * one value (HTOO-342).
+   */
+  onLoadedPrefabChange?: (prefab: Prefab | null) => void
 }
 
-const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }) => {
+const PrefabSidebar: React.FC<Props> = ({
+  libraryPath,
+  onStampPrefab,
+  onStatus,
+  onLoadedPrefabChange
+}) => {
   const clientPath = useSettingsStore((s) => s.clientPath)
   const [prefabs, setPrefabs] = useState<PrefabSummary[]>([])
   const [filter, setFilter] = useState('')
@@ -59,6 +73,13 @@ const PrefabSidebar: React.FC<Props> = ({ libraryPath, onStampPrefab, onStatus }
       .then((data) => setLoadedPrefab(data as Prefab))
       .catch(() => setLoadedPrefab(null))
   }, [libraryPath, selected])
+
+  // Publish the loaded prefab upward, and withdraw it when this sidebar closes
+  // — the page must not stamp something the user can no longer see.
+  useEffect(() => {
+    onLoadedPrefabChange?.(loadedPrefab)
+  }, [loadedPrefab, onLoadedPrefabChange])
+  useEffect(() => () => onLoadedPrefabChange?.(null), [onLoadedPrefabChange])
 
   // Load isometric tile assets when client path is set
   useEffect(() => {
