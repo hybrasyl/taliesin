@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Box, Tabs, Tab, Typography, Button, Alert, LinearProgress } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import { useSettingsStore } from '../store/settingsStore'
@@ -8,7 +8,6 @@ import {
   needsEnrichment
 } from '../hooks/useMusicLibrary'
 import { useMusicPacks } from '../hooks/useMusicPacks'
-import { useWorldIndex } from '../hooks/useWorldIndex'
 import MusicList from '../components/music/MusicList'
 import MusicMetaEditor from '../components/music/MusicMetaEditor'
 import MusicPlayer from '../components/music/MusicPlayer'
@@ -26,19 +25,11 @@ const MusicPage: React.FC = () => {
   const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
   const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
-  // World index for map cross-reference (reads activeLibraryState internally)
-  const { index: worldIndex } = useWorldIndex()
 
-  // Derive map details with music field from world index
-  const mapDetailsWithMusic = useMemo(() => {
-    if (!worldIndex) return null
-    return worldIndex.mapDetails.map((md) => ({
-      name: md.name,
-      // music field is on MapData in map XML, not in mapDetails directly —
-      // will be null until we add music to the index; show empty for now
-      music: undefined as number | undefined
-    }))
-  }, [worldIndex])
+  // The world index is deliberately not loaded here. It was read only to build a
+  // map cross-reference that could never resolve — mapDetails carries no `music`
+  // field — so the page paid for an index load and showed an empty answer that
+  // looked like a real one. See HTOO-169.
 
   // Library hook
   const lib = useMusicLibrary(musicLibraryPath)
@@ -97,13 +88,6 @@ const MusicPage: React.FC = () => {
     await window.api.copyFile(filePath, dest)
     await lib.scan()
   }, [musicLibraryPath, lib])
-
-  // Map cross-reference: which maps use this track's music ID
-  const usedByMaps = useMemo(() => {
-    if (!lib.selectedEntry || lib.selectedEntry.musicId === null || !worldIndex) return []
-    // mapDetails don't include music field yet — placeholder for when index is extended
-    return []
-  }, [lib.selectedEntry, worldIndex])
 
   const handleAddToSelectedPack = useCallback(
     (filename: string) => {
@@ -286,7 +270,6 @@ const MusicPage: React.FC = () => {
                       meta={lib.selectedMeta}
                       draft={lib.draft}
                       dirty={lib.dirty}
-                      usedByMaps={usedByMaps}
                       onUpdate={lib.updateDraft}
                       onSave={lib.save}
                       onPlay={() => {
@@ -368,7 +351,6 @@ const MusicPage: React.FC = () => {
           <Box sx={{ flex: 1, overflow: 'hidden' }}>
             <ClientMusicView
               clientPath={clientPath}
-              mapDetails={mapDetailsWithMusic}
               playingFile={playingFile}
               isPlaying={isPlaying}
               onPlay={handlePlayAbsolute}
