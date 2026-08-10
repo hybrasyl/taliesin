@@ -80,6 +80,12 @@ suite is simply never collected and vitest still reports success).
   is **flat** (`window.api.loadSettings()`, `window.api.saveSettings()`, `window.api.appReady()`).
 - **`pathSafety.ts`**: validate every renderer-supplied path against allowed roots before touching
   the FS. Never trust a path from the renderer.
+- **Every IPC channel accounts for its payload.** A new handler either parses it —
+  `parseOrLog(ctx, '<channel>', <schema>, payload)`, schemas in `src/main/schemas/` — or is added
+  to `EXEMPT` in `src/main/__tests__/ipcSchemaCoverage.test.ts` with a category and a reason.
+  That test reads `handlers.ts` and fails on an unclassified channel, so this is a decision you
+  make, not one you can skip. The channel argument must be a **literal**; a variable is invisible
+  to the check. The rule is whether the payload is written or executed, not whether it is a string.
 - **Settings** live under `%LOCALAPPDATA%\Erisco\Taliesin` (win32 resolves `LOCALAPPDATA`
   directly; a legacy `%APPDATA%` dir is migrated on first run). `settingsStore` owns a **hydration
   gate**: persistence is blocked until the first disk load completes (guards against HMR /

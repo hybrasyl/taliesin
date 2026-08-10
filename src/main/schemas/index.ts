@@ -10,6 +10,12 @@
  * No matching schema is needed on the load side — load handlers return
  * data we wrote ourselves earlier, and their existing try/catch returns an
  * empty shape on read failure.
+ *
+ * `args.ts` is the exception to the "one file per saved artefact" rule: it
+ * holds the channels whose payload is an argument rather than a document
+ * (bytes, dialog options, encode parameters). See its own header for why those
+ * fail differently, and `__tests__/ipcSchemaCoverage.test.ts` for the check
+ * that keeps every registered channel accounted for.
  */
 
 export * from './settings'
@@ -21,3 +27,4 @@ export * from './catalog'
 export * from './sfx'
 export * from './theme'
 export * from './diagnostics'
+export * from './args'

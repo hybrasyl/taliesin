@@ -1,5 +1,8 @@
 # Plan — Schema validation across the IPC surface
 
+> **Complete (HTOO-162).** What shipped, and the two places it differs from the
+> plan below, are recorded at the foot of this document.
+
 ## Goal
 
 Close out follow-up #4 from
@@ -250,3 +253,40 @@ Doing roots first is the lower-churn split.
   roots phase if bundled.
 - Phase 4: ~half a day (logging hook + rotation).
 - Total: ~3 days standalone, ~2 days bundled with the roots plan.
+
+## What shipped, against this plan
+
+Closed by HTOO-162. The document payloads and the logging hook landed earlier;
+the last pass added the argument-shaped payloads and the thing that keeps the
+sweep swept.
+
+**Every registered channel now has a recorded answer** to "what validates its
+payload": either a `parseOrLog` call, or an entry in `EXEMPT` in
+`src/main/__tests__/ipcSchemaCoverage.test.ts` giving a category and a reason.
+That test reads `handlers.ts`, so adding a handler without a decision fails the
+suite by name, and deleting one fails on the stale exempt entry.
+
+Two deliberate departures from the plan above.
+
+**Schemas live in `src/main/schemas/`, not beside the type definitions in
+`src/data/`, and the renderer does not import them.** The plan's mitigation for
+renderer–main drift was to parse on both sides. That would put zod in the
+renderer bundle to re-check a payload the renderer just built, and the drift it
+guards against is caught by the handler tests instead. `z.infer<>` did not become
+the source of truth for the TS types for the same reason — the interfaces are
+shared with renderer code that must not import a main-process module.
+
+**A third category of "needs no schema" turned out to matter.** The plan
+recognised path arguments (owned by `pathSafety`) and complex payloads. In
+between sits an argument that is neither: a lookup key into an in-memory
+structure, where a wrong key finds nothing and writes nothing. Those are exempt
+as `registry-key`, and the distinction is stated so a later reader can disagree
+with a specific claim rather than with an omission.
+
+**The rule that decides the boundary is "does the payload get written or
+executed", not "is it a string".** That is what moved `maps:updateWarpTargets`
+out of the path-only group: its arguments are map _names_, not paths, and they
+are rewritten into every matching map XML — a non-string would have been coerced
+into the document across dozens of files. `fs:writeFile` is the same shape and
+the sharpest case in the app: `fs.writeFile` coerces its data argument, so an
+object landed on disk as `[object Object]` and the write reported success.

@@ -13,7 +13,14 @@ import {
   packCompileFilenamesSchema,
   catalogDataSchema,
   sfxIndexSchema,
-  tileThemeSchema
+  tileThemeSchema,
+  fileDialogArgsSchema,
+  bytesSchema,
+  textContentSchema,
+  dirPathListSchema,
+  mapNameSchema,
+  packImportOptionsSchema,
+  encodeParamsSchema
 } from '../schemas'
 
 const validSettings = {
@@ -359,5 +366,127 @@ describe('tileThemeSchema', () => {
 
   it('rejects a non-integer tile id', () => {
     expect(() => tileThemeSchema.parse({ ...validTheme, primaryGround: 1.5 })).toThrow()
+  })
+})
+
+// ── Argument-shaped payloads (schemas/args.ts) ───────────────────────────────
+
+describe('fileDialogArgsSchema', () => {
+  it('accepts both fields absent — every dialog has a working default', () => {
+    expect(() => fileDialogArgsSchema.parse({})).not.toThrow()
+    expect(() =>
+      fileDialogArgsSchema.parse({ filters: undefined, defaultPath: undefined })
+    ).not.toThrow()
+  })
+
+  it('accepts a real filter list', () => {
+    expect(() =>
+      fileDialogArgsSchema.parse({
+        filters: [{ name: 'PNG Image', extensions: ['png'] }],
+        defaultPath: 'map.png'
+      })
+    ).not.toThrow()
+  })
+
+  it('rejects a filter missing its extensions', () => {
+    expect(() => fileDialogArgsSchema.parse({ filters: [{ name: 'PNG Image' }] })).toThrow()
+  })
+
+  it('rejects a filter list that is not a list', () => {
+    expect(() => fileDialogArgsSchema.parse({ filters: { name: 'x', extensions: [] } })).toThrow()
+  })
+})
+
+describe('bytesSchema', () => {
+  it('accepts a Uint8Array, and a Buffer as a subclass of one', () => {
+    expect(() => bytesSchema.parse(new Uint8Array([1, 2, 3]))).not.toThrow()
+    expect(() => bytesSchema.parse(Buffer.from([1, 2, 3]))).not.toThrow()
+  })
+
+  it('rejects a plain array of numbers', () => {
+    // The near-miss worth naming: it looks like bytes, indexes like bytes, and
+    // Buffer.from would happily accept it — but nothing in the app sends this
+    // shape, so accepting it would widen the contract for no caller.
+    expect(() => bytesSchema.parse([1, 2, 3])).toThrow()
+  })
+
+  it('rejects a string', () => {
+    expect(() => bytesSchema.parse('not bytes')).toThrow()
+  })
+})
+
+describe('textContentSchema', () => {
+  it('accepts any string, including an empty one', () => {
+    expect(() => textContentSchema.parse('')).not.toThrow()
+    expect(() => textContentSchema.parse('<Map/>')).not.toThrow()
+  })
+
+  it('rejects an object — the case that would otherwise write "[object Object]"', () => {
+    expect(() => textContentSchema.parse({ xml: '<Map/>' })).toThrow()
+  })
+})
+
+describe('dirPathListSchema', () => {
+  it('accepts a list of paths, and an empty list', () => {
+    expect(() => dirPathListSchema.parse([])).not.toThrow()
+    expect(() => dirPathListSchema.parse(['/a', '/b'])).not.toThrow()
+  })
+
+  it('rejects a bare string rather than treating it as one path', () => {
+    expect(() => dirPathListSchema.parse('/a')).toThrow()
+  })
+})
+
+describe('mapNameSchema', () => {
+  it('accepts a map name', () => {
+    expect(() => mapNameSchema.parse('Tagor Tavern')).not.toThrow()
+  })
+
+  it('rejects an empty name', () => {
+    // Not pedantry: rewriting every warp to point at "" rewrites the same files
+    // just as destructively as a wrong name would.
+    expect(() => mapNameSchema.parse('')).toThrow()
+  })
+
+  it('rejects a non-string', () => {
+    expect(() => mapNameSchema.parse(42)).toThrow()
+  })
+})
+
+describe('packImportOptionsSchema', () => {
+  it('accepts absent options', () => {
+    expect(() => packImportOptionsSchema.parse(undefined)).not.toThrow()
+  })
+
+  it('accepts { force: true }', () => {
+    expect(() => packImportOptionsSchema.parse({ force: true })).not.toThrow()
+  })
+
+  it('rejects a non-boolean force', () => {
+    expect(() => packImportOptionsSchema.parse({ force: 'yes' })).toThrow()
+  })
+})
+
+describe('encodeParamsSchema', () => {
+  it('accepts the values the Settings UI offers', () => {
+    expect(() => encodeParamsSchema.parse({ kbps: 64, sampleRate: 22050 })).not.toThrow()
+    expect(() => encodeParamsSchema.parse({ kbps: 192, sampleRate: 44100 })).not.toThrow()
+  })
+
+  it('accepts a hand-edited value outside the menu but inside the bounds', () => {
+    // The bounds exist to reject what cannot be an encode parameter, not to
+    // re-litigate the menu — settings.json is a file a user can edit.
+    expect(() => encodeParamsSchema.parse({ kbps: 96, sampleRate: 48000 })).not.toThrow()
+  })
+
+  it('rejects a missing or non-numeric value', () => {
+    expect(() => encodeParamsSchema.parse({ kbps: undefined, sampleRate: 22050 })).toThrow()
+    expect(() => encodeParamsSchema.parse({ kbps: '64', sampleRate: 22050 })).toThrow()
+  })
+
+  it('rejects values that would produce a nonsense ffmpeg argument', () => {
+    expect(() => encodeParamsSchema.parse({ kbps: 0, sampleRate: 22050 })).toThrow()
+    expect(() => encodeParamsSchema.parse({ kbps: 64, sampleRate: 5 })).toThrow()
+    expect(() => encodeParamsSchema.parse({ kbps: 64.5, sampleRate: 22050 })).toThrow()
   })
 })

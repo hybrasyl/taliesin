@@ -1114,6 +1114,24 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     expect(files.has('/dest/leftover.mus')).toBe(false)
   })
 
+  it('rejects a non-numeric encode parameter before clearing the destination', async () => {
+    // The encode values reach ffmpeg as `-b:a <n>k` and `-ar <n>`. They come
+    // from settings.json, which a user can hand-edit, and a bad one produced
+    // "undefinedk" — an argument ffmpeg rejects one layer too late to name the
+    // setting behind it. The destination-clearing assertion is the point: this
+    // has to fail before the deploy destroys what is already there.
+    files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
+    files.set('/lib/song1.mp3', Buffer.from('S1'))
+    files.set('/lib/song2.mp3', Buffer.from('S2'))
+
+    await expect(
+      invoke('music:deploy-pack', '/lib', pack, '/dest', null, undefined, 22050)
+    ).rejects.toThrow(/Invalid music:deploy-pack:encode payload/)
+
+    expect(files.has('/dest/leftover.mus')).toBe(true)
+    expect(childProcess.execFile).not.toHaveBeenCalled()
+  })
+
   it('throws without touching the destination when a source file is missing', async () => {
     files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
     files.set('/lib/song1.mp3', Buffer.from('S1'))
@@ -1517,7 +1535,26 @@ describe('Schema rejection at IPC boundary', () => {
         }
       ]
     ],
-    ['theme:save', ['x.json', { name: 'X' /* missing all tile fields */ }]]
+    ['theme:save', ['x.json', { name: 'X' /* missing all tile fields */ }]],
+    // Argument-shaped payloads (schemas/args.ts). These fail differently from
+    // the document payloads above — several would not have thrown at all.
+    [
+      'fs:writeFile',
+      [
+        '/lib/world/xml/maps/a.xml',
+        { xml: '<Map/>' } /* would write
+      "[object Object]" over a real file */
+      ]
+    ],
+    ['fs:writeBytes', ['/lib/world/xml/maps/a.map', [1, 2, 3] /* array, not bytes */]],
+    ['bik:convert', ['not-bytes', null, '/lib/cache']],
+    ['tileScan:analyze', ['/lib/world/mapfiles' /* a path, not a list of them */]],
+    ['maps:scanWarpReferrers', ['/lib/world/xml', '' /* empty name matches nothing */]],
+    ['maps:updateWarpTargets', ['/lib/world/xml', 'Old Name', 42 /* would be coerced into XML */]],
+    ['dialog:openFile', [[{ name: 'PNG' /* no extensions */ }]]],
+    ['dialog:openFiles', [[{ extensions: ['png'] /* no name */ }]]],
+    ['dialog:saveFile', [{ name: 'PNG', extensions: ['png'] } /* not a list */]],
+    ['pack:import', ['/p/x.datf', '/p', { force: 'yes' }]]
   ]
 
   it.each(cases)(

@@ -61,7 +61,14 @@ import {
   tileThemeSchema,
   rendererErrorSchema,
   openIssueSchema,
-  copyReportSchema
+  copyReportSchema,
+  fileDialogArgsSchema,
+  bytesSchema,
+  textContentSchema,
+  dirPathListSchema,
+  mapNameSchema,
+  packImportOptionsSchema,
+  encodeParamsSchema
 } from './schemas'
 import { buildDiagnostics, openIssue, copyReport, revealLogs } from './report/diagnostics'
 import { captureError } from './report/sessionLog'
@@ -417,8 +424,9 @@ export interface WarpReferrer {
 export async function scanWarpReferrers(
   ctx: HandlerContext,
   libraryPath: string,
-  mapName: string
+  rawMapName: unknown
 ): Promise<WarpReferrer[]> {
+  const mapName = parseOrLog(ctx, 'maps:scanWarpReferrers', mapNameSchema, rawMapName)
   const { dir, active } = await listSection(ctx, libraryPath, 'maps')
   const referrers: WarpReferrer[] = []
   for (const rel of active) {
@@ -446,9 +454,14 @@ export async function scanWarpReferrers(
 export async function updateWarpTargets(
   ctx: HandlerContext,
   libraryPath: string,
-  oldName: string,
-  newName: string
+  rawOldName: unknown,
+  rawNewName: unknown
 ): Promise<{ updated: WarpReferrer[]; failed: string[] }> {
+  // Validated before the scan, not inside the write loop: this rewrites dozens
+  // of files, and a payload worth rejecting must be rejected before the first
+  // one is touched rather than halfway through.
+  const oldName = parseOrLog(ctx, 'maps:updateWarpTargets', mapNameSchema, rawOldName)
+  const newName = parseOrLog(ctx, 'maps:updateWarpTargets', mapNameSchema, rawNewName)
   const { dir, active } = await listSection(ctx, libraryPath, 'maps')
   const updated: WarpReferrer[] = []
   const failed: string[] = []
@@ -503,21 +516,26 @@ export async function moveFile(ctx: HandlerContext, src: string, dst: string): P
 export async function writeFile(
   ctx: HandlerContext,
   filePath: string,
-  content: string
+  content: unknown
 ): Promise<void> {
+  // The one channel where a wrong type does not throw: fs.writeFile coerces its
+  // data argument, so an object would land on disk as "[object Object]" and the
+  // write would report success -- over a real file the renderer named.
+  const text = parseOrLog(ctx, 'fs:writeFile', textContentSchema, content)
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
   await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, content, 'utf-8')
+  await fs.writeFile(safe, text, 'utf-8')
 }
 
 export async function writeBytes(
   ctx: HandlerContext,
   filePath: string,
-  data: Uint8Array
+  data: unknown
 ): Promise<void> {
+  const bytes = parseOrLog(ctx, 'fs:writeBytes', bytesSchema, data)
   const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
   await fs.mkdir(dirname(safe), { recursive: true })
-  await fs.writeFile(safe, Buffer.from(data))
+  await fs.writeFile(safe, Buffer.from(bytes))
 }
 
 export async function exists(ctx: HandlerContext, filePath: string): Promise<boolean> {
@@ -792,10 +810,18 @@ export async function musicDeployPack(
   pack: unknown,
   destDir: string,
   ffmpegPath: string | null,
-  musEncodeKbps: number,
-  musEncodeSampleRate: number
+  musEncodeKbps: unknown,
+  musEncodeSampleRate: unknown
 ): Promise<void> {
   const parsedPack = parseOrLog(ctx, 'music:deploy-pack', deployPackSchema, pack) as DeployPack
+  // These become ffmpeg's `-b:a <n>k` and `-ar <n>`. execFile passes an argv
+  // array, so there is no shell to inject into -- the failure mode is an
+  // unusable argument like "undefinedk", which ffmpeg rejects one layer too
+  // late to name the setting that caused it.
+  const encode = parseOrLog(ctx, 'music:deploy-pack:encode', encodeParamsSchema, {
+    kbps: musEncodeKbps,
+    sampleRate: musEncodeSampleRate
+  })
   const ffmpegBin = ffmpegPath || 'ffmpeg'
   const safeSrcLib = assertInsideAnyRoot(allRoots(ctx), srcLibDir)
   const safeDest = assertInsideAnyRoot(allRoots(ctx), destDir)
@@ -835,7 +861,7 @@ export async function musicDeployPack(
   const { parseBuffer } = await import('music-metadata')
   await Promise.all(
     resolved.map((r) =>
-      deployTrackFn(parseBuffer, r.src, r.dst, ffmpegBin, musEncodeKbps, musEncodeSampleRate)
+      deployTrackFn(parseBuffer, r.src, r.dst, ffmpegBin, encode.kbps, encode.sampleRate)
     )
   )
   const manifest = {
@@ -929,13 +955,14 @@ export async function sfxIndexSave(
  */
 export async function bikConvert(
   ctx: HandlerContext,
-  bytes: Uint8Array,
+  bytes: unknown,
   ffmpegPath: string | null,
   cacheDir: string
 ): Promise<string> {
+  const video = parseOrLog(ctx, 'bik:convert', bytesSchema, bytes)
   const ffmpegBin = ffmpegPath || 'ffmpeg'
   const safeCache = assertInsideAnyRoot(allRoots(ctx), cacheDir)
-  const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 32)
+  const hash = createHash('sha256').update(video).digest('hex').slice(0, 32)
   await fs.mkdir(safeCache, { recursive: true })
   // assertInside guards against a malicious cacheDir + hash combination escaping
   // the cache root; hash is 32 hex chars from createHash so this should always
@@ -949,7 +976,7 @@ export async function bikConvert(
   }
 
   const bikPath = assertInside(safeCache, `${hash}.bik`)
-  await fs.writeFile(bikPath, Buffer.from(bytes))
+  await fs.writeFile(bikPath, Buffer.from(video))
   try {
     await execFileAsync(ffmpegBin, [
       '-y',
@@ -1238,8 +1265,9 @@ export async function packImport(
   ctx: HandlerContext,
   datfPath: string,
   packDir: string,
-  options?: { force?: boolean }
+  rawOptions?: unknown
 ): Promise<PackImportResult> {
+  const options = parseOrLog(ctx, 'pack:import:options', packImportOptionsSchema, rawOptions)
   const safeDatf = assertInsideAnyRoot(allRoots(ctx), datfPath)
   const safePackDir = assertInsideAnyRoot(allRoots(ctx), packDir)
   if (!safeDatf.toLowerCase().endsWith('.datf')) {
@@ -1434,7 +1462,8 @@ export async function frameScan(ctx: HandlerContext, packDir: string): Promise<s
 
 // ── Tile frequency scanner ──────────────────────────────────────────────────
 
-export async function tileScanAnalyze(ctx: HandlerContext, dirPaths: string[]) {
+export async function tileScanAnalyze(ctx: HandlerContext, rawDirPaths: unknown) {
+  const dirPaths = parseOrLog(ctx, 'tileScan:analyze', dirPathListSchema, rawDirPaths)
   const bgFreq = new Map<number, number>()
   const lfgFreq = new Map<number, number>()
   const rfgFreq = new Map<number, number>()
@@ -1598,49 +1627,53 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A
   // handlers without a separate "set active" round-trip.
-  ipcMain.handle(
-    'dialog:openFile',
-    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
-      const r = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
-        ...(defaultPath ? { defaultPath } : {})
-      })
-      const picked = r.filePaths[0] ?? null
-      blessRoot(ctx, picked)
-      return picked
-    }
-  )
-  ipcMain.handle(
-    'dialog:openFiles',
-    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
-      const r = await dialog.showOpenDialog({
-        properties: ['openFile', 'multiSelections'],
-        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
-        ...(defaultPath ? { defaultPath } : {})
-      })
-      for (const p of r.filePaths) blessRoot(ctx, p)
-      return r.filePaths
-    }
-  )
+  // Both dialog arguments are optional and validated together, so a rejection
+  // names the dialog that was asked for. Electron throws from inside
+  // showOpenDialog on a malformed filter list, which reaches the user as a
+  // dialog that never opens and an error naming none of our own code.
+  //
+  // The three calls are spelled out with literal channel names rather than
+  // routed through one helper taking `channel` as a parameter. That is not
+  // duplication for its own sake: ipcSchemaCoverage.test.ts reads THIS file and
+  // matches `parseOrLog(ctx, '<channel>'`, so a variable channel name is
+  // invisible to it and these three would read as unvalidated.
+  ipcMain.handle('dialog:openFile', async (_, filters?: unknown, defaultPath?: unknown) => {
+    const a = parseOrLog(ctx, 'dialog:openFile', fileDialogArgsSchema, { filters, defaultPath })
+    const r = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
+      ...(a.defaultPath ? { defaultPath: a.defaultPath } : {})
+    })
+    const picked = r.filePaths[0] ?? null
+    blessRoot(ctx, picked)
+    return picked
+  })
+  ipcMain.handle('dialog:openFiles', async (_, filters?: unknown, defaultPath?: unknown) => {
+    const a = parseOrLog(ctx, 'dialog:openFiles', fileDialogArgsSchema, { filters, defaultPath })
+    const r = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
+      ...(a.defaultPath ? { defaultPath: a.defaultPath } : {})
+    })
+    for (const p of r.filePaths) blessRoot(ctx, p)
+    return r.filePaths
+  })
   ipcMain.handle('dialog:openDirectory', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     const picked = r.filePaths[0] ?? null
     blessRoot(ctx, picked)
     return picked
   })
-  ipcMain.handle(
-    'dialog:saveFile',
-    async (_, filters?: Electron.FileFilter[], defaultPath?: string) => {
-      const r = await dialog.showSaveDialog({
-        filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
-        defaultPath: defaultPath ?? undefined
-      })
-      const picked = r.filePath ?? null
-      blessRoot(ctx, picked)
-      return picked
-    }
-  )
+  ipcMain.handle('dialog:saveFile', async (_, filters?: unknown, defaultPath?: unknown) => {
+    const a = parseOrLog(ctx, 'dialog:saveFile', fileDialogArgsSchema, { filters, defaultPath })
+    const r = await dialog.showSaveDialog({
+      filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
+      defaultPath: a.defaultPath ?? undefined
+    })
+    const picked = r.filePath ?? null
+    blessRoot(ctx, picked)
+    return picked
+  })
 
   // Filesystem
   ipcMain.handle('fs:readFile', (_, p) => readFile(ctx, p))
