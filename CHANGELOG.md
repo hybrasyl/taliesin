@@ -23,6 +23,17 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Determine Map Dimensions dialog stops growing.** Stepping through candidate sizes made the
+  dialog taller on every step, without bound — it never settled and never came back down. The
+  preview asked for a scale that fit the box, but worked it out from a slightly shorter map than
+  the one actually drawn, so each render came back taller than the box it had just measured. The
+  box grew, and the next step measured the larger box. The preview is now a fixed size and the
+  scale comes from the renderer itself, so the same map size always draws the same picture.
+- **Stepping quickly through sizes no longer smears two previews together.** A slow render kept
+  drawing into the preview after the next one had started.
+
 ## [2.9.0] - 2026-08-01
 
 ### Added
