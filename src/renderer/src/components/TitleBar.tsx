@@ -86,7 +86,15 @@ const TitleBar: React.FC = () => {
           filter: plain ? 'none' : `drop-shadow(${DEPTH})`
         }}
       />
+      {/* The e2e specs read this element's computed text-shadow to tell the two
+          chrome styles apart: the plain/corporate themes set it to `none` and
+          the four stylized ones paint the keyline+depth stack. It is the only
+          part of the PLAIN_CHROME_THEMES branch a spec can observe in a
+          PRODUCTION build -- MUI strips the data-testid it puts on its own icons
+          when NODE_ENV is production, so `plain ? <CloseIcon/> : <GiDeathSkull/>`
+          is not selectable there (HTOO-173/174). */}
       <Typography
+        data-testid="app-title"
         variant="h6"
         sx={{
           fontWeight: 'bold',

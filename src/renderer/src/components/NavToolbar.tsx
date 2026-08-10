@@ -185,7 +185,11 @@ const NavToolbar: React.FC = () => {
         </IconButton>
       </Tooltip>
       <Tooltip title="Settings">
-        <IconButton sx={sx('settings')} onClick={nav('settings')}>
+        {/* The only nav button with a testid, because the e2e specs are the only
+            thing that selects one and they only need this page. The rest get one
+            when a spec needs them -- a testid with no spec behind it is an
+            untested claim about what matters (HTOO-174). */}
+        <IconButton data-testid="nav-settings" sx={sx('settings')} onClick={nav('settings')}>
           <GiSettingsKnobs />
         </IconButton>
       </Tooltip>
