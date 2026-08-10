@@ -37,20 +37,27 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
   existing `settings.json` is not clobbered with defaults on startup (the hydration gate).
 - **`theme-switch.spec.js`** — all six themes apply with no `pageerror`, each repaints, and the
   `PLAIN_CHROME_THEMES` branch swaps the title bar chrome.
+- **`pack-filesystem.spec.js`** — a write-effecting IPC flow against a temp dir: creating a pack
+  writes its project file and asset directory through `pack:save` + `fs:ensureDir`, and a path
+  outside every allowed root is refused. Seeding `packDir` in settings makes it an allowed root
+  (`applySettingsRoots`), which is what keeps the OS directory picker out of the way.
 
 ## Adapting / extending
 
 - **`USERDATA_SUBPATH`** in `helpers.js` matches `src/main/index.ts`'s userData dir
   (`['Erisco', 'Taliesin']`).
 - The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` and
-  `app-title` (TitleBar), `nav-settings` (NavToolbar), `settings-page` (SettingsPage) and
-  `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a
-  sweep — a testid with no spec behind it is an untested claim about what matters.
+  `app-title` (TitleBar), `nav-settings` / `nav-assetpacks` (NavToolbar), `settings-page`
+  (SettingsPage) and `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec
+  needs it, not as a sweep — a testid with no spec behind it is an untested claim about what
+  matters.
+- **Prefer a role or label selector where one exists**; reach for a testid when it does not. If a
+  control has no accessible name to select by, that is usually worth fixing rather than working
+  around — `pack-filesystem.spec.js` turned up a `Select` with no `labelId`, which screen readers
+  announced as its value alone.
 - **Selecting on MUI's own icon testids does not work here.** `createSvgIcon` emits
   `data-testid="CloseIcon"` only when `NODE_ENV !== 'production'`, and these specs run against a
   production build. The jsdom unit suite can use them; e2e cannot.
-- **Still open:** filesystem-effecting IPC flows against a temp directory — the handlers
-  `pathSafety` protects, none of which is covered end to end. `epona/e2e/` has a reference.
 - **Not applicable here:** window-geometry invariants across a relaunch. Taliesin does not
   persist window bounds; `createWindow` opens at a fixed 1280×800 every time and only `maximize`
   touches geometry. There is nothing to survive a restart, so that spec would assert a constant.
