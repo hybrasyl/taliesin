@@ -263,6 +263,8 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     readFile: (p) => handlers.readFile(handlerCtx, p),
     listDir: (p) => handlers.listDir(handlerCtx, p),
     listSection: (p, t) => handlers.listSection(handlerCtx, p, t),
+    scanWarpReferrers: (p, n) => handlers.scanWarpReferrers(handlerCtx, p, n),
+    updateWarpTargets: (p, o, n) => handlers.updateWarpTargets(handlerCtx, p, o, n),
     copyFile: (s, d) => handlers.copyFile(handlerCtx, s, d),
     moveFile: (s, d) => handlers.moveFile(handlerCtx, s, d),
     writeFile: (p, c) => handlers.writeFile(handlerCtx, p, c),

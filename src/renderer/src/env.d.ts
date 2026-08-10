@@ -40,6 +40,13 @@ declare global {
    * type-relative and *is* the `<type>NamesByFilename` / `MapDetail.filename`
    * index key, so names look up directly with no `.ignore/` prefix handling.
    */
+  interface WarpReferrer {
+    /** Path relative to the maps section. */
+    file: string
+    /** How many of its warps point at the name scanned for. */
+    count: number
+  }
+
   interface SectionListing {
     dir: string
     active: string[]
@@ -157,6 +164,12 @@ declare global {
     readFile: (filePath: string) => Promise<Buffer>
     listDir: (dirPath: string) => Promise<DirEntry[]>
     listSection: (libraryPath: string, type: string) => Promise<SectionListing>
+    scanWarpReferrers: (libraryPath: string, mapName: string) => Promise<WarpReferrer[]>
+    updateWarpTargets: (
+      libraryPath: string,
+      oldName: string,
+      newName: string
+    ) => Promise<{ updated: WarpReferrer[]; failed: string[] }>
     copyFile: (src: string, dst: string) => Promise<void>
     moveFile: (src: string, dst: string) => Promise<void>
     writeFile: (filePath: string, content: string) => Promise<void>
