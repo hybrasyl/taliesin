@@ -47,11 +47,13 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk'
 import GridOnIcon from '@mui/icons-material/GridOn'
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined'
+import MyLocationIcon from '@mui/icons-material/MyLocation'
 import EditorHeader from '../shared/EditorHeader'
 import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import { ItemsGroup } from '../shared/ItemsGroup'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
+import SubzoneReferenceDialog from './SubzoneReferenceDialog'
 import MapRenderCanvas, { MARKER_COLOR, type MapMarker, type MarkerKind } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
@@ -595,6 +597,7 @@ function MapFieldsTab({
 }) {
   const mapDirectory = useMapFilesDirectory()
   const clientPath = useSettingsStore((s) => s.clientPath)
+  const [subzoneRefOpen, setSubzoneRefOpen] = useState(false)
 
   const set = <K extends keyof MapData>(key: K, value: MapData[K]) =>
     onChange({ [key]: value } as Partial<MapData>)
@@ -689,9 +692,21 @@ function MapFieldsTab({
     <Box sx={{ overflow: 'auto', flex: 1 }}>
       {/* Properties */}
       <Paper variant="outlined" sx={{ mb: 1, p: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-          Properties
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+          <Typography variant="subtitle2">Properties</Typography>
+          {/* A town map's id says what the map is; that has been knowledge
+              builders carry in their heads. See data/townSubzones.ts. */}
+          <Tooltip title="Town subzone reference">
+            <IconButton size="small" onClick={() => setSubzoneRefOpen(true)}>
+              <HelpOutlineOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <SubzoneReferenceDialog
+          open={subzoneRefOpen}
+          mapId={data.id}
+          onClose={() => setSubzoneRefOpen(false)}
+        />
 
         {/* Row 1: Name + Generic Name + Map ID (locked by default) */}
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'flex-start' }}>
@@ -1344,17 +1359,22 @@ function MapPlacementTab({
               size="small"
               clickable
               /*
-               * `success`, not `primary`. The armed state is the only thing
-               * telling the user that clicking the map will place something, and
-               * it has to be unmistakable across all six themes — `success.main`
-               * is the brightest entry in every palette (`#38ff4f` on the four
-               * fantasy themes) where `primary` is a body accent that has to sit
-               * quietly behind ordinary text.
+               * Armed is a mode, so the chip has to look switched ON — not
+               * merely acknowledge the click. `clickable` gives every chip a
+               * ripple, and if the on-state is only a fill colour then the
+               * brightest thing on screen is the ripple, which reads as a flash
+               * and nothing more.
                *
-               * The colour carries this on its own: there is no armed-state
-               * caption, deliberately.
+               * So the difference is structural as well as chromatic: filled vs
+               * outlined, plus a target icon that only the armed chip carries.
+               * `success` because it is the brightest entry in every one of the
+               * six palettes (`#38ff4f` on the fantasy themes); the icon is what
+               * makes the state survive a palette where it is not.
                */
+              variant={placeMode === mode ? 'filled' : 'outlined'}
               color={placeMode === mode ? 'success' : 'default'}
+              icon={placeMode === mode ? <MyLocationIcon /> : undefined}
+              sx={{ fontWeight: placeMode === mode ? 700 : 400 }}
               onClick={() => toggleMode(mode)}
             />
           </Tooltip>

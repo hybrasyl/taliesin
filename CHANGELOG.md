@@ -25,6 +25,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **A town subzone reference in the map editor.** The `?` beside Properties opens the directory of
+  what each town map slot is for — armour smith, bank, tavern, inn rooms — with the sign each
+  conventionally carries. It also says what the open map's own id means: map 30909 is town 09, slot
+  09, the tavern.
 - **Maps can record a generic name.** A second name field beside the display name, for what the map
   *is* — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
   The generic name builds the filename: `hyb30909 - Tagor Tavern.xml`. It is stored as a comment in
