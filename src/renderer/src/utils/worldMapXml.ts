@@ -1,5 +1,5 @@
 import type { WorldMapData, WorldMapPoint } from '../data/worldMapData'
-import { escapeXml as esc, attr, childText, parseXmlDocument } from './xmlUtils'
+import { escapeXml as esc, attr, childText, parseXmlDocument, HYBRASYL_NS } from './xmlUtils'
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
@@ -31,9 +31,7 @@ export function parseWorldMapXml(xml: string): WorldMapData {
 export function serializeWorldMapXml(data: WorldMapData): string {
   const lines: string[] = []
   lines.push('<?xml version="1.0" encoding="utf-8"?>')
-  lines.push(
-    `<WorldMap ClientMap="${esc(data.clientMap)}" xmlns="http://www.hybrasyl.com/XML/Hybrasyl/2020-02">`
-  )
+  lines.push(`<WorldMap ClientMap="${esc(data.clientMap)}" xmlns="${HYBRASYL_NS}">`)
   lines.push(`  <Name>${esc(data.name)}</Name>`)
 
   if (data.points.length > 0) {

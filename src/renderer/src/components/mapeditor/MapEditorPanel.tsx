@@ -212,7 +212,7 @@ interface SignDialogProps {
 }
 
 function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDialogProps) {
-  const [type, setType] = useState(initial?.type ?? 'Signpost')
+  const [type, setType] = useState(initial?.type ?? 'Sign')
   const [boardKey, setBoardKey] = useState(initial?.boardKey ?? '')
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -223,7 +223,7 @@ function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDi
 
   useEffect(() => {
     if (open) {
-      setType(initial?.type ?? 'Signpost')
+      setType(initial?.type ?? 'Sign')
       setBoardKey(initial?.boardKey ?? '')
       setName(initial?.name ?? '')
       setDescription(initial?.description ?? '')
