@@ -16,6 +16,16 @@ Release process (the notes are authored HERE, not edited on GitHub after the fac
      auto-generated PR list below it.
 Keep entries user-facing — internal refactors/tests show up in the appended auto list.
 
+Write entries in ASD-STE100 Simplified Technical English (asd-ste100.org), like the rest of the
+documentation in this repo:
+  - One idea per sentence. Keep sentences below about 25 words.
+  - Present tense, active voice. Name the actor: "Taliesin refreshes the index", not "the index
+    is refreshed".
+  - One term for one thing, through the whole file. Do not reach for a synonym for variety.
+  - No idioms, no metaphor, no rhetorical asides. Give the fault, then the behaviour now.
+Keep the section order of Keep a Changelog: Added, Changed, Deprecated, Removed, Fixed, Security.
+One heading of each kind per version.
+
 Sections for 1.0.0–2.6.0 were backfilled from the published GitHub releases after the fact
 (this file postdates them), condensed to the format above. Those releases remain the verbose
 record; where they disagree with this file, the git history was taken as authoritative.
@@ -25,189 +35,160 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
-- **A town subzone reference in the map editor.** The `?` beside Properties opens the directory of
-  what each town map slot is for — armour smith, bank, tavern, inn rooms — with the sign each
-  conventionally carries. It also says what the open map's own id means: map 30909 is town 09, slot
-  09, the tavern.
-- **Maps can record a generic name.** A second name field beside the display name, for what the map
-  _is_ — "Tagor Tavern" — while the display name stays what the player reads, "The Crow & Cask".
-  The generic name builds the filename: `hyb30909 - Tagor Tavern.xml`. It is stored as a comment in
-  the XML, the server never reads it, and a map without one keeps exactly the filename it had.
-- **Renaming a map offers to fix the warps that point at it.** A warp finds its destination by
-  name, so changing a map's name used to break every warp into it — silently, and in other files.
-  Taliesin now counts them before the save, lists which maps they are in, and offers to repoint
-  them. You can skip, and it says plainly that the warps stay broken if you do. Sign text that
-  mentions the old name is never touched. If two maps share the old name the offer is not made,
-  because there is no way to tell which warps meant which map.
-- **Ambient sound packs.** A new asset pack type for looping background beds — wind, rain, a river,
-  a busy market — separate from sound effects, because a bed plays continuously underneath
-  everything else rather than firing once. Add audio files and compile. Each sound gets a number
-  that a map refers to. Beds loop by default; tick **One-shot** on any that must play once and stop.
-- **Taliesin tells you when a new version is out.** On launch it asks GitHub whether a newer
-  release exists and, if one does, shows a notice with a link to the release notes. It downloads
-  and installs nothing — the upgrade is still yours to do — and if you are offline or already
-  current, nothing appears. This is the app's only outbound request; it sends nothing about you.
+- **A town subzone reference in the map editor.** The `?` button beside Properties gives the purpose
+  of each town map slot — armour smith, bank, tavern, inn room — and the sign it usually carries. It
+  also reads the id of the open map: 30909 is town 09, slot 09, the tavern.
+- **A map can record a generic name.** The generic name says what the map is, "Tagor Tavern", while
+  the display name stays what the player reads, "The Crow & Cask". Taliesin builds the filename from
+  it: `hyb30909 - Tagor Tavern.xml`. It is a comment in the XML and the server does not read it. A
+  map with no generic name keeps its filename.
+- **Taliesin offers to repair the warps when you rename a map.** A warp finds its destination by
+  name. A new name therefore broke every warp into that map, silently and in other files. Taliesin
+  now counts them before the save, names the maps that hold them, and offers to repoint them. If you
+  refuse, it tells you the warps stay broken. It does not touch sign text. If two maps share the old
+  name it makes no offer, because it cannot know which map each warp means.
+- **Ambient sound packs.** A new asset pack type for background loops: wind, rain, a river, a
+  market. These are separate from sound effects, because a loop plays continuously below everything
+  else. Add the audio files and compile. Each sound gets a number that a map refers to. Sounds loop
+  by default; select **One-shot** for one that must play once and stop.
+- **Taliesin tells you when a new version is available.** At launch it asks GitHub for the latest
+  release and shows a notice with a link to the notes. It downloads and installs nothing: the
+  upgrade is yours to do. If you are offline or current, you see nothing. This is the only outbound
+  request and it sends no data about you.
 
 ### Changed
 
-- **The Music Client View no longer claims no map uses a track.** Every row carried a "Used by maps"
-  column that showed a dash, always — the world index does not record which map plays which track,
-  so the lookup behind it could never find anything. An empty answer and an unasked question look
-  identical, and this one read as "nothing uses this". The column is gone until the index carries
-  the data.
-- **Placing markers on a map no longer costs two clicks each.** Arming Map Warp, NPC, Sign or
-  Reactor now stays armed, so you can place ten in a row. Click the armed chip again, or press
-  Escape, to stop. Each mode also has a key: `M`, `W`, `N`, `S`, `R`.
-- **Map warps and world warps look different on the map.** They were drawn identically — the same
-  blue circle with the same letter — while the legend claimed two colours it never used. A map warp
-  is now blue `M` and a world warp red `W`, and the legend shows what is actually drawn.
-- **The warp dialog gives the destination map the screen.** Picking a warp target means aiming at a
-  tile, and the preview shared a 900px dialog with the form. The dialog is now nearly full screen
-  with the map beside the fields, so it grows with the window. World-map exits, which have no
-  preview, keep the smaller dialog.
-- **The Map Maker tile picker has a 1× / 2× / 4× zoom.** Ground tiles were always drawn at half
-  size with no way to enlarge them; at 1× they now draw at their true size, and the grid drops to
-  fewer, larger columns as you zoom in. Tiles stay pixel-crisp at every zoom, and the hover preview
-  for tall tiles grows with the zoom instead of staying fixed.
-- **Copy, Cut and Delete in the Map Maker now obey the layer toggles.** Hide the foregrounds and
-  copy a region and you get the ground only; the same region cut or deleted leaves the hidden
-  foregrounds where they were. Pasting a ground-only region drops it over existing foregrounds
-  without disturbing them. With all three layers shown, nothing changes.
-- **Random fill can fill a selection.** Mark out an area, pick the tiles, and one click with the
-  random fill tool scatters them across the whole area as a single undo step. Occupied tiles are
-  left alone as before; hold Shift while clicking to fill over them. With no selection the tool is
-  still the per-tile brush it was.
-
-- **The Map Catalog loads its maps when you open it.** There is no Scan step before the page does
-  anything; the button is now **Rescan**, for files added to the directory since. If you keep more
-  than one map directory, a **Map source** picker in the toolbar switches between them without a
-  trip to Settings — the choice is the same active directory the rest of the app uses, so it sticks
-  across restarts. Switching source clears the selected map rather than carrying it over, because
-  the same filename exists in most directories. Unsaved catalog edits now prompt before they are
-  lost, whether you switch source, pick another map, or leave the page.
-
-- **Taliesin finds Creidhne by itself.** The Launch Creidhne button works without visiting
-  Settings: Taliesin looks beside itself first, then at the installed application. Settings now
-  shows where Creidhne was found, and picking one manually is only needed for an unusual install —
-  it is an override you can clear to go back to automatic. Choosing one works on macOS and Linux
-  for the first time; the picker only accepted `.exe` files before, so an application bundle or an
-  AppImage could not be selected at all. A launch that fails now says why instead of doing nothing.
-- **Opening Taliesin twice now brings the open window forward** instead of starting a second copy.
-  Two copies shared one settings file and the last one to save won, so a preference changed in one
-  window could disappear without a word when the other saved.
-- **Taliesin now runs properly over Remote Desktop.** A remote session has no graphics card, so the
-  app switches itself to software drawing and turns off the themes' background blur — the most
-  expensive thing to draw without one. Dragging the window and idle CPU both improve; nothing
-  changes on a local machine. There is no setting, because the choice has to be made before the app
-  finishes starting. Windows does not update `%SESSIONNAME%` when you reconnect to a session that
-  was already open, so set `TALIESIN_DISABLE_GPU=1` if that is you — see the README.
-- The world index cache is rebuilt once on first run after this release, and the vendor directory
-  on Linux is now `Erisco` to match every other Erisco application. Nothing is lost: the cache is
-  derived from the world data and is rebuilt from it.
-
-### Security
-
-- **The content policy is applied to the page before it loads, not partway through**, and the
-  startup splash is covered by it too — it previously had no policy at all. Nothing about the app
-  changes visibly.
-- **Each release build now proves the shipped binary really has its debug hatches switched off.**
-  This was a manual check on one platform; it is automatic on all three, macOS included, where the
-  application holds one set of settings per processor type and only one of them used to be read.
+- **The Music Client View no longer reports that no map uses a track.** Every row had a "Used by
+  maps" column that always showed a dash. The world index does not record which map plays which
+  track. An empty answer and an unasked question look the same, and this one read as "nothing
+  uses this". The column is gone until the index holds the data.
+- **You can place many markers with one click each.** Map Warp, NPC, Sign and Reactor stay armed
+  after a placement. Click the armed chip again, or press Escape, to stop. Each has a key: `M`, `W`,
+  `N`, `S`, `R`.
+- **Map warps and world warps look different.** Both were a blue circle with the same letter, and
+  the legend named two colours it never used. A map warp is now a blue `M`, a world warp a red `W`,
+  and the legend shows what Taliesin draws.
+- **The warp dialog gives the map more space.** Picking a warp target means aiming at a tile, but the
+  preview shared a 900 px dialog with the form. The dialog is now almost full screen, with the map
+  beside the fields, and grows with the window. World-map exits have no preview and keep the small
+  dialog.
+- **The Map Maker tile picker has a 1×, 2× and 4× zoom.** Ground tiles drew at half size with no way
+  to enlarge them. At 1× they draw at true size, and the grid shows fewer, larger columns as you zoom
+  in. Tiles stay sharp, and the hover preview of a tall tile grows with the zoom.
+- **Copy, Cut and Delete in the Map Maker obey the layer toggles.** Hide the foregrounds and copy an
+  area: you get the ground only. Cut or delete it and the hidden foregrounds stay. Paste a
+  ground-only area and it goes below the foregrounds already there. Nothing changes with all three
+  layers shown.
+- **Random fill can fill a selection.** Select an area and the tiles, then click once: Taliesin
+  fills the area as one undo step. Occupied tiles are left alone as before; hold Shift to fill over
+  them. With no selection the tool is the per-tile brush it was.
+- **The Map Catalog reads its maps when you open it.** There is no Scan step; the button is now
+  **Rescan**, for files added since. If you keep more than one map directory, the **Map source**
+  picker in the toolbar switches between them without a visit to Settings. The picker sets the same
+  active directory the rest of the application uses, so the choice survives a restart. Switching source
+  clears the selected map, because most directories hold the same filenames. Unsaved catalog edits
+  now prompt before they are lost.
+- **Taliesin finds Creidhne without help.** The Launch Creidhne button works before you visit
+  Settings: Taliesin looks beside itself, then for the installed application. Settings shows where it
+  found it, and a manual path is an override you can clear. Manual selection now works on macOS and
+  Linux; the picker accepted `.exe` only, so an application bundle or an AppImage could not be
+  selected at all. A failed launch now gives the reason.
+- **A second launch brings the open window to the front** instead of starting a second copy. Two
+  copies shared one settings file and the last to save won, so a preference changed in one window
+  could disappear without a message.
+- **Taliesin runs correctly over Remote Desktop.** A remote session has no graphics card. The
+  application switches to software drawing and stops the themes' background blur, which is the most
+  expensive effect to draw without a GPU. Window movement and idle CPU both improve; nothing changes on a local
+  machine. There is no setting, because the decision must be made before the application starts.
+  Windows does not update `%SESSIONNAME%` when you reconnect to a session that was already open, so
+  set `TALIESIN_DISABLE_GPU=1` if that is you. See the README.
+- Taliesin rebuilds the world index once, at the first launch after this release. On Linux the vendor
+  directory is now `Erisco`, which matches the other Erisco applications. Nothing is lost: the index
+  comes from the world data.
 
 ### Fixed
 
-- **Saving a map no longer deletes the comments in it.** Notes written by hand into a map XML were
-  removed the first time Taliesin saved that map. They are now kept, in the place they were
-  written — beside the spawn or the element they are about, not moved to the top of the file.
-- **A map you just created is usable straight away.** Saving, archiving, unarchiving or exporting
-  anything into a world library now refreshes the world index, so the new map appears with its name
-  and id, can be picked as a warp destination, stops being offered as an unassigned binary, and
-  gets its "XML exists" badge — none of which used to happen until you pressed Rebuild on the
-  Dashboard. The refresh icon in Settings → Hybrasyl World Libraries now updates what the rest of
-  the app reads, instead of only rewriting the cache on disk and leaving every page stale.
-- **Map Maker keyboard shortcuts work as soon as the page opens.** Every shortcut needed a click
-  inside the page first, and closing a dialog or switching away from the window silently took them
-  away again. They now work wherever the pointer is, and stop working only while you are typing in
-  a field or a dialog is open.
-- **The `P` shortcut stamps a prefab.** It was printed on the Stamp button and listed in the
-  shortcut panel but had never been implemented. The shortcut panel also lists Ctrl+W, which was
-  missing from it.
-- **Copy and paste in the Map Maker work across tabs.** The clipboard was per-tab, so copying in
-  one map and pasting into another pasted whatever that map had last copied — or nothing at all,
-  with no warning. There is now one clipboard for every tab, it survives closing the tab you copied
-  from, and the last copy wins.
-- **The Map Catalog list no longer runs off the bottom of the window.** It was exactly one toolbar
-  too tall, so the last rows and the end of the scrollbar sat below the window edge and could not
-  be reached.
-- **The sound-effects browser and the world map find their client files on Linux and macOS.** Same
-  cause as the palette fix below: the installer writes `Legend.dat`, the app asked for
-  `legend.dat`, and a case-sensitive filesystem said the file was not there. Both now read whatever
-  the folder really contains. Windows was never affected.
-- **Sprites in the archive viewer get their palette on Linux and macOS.** The official installer
-  writes `Legend.dat` while the palette rules ask for `legend.dat`, so on a case-sensitive
-  filesystem the sibling archive was never found and khan, national and misc sprites fell back to
-  the manual palette picker. Taliesin now reads the real name off the directory, and the underlying
-  library (DALib 3.1.1) matches sibling names case-insensitively too. Windows was never affected.
-- **A corrupt palette table no longer hangs the archive viewer.** A damaged `.tbl` could ask for
-  billions of palette entries and be given them. Bad lines are now dropped and the rest of the file
-  still loads (DALib 3.1.1), which changes nothing for the 331 palette tables a stock client ships.
-- **Warp destinations with an `&` in the name resolve again.** The world index recorded map names
-  without decoding XML entities, so `The Crow & Cask` reached the warp destination picker as
-  `The Crow &amp; Cask`. Picking it wrote a doubly-escaped name into the map file and the warp
-  went nowhere. The index now decodes the name it scrapes, and the picker offers the real one.
-- **Duplicate map names are visible instead of silent.** The server indexes maps by name, so two
-  maps that share one name are a live fault. The world index now records the collisions it finds.
-- **Weapon damage reads the paired tags and a zero minimum.** The index scrape dropped both, so
-  affected weapons showed no damage where they have some.
-- **Maps saved by Taliesin load on the server again.** Every map the editor wrote was rejected,
-  for two separate reasons and either one alone was enough. The root element lost its namespace,
-  which the server refuses outright — and because the map reader strips namespaces on the way in,
-  opening a valid map and saving it with no changes was enough to break it. Signs were also
-  written with a type the server has no name for, so a map with any sign failed even once the
-  namespace was right. The sign type is now `Sign`, which is what the server calls it, and the
-  editor no longer offers the invalid one.
-- **Archiving a map now takes it out of service.** Archive copied the file into `.ignore/` and
-  left the original in place, so the map you archived was still live and still served — while the
-  interface reported success and showed it under Archived. It also appeared in both lists at once,
-  which was the only visible sign. Unarchive had the same fault in reverse, and so did the world
-  map editor's Move to Templates and Move to Active. All four now move the file instead of copying
-  it, so it exists in exactly one place at every instant.
-- **Renaming a map renames it.** A rename used to leave three files behind: the new one, a copy
-  filed under `.ignore/`, and the original still sitting in `maps/`. Two of those were live and
-  carried the same `Id`, which the server indexes on — and the message said only that the old file
-  "remains (manual delete may be needed)", which reads as optional. A rename now moves the file, so
-  one map ends up at the new name and nothing is left to tidy up. Renaming onto a name that already
-  exists is refused and changes nothing on disk. The world map editor is fixed the same way.
-- **The Determine Map Dimensions dialog stops growing.** Stepping through candidate sizes made the
-  dialog taller on every step, without bound — it never settled and never came back down. The
-  preview asked for a scale that fit the box, but worked it out from a slightly shorter map than
-  the one actually drawn, so each render came back taller than the box it had just measured. The
-  box grew, and the next step measured the larger box. The preview is now a fixed size and the
-  scale comes from the renderer itself, so the same map size always draws the same picture.
+- **A save no longer deletes the comments in a map.** Hand-written notes were removed at the first
+  save. They are now kept where the author wrote them, beside the element they describe, not moved
+  to the top of the file.
+- **A new map is usable immediately.** Saving, archiving, unarchiving or exporting into a world
+  library now refreshes the world index. The map then shows its name and id, can be picked as a warp
+  destination, leaves the unassigned-binaries list, and gets its "XML exists" badge. None of that
+  happened until you pressed Rebuild on the Dashboard. The refresh button in Settings → Hybrasyl
+  World Libraries now updates what the application reads, instead of rewriting the cache on disk and
+  leaving every page stale.
+- **The Map Maker keyboard shortcuts work as soon as the page opens.** Each needed a click in the page
+  first. Closing a dialog or leaving the window removed them again, without a message. They
+  now work wherever the pointer is, and stop only while you type in a field or a dialog is open.
+- **The `P` shortcut stamps a prefab.** The Stamp button showed it and the shortcut panel listed it,
+  but nobody had implemented it. The panel now also lists Ctrl+W, which was missing from it.
+- **Copy and paste work between Map Maker tabs.** The clipboard was per-tab, so a paste gave you
+  whatever that map had last copied, or nothing, with no warning. There is now one clipboard for all
+  tabs. It survives closing the tab you copied from, and the most recent copy wins.
+- **The Map Catalog list stays inside the window.** It was one toolbar too tall. The last rows and the
+  end of the scrollbar sat below the edge of the window, where you could not reach them.
+- **The client files resolve on Linux and macOS.** The installer writes `Legend.dat` and Taliesin
+  asked for `legend.dat`, so a case-sensitive filesystem reported it missing. The sound effects
+  browser and the world map could not read it at all. Khan, national and misc sprites lost their
+  palette and fell back to the manual picker. Taliesin now reads the real name from the directory,
+  and DALib 3.1.1 matches sibling names without regard to case. Windows was never affected.
+- **A corrupt palette table no longer stops the Archive Browser.** A damaged `.tbl` could ask for
+  thousands of millions of palette entries and be given them. DALib 3.1.1 now drops the bad lines and
+  loads the rest, which changes nothing for the 331 palette tables of an unmodified client.
+- **A warp destination with an `&` in its name resolves again.** The world index recorded map names
+  without decoding the XML entities. `The Crow & Cask` therefore reached the picker as
+  `The Crow &amp; Cask`. Picking it wrote a doubly-escaped name into the map and the warp went nowhere. The index now
+  decodes the name and the picker offers the real one.
+- **Duplicate map names are visible.** The server indexes maps by name, so two maps with one name are
+  a live fault. The world index now records the collisions it finds.
+- **Weapon damage reads the paired tags and a minimum of zero.** The index dropped both, so some
+  weapons showed no damage where they have some.
+- **The server accepts the maps that Taliesin writes.** Every map the editor wrote was rejected, for
+  two independent reasons. First, the root element lost its namespace, which the server refuses. The map reader also strips
+  namespaces on the way in, so opening a valid map and saving it unchanged was enough to break it. Signs were also written with a type the server has no name for, so a map
+  with any sign failed even once the namespace was right. The sign type is now `Sign`, and the editor
+  no longer offers the invalid one.
+- **Archive takes a map out of service.** It copied the file into `.ignore/` and left the original in
+  place. The map you archived was therefore still live and still served, while the interface reported
+  success and showed it as archived. It appeared in both lists at once, which was the only visible sign.
+  Unarchive had the same fault in reverse, and so did the world map editor's Move to Templates and
+  Move to Active. All four now move the file, so it exists in one place at every instant.
+- **A rename renames the map.** It used to leave three files: the new one, a copy in `.ignore/`, and
+  the original in `maps/`. Two were live and carried the same `Id`, which the server indexes on. The
+  message said only that the old file "remains (manual delete may be needed)", which reads as
+  optional. A rename now moves the file. Renaming onto a name that exists is refused and changes
+  nothing on disk. The world map editor is fixed the same way.
+- **The Determine Map Dimensions dialog stops growing.** Each step made it taller, without bound. The
+  preview asked for a scale that fits the box, but computed it from a map slightly shorter than the
+  one it drew. Each render therefore came back taller than the box it had just measured, and the
+  next step measured the larger box. The preview is now a fixed size and the scale comes from the renderer, so
+  the same map size always draws the same picture.
 - **Stepping quickly through sizes no longer smears two previews together.** A slow render kept
   drawing into the preview after the next one had started.
-- **On the Hybrasyl theme, the selected control is the one that stands out again.** Its accent
-  colour was the same value as the page background, so anything marking itself active — a selected
-  chip, a toggled tool, the "Active" library tag — painted itself the colour of the page and
-  disappeared. The effect was backwards rather than merely faint: the unselected items were the
-  visible ones. The accent is now a legible blue. The other five themes were checked and none had
-  the same fault.
+- **On the Hybrasyl theme, the selected control stands out again.** Its accent colour was the same
+  value as the page background. Anything marking itself active — a selected chip, a toggled tool, the
+  "Active" library tag — therefore painted itself the colour of the page and disappeared. The effect was
+  backwards rather than faint: the unselected items were the visible ones. The accent is now a
+  legible blue. The other five themes do not have this fault.
 - **Taliesin draws its own icon on Linux.** The application menu and taskbar showed the macOS
-  artwork instead — a different picture, drawn to a different platform's conventions. The Linux
-  build now installs the full standard set of icon sizes from the artwork meant for it, and
-  identifies its window so the desktop can match it to the installed entry. Windows and macOS are
-  unchanged.
-- **Ground tiles in the map editor look like they do in the Archive Viewer.** The map drew empty
-  parts of a ground tile as see-through holes while the tileset preview drew a solid diamond, so
-  the same tile looked like two different things depending on where you opened it. The map now
-  matches the preview. Walls are pixel-for-pixel unchanged.
+  artwork, drawn to another platform's conventions. The Linux build now installs the full set of icon
+  sizes from the right artwork. It also identifies its window, so the desktop can match it to the
+  installed entry. Windows and macOS are unchanged.
+- **Ground tiles in the map editor match the Archive Browser.** The map drew the empty parts of a
+  ground tile as holes, while the tileset preview drew a solid diamond. One tile looked like two
+  different things. The map now matches the preview. Walls are unchanged.
 
 ### Security
 
-- **Electron updated to 41.10.4.** This is the runtime the application ships, and the update
-  closes seven advisories against it. Two are rated high: a context-isolation bypass, and a
-  custom-protocol cross-origin read. Four build-time and test-time packages were updated in the
-  same pass; those never shipped to you.
+- **Taliesin applies the content policy before the page loads,** not partway through, and the policy
+  now covers the startup splash, which had none. Nothing changes visibly.
+- **Each release build proves the shipped binary has its debug hatches off.** This was a manual check
+  on one platform. It is now automatic on all three. This includes macOS, where the application holds one set of these
+  settings per processor type and only one was read.
+- **Electron is updated to 41.10.4.** This is the runtime the application ships, and the update closes
+  seven advisories against it. Two are rated high: a context-isolation bypass, and a cross-origin read
+  through a custom protocol. Four build-time and test-time packages were updated in the same pass;
+  those never ship to you.
 
 ## [2.9.0] - 2026-08-01
 
