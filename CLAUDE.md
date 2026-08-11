@@ -25,7 +25,8 @@ npm run lint           # eslint --fix
 npm run format         # prettier --write .
 npm run build          # electron-vite build (main + preload + renderer)
 npm run e2e            # build, then Playwright-for-Electron specs (needs a GUI; CI: Windows only)
-npm run build:win:portable   # packaged portable Windows build
+npm run build:win            # both Windows artifacts: nsis installer + portable
+npm run build:win:portable   # the portable exe only
 ```
 
 Gate before committing: `npm run typecheck && npm run lint:check && npm run test:coverage && npm run build`.

@@ -35,6 +35,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Taliesin has an installer.** The releases page now carries
+  `taliesin-<version>-setup.exe` beside the portable exe. It asks where to install, adds Start menu
+  and desktop shortcuts, and lists Taliesin in Installed apps. It installs for the current user, so
+  it needs no administrator rights. Run it again to upgrade in place. Both downloads are signed and
+  read the same settings, so you can move between them. Uninstalling leaves your settings and
+  libraries alone.
 - **A town subzone reference in the map editor.** The `?` button beside Properties gives the purpose
   of each town map slot — armour smith, bank, tavern, inn room — and the sign it usually carries. It
   also reads the id of the open map: 30909 is town 09, slot 09, the tavern.

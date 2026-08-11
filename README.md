@@ -183,7 +183,15 @@ three registrations, not a new screen.
 
 ## Installation
 
-Get a Windows build from the [releases page](../../releases).
+Get a Windows build from the [releases page](../../releases). There are two, and both are signed:
+
+- **`taliesin-<version>-setup.exe`** is the installer. It asks where to install, puts Taliesin in
+  the Start menu and on the desktop, and adds an entry to Installed apps. It installs for the
+  current user, so it needs no administrator rights. Run it again to upgrade in place.
+- **`taliesin-<version>-portable.exe`** runs from wherever you put it and installs nothing.
+
+Both keep their settings in `%LOCALAPPDATA%\Erisco\Taliesin`, so the two see the same libraries and
+preferences. Uninstalling leaves that directory alone.
 
 ## Remote Desktop
 
