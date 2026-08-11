@@ -62,13 +62,25 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Package portable exe
-        run: npx electron-builder --win portable --publish never
+      # No target list here, so the Windows targets live in electron-builder.yml
+      # and nowhere else. That file has declared BOTH nsis and portable since
+      # WP14; this step named one of the two, so it quietly built one of them and
+      # every release shipped without an installer. Balor hit the identical
+      # defect and published four assets where five were configured (HTOO-244).
+      # A target list in two places is a target list that disagrees with itself,
+      # and the config is the half a reader checks.
+      #
+      # scripts/release-artifacts.test.mjs enforces the absence of a target list
+      # here, and pins these targets against the release job's globs in both
+      # directions.
+      - name: Package installer + portable exe
+        run: npx electron-builder --win --publish never
 
       # The half of the fuse check that only a packaged artifact can answer. The
       # config test in the PR gate proves electron-builder was ASKED; this proves
-      # it did it. Reads the wire off the unpacked exe -- the portable exe is an
-      # NSIS self-extracting stub wrapped around this one.
+      # it did it. Reads the wire off the unpacked exe, which is what BOTH
+      # artifacts wrap: the portable exe is an NSIS self-extracting stub around
+      # this directory, and the installer writes it to disk.
       - name: Verify Electron fuses
         run: node scripts/verify-fuses.mjs dist/win-unpacked/taliesin.exe
 
@@ -88,11 +100,42 @@ jobs:
           file_path: ${{ github.workspace }}/dist/taliesin-${{ steps.version.outputs.version }}-portable.exe
           override: true
 
-      - name: Upload Windows artifact
+      # A SECOND step rather than a loop, because the action signs one file and
+      # takes its path as an input.
+      #
+      # Signing one of the two would be worse than signing neither: a user handed
+      # a signed installer beside an unsigned portable has no way to read that as
+      # "credentials are configured for one artifact" rather than "this download
+      # is not the real one". Neither step is conditional, so a credential
+      # failure fails both together instead of publishing a mixed pair.
+      #
+      # This signs the installer. electron-builder has already signed the app exe
+      # and the uninstaller inside it during packaging, which is the part that
+      # cannot be done afterwards -- both live inside this file by then.
+      - name: Sign installer (SSL.com eSigner)
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b # v1.3.2
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: ${{ github.workspace }}/dist/taliesin-${{ steps.version.outputs.version }}-setup.exe
+          override: true
+
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: windows-portable
-          path: dist/*-portable.exe
+          name: windows
+          # Both, and `if-no-files-found: error` now covers both -- the setup exe
+          # is named by `nsis.artifactName` in electron-builder.yml, so a rename
+          # there fails this step rather than silently shipping one artifact.
+          # The `.blockmap` electron-builder writes beside the installer is not
+          # collected: it exists for electron-updater's differential download,
+          # and this app has no updater (HTOO-65 notifies and downloads nothing).
+          path: |
+            dist/*-setup.exe
+            dist/*-portable.exe
           if-no-files-found: error
           # The release job consumes this minutes later and the published
           # Release keeps its own copy, which does not count against Actions
@@ -248,7 +291,13 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          # One glob per target declared in electron-builder.yml. The two lists
+          # are pinned against each other, in both directions, by
+          # scripts/release-artifacts.test.mjs -- a glob with no target behind it
+          # would make `fail_on_unmatched_files: true` red on every release,
+          # which is the most expensive moment to find one.
           files: |
+            artifacts/**/*-setup.exe
             artifacts/**/*-portable.exe
             artifacts/**/*.AppImage
             artifacts/**/*.deb
