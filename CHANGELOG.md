@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-08-11
+
 ### Added
 
 - **Taliesin has an installer.** The releases page now carries
