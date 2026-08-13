@@ -8,6 +8,9 @@
   "author": "Caeldeth",
   "homepage": "https://github.com/hybrasyl/taliesin",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || exit 0",
+    "validate": "npm run lint:check && npm run typecheck && npm test",
+    "validate:linux": "node scripts/validate-linux.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "e2e": "npm run build && playwright test",
