@@ -8,8 +8,19 @@
  * Each test seeds memfs with a synthesized .datf buffer built via archiver,
  * then exercises packImport end-to-end and asserts on the extracted on-disk
  * project + asset paths.
+ *
+ * TIMEOUT. Whichever test runs first here pays the one-time load of archiver
+ * and unzipper, which the rest of the file then reuses. Alone that costs about
+ * 700 ms for the whole file, but under a full `npm test` — every project's
+ * workers competing for the same cores — it has been measured at 5.4 s and
+ * 5.9 s, against vitest's 5 s default. The test was not hanging and nothing was
+ * wrong with it; the budget was simply too tight for a loaded machine. The
+ * timeout is set per file rather than globally, so a genuine hang anywhere else
+ * still fails fast.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.setConfig({ testTimeout: 30_000 })
 
 const memfs = vi.hoisted(() => {
   const files = new Map<string, Buffer>()

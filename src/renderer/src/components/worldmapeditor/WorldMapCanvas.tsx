@@ -6,8 +6,12 @@
  *   overlayRef — point markers + hover cursor (redrawn on state/prop changes)
  *
  * Coordinate system:
- *   Native image space is 640×480 (FIELD_WIDTH × FIELD_HEIGHT).
- *   The image is aspect-fit (letterboxed) into the canvas container.
+ *   Points live in a fixed 640×480 field space (FIELD_WIDTH × FIELD_HEIGHT).
+ *   The client reads the server u16 X/Y in that same space, with no scale
+ *   factor, so larger field art does not move the nodes.
+ *   The field box is aspect-fit (letterboxed) into the canvas container. The
+ *   art fills that box: a legacy 640×480 EPF, or a world_maps pack PNG of any
+ *   size.
  *   ScreenToField() / FieldToScreen() handle the conversion — same algorithm as
  *   xml-map-maker's ScreenPointToWorldMapPoint().
  */
@@ -208,17 +212,19 @@ export default function WorldMapCanvas({
     ctx.fillRect(0, 0, s.cw, s.ch)
 
     if (bitmapRef.current) {
-      ctx.drawImage(
-        bitmapRef.current,
-        0,
-        0,
-        FIELD_WIDTH,
-        FIELD_HEIGHT,
-        s.offsetX,
-        s.offsetY,
-        FIELD_WIDTH * s.scaleFactor,
-        FIELD_HEIGHT * s.scaleFactor
-      )
+      const bmp = bitmapRef.current
+      const dw = FIELD_WIDTH * s.scaleFactor
+      const dh = FIELD_HEIGHT * s.scaleFactor
+      // Draw the whole bitmap into the field box, whatever its real size. This
+      // is what the client does: Brigid's WorldMap.Draw blits the texture into
+      // a literal Rectangle(0, 0, 640, 480) in virtual space, and the native UI
+      // pass scales that rectangle to the backbuffer. A world_maps pack PNG at
+      // 1280×960 therefore shows in full. A source rectangle of 640×480 here
+      // cropped it to its top-left quarter.
+      // Smooth only a reduction. An enlargement stays hard-edged, to match the
+      // client's point sampler.
+      ctx.imageSmoothingEnabled = dw < bmp.width
+      ctx.drawImage(bmp, s.offsetX, s.offsetY, dw, dh)
     } else if (!loading) {
       // No bitmap — draw field name as placeholder
       ctx.fillStyle = '#333'

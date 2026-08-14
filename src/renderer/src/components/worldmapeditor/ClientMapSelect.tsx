@@ -11,7 +11,7 @@ import {
   Typography
 } from '@mui/material'
 import BrokenImageIcon from '@mui/icons-material/BrokenImage'
-import { FIELD_NAMES, FIELD_WIDTH, FIELD_HEIGHT, renderField } from '../../utils/worldMapRenderer'
+import { FIELD_NAMES, renderField } from '../../utils/worldMapRenderer'
 
 // ── Thumbnail canvas ──────────────────────────────────────────────────────────
 
@@ -47,7 +47,9 @@ function FieldThumbnail({ fieldName, clientPath, width, height }: ThumbnailProps
           return
         }
         ctx.clearRect(0, 0, width, height)
-        ctx.drawImage(bitmap, 0, 0, FIELD_WIDTH, FIELD_HEIGHT, 0, 0, width, height)
+        // The whole bitmap fills the thumbnail. A pack override can be larger
+        // than the legacy 640×480 field art, so no source rectangle is used.
+        ctx.drawImage(bitmap, 0, 0, width, height)
         setStatus('ok')
       })
       .catch(() => {
