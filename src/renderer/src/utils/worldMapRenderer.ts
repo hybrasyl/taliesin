@@ -3,7 +3,10 @@
  *
  * Each field image is a paired (fieldNNN.epf + fieldNNN.pal) in setoa.dat.
  * No palette table is involved — the palette is loaded directly by name.
- * Native canvas size: 640×480.
+ * Native canvas size of the legacy art: 640×480. FIELD_WIDTH/FIELD_HEIGHT give
+ * that size and the world-map coordinate space. An installed world_maps pack
+ * can supply a larger image; renderField returns it at its own size, and the
+ * caller scales it into the 640×480 field box, as the client does.
  */
 
 import { DataArchive, EpfFile, Palette } from '@eriscorp/dalib-ts'
