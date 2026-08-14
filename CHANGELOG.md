@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-08-14
+
 ### Added
 
 - **A control that opens or closes every folder in the editor lists.** The map list and the world
