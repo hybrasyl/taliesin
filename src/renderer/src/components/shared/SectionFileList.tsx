@@ -20,8 +20,16 @@ import FolderIcon from '@mui/icons-material/Folder'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight'
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore'
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess'
 import { useSettingsStore } from '../../store/settingsStore'
-import { allFolderPaths, buildFileTree, flattenTree, type TreeFile } from '../../utils/fileTree'
+import {
+  allFolderPaths,
+  buildFileTree,
+  flattenTree,
+  type FolderNode,
+  type TreeFile
+} from '../../utils/fileTree'
 
 const INDENT_STEP = 1.5
 
@@ -79,7 +87,11 @@ export default function SectionFileList<T extends TreeFile>({
   const [search, setSearch] = useState('')
   const viewMode = useSettingsStore((s) => s.fileListViewMode)
   const setViewMode = useSettingsStore((s) => s.setFileListViewMode)
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  // Folders start closed and `expanded` records the exceptions — the same rule
+  // creidhne's EditorFileListPanel uses, so the two trees behave alike. One Set
+  // covers the active and the archived list: a folder is the same folder in
+  // both. Expansion is not persisted; a live filter opens everything anyway.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 
   const query = search.trim().toLowerCase()
   const filteredActive = useMemo(
@@ -92,21 +104,54 @@ export default function SectionFileList<T extends TreeFile>({
   )
 
   const toggleFolder = (path: string): void =>
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
       else next.add(path)
       return next
     })
 
+  const folderMode = viewMode === 'folder'
+
+  // The trees are built here rather than in renderList so that expanding one
+  // folder does not re-group every file, and so the expand-all button can read
+  // the folder set both lists contribute.
+  const activeTree = useMemo(
+    () => (folderMode ? buildFileTree(filteredActive) : null),
+    [folderMode, filteredActive]
+  )
+  const archivedTree = useMemo(
+    () => (folderMode && showArchived ? buildFileTree(filteredArchived) : null),
+    [folderMode, showArchived, filteredArchived]
+  )
+
+  const allFolders = useMemo(() => {
+    const paths = new Set<string>()
+    for (const tree of [activeTree, archivedTree]) {
+      if (!tree) continue
+      for (const path of allFolderPaths(tree)) paths.add(path)
+    }
+    return paths
+  }, [activeTree, archivedTree])
+
+  // Measured against the folder set, not against a count: a folder that is
+  // opened, filtered away, then restored leaves the two sets the same size and
+  // different.
+  const allExpanded = allFolders.size > 0 && [...allFolders].every((p) => expanded.has(p))
+  const toggleExpandAll = (): void => setExpanded(allExpanded ? new Set() : new Set(allFolders))
+
   /**
-   * Folders default to open and `collapsed` records the exceptions, so a folder
-   * that only appears once the filter narrows things down is already open.
-   * A live filter opens everything regardless — reconciling manual collapses
-   * against a changing result set would just hide matches.
+   * A live filter opens every surviving folder. The filtered tree holds only the
+   * matches and their ancestors, so showing all of it is what the user asked
+   * for, and no manual collapse has to be reconciled against a changing result
+   * set.
    */
-  const renderList = (list: T[], muted: boolean): React.ReactElement => {
-    if (viewMode === 'flat') {
+  const renderList = (
+    list: T[],
+    tree: FolderNode<T> | null,
+    muted: boolean
+  ): React.ReactElement => {
+    if (!tree) {
       return (
         <List dense disablePadding>
           {list.map((f) => (
@@ -116,11 +161,8 @@ export default function SectionFileList<T extends TreeFile>({
       )
     }
 
-    const tree = buildFileTree(list)
-    const expanded = query
-      ? allFolderPaths(tree)
-      : new Set([...allFolderPaths(tree)].filter((p) => !collapsed.has(p)))
-    const rows = flattenTree(tree, expanded)
+    const open = query ? allFolderPaths(tree) : expanded
+    const rows = flattenTree(tree, open)
 
     return (
       <List dense disablePadding>
@@ -128,12 +170,12 @@ export default function SectionFileList<T extends TreeFile>({
           row.kind === 'folder' ? (
             <ListItem key={row.key} disablePadding sx={{ pl: row.depth * INDENT_STEP }}>
               <ListItemButton onClick={() => toggleFolder(row.path)} sx={{ py: 0.25 }}>
-                {expanded.has(row.path) ? (
+                {open.has(row.path) ? (
                   <KeyboardArrowDownIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
                 ) : (
                   <KeyboardArrowRightIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
                 )}
-                {expanded.has(row.path) ? (
+                {open.has(row.path) ? (
                   <FolderOpenIcon fontSize="small" sx={{ mr: 0.75, color: 'text.secondary' }} />
                 ) : (
                   <FolderIcon fontSize="small" sx={{ mr: 0.75, color: 'text.secondary' }} />
@@ -184,19 +226,47 @@ export default function SectionFileList<T extends TreeFile>({
       <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="subtitle2">{title}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title={viewMode === 'folder' ? 'Flat View' : 'Folder View'}>
+          <Tooltip title={folderMode ? 'Flat View' : 'Folder View'}>
             <IconButton
               size="small"
-              onClick={() => setViewMode(viewMode === 'folder' ? 'flat' : 'folder')}
-              color={viewMode === 'folder' ? 'primary' : 'default'}
+              onClick={() => setViewMode(folderMode ? 'flat' : 'folder')}
+              color={folderMode ? 'primary' : 'default'}
             >
-              {viewMode === 'folder' ? (
+              {folderMode ? (
                 <AccountTreeIcon fontSize="small" />
               ) : (
                 <ViewListIcon fontSize="small" />
               )}
             </IconButton>
           </Tooltip>
+          {folderMode && allFolders.size > 0 && (
+            // Disabled while filtering, not hidden: the filter already opens
+            // every surviving folder, so the button would look broken. Say why.
+            <Tooltip
+              title={
+                query
+                  ? 'Filtering already shows every match'
+                  : allExpanded
+                    ? 'Collapse all folders'
+                    : 'Expand all folders'
+              }
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={toggleExpandAll}
+                  disabled={!!query}
+                  aria-label={allExpanded ? 'Collapse all folders' : 'Expand all folders'}
+                >
+                  {allExpanded ? (
+                    <UnfoldLessIcon fontSize="small" />
+                  ) : (
+                    <UnfoldMoreIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title={showArchived ? `Hide ${archivedLabel}` : `Show ${archivedLabel}`}>
             <IconButton
               size="small"
@@ -240,7 +310,7 @@ export default function SectionFileList<T extends TreeFile>({
           </Typography>
         ) : (
           <>
-            {filteredActive.length > 0 && renderList(filteredActive, false)}
+            {filteredActive.length > 0 && renderList(filteredActive, activeTree, false)}
             {showArchived && filteredArchived.length > 0 && (
               <>
                 <Divider sx={{ my: 0.5 }} />
@@ -250,7 +320,7 @@ export default function SectionFileList<T extends TreeFile>({
                 >
                   {archivedLabel}
                 </Typography>
-                {renderList(filteredArchived, true)}
+                {renderList(filteredArchived, archivedTree, true)}
               </>
             )}
           </>
