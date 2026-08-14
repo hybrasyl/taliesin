@@ -201,6 +201,18 @@ function createWindow(): void {
   })
   mainWindow = win
 
+  // A window keeps its native background — Electron's default white, because no
+  // `backgroundColor` can be right for six themes of which two are light — while
+  // the renderer's compositor tears down. That background is what paints for the
+  // last frame or two before the window leaves the screen, which reads as a white
+  // flash on quit. Hiding the window takes it off screen first; `close` runs
+  // before the teardown, and the close itself proceeds as normal after this
+  // returns. Covers every close path (title-bar button, Alt+F4, app quit),
+  // because they all raise `close`.
+  win.on('close', () => {
+    win.hide()
+  })
+
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
     // Backstop 3: the main window can die before the reveal. Without this the
