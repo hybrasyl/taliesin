@@ -33,6 +33,28 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **A control that opens or closes every folder in the editor lists.** The map list and the world
+  map list show it in folder view. It is disabled while you filter, because a filter already opens
+  every folder that holds a match.
+
+### Changed
+
+- **Folders in the map list and the world map list start closed.** Before, every folder started
+  open, and you could close them only one at a time. The lists now behave like the ones in
+  Creidhne.
+
+### Fixed
+
+- **The world map editor shows a replacement field image in full.** A `world_maps` asset pack can
+  supply a field image larger than 640×480. The editor showed only the top left corner of such an
+  image. The editor now draws the whole image in the field area, which is what the client does. The
+  field thumbnails show the whole image too. Map points keep their 640×480 coordinates, because the
+  client reads the coordinates the server sends in that space.
+- **Taliesin no longer shows a white flash when it closes.** The window now leaves the screen before
+  the page stops.
+
 ## [2.10.0] - 2026-08-11
 
 ### Added
