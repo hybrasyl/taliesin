@@ -112,23 +112,41 @@ export function useCatalog(dirPath: string | null) {
     }
   }, [dirPath])
 
-  // Load on open, and reload on every source change.
-  useEffect(() => {
-    // The selection does not survive a source change. Filenames repeat across
-    // map directories — `lod00500.map` exists in most of them — so carrying
-    // `selectedFilename` across would silently rebind the editor to a different
-    // map with the same name, and MapCatalogEditor's file-load effect (keyed on
-    // dirPath + filename) would re-read the file and show the new content under
-    // the old selection.
+  /**
+   * Drop everything belonging to the previous source, DURING RENDER.
+   *
+   * The selection cannot survive a source change: filenames repeat across map
+   * directories — `lod00500.map` exists in most of them — so carrying
+   * `selectedFilename` across would rebind the editor to a different map with
+   * the same name.
+   *
+   * Clearing it in an effect was not enough, and the reason is React's effect
+   * order: children run before parents. On a switch, MapCatalogEditor's
+   * file-load effect (keyed on dirPath + filename) fired first, with the NEW
+   * directory and the OLD entry still in hand, and read a path that cannot
+   * exist — `world/mapfiles/lod301-e86b8d…map`, a variant from the source just
+   * left. The read failed into its own catch, so the UI looked fine and the
+   * console filled with ENOENT.
+   *
+   * Adjusting state during render is React's documented answer to "reset when a
+   * prop changes". It lands before children render, so the editor unmounts with
+   * the stale entry instead of reading for it. `entries` goes too — showing the
+   * old source's rows under the new source's name was its own small lie.
+   */
+  const lastDir = useRef(dirPath)
+  if (lastDir.current !== dirPath) {
+    lastDir.current = dirPath
+    loadSeq.current++ // discard any load still in flight for the old directory
+    setEntries([])
+    setCatalog({})
     setSelectedFilename(null)
     setDraft({})
     setDirty(false)
-    if (!dirPath) {
-      loadSeq.current++ // discard any load still in flight for the old directory
-      setEntries([])
-      setCatalog({})
-      return
-    }
+  }
+
+  // Load on open, and reload on every source change.
+  useEffect(() => {
+    if (!dirPath) return
     void rescan()
   }, [dirPath, rescan])
 

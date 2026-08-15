@@ -137,6 +137,15 @@ export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettin
     const worldRoot = dirname(lib)
     if (worldRoot && worldRoot !== lib) ctx.settingsRoots.add(worldRoot)
   }
+  // EVERY configured map directory, not just the active one — the same rule the
+  // libraries above and the music working dirs below follow. Blessing only the
+  // active one made switching source a race: the renderer sets the new active
+  // directory and starts scanning it immediately, while the roots only widen
+  // once the saveSettings IPC has round-tripped back to here. Until it did,
+  // catalog:scan, catalog:load and fs:readFile against the newly chosen source
+  // were refused with "not inside any allowed root". Blessing them all removes
+  // the window rather than narrowing it.
+  for (const d of settings.mapDirectories ?? []) ctx.settingsRoots.add(d.path)
   if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
   if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
   // All music working dirs, not just the active one, so previewing a deployed
