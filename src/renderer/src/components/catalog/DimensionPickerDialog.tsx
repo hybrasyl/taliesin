@@ -248,6 +248,21 @@ const DimensionPickerDialog: React.FC<Props> = ({
     }
   }, [renderCanvas])
 
+  // Focus the default action as soon as it stops being disabled, so the user
+  // can see what Enter will do. Once per opening: `rendering` flips on every
+  // size step, and re-focusing there would yank focus off the Select mid-browse.
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const focusedThisOpening = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      focusedThisOpening.current = false
+      return
+    }
+    if (focusedThisOpening.current || rendering || !selected) return
+    focusedThisOpening.current = true
+    confirmRef.current?.focus()
+  }, [open, rendering, selected])
+
   const totalTiles = fileBuffer.length / 6
   const pairsInView = displayPairs.length
   const hasUnreasonable = pairs.some((p) => !p.reasonable)
@@ -269,8 +284,26 @@ const DimensionPickerDialog: React.FC<Props> = ({
     )
   }
 
+  // Enter locks in (HTOO-426).
+  //
+  // `autoFocus` alone did not do it. Opening the dialog starts a preview
+  // render, and every control here — Lock In included — is disabled while
+  // `rendering` is true, so at mount there was no enabled button to focus.
+  // Focus stayed on the dialog paper, where Enter means nothing.
+  //
+  // Two halves. This handler catches Enter wherever focus sits, and skips when
+  // the key came from a control that handles Enter itself — otherwise Enter on
+  // Cancel would cancel AND confirm. The effect below then gives the default
+  // action a visible focus ring once the preview settles.
+  const handleDialogKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key !== 'Enter' || !selected || rendering) return
+    if ((e.target as HTMLElement).closest('button, [role="combobox"]')) return
+    e.preventDefault()
+    onConfirm(selected.width, selected.height)
+  }
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth onKeyDown={handleDialogKeyDown}>
       <DialogTitle>
         Determine Map Dimensions
         <Typography
@@ -432,12 +465,11 @@ const DimensionPickerDialog: React.FC<Props> = ({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button
+          ref={confirmRef}
           variant="contained"
-          // Focused on open, so Enter locks in the highlighted size without
-          // reaching for the mouse, and so the default action is visible. The
-          // size buttons above take focus once the user steps through them,
-          // and Enter then activates whichever one is focused — which picks
-          // that size and is the same outcome.
+          // Covers the case where no preview runs at all (no client path), so
+          // the button is enabled at mount and this is enough on its own. When
+          // a preview does run, the effect above focuses it afterwards.
           autoFocus
           onClick={() => selected && onConfirm(selected.width, selected.height)}
           disabled={!selected || rendering}
