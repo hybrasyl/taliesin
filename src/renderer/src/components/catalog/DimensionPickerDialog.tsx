@@ -433,6 +433,12 @@ const DimensionPickerDialog: React.FC<Props> = ({
         <Button onClick={onCancel}>Cancel</Button>
         <Button
           variant="contained"
+          // Focused on open, so Enter locks in the highlighted size without
+          // reaching for the mouse, and so the default action is visible. The
+          // size buttons above take focus once the user steps through them,
+          // and Enter then activates whichever one is focused — which picks
+          // that size and is the same outcome.
+          autoFocus
           onClick={() => selected && onConfirm(selected.width, selected.height)}
           disabled={!selected || rendering}
         >

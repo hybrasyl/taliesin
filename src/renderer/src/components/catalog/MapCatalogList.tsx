@@ -1,31 +1,47 @@
-import React, { useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Box, Typography, TextField, InputAdornment, Chip } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import { CatalogEntry } from '../../hooks/useCatalog'
+import { nextCursorIndex, isActivateKey, clampCursor } from '../../utils/listKeyboard'
 
 interface Props {
   entries: CatalogEntry[]
   selectedFilename: string | null
   onSelect: (filename: string) => void
+  /** Lets the page put focus back here — see MapCatalogListHandle. */
+  ref?: React.Ref<MapCatalogListHandle>
+}
+
+/** What the page can do to this list from outside: take focus back (HTOO-426). */
+export interface MapCatalogListHandle {
+  focus: () => void
 }
 
 const ROW_HEIGHT = 52
 
-const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }) => {
+const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect, ref }) => {
   const [search, setSearch] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
-  const filtered = search.trim()
-    ? entries.filter((e) => {
-        const q = search.toLowerCase()
-        return (
-          String(e.mapNumber).includes(q) ||
-          e.filename.toLowerCase().includes(q) ||
-          e.name.toLowerCase().includes(q)
-        )
-      })
-    : entries
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return entries
+    return entries.filter(
+      (e) =>
+        String(e.mapNumber).includes(q) ||
+        e.filename.toLowerCase().includes(q) ||
+        e.name.toLowerCase().includes(q)
+    )
+  }, [entries, search])
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -33,6 +49,73 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
     estimateSize: () => ROW_HEIGHT,
     overscan: 10
   })
+
+  // ── Keyboard cursor ─────────────────────────────────────────────────────────
+  //
+  // The rows are virtualized, so a row scrolled out of the window is unmounted
+  // and DOM focus on it would be lost. The cursor is therefore an index, the
+  // scroll container holds focus, and the active row is named by
+  // aria-activedescendant rather than focused.
+  const [cursor, setCursor] = useState(-1)
+
+  // Filtering changes the row count under the cursor.
+  useEffect(() => {
+    setCursor((c) => clampCursor(c, filtered.length))
+  }, [filtered.length])
+
+  // Follow a selection made elsewhere (a click, or the page restoring one), so
+  // arrowing continues from the open map rather than from where the keyboard
+  // last was.
+  useEffect(() => {
+    if (!selectedFilename) return
+    const i = filtered.findIndex((e) => e.filename === selectedFilename)
+    if (i >= 0) setCursor(i)
+  }, [selectedFilename, filtered])
+
+  // Keep the cursor row on screen. scrollToIndex is the virtualizer's job —
+  // scrollIntoView cannot reach a row that is not rendered.
+  useEffect(() => {
+    if (cursor >= 0) virtualizer.scrollToIndex(cursor)
+    // virtualizer identity changes every render; depending on it would scroll
+    // on every keystroke in the search box.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor])
+
+  useImperativeHandle(ref, () => ({
+    focus: () => listRef.current?.focus()
+  }))
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const moved = nextCursorIndex(e.key, cursor, filtered.length)
+      if (moved !== null) {
+        e.preventDefault()
+        setCursor(moved)
+        return
+      }
+      if (isActivateKey(e.key) && cursor >= 0 && filtered[cursor]) {
+        e.preventDefault()
+        onSelect(filtered[cursor].filename)
+      }
+    },
+    [cursor, filtered, onSelect]
+  )
+
+  // Entering the list with nothing under the cursor starts at the selected row,
+  // or the top.
+  const handleFocus = useCallback(() => {
+    if (cursor >= 0 || filtered.length === 0) return
+    const i = selectedFilename ? filtered.findIndex((e) => e.filename === selectedFilename) : -1
+    setCursor(i >= 0 ? i : 0)
+  }, [cursor, filtered, selectedFilename])
+
+  // Down from the search box walks into the results, which is where the hand
+  // wants to go after typing a filter.
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown') return
+    e.preventDefault()
+    listRef.current?.focus()
+  }, [])
 
   return (
     <Box
@@ -59,6 +142,7 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
           placeholder="Search maps…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           slotProps={{
             input: {
               startAdornment: (
@@ -84,16 +168,38 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
         {search && entries.length !== filtered.length && ` of ${entries.length}`}
       </Typography>
       {/* Virtualized list */}
-      <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <Box
+        ref={(el: HTMLDivElement | null) => {
+          scrollRef.current = el
+          listRef.current = el
+        }}
+        // The scroll container is the focusable element, not the rows: a
+        // virtualized row unmounts when it scrolls away and would take focus
+        // with it. aria-activedescendant names the current row instead.
+        tabIndex={0}
+        role="listbox"
+        aria-label="Maps"
+        aria-activedescendant={cursor >= 0 ? `mapcat-row-${cursor}` : undefined}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', outline: 'none' }}
+      >
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((vItem) => {
             const entry = filtered[vItem.index]!
             const isSelected = entry.filename === selectedFilename
+            const isCursor = vItem.index === cursor
 
             return (
               <Box
                 key={entry.filename}
-                onClick={() => onSelect(entry.filename)}
+                id={`mapcat-row-${vItem.index}`}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  setCursor(vItem.index)
+                  onSelect(entry.filename)
+                }}
                 sx={{
                   position: 'absolute',
                   top: 0,
@@ -109,6 +215,10 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect }
                   bgcolor: isSelected ? 'action.selected' : 'transparent',
                   borderBottom: '1px solid',
                   borderColor: 'divider',
+                  // The cursor row is drawn inside its own bounds. An outline
+                  // would be clipped by the scroll container on the first and
+                  // last rows, where it matters most.
+                  boxShadow: isCursor ? (t) => `inset 0 0 0 2px ${t.palette.primary.main}` : 'none',
                   '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' }
                 }}
               >

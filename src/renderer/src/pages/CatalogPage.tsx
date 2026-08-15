@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -20,13 +20,16 @@ import { useUiStore } from '../store/uiStore'
 import { useCatalog, worldName } from '../hooks/useCatalog'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
-import MapCatalogList from '../components/catalog/MapCatalogList'
+import MapCatalogList, { type MapCatalogListHandle } from '../components/catalog/MapCatalogList'
 import MapCatalogEditor from '../components/catalog/MapCatalogEditor'
 import MapExportDialog from '../components/catalog/MapExportDialog'
 
 const LIST_WIDTH = 280
 
 const CatalogPage: React.FC = () => {
+  // Focus target for the dimension dialog's return trip (HTOO-426).
+  const catalogListRef = useRef<MapCatalogListHandle>(null)
+
   const activeMapDir = useSettingsStore((s) => s.activeMapDirectory)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const clientPath = useSettingsStore((s) => s.clientPath)
@@ -205,6 +208,7 @@ const CatalogPage: React.FC = () => {
         </Box>
 
         <MapCatalogList
+          ref={catalogListRef}
           entries={entries}
           selectedFilename={selectedFilename}
           onSelect={(filename) => guard(() => select(filename))}
@@ -223,6 +227,7 @@ const CatalogPage: React.FC = () => {
               onUpdateDraft={updateDraft}
               onSave={save}
               onExport={() => setExportOpen(true)}
+              onDimensionDialogClosed={() => catalogListRef.current?.focus()}
             />
             {exportOpen && (
               <MapExportDialog
