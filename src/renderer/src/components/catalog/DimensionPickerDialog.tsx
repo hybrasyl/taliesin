@@ -83,8 +83,22 @@ function factorDimensions(sizeBytes: number): DimPair[] {
   return pairs
 }
 
+/**
+ * Whether a candidate shape is offered before the user asks for "show all".
+ *
+ * There is NO minimum. A `w >= 8 && h >= 8` floor used to be applied here, and
+ * it hid the correct answer for real maps: lod31126 is 1296 bytes = 216 tiles =
+ * 4x54 (Caermoire Inn Corridor), so the picker offered 8x27, 9x24 and 12x18 and
+ * buried the true shape behind the toggle. Narrow maps are not exotic — of the
+ * 998 maps in the world repo, 36 are under 8 wide and 33 are under 8 tall, the
+ * smallest being 4. A filter that hides a valid shape is worse than a longer
+ * list, and the sort below already ranks square-ish shapes first.
+ *
+ * The ceiling stays: no DA map approaches 512 on a side, so a factor pair that
+ * large is an artefact of the file size rather than a shape anyone authored.
+ */
 function isReasonable(w: number, h: number): boolean {
-  return w >= 8 && h >= 8 && w <= 512 && h <= 512
+  return w <= 512 && h <= 512
 }
 
 function pairLabel(p: DimPair): string {
