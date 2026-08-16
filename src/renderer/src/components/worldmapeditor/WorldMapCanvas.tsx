@@ -9,17 +9,29 @@
  *   Points live in a fixed 640×480 field space (FIELD_WIDTH × FIELD_HEIGHT).
  *   The client reads the server u16 X/Y in that same space, with no scale
  *   factor, so larger field art does not move the nodes.
- *   The field box is aspect-fit (letterboxed) into the canvas container. The
- *   art fills that box: a legacy 640×480 EPF, or a world_maps pack PNG of any
- *   size.
- *   ScreenToField() / FieldToScreen() handle the conversion — same algorithm as
+ *   The field box is aspect-fit (letterboxed) into the canvas container, then
+ *   multiplied by the user's zoom and shifted by the pan. The art fills that
+ *   box: a legacy 640×480 EPF, or a world_maps pack PNG of any size.
+ *   screenToField() / fieldToScreen() handle the conversion — same algorithm as
  *   xml-map-maker's ScreenPointToWorldMapPoint().
+ *
+ * Marker anchor:
+ *   A point's x/y is the **top-left** of its 12×12 box, not its centre. This is
+ *   what the client does — Brigid's `WorldMapNode` takes `X = node.X, Y =
+ *   node.Y` and draws the box at `[X, X+12) × [Y, Y+12)`, with the label 3px to
+ *   its right. Taliesin used to centre the marker on the point, which drew every
+ *   node 6 field pixels up and left of where the player sees it. Drawing, hit
+ *   testing and the overlap check all use the client's box now, so what the
+ *   editor shows is what the client shows.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Box, CircularProgress, Typography } from '@mui/material'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
+import FitScreenIcon from '@mui/icons-material/FitScreen'
 import { renderField, FIELD_WIDTH, FIELD_HEIGHT } from '../../utils/worldMapRenderer'
-import type { WorldMapPoint } from '../../data/worldMapData'
+import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,99 +45,212 @@ export interface WorldMapCanvasProps {
   placeMode: boolean
   onPointClick: (index: number) => void
   onPlacePoint: (x: number, y: number) => void
+  /**
+   * Live position of the point the dialog is editing (HTOO-412). Drawn as a
+   * ghost marker so a typed coordinate is visible as it is typed.
+   */
+  pendingPoint?: { x: number; y: number } | null
+  /**
+   * A point to leave undrawn — the one `pendingPoint` stands in for. Without
+   * this an edit draws the marker twice, at the old position and the typed one,
+   * which reads as two points rather than one being moved.
+   */
+  hiddenIndex?: number | null
+  /**
+   * Whether Alt may place a point on top of another (HTOO-413).
+   *
+   * True only for a reference set. A reference set is a catalogue, and the sets
+   * that reach a player are derived from it, so two of its points that overlap
+   * are normally split across different derived sets and never drawn together.
+   * In an individual set an overlap is a fault, not an authoring choice.
+   */
+  allowOverlap?: boolean
   sx?: SxProps
+}
+
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Multipliers of the aspect-fit scale, not absolute scales. 1 is "the whole
+ * field, fitted to the pane" whatever size the pane happens to be, which is the
+ * only zoom that means the same thing on every window.
+ */
+export const ZOOM_LEVELS = [1, 1.5, 2, 3, 4, 6, 8] as const
+
+const FIRST_ZOOM = ZOOM_LEVELS[0]!
+const LAST_ZOOM = ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!
+
+/** The next stop up or down, stopping at each end rather than wrapping. */
+export function nextZoom(zoom: number, direction: 1 | -1): number {
+  const i = ZOOM_LEVELS.indexOf(zoom as (typeof ZOOM_LEVELS)[number])
+  if (i >= 0) {
+    return ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, i + direction))]!
+  }
+  // Off the list — step to the neighbour on the chosen side.
+  return direction === 1
+    ? (ZOOM_LEVELS.find((z) => z > zoom) ?? LAST_ZOOM)
+    : ([...ZOOM_LEVELS].reverse().find((z) => z < zoom) ?? FIRST_ZOOM)
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
 
-interface ScaleState {
+interface ViewState {
   /** Canvas element dimensions. */
   cw: number
   ch: number
-  /**
-   * Derived from aspect-fit of FIELD_WIDTH×FIELD_HEIGHT into cw×ch.
-   * scaleFactor: image pixels → screen pixels
-   * offsetX, offsetY: letterbox/pillarbox gap in screen pixels
-   */
+  /** Aspect-fit of FIELD_WIDTH×FIELD_HEIGHT into cw×ch, before zoom. */
+  fitScale: number
+  /** fitScale × zoom — image pixels → screen pixels. */
   scaleFactor: number
+  /** Top-left of the field box in screen pixels, pan included. */
   offsetX: number
   offsetY: number
 }
 
-function computeScale(cw: number, ch: number): ScaleState {
+function fitScaleFor(cw: number, ch: number): number {
   const imageRatio = FIELD_WIDTH / FIELD_HEIGHT // 4/3
-  const containerRatio = cw / ch
+  return imageRatio >= cw / ch ? cw / FIELD_WIDTH : ch / FIELD_HEIGHT
+}
 
-  if (imageRatio >= containerRatio) {
-    // Fit to width — letterbox top/bottom
-    const sf = cw / FIELD_WIDTH
-    return { cw, ch, scaleFactor: sf, offsetX: 0, offsetY: (ch - FIELD_HEIGHT * sf) / 2 }
-  } else {
-    // Fit to height — pillarbox left/right
-    const sf = ch / FIELD_HEIGHT
-    return { cw, ch, scaleFactor: sf, offsetX: (cw - FIELD_WIDTH * sf) / 2, offsetY: 0 }
+/**
+ * Clamp a pan offset so the field cannot be dragged off the pane.
+ *
+ * An axis whose field is smaller than the pane stays centred and ignores the
+ * pan — there is nothing hidden to scroll to, and letting it drift would put
+ * the map in a corner for no reason.
+ */
+function clampPan(pan: number, fieldSize: number, paneSize: number): number {
+  if (fieldSize <= paneSize) return 0
+  const limit = (fieldSize - paneSize) / 2
+  return Math.min(limit, Math.max(-limit, pan))
+}
+
+export function computeView(
+  cw: number,
+  ch: number,
+  zoom: number,
+  panX: number,
+  panY: number
+): ViewState {
+  const fitScale = fitScaleFor(cw, ch)
+  const scaleFactor = fitScale * zoom
+  const fieldW = FIELD_WIDTH * scaleFactor
+  const fieldH = FIELD_HEIGHT * scaleFactor
+  return {
+    cw,
+    ch,
+    fitScale,
+    scaleFactor,
+    offsetX: (cw - fieldW) / 2 + clampPan(panX, fieldW, cw),
+    offsetY: (ch - fieldH) / 2 + clampPan(panY, fieldH, ch)
   }
 }
 
-/** Screen pixel → image pixel (returns null if outside image area). */
-function screenToField(sx: number, sy: number, s: ScaleState): { x: number; y: number } | null {
+/** Screen pixel → image pixel (returns null if outside the field). */
+function screenToField(sx: number, sy: number, s: ViewState): { x: number; y: number } | null {
   const x = (sx - s.offsetX) / s.scaleFactor
   const y = (sy - s.offsetY) / s.scaleFactor
   if (x < 0 || y < 0 || x >= FIELD_WIDTH || y >= FIELD_HEIGHT) return null
   return { x: Math.round(x), y: Math.round(y) }
 }
 
-/** Image pixel → screen pixel (centre of the pixel). */
-function fieldToScreen(fx: number, fy: number, s: ScaleState): { x: number; y: number } {
-  return {
-    x: fx * s.scaleFactor + s.offsetX,
-    y: fy * s.scaleFactor + s.offsetY
-  }
+/** Image pixel → screen pixel. */
+function fieldToScreen(fx: number, fy: number, s: ViewState): { x: number; y: number } {
+  return { x: fx * s.scaleFactor + s.offsetX, y: fy * s.scaleFactor + s.offsetY }
 }
 
-// ── Point hit detection (±6px in image space = 12×12 box) ────────────────────
+// ── Point hit detection ───────────────────────────────────────────────────────
 
-const HIT_RADIUS = 6
-
-function findHit(imgX: number, imgY: number, points: WorldMapPoint[]): number {
+/**
+ * Every point under the cursor, nearest first.
+ *
+ * The test is the client's own node box: `[x, x + 12) × [y, y + 12)`, anchored
+ * at the point, not centred on it. See the anchor note at the top of the file.
+ *
+ * This returns a list rather than the first match because two points can sit
+ * inside each other's box (HTOO-413). Taking the first in list order made the
+ * later one unreachable by clicking.
+ */
+export function findHits(imgX: number, imgY: number, points: WorldMapPoint[]): number[] {
+  const hits: { i: number; d: number }[] = []
+  const half = CLIENT_NODE_BOX / 2
   for (let i = 0; i < points.length; i++) {
     const p = points[i]!
-    if (Math.abs(p.x - imgX) <= HIT_RADIUS && Math.abs(p.y - imgY) <= HIT_RADIUS) return i
+    if (
+      imgX >= p.x &&
+      imgX < p.x + CLIENT_NODE_BOX &&
+      imgY >= p.y &&
+      imgY < p.y + CLIENT_NODE_BOX
+    ) {
+      // Rank by distance from the box centre, so the nearest box wins a stack.
+      const dx = imgX - (p.x + half)
+      const dy = imgY - (p.y + half)
+      hits.push({ i, d: dx * dx + dy * dy })
+    }
   }
-  return -1
+  hits.sort((a, b) => a.d - b.d || a.i - b.i)
+  return hits.map((h) => h.i)
+}
+
+/**
+ * The point a click selects, given what is already selected.
+ *
+ * Repeated clicks in the same place cycle through the stack, so a buried point
+ * can be reached with the mouse. A click that lands on a different stack starts
+ * at that stack's nearest point.
+ */
+export function cycleHit(hits: number[], selected: number | null): number | null {
+  if (hits.length === 0) return null
+  if (selected === null) return hits[0]!
+  const at = hits.indexOf(selected)
+  if (at < 0) return hits[0]!
+  return hits[(at + 1) % hits.length]!
 }
 
 // ── Point drawing ─────────────────────────────────────────────────────────────
 
-const BOX_SIZE = 12 // 12×12 image-space pixels (same as xml-map-maker mapbox.png)
+/** The marker never shrinks below this on screen, or it cannot be aimed at. */
+const MIN_BOX_SCREEN = 6
+/** The label is screen-sized, not field-sized, so it stays readable at any zoom. */
+const LABEL_FONT_PX = 11
+/** Brigid's BOX_GAP — the space between the node box and its label. */
+const LABEL_GAP_PX = 3
+
+function markerScreenSize(s: ViewState): number {
+  return Math.max(MIN_BOX_SCREEN, CLIENT_NODE_BOX * s.scaleFactor)
+}
+
+/** The marker box in screen pixels, anchored at the point like the client. */
+function markerRect(
+  p: { x: number; y: number },
+  s: ViewState
+): { x: number; y: number; size: number } {
+  const { x, y } = fieldToScreen(p.x, p.y, s)
+  return { x, y, size: markerScreenSize(s) }
+}
 
 function drawPoint(
   ctx: CanvasRenderingContext2D,
   p: WorldMapPoint,
   selected: boolean,
-  s: ScaleState
+  s: ViewState
 ) {
-  const { x: sx, y: sy } = fieldToScreen(p.x, p.y, s)
-  const bw = BOX_SIZE * s.scaleFactor
-  const bh = BOX_SIZE * s.scaleFactor
+  const { x, y, size } = markerRect(p, s)
 
-  // Box
   ctx.fillStyle = selected ? 'rgba(255,200,50,0.9)' : 'rgba(0,100,200,0.85)'
   ctx.strokeStyle = selected ? '#ffc832' : '#2196f3'
   ctx.lineWidth = selected ? 2 : 1
-  ctx.fillRect(sx - bw / 2, sy - bh / 2, bw, bh)
-  ctx.strokeRect(sx - bw / 2, sy - bh / 2, bw, bh)
+  ctx.fillRect(x, y, size, size)
+  ctx.strokeRect(x, y, size, size)
 
-  // Label
   if (p.name) {
-    const fontSize = Math.max(9, Math.round(11 * s.scaleFactor))
-    ctx.font = `${fontSize}px sans-serif`
+    ctx.font = `${LABEL_FONT_PX}px sans-serif`
     ctx.fillStyle = 'white'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.shadowColor = 'rgba(0,0,0,0.8)'
     ctx.shadowBlur = 3
-    ctx.fillText(p.name, sx + bw / 2 + 3, sy)
+    ctx.fillText(p.name, x + size + LABEL_GAP_PX, y + size / 2)
     ctx.shadowBlur = 0
   }
 }
@@ -140,18 +265,35 @@ export default function WorldMapCanvas({
   placeMode,
   onPointClick,
   onPlacePoint,
+  pendingPoint,
+  hiddenIndex,
+  allowOverlap = false,
   sx
 }: WorldMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const baseRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
-  const scaleRef = useRef<ScaleState | null>(null)
   const bitmapRef = useRef<ImageBitmap | null>(null)
 
+  const [size, setSize] = useState<{ cw: number; ch: number } | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [renderTick, setRenderTick] = useState(0)
+  const [bitmapTick, setBitmapTick] = useState(0)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
+
+  const view = useMemo(
+    () => (size ? computeView(size.cw, size.ch, zoom, pan.x, pan.y) : null),
+    [size, zoom, pan]
+  )
+  // Event handlers read these without being rebuilt on every pan frame.
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+  const panRef = useRef(pan)
+  panRef.current = pan
 
   // ── Resize observer — keeps canvases in sync with container ─────────────────
 
@@ -161,12 +303,17 @@ export default function WorldMapCanvas({
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0]!.contentRect
       if (width < 1 || height < 1) return
-      scaleRef.current = computeScale(width, height)
-      setRenderTick((n) => n + 1)
+      setSize({ cw: width, ch: height })
     })
     ro.observe(container)
     return () => ro.disconnect()
   }, [])
+
+  // A new field is a new picture; keep the previous zoom and pan off it.
+  useEffect(() => {
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+  }, [fieldName])
 
   // ── Base render — load field bitmap and paint it ────────────────────────────
 
@@ -181,7 +328,7 @@ export default function WorldMapCanvas({
         if (cancelled) return
         bitmapRef.current = bitmap ?? null
         setLoading(false)
-        setRenderTick((n) => n + 1)
+        setBitmapTick((n) => n + 1)
       } catch (e) {
         if (cancelled) return
         const msg = e instanceof Error ? e.message : String(e)
@@ -189,7 +336,7 @@ export default function WorldMapCanvas({
         setError(msg)
         setLoading(false)
         bitmapRef.current = null
-        setRenderTick((n) => n + 1)
+        setBitmapTick((n) => n + 1)
       }
     })()
 
@@ -198,11 +345,11 @@ export default function WorldMapCanvas({
     }
   }, [fieldName, clientPath])
 
-  // ── Redraw base canvas whenever bitmap or scale changes ─────────────────────
+  // ── Redraw base canvas whenever bitmap or view changes ──────────────────────
 
   useEffect(() => {
     const base = baseRef.current
-    const s = scaleRef.current
+    const s = view
     if (!base || !s) return
 
     base.width = s.cw
@@ -211,10 +358,11 @@ export default function WorldMapCanvas({
     ctx.fillStyle = '#1a1a1a'
     ctx.fillRect(0, 0, s.cw, s.ch)
 
+    const dw = FIELD_WIDTH * s.scaleFactor
+    const dh = FIELD_HEIGHT * s.scaleFactor
+
     if (bitmapRef.current) {
       const bmp = bitmapRef.current
-      const dw = FIELD_WIDTH * s.scaleFactor
-      const dh = FIELD_HEIGHT * s.scaleFactor
       // Draw the whole bitmap into the field box, whatever its real size. This
       // is what the client does: Brigid's WorldMap.Draw blits the texture into
       // a literal Rectangle(0, 0, 640, 480) in virtual space, and the native UI
@@ -228,23 +376,20 @@ export default function WorldMapCanvas({
     } else if (!loading) {
       // No bitmap — draw field name as placeholder
       ctx.fillStyle = '#333'
-      ctx.fillRect(s.offsetX, s.offsetY, FIELD_WIDTH * s.scaleFactor, FIELD_HEIGHT * s.scaleFactor)
+      ctx.fillRect(s.offsetX, s.offsetY, dw, dh)
       ctx.fillStyle = 'rgba(255,255,255,0.3)'
       ctx.font = '14px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(fieldName || '(no field selected)', s.cw / 2, s.ch / 2)
     }
-    // fieldName only reaches the placeholder text above, and a change to it
-    // already bumps renderTick through the loader effect -- so this is a
-    // correctness nicety (no stale label for a frame), not a behaviour change.
-  }, [renderTick, loading, fieldName])
+  }, [view, bitmapTick, loading, fieldName])
 
   // ── Overlay draw — points + hover ───────────────────────────────────────────
 
   useEffect(() => {
     const overlay = overlayRef.current
-    const s = scaleRef.current
+    const s = view
     if (!overlay || !s) return
 
     overlay.width = s.cw
@@ -252,66 +397,151 @@ export default function WorldMapCanvas({
     const ctx = overlay.getContext('2d')!
     ctx.clearRect(0, 0, s.cw, s.ch)
 
-    // Points
     for (let i = 0; i < points.length; i++) {
+      if (i === hiddenIndex) continue
       drawPoint(ctx, points[i]!, i === selectedIndex, s)
+    }
+
+    // The point the dialog is editing, at its typed position (HTOO-412).
+    if (pendingPoint) {
+      const { x, y, size } = markerRect(pendingPoint, s)
+      ctx.strokeStyle = '#ffc832'
+      ctx.lineWidth = 2
+      ctx.setLineDash([4, 3])
+      ctx.strokeRect(x, y, size, size)
+      ctx.setLineDash([])
     }
 
     // Hover crosshair / ghost box in place mode
     if (hoverPos && placeMode) {
-      const { x: sx, y: sy } = fieldToScreen(hoverPos.x, hoverPos.y, s)
-      const bw = BOX_SIZE * s.scaleFactor
+      const { x, y, size } = markerRect(hoverPos, s)
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'
       ctx.lineWidth = 1
       ctx.setLineDash([3, 3])
-      ctx.strokeRect(sx - bw / 2, sy - bw / 2, bw, bw)
+      ctx.strokeRect(x, y, size, size)
       ctx.setLineDash([])
 
-      // Coordinate label
       ctx.fillStyle = 'rgba(0,0,0,0.7)'
-      ctx.fillRect(sx + bw / 2 + 3, sy - 9, 64, 16)
+      ctx.fillRect(x + size + LABEL_GAP_PX, y + size / 2 - 8, 64, 16)
       ctx.fillStyle = 'white'
       ctx.font = '10px monospace'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'middle'
-      ctx.fillText(`${hoverPos.x},${hoverPos.y}`, sx + bw / 2 + 6, sy)
+      ctx.fillText(`${hoverPos.x},${hoverPos.y}`, x + size + LABEL_GAP_PX + 3, y + size / 2)
     }
-  }, [renderTick, points, selectedIndex, hoverPos, placeMode])
+  }, [view, points, selectedIndex, hoverPos, placeMode, pendingPoint, hiddenIndex])
 
   // ── Event handlers ──────────────────────────────────────────────────────────
 
   const eventToField = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const s = scaleRef.current
+    const s = viewRef.current
     const canvas = overlayRef.current
     if (!s || !canvas) return null
     const rect = canvas.getBoundingClientRect()
     return screenToField(e.clientX - rect.left, e.clientY - rect.top, s)
   }, [])
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      setHoverPos(eventToField(e))
+  // ── Zoom ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Zoom about a screen point, so what is under the cursor stays under it.
+   * Without this the field slides away as it grows, and the user chases it.
+   *
+   * The anchor's distance from the field centre grows by the zoom ratio, and
+   * the pan takes up the difference. Both writes are computed from refs rather
+   * than inside a state updater, because an updater must stay pure — React
+   * calls it twice in development, which would apply the pan shift twice.
+   */
+  const zoomAbout = useCallback((next: number, anchorX?: number, anchorY?: number) => {
+    const s = viewRef.current
+    const prev = zoomRef.current
+    if (!s || next === prev) return
+    if (anchorX !== undefined && anchorY !== undefined) {
+      const ratio = next / prev
+      const p = panRef.current
+      const dx = anchorX - s.cw / 2 - p.x
+      const dy = anchorY - s.ch / 2 - p.y
+      setPan({ x: p.x - dx * (ratio - 1), y: p.y - dy * (ratio - 1) })
+    }
+    setZoom(next)
+  }, [])
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      const canvas = overlayRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      zoomAbout(
+        nextZoom(zoomRef.current, e.deltaY < 0 ? 1 : -1),
+        e.clientX - rect.left,
+        e.clientY - rect.top
+      )
     },
-    [eventToField]
+    [zoomAbout]
   )
 
-  const handleMouseLeave = useCallback(() => setHoverPos(null), [])
+  const fitView = useCallback(() => {
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+  }, [])
+
+  // ── Middle mouse pan (same idiom as the map editor canvas) ──────────────────
+
+  const [panning, setPanning] = useState(false)
+  const panStartRef = useRef({ mx: 0, my: 0, px: 0, py: 0 })
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button !== 1) return
+    e.preventDefault()
+    const p = panRef.current
+    panStartRef.current = { mx: e.clientX, my: e.clientY, px: p.x, py: p.y }
+    setPanning(true)
+  }, [])
+
+  const endPan = useCallback(() => setPanning(false), [])
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (panning) {
+        const st = panStartRef.current
+        setPan({ x: st.px + (e.clientX - st.mx), y: st.py + (e.clientY - st.my) })
+        return
+      }
+      setHoverPos(eventToField(e))
+    },
+    [panning, eventToField]
+  )
+
+  const handleMouseLeave = useCallback(() => {
+    endPan()
+    setHoverPos(null)
+  }, [endPan])
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const pos = eventToField(e)
       if (!pos) return
-      const hit = findHit(pos.x, pos.y, points)
-      if (hit >= 0) {
-        onPointClick(hit)
+      // Alt skips the hit test, which is the only way to put a point on top of
+      // one that is already there (HTOO-413). Ctrl and Shift are the map list's
+      // multi-select and would read inconsistently here. Only a reference set
+      // takes the modifier at all — see `allowOverlap`.
+      if (placeMode && allowOverlap && e.altKey) {
+        onPlacePoint(pos.x, pos.y)
+        return
+      }
+      const hits = findHits(pos.x, pos.y, points)
+      const next = cycleHit(hits, selectedIndex)
+      if (next !== null) {
+        onPointClick(next)
         return
       }
       if (placeMode) onPlacePoint(pos.x, pos.y)
     },
-    [eventToField, points, placeMode, onPointClick, onPlacePoint]
+    [eventToField, points, placeMode, allowOverlap, selectedIndex, onPointClick, onPlacePoint]
   )
 
-  const cursor = placeMode ? 'crosshair' : 'pointer'
+  const cursor = panning ? 'grabbing' : placeMode ? 'crosshair' : 'pointer'
+  const zoomLabel = `${Math.round(zoom * 100)}%`
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -360,6 +590,64 @@ export default function WorldMapCanvas({
           </Typography>
         </Box>
       )}
+      {/* Zoom controls */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 6,
+          right: 6,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.25,
+          bgcolor: 'rgba(0,0,0,0.65)',
+          borderRadius: 1,
+          px: 0.5
+        }}
+      >
+        <Tooltip title="Zoom out">
+          <span>
+            <IconButton
+              size="small"
+              disabled={zoom <= FIRST_ZOOM}
+              onClick={() => zoomAbout(nextZoom(zoom, -1))}
+              sx={{ color: 'common.white' }}
+            >
+              <RemoveIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Typography
+          variant="caption"
+          sx={{ color: 'common.white', minWidth: 38, textAlign: 'center' }}
+        >
+          {zoomLabel}
+        </Typography>
+        <Tooltip title="Zoom in">
+          <span>
+            <IconButton
+              size="small"
+              disabled={zoom >= LAST_ZOOM}
+              onClick={() => zoomAbout(nextZoom(zoom, 1))}
+              sx={{ color: 'common.white' }}
+            >
+              <AddIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Fit the whole field">
+          <span>
+            <IconButton
+              size="small"
+              disabled={zoom === 1 && pan.x === 0 && pan.y === 0}
+              onClick={fitView}
+              sx={{ color: 'common.white' }}
+            >
+              <FitScreenIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
       <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
         <canvas
           ref={baseRef}
@@ -374,9 +662,12 @@ export default function WorldMapCanvas({
         <canvas
           ref={overlayRef}
           style={{ position: 'absolute', top: 0, left: 0, display: 'block', cursor }}
+          onMouseDown={handleMouseDown}
+          onMouseUp={endPan}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onClick={handleClick}
+          onWheel={handleWheel}
         />
       </Box>
     </Box>

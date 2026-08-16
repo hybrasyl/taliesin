@@ -35,6 +35,20 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Zoom and pan in the world map editor.** Use the wheel to zoom on the pointer, or the buttons at
+  the bottom right. Hold the middle mouse button to pan. The button with the arrows fits the whole
+  field again. The point markers and the labels keep a readable size at every zoom.
+- **You can type a map point's position.** The point window has Field X and Field Y. They are the
+  position of the point on the world map. Arrival X and Arrival Y stay the tile the player arrives
+  on. The map shows the point at the new position as you type.
+- **You can place a map point on top of another one in a reference set.** Hold Alt as you click.
+  Only a reference set accepts this. Its points are split across the sets that a player receives,
+  so two points that overlap in it are not drawn together. Without Alt, a click on a stack of
+  points selects them one after the other, so you can reach a point below.
+- **An error for map points that overlap in a set that a player receives.** The client draws the
+  later point on top, but a click goes to the earlier point. The point on top cannot be reached in
+  game.
+
 - **The editor file lists take the keyboard.** Up and Down move through the rows, Home and End go to
   the ends, and Enter opens the row. Down from the filter box moves into the first row. This applies
   to the map catalog, the map list and the world map list.
@@ -56,6 +70,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The world map editor puts a map point where the client puts it.** The editor drew the marker
+  around the point. The client draws the 12 by 12 box down and right from the point, and puts the
+  label beside the box. Every marker was therefore 6 pixels up and left of the position the player
+  sees. The editor now draws, selects and measures overlap with the same box as the client.
 - **The dimensions window offers narrow map shapes.** It hid any shape with a side below 8 tiles
   behind the "show all" link. Map 31126, the Caermoire Inn Corridor, is 4 by 54, so its true shape
   was hidden. 36 maps in the world are less than 8 tiles wide and 33 are less than 8 tiles tall.

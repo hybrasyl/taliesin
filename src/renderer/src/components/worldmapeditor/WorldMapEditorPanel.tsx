@@ -31,6 +31,7 @@ import { clearFieldCache } from '../../utils/worldMapRenderer'
 import { normalizeFolder } from '../../utils/fileTree'
 import {
   computeWorldMapFilename,
+  overlappingPointPairs,
   pointKey,
   type WorldMapData,
   type WorldMapMeta,
@@ -272,6 +273,8 @@ export default function WorldMapEditorPanel({
     data.points.filter((p) => referencePoints && !refKeySet.has(pointKey(p))).map(pointKey)
   )
 
+  const overlapPairs = overlappingPointPairs(data.points)
+
   const excludedRows: ExcludedRow[] =
     isDerived && referencePoints
       ? meta.excludes
@@ -403,6 +406,26 @@ export default function WorldMapEditorPanel({
           sx={{ alignSelf: 'flex-start', mb: 1 }}
         />
       )}
+      {/* Overlap — a fault in a set a player receives, expected in a reference
+          set, whose overlapping points are normally split across derived sets. */}
+      {!isReferenceSet && overlapPairs.length > 0 && (
+        <Alert severity="error" sx={{ mb: 1, flexShrink: 0 }}>
+          {overlapPairs.length === 1
+            ? 'One pair of points overlaps'
+            : `${overlapPairs.length} pairs of points overlap`}
+          . The client draws the later point on top, but a click goes to the earlier one, so the
+          point on top cannot be reached in game. Points may overlap in a reference set, not in a
+          set a player receives.{' '}
+          {overlapPairs
+            .slice(0, 3)
+            .map(
+              ([a, b]) =>
+                `${data.points[a]?.name || `#${a + 1}`} / ${data.points[b]?.name || `#${b + 1}`}`
+            )
+            .join(', ')}
+          {overlapPairs.length > 3 ? ', …' : ''}
+        </Alert>
+      )}
       {/* Orphan warning */}
       {isDerived && orphanKeys.size > 0 && (
         <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
@@ -485,7 +508,9 @@ export default function WorldMapEditorPanel({
             />
             {placeMode && (
               <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
-                Click map to place
+                {isReferenceSet
+                  ? 'Click map to place — hold Alt to place on top of a point'
+                  : 'Click map to place'}
               </Typography>
             )}
             {isExisting && !isReferenceSet && (
@@ -518,6 +543,13 @@ export default function WorldMapEditorPanel({
             setPlaceMode(false)
           }}
           onPlacePoint={handlePlacePoint}
+          // While the dialog is open the canvas shows the point at its typed
+          // position, so a coordinate edit is visible as it is typed. On an
+          // edit the stored point is hidden, or the ghost and the real marker
+          // would sit apart and read as two points.
+          pendingPoint={dialogState ? { x: dialogState.canvasX, y: dialogState.canvasY } : null}
+          hiddenIndex={dialogState?.editIndex ?? null}
+          allowOverlap={!!isReferenceSet}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
         />
 
@@ -585,6 +617,9 @@ export default function WorldMapEditorPanel({
           pointDisplayName={dialogState.displayName}
           onPointDisplayNameChange={(name) =>
             setDialogState((s) => (s ? { ...s, displayName: name } : s))
+          }
+          onPointPositionChange={(x, y) =>
+            setDialogState((s) => (s ? { ...s, canvasX: x, canvasY: y } : s))
           }
           onConfirm={handleConfirmPoint}
           onCancel={() => setDialogState(null)}
