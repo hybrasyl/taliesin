@@ -35,6 +35,13 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **A reference map set for each field map.** Before, one reference set served every field, so
+  unrelated fields shared one list of points. Each field map now has its own reference set, named
+  `ReferenceMapSet.<field>.xml`. A point belongs to the reference set of its field, so a point that
+  must appear on one field and not another goes in one file and not the other. The list panel shows
+  every reference set with the field it serves. Use the button to add a set for a field that has
+  none. A world that has one set from before keeps working: the editor reads it, and offers the new
+  name when you open it, so a rename adopts it.
 - **Zoom and pan in the world map editor.** Use the wheel to zoom on the pointer, or the buttons at
   the bottom right. Hold the middle mouse button to pan. The button with the arrows fits the whole
   field again. The point markers and the labels keep a readable size at every zoom.
