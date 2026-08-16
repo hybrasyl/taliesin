@@ -627,7 +627,13 @@ export async function catalogScan(
 ): Promise<{ filename: string; sizeBytes: number }[]> {
   const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
   const entries = await fs.readdir(safeDir, { withFileTypes: true })
-  const maps = entries.filter((e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name))
+  // Every .map file, whatever it is called. This used to demand
+  // `lod<digits>[-variant].map` and dropped the rest without a word — 1036 of
+  // the 2690 files in one real directory, including 1007 Windows copy
+  // duplicates (`lod0001 (2).map`) and every Korean-titled map. The renderer's
+  // parseMapFilename now reads a name for what it offers instead of using it as
+  // a gate, so the only test left here is the extension.
+  const maps = entries.filter((e) => !e.isDirectory() && /\.map$/i.test(e.name))
   return Promise.all(
     maps.map(async (e) => {
       const stat = await fs.stat(join(safeDir, e.name))

@@ -15,8 +15,11 @@ export type CatalogData = Record<string, CatalogMeta>
 /** A fully merged entry — scan data + catalog metadata. */
 export interface CatalogEntry {
   filename: string
-  mapNumber: number
+  /** The id in the name, or null when the name carries none (`rudin001.map`). */
+  mapNumber: number | null
   variant: string | null // null = canonical; "d0799701" or "kyle" = variant
+  /** What the row shows: `lod500` for a named id, else the filename stem. */
+  label: string
   sizeBytes: number
   name: string
   notes: string
@@ -26,15 +29,56 @@ export interface CatalogEntry {
 
 // ── Filename parsing ──────────────────────────────────────────────────────────
 
-export function parseMapFilename(
-  filename: string
-): { mapNumber: number; variant: string | null } | null {
-  const match = filename.match(/^lod(\d+)(?:-([^.]+))?\.map$/i)
-  if (!match) return null
-  return {
-    mapNumber: parseInt(match[1], 10),
-    variant: match[2] ?? null
+export interface ParsedMapName {
+  /** The id the name states, or null when it states none. */
+  mapNumber: number | null
+  /** What distinguishes this file from the bare id. */
+  variant: string | null
+  /** Row label: `lod500` when the name names an id, else the filename stem. */
+  label: string
+}
+
+/**
+ * Read what a `.map` filename says about itself.
+ *
+ * **Every `.map` file is a map.** This used to demand `lod<digits>[-variant].map`
+ * and return null otherwise, and `mergeEntries` dropped whatever it refused —
+ * silently. In `E:\Hybrasyl Dev\Maps\LOD 8.x Maps` that hid 1036 of 2690 files:
+ * 1007 Windows copy-duplicates (`lod0001 (2).map`), underscore variants
+ * (`lod505_1.map`), Korean-titled maps carrying no digits at all, other prefixes
+ * (`nova0001.map`, `rudin001.map`), and a bare `214214.map`. All of them load and
+ * render; only the name was unusual.
+ *
+ * So the name is now read for what it offers and never used to exclude. A name
+ * with no id parses to `mapNumber: null`, which costs the entry its index lookup
+ * and its export default — not its place in the catalog.
+ *
+ * Digits are NOT scraped out of an unknown prefix: `nova0001.map` would land
+ * among the lod1s and claim to be map 1, which is a worse answer than "no id".
+ */
+export function parseMapFilename(filename: string): ParsedMapName | null {
+  const stem = filename.replace(/\.map$/i, '')
+  if (stem === filename) return null // not a .map file at all
+
+  // `lod500`, `lod500-summer`, `lod0001 (2)`, `lod505_1`, `lod15500(...)`.
+  const lod = stem.match(/^lod(\d+)(.*)$/i)
+  if (lod) {
+    const rest = lod[2].replace(/^[-_\s]+/, '').trim()
+    return {
+      mapNumber: parseInt(lod[1], 10),
+      variant: rest || null,
+      label: `lod${parseInt(lod[1], 10)}`
+    }
   }
+
+  // A bare number is an id without the prefix. Labelled as written, because
+  // calling `214214.map` "lod214214" asserts more than the name does.
+  const bare = stem.match(/^(\d+)$/)
+  if (bare) {
+    return { mapNumber: parseInt(bare[1], 10), variant: null, label: stem }
+  }
+
+  return { mapNumber: null, variant: null, label: stem }
 }
 
 function mergeEntries(
@@ -50,6 +94,7 @@ function mergeEntries(
       filename: s.filename,
       mapNumber: parsed.mapNumber,
       variant: parsed.variant,
+      label: parsed.label,
       sizeBytes: s.sizeBytes,
       name: meta.name ?? '',
       notes: meta.notes ?? '',
@@ -57,8 +102,15 @@ function mergeEntries(
       height: meta.height ?? null
     })
   }
-  // Sort by map number asc, canonical (no variant) first within each number
+  // Map number asc, canonical (no variant) first within each number. Names that
+  // state no id sort together at the end, alphabetically — they have nothing to
+  // interleave on, and burying them among the numbers would only hide them
+  // differently.
   entries.sort((a, b) => {
+    if (a.mapNumber === null || b.mapNumber === null) {
+      if (a.mapNumber !== b.mapNumber) return a.mapNumber === null ? 1 : -1
+      return a.label.localeCompare(b.label)
+    }
     if (a.mapNumber !== b.mapNumber) return a.mapNumber - b.mapNumber
     if (a.variant === null && b.variant !== null) return -1
     if (a.variant !== null && b.variant === null) return 1

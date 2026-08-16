@@ -102,7 +102,7 @@ const MapCatalogEditor: React.FC<Props> = ({
         {/* Title row */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold', flex: 1 }}>
-            lod{entry.mapNumber}
+            {entry.label}
           </Typography>
           {entry.variant && <Chip label={entry.variant} size="small" variant="outlined" />}
           <Typography

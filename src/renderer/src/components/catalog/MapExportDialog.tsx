@@ -46,9 +46,12 @@ const MapExportDialog: React.FC<Props> = ({
   onExported
 }) => {
   const { refresh: refreshWorldIndex } = useWorldIndex()
-  const autoPrefix = xmlPrefix(entry.mapNumber)
+  // No id in the filename means no basis to guess hyb over lod; the user picks.
+  const autoPrefix = xmlPrefix(entry.mapNumber ?? 0)
   const [prefix, setPrefix] = useState<Prefix>(autoPrefix)
-  const [mapNumberStr, setMapNumberStr] = useState(String(entry.mapNumber))
+  // Empty rather than "null" when the filename states no id: the field is the
+  // one place the user can supply it, so it must start blank and invalid.
+  const [mapNumberStr, setMapNumberStr] = useState(String(entry.mapNumber ?? ''))
   const [checking, setChecking] = useState(false)
   const [mapDupe, setMapDupe] = useState(false)
   const [xmlDupe, setXmlDupe] = useState(false)
@@ -89,7 +92,7 @@ const MapExportDialog: React.FC<Props> = ({
   useEffect(() => {
     if (!open) return
     setPrefix(autoPrefix)
-    setMapNumberStr(String(entry.mapNumber))
+    setMapNumberStr(String(entry.mapNumber ?? ''))
     setError(null)
   }, [open, entry.mapNumber, autoPrefix])
 

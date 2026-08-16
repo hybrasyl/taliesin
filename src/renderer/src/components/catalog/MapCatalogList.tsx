@@ -37,7 +37,8 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect, 
     if (!q) return entries
     return entries.filter(
       (e) =>
-        String(e.mapNumber).includes(q) ||
+        (e.mapNumber !== null && String(e.mapNumber).includes(q)) ||
+        e.label.toLowerCase().includes(q) ||
         e.filename.toLowerCase().includes(q) ||
         e.name.toLowerCase().includes(q)
     )
@@ -229,7 +230,7 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect, 
                       noWrap
                       sx={{ color: 'text.button', fontWeight: 500 }}
                     >
-                      lod{entry.mapNumber}
+                      {entry.label}
                     </Typography>
                     {entry.variant && (
                       <Chip
