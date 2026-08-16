@@ -49,6 +49,47 @@ export function computeWorldMapFilename(name: string): string {
   return base ? `${base}.xml` : 'WorldMap.xml'
 }
 
+// ── Reference sets (HTOO-410) ─────────────────────────────────────────────────
+
+/**
+ * One reference set per field map, named for the field it serves.
+ *
+ * A world has up to 11 field maps, and they carry different art and different
+ * points. One shared reference set forced unrelated fields into a single list.
+ *
+ * This also settles HTOO-411 without a per-point field. A point belongs to
+ * exactly one reference set, and that is the file it lives in, so "Oren is on
+ * the legacy set and not the Hybrasyl one" is expressed by the two being
+ * different fields with a reference set each. There is nothing on the point to
+ * keep in step with the file.
+ */
+const REFERENCE_STEM = 'ReferenceMapSet'
+
+/** The legacy single set, from before a set belonged to a field. */
+export const LEGACY_REFERENCE_FILENAME = `${REFERENCE_STEM}.xml`
+
+/** `field001` → `ReferenceMapSet.field001.xml`. */
+export function referenceFilenameFor(field: string): string {
+  return field ? `${REFERENCE_STEM}.${field}.xml` : LEGACY_REFERENCE_FILENAME
+}
+
+/**
+ * The field a reference set filename serves, `null` for the legacy name.
+ *
+ * Returns `undefined` when the name is not a reference set at all, so the three
+ * cases stay apart: not a reference set, the legacy set, and a field's set.
+ */
+export function fieldOfReferenceFilename(name: string): string | null | undefined {
+  const m = name.match(new RegExp(`^${REFERENCE_STEM}(?:\\.([^.]+))?\\.xml$`, 'i'))
+  if (!m) return undefined
+  return m[1] ?? null
+}
+
+/** Whether a filename names a reference set, of any field or the legacy one. */
+export function isReferenceFilename(name: string): boolean {
+  return fieldOfReferenceFilename(name) !== undefined
+}
+
 // ── Overlap (HTOO-413) ────────────────────────────────────────────────────────
 
 /**

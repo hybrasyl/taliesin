@@ -33,28 +33,43 @@ export async function resolvePackBitmap(
  * means "no art" (not cached); a throw propagates (used by renderField to show
  * an error). `id` (coverage/pack key) is separate from `cacheKey` because the
  * world-map cache keys by client-path while covering/resolving by field name.
+ *
+ * `onSource` reports which path produced the bitmap (HTOO-171). Step 2 falling
+ * through to step 3 is silent otherwise: a pack that covers the id but fails to
+ * decode looks exactly like a pack that was never installed, so a caller that
+ * wants to name the source it used has to be told.
  */
+export type OverrideSource = 'pack' | 'legacy' | 'cache'
+
 export async function resolveWithPackOverride<I extends number | string, K>(
   subtype: string,
   id: I,
   coverage: ReadonlySet<I>,
   cache: Map<K, ImageBitmap>,
   cacheKey: K,
-  renderLegacy: () => Promise<ImageBitmap | null>
+  renderLegacy: () => Promise<ImageBitmap | null>,
+  onSource?: (source: OverrideSource) => void
 ): Promise<ImageBitmap | null> {
   const cached = cache.get(cacheKey)
-  if (cached) return cached
+  if (cached) {
+    onSource?.('cache')
+    return cached
+  }
 
   if (coverage.has(id)) {
     const override = await resolvePackBitmap(subtype, id)
     if (override) {
       cache.set(cacheKey, override)
+      onSource?.('pack')
       return override
     }
   }
 
   const bitmap = await renderLegacy()
-  if (bitmap) cache.set(cacheKey, bitmap)
+  if (bitmap) {
+    cache.set(cacheKey, bitmap)
+    onSource?.('legacy')
+  }
   return bitmap
 }
 

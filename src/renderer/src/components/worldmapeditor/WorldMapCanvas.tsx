@@ -30,7 +30,14 @@ import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/mat
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import FitScreenIcon from '@mui/icons-material/FitScreen'
-import { renderField, FIELD_WIDTH, FIELD_HEIGHT } from '../../utils/worldMapRenderer'
+import {
+  renderField,
+  aspectDeviation,
+  ASPECT_TOLERANCE,
+  FIELD_WIDTH,
+  FIELD_HEIGHT,
+  type FieldArtSource
+} from '../../utils/worldMapRenderer'
 import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
 
@@ -280,6 +287,18 @@ export default function WorldMapCanvas({
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * What the background actually is (HTOO-171). Two states used to look the
+   * same: art the field genuinely has none of, and art that failed to resolve.
+   * A pack that covers a field but fails to decode is the worst of them — it
+   * falls back to the legacy art silently, so the preview is of the wrong
+   * picture and says nothing.
+   */
+  const [art, setArt] = useState<{
+    source: FieldArtSource
+    width: number
+    height: number
+  } | null>(null)
   const [bitmapTick, setBitmapTick] = useState(0)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
 
@@ -324,9 +343,14 @@ export default function WorldMapCanvas({
     setError(null)
     ;(async () => {
       try {
-        const bitmap = clientPath ? await renderField(fieldName, clientPath) : null
+        const field = clientPath ? await renderField(fieldName, clientPath) : null
         if (cancelled) return
-        bitmapRef.current = bitmap ?? null
+        bitmapRef.current = field?.bitmap ?? null
+        setArt(
+          field
+            ? { source: field.source, width: field.bitmap.width, height: field.bitmap.height }
+            : null
+        )
         setLoading(false)
         setBitmapTick((n) => n + 1)
       } catch (e) {
@@ -336,6 +360,7 @@ export default function WorldMapCanvas({
         setError(msg)
         setLoading(false)
         bitmapRef.current = null
+        setArt(null)
         setBitmapTick((n) => n + 1)
       }
     })()
@@ -374,16 +399,22 @@ export default function WorldMapCanvas({
       ctx.imageSmoothingEnabled = dw < bmp.width
       ctx.drawImage(bmp, s.offsetX, s.offsetY, dw, dh)
     } else if (!loading) {
-      // No bitmap — draw field name as placeholder
+      // No bitmap. Say which of the two reasons it is, rather than showing the
+      // same grey rectangle for both (HTOO-171).
       ctx.fillStyle = '#333'
       ctx.fillRect(s.offsetX, s.offsetY, dw, dh)
       ctx.fillStyle = 'rgba(255,255,255,0.3)'
       ctx.font = '14px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(fieldName || '(no field selected)', s.cw / 2, s.ch / 2)
+      const reason = !fieldName
+        ? '(no field selected)'
+        : !clientPath
+          ? `${fieldName} — set the Dark Ages client path in Settings to see its art`
+          : fieldName
+      ctx.fillText(reason, s.cw / 2, s.ch / 2)
     }
-  }, [view, bitmapTick, loading, fieldName])
+  }, [view, bitmapTick, loading, fieldName, clientPath])
 
   // ── Overlay draw — points + hover ───────────────────────────────────────────
 
@@ -542,6 +573,9 @@ export default function WorldMapCanvas({
 
   const cursor = panning ? 'grabbing' : placeMode ? 'crosshair' : 'pointer'
   const zoomLabel = `${Math.round(zoom * 100)}%`
+  // Only pack art can be off-aspect; the legacy path composes into 640×480.
+  const offAspect =
+    art?.source === 'pack' && aspectDeviation(art.width, art.height) > ASPECT_TOLERANCE
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -588,6 +622,45 @@ export default function WorldMapCanvas({
           >
             {error}
           </Typography>
+        </Box>
+      )}
+      {/* Name the art the preview is actually of (HTOO-171), and report art
+          that will be stretched out of shape (HTOO-376). */}
+      {!loading && !error && art && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: 0.5,
+            pointerEvents: 'none'
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ bgcolor: 'rgba(0,0,0,0.75)', px: 0.75, py: 0.25, borderRadius: 0.5 }}
+          >
+            {art.source === 'pack' ? `Asset pack · ${art.width}×${art.height}` : 'Legacy setoa.dat'}
+          </Typography>
+          {offAspect && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'warning.light',
+                bgcolor: 'rgba(0,0,0,0.75)',
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 0.5,
+                maxWidth: 320
+              }}
+            >
+              Not 4:3 — stretched to fit. The art moves under the points, which do not move.
+            </Typography>
+          )}
         </Box>
       )}
       {/* Zoom controls */}

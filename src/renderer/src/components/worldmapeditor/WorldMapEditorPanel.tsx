@@ -32,6 +32,7 @@ import { normalizeFolder } from '../../utils/fileTree'
 import {
   computeWorldMapFilename,
   overlappingPointPairs,
+  referenceFilenameFor,
   pointKey,
   type WorldMapData,
   type WorldMapMeta,
@@ -292,7 +293,13 @@ export default function WorldMapEditorPanel({
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
-  const computedFileName = computeWorldMapFilename(data.name)
+  // A reference set is identified by the field it serves, not by its display
+  // name (HTOO-410). This is also how the legacy `ReferenceMapSet.xml` is
+  // adopted: open it, and the header offers the field-specific name to
+  // regenerate to, so the rename is one visible click rather than a migration.
+  const computedFileName = isReferenceSet
+    ? referenceFilenameFor(data.clientMap)
+    : computeWorldMapFilename(data.name)
 
   const doSave = useCallback(async () => {
     await onSave(data, fileName, normalizeFolder(folder))

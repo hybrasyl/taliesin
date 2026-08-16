@@ -14,6 +14,8 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  Menu,
+  MenuItem,
   Snackbar,
   Tooltip,
   Typography
@@ -27,11 +29,16 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import WorldMapEditorPanel from '../components/worldmapeditor/WorldMapEditorPanel'
 import SectionFileList from '../components/shared/SectionFileList'
 import { parseWorldMapXml, serializeWorldMapXml } from '../utils/worldMapXml'
+import { FIELD_NAMES } from '../utils/worldMapRenderer'
 import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
 import { folderOptions } from '../utils/fileTree'
 import {
   DEFAULT_WORLD_MAP,
+  fieldOfReferenceFilename,
+  isReferenceFilename,
+  referenceFilenameFor,
   pointKey,
+  LEGACY_REFERENCE_FILENAME,
   type WorldMapData,
   type WorldMapMeta
 } from '../data/worldMapData'
@@ -50,43 +57,48 @@ interface FileEntry {
   display: string
   /** Lives under `.ignore/` — a template rather than an active world map. */
   template?: boolean
-  /** True only for the canonical reference set */
+  /** True only for a reference set — one per field map (HTOO-410). */
   isReferenceSet?: boolean
+  /** The field this reference set serves; null for the legacy single set. */
+  referenceField?: string | null
 }
 
 const WORLDMAPS_SUBDIR = 'worldmaps'
-const REFERENCE_FILENAME = 'ReferenceMapSet.xml'
 
 // ── File list panel ───────────────────────────────────────────────────────────
 
 const matchesQuery = (f: FileEntry, q: string): boolean => f.display.toLowerCase().includes(q)
 
-/** The reference set is pinned above the list, so it answers the filter itself. */
+/** Reference sets are pinned above the list, so they answer the filter themselves. */
 const referenceMatchesQuery = (q: string): boolean =>
-  !q || REFERENCE_FILENAME.toLowerCase().includes(q) || 'reference set'.includes(q)
+  !q || 'referencemapset'.includes(q) || 'reference set'.includes(q)
 
 function FileListPanel({
-  referenceFile,
+  referenceFiles,
   files,
   templateFiles,
   selectedFile,
   onSelect,
   onNew,
   onCreateReference,
+  unsetFields,
   showTemplates,
   onToggleTemplates
 }: {
-  referenceFile: FileEntry | null
+  referenceFiles: FileEntry[]
   files: FileEntry[]
   templateFiles: FileEntry[]
   selectedFile: FileEntry | null
   onSelect: (f: FileEntry) => void
   onNew: () => void
-  onCreateReference: () => void
+  onCreateReference: (field: string) => void
+  /** Fields with no reference set yet — what the create menu offers. */
+  unsetFields: string[]
   showTemplates: boolean
   onToggleTemplates: () => void
 }) {
   const viewMode = useSettingsStore((s) => s.fileListViewMode)
+  const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null)
 
   const renderRow = useCallback(
     (f: FileEntry, muted: boolean): React.ReactElement => (
@@ -116,40 +128,66 @@ function FileListPanel({
           <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              Reference Set
+              {referenceFiles.length > 1 ? 'Reference Sets' : 'Reference Set'}
             </Typography>
           </Box>
-          {referenceFile ? (
+          {referenceFiles.length > 0 && (
             <List dense disablePadding>
-              <ListItem disablePadding>
-                <ListItemButton
-                  selected={selectedFile?.path === referenceFile.path}
-                  onClick={() => onSelect(referenceFile)}
-                >
-                  <ListItemText
-                    primary={referenceFile.name.replace(/\.xml$/i, '')}
-                    slotProps={{ primary: { noWrap: true, variant: 'body2' } }}
-                  />
-                </ListItemButton>
-              </ListItem>
+              {referenceFiles.map((ref) => (
+                <ListItem key={ref.rel} disablePadding>
+                  <ListItemButton
+                    selected={selectedFile?.path === ref.path}
+                    onClick={() => onSelect(ref)}
+                  >
+                    <ListItemText
+                      // The field is the identity of a reference set, so it
+                      // leads. The legacy set names no field and says so.
+                      primary={ref.referenceField ?? 'Reference Set (no field)'}
+                      secondary={ref.name}
+                      slotProps={{
+                        primary: { noWrap: true, variant: 'body2' },
+                        secondary: { noWrap: true, variant: 'caption' }
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
             </List>
-          ) : (
-            <Box sx={{ px: 1.5, pb: 1 }}>
+          )}
+          {unsetFields.length > 0 && (
+            <Box sx={{ px: 1.5, pb: 1, pt: referenceFiles.length > 0 ? 0.5 : 0 }}>
               <Button
                 size="small"
                 variant="outlined"
                 startIcon={<AddIcon />}
-                onClick={onCreateReference}
+                onClick={(e) => setCreateAnchor(e.currentTarget)}
                 fullWidth
               >
-                Create Reference Set
+                {referenceFiles.length > 0 ? 'Reference Set for a Field' : 'Create Reference Set'}
               </Button>
+              <Menu
+                anchorEl={createAnchor}
+                open={!!createAnchor}
+                onClose={() => setCreateAnchor(null)}
+              >
+                {unsetFields.map((f) => (
+                  <MenuItem
+                    key={f}
+                    onClick={() => {
+                      setCreateAnchor(null)
+                      onCreateReference(f)
+                    }}
+                  >
+                    {f}
+                  </MenuItem>
+                ))}
+              </Menu>
             </Box>
           )}
           <Divider sx={{ my: 0.5 }} />
         </>
       ),
-    [referenceFile, selectedFile, onSelect, onCreateReference]
+    [referenceFiles, unsetFields, createAnchor, selectedFile, onSelect, onCreateReference]
   )
 
   return (
@@ -183,7 +221,7 @@ function FileListPanel({
 export default function WorldMapPage() {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
 
-  const [referenceFile, setReferenceFile] = useState<FileEntry | null>(null)
+  const [referenceFiles, setReferenceFiles] = useState<FileEntry[]>([])
   const [files, setFiles] = useState<FileEntry[]>([])
   const [templateFiles, setTemplateFiles] = useState<FileEntry[]>([])
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null)
@@ -240,7 +278,7 @@ export default function WorldMapPage() {
     if (!activeLibrary) {
       setFiles([])
       setTemplateFiles([])
-      setReferenceFile(null)
+      setReferenceFiles([])
       setWorldmapsDir(null)
       return
     }
@@ -264,22 +302,33 @@ export default function WorldMapPage() {
 
       setFiles(active.map((rel) => toEntry(rel, false)).sort(byDisplay))
 
-      // The reference set is the one at the archive root — a template filed in
-      // a subfolder that happens to share the name is just a template.
+      // Reference sets live at the archive root — a template filed in a
+      // subfolder that happens to share the name is just a template. There is
+      // one per field map now (HTOO-410), and possibly the legacy unfielded set
+      // from before that, which is listed alongside them until it is renamed.
       const templates = archived.map((rel) => toEntry(rel, true))
-      const ref = templates.find((f) => f.name === REFERENCE_FILENAME && relFolder(f.rel) === '')
-      setReferenceFile(ref ? { ...ref, isReferenceSet: true } : null)
-      setTemplateFiles(templates.filter((f) => f !== ref).sort(byDisplay))
+      const refs = templates
+        .filter((f) => relFolder(f.rel) === '' && isReferenceFilename(f.name))
+        .map((f) => ({
+          ...f,
+          isReferenceSet: true,
+          referenceField: fieldOfReferenceFilename(f.name) ?? null
+        }))
+        // Legacy first, then by field, so the list reads in field order.
+        .sort((a, b) => (a.referenceField ?? '').localeCompare(b.referenceField ?? ''))
+      const refRels = new Set(refs.map((r) => r.rel))
+      setReferenceFiles(refs)
+      setTemplateFiles(templates.filter((f) => !refRels.has(f.rel)).sort(byDisplay))
     } catch {
       setFiles([])
       setTemplateFiles([])
-      setReferenceFile(null)
+      setReferenceFiles([])
     }
   }
 
   useEffect(() => {
     if (!activeLibrary) {
-      setReferenceFile(null)
+      setReferenceFiles([])
       setFiles([])
       setTemplateFiles([])
       setSelectedFile(null)
@@ -301,22 +350,44 @@ export default function WorldMapPage() {
 
   // ── Create reference set ──────────────────────────────────────────────────
 
-  const handleCreateReference = async () => {
+  /**
+   * Fields with no reference set of their own.
+   *
+   * The legacy unfielded set claims no field, so it never removes one from this
+   * list. Renaming it to a field's name is what adopts it, and the editor
+   * offers that: a reference set's computed filename comes from its field.
+   */
+  const unsetFields = useMemo(() => {
+    const taken = new Set(referenceFiles.map((r) => r.referenceField).filter(Boolean))
+    return FIELD_NAMES.filter((f) => !taken.has(f))
+  }, [referenceFiles])
+
+  const handleCreateReference = async (field: string) => {
     if (!ignoreDir) return
-    const refPath = `${ignoreDir}/${REFERENCE_FILENAME}`
+    const filename = referenceFilenameFor(field)
+    const refPath = `${ignoreDir}/${filename}`
     try {
-      const newMap: WorldMapData = { ...DEFAULT_WORLD_MAP, name: 'Reference Map Set' }
+      const newMap: WorldMapData = {
+        ...DEFAULT_WORLD_MAP,
+        name: `Reference Map Set ${field}`,
+        clientMap: field
+      }
       const xml = serializeWorldMapXml(newMap)
       await window.api.writeFile(refPath, xml)
       const entry: FileEntry = {
-        rel: `.ignore/${REFERENCE_FILENAME}`,
-        name: REFERENCE_FILENAME,
-        display: displayName(REFERENCE_FILENAME),
+        rel: `.ignore/${filename}`,
+        name: filename,
+        display: displayName(filename),
         path: refPath,
         template: true,
-        isReferenceSet: true
+        isReferenceSet: true,
+        referenceField: field
       }
-      setReferenceFile(entry)
+      setReferenceFiles((prev) =>
+        [...prev, entry].sort((a, b) =>
+          (a.referenceField ?? '').localeCompare(b.referenceField ?? '')
+        )
+      )
       // Open it immediately for editing
       setSelectedFile(entry)
       setEditingMap(newMap)
@@ -349,7 +420,8 @@ export default function WorldMapPage() {
   }
 
   const loadMetaAndReference = async (
-    rel: string
+    rel: string,
+    field: string
   ): Promise<{ meta: WorldMapMeta; referencePoints: WorldMapData['points'] } | null> => {
     const path = metaPath(rel)
     if (!path || !ignoreDir) return null
@@ -369,15 +441,27 @@ export default function WorldMapPage() {
       // sync, exclusions inert — so probe first and fall back to the current
       // reference set. The normalized name goes back on the next saveMeta,
       // healing the sidecar without writing to the world on mere load.
+      // Resolution order, most specific first: the name the sidecar stores, the
+      // set for this map's own field (HTOO-410), then the legacy unfielded set.
+      // A world upgraded field by field has sidecars of all three vintages.
       const storedPath = m.reference ? `${ignoreDir}/${m.reference}` : null
-      const refPath =
-        storedPath && (await window.api.exists(storedPath))
-          ? storedPath
-          : `${ignoreDir}/${REFERENCE_FILENAME}`
-      if (refPath !== storedPath) {
-        if (!(await window.api.exists(refPath))) return null
-        m.reference = REFERENCE_FILENAME
+      let refPath: string | null = null
+      let refName: string | null = null
+      for (const candidate of [
+        m.reference,
+        field ? referenceFilenameFor(field) : null,
+        LEGACY_REFERENCE_FILENAME
+      ]) {
+        if (!candidate) continue
+        const p = `${ignoreDir}/${candidate}`
+        if (await window.api.exists(p)) {
+          refPath = p
+          refName = candidate
+          break
+        }
       }
+      if (!refPath || !refName) return null
+      if (refPath !== storedPath) m.reference = refName
       const refBytes = await window.api.readFile(refPath)
       const refData = parseWorldMapXml(new TextDecoder().decode(refBytes))
       return { meta: m, referencePoints: refData.points }
@@ -407,9 +491,10 @@ export default function WorldMapPage() {
     try {
       const bytes = await window.api.readFile(file.path)
       const xml = new TextDecoder('utf-8').decode(bytes)
-      setEditingMap(parseWorldMapXml(xml))
+      const parsed = parseWorldMapXml(xml)
+      setEditingMap(parsed)
 
-      const result = await loadMetaAndReference(file.rel)
+      const result = await loadMetaAndReference(file.rel, parsed.clientMap)
       if (result) {
         setMeta(result.meta)
         setReferencePoints(result.referencePoints)
@@ -584,16 +669,28 @@ export default function WorldMapPage() {
 
   const handleLinkToReference = async () => {
     if (!ignoreDir || !selectedFile || !editingMap) return
-    const refPath = `${ignoreDir}/${REFERENCE_FILENAME}`
-    try {
-      const exists = await window.api.exists(refPath)
-      if (!exists) {
-        setSnackbar({
-          message: `Reference set not found: ${REFERENCE_FILENAME}`,
-          severity: 'error'
-        })
-        return
+    // Link to the set for this map's own field, and fall back to the legacy
+    // unfielded set for a world not split by field yet (HTOO-410).
+    const candidates = [
+      editingMap.clientMap ? referenceFilenameFor(editingMap.clientMap) : null,
+      LEGACY_REFERENCE_FILENAME
+    ].filter((c): c is string => c !== null)
+    let refName: string | null = null
+    for (const c of candidates) {
+      if (await window.api.exists(`${ignoreDir}/${c}`)) {
+        refName = c
+        break
       }
+    }
+    if (!refName) {
+      setSnackbar({
+        message: `No reference set for ${editingMap.clientMap || 'this field'}. Create one first.`,
+        severity: 'error'
+      })
+      return
+    }
+    const refPath = `${ignoreDir}/${refName}`
+    try {
       const bytes = await window.api.readFile(refPath)
       const refData = parseWorldMapXml(new TextDecoder().decode(bytes))
       const refKeys = new Set(refData.points.map(pointKey))
@@ -611,7 +708,7 @@ export default function WorldMapPage() {
         })
       }
 
-      const newMeta: WorldMapMeta = { reference: REFERENCE_FILENAME, excludes }
+      const newMeta: WorldMapMeta = { reference: refName, excludes }
       setMeta(newMeta)
       setReferencePoints(refData.points)
       await saveMeta(selectedFile.rel, newMeta)
@@ -643,13 +740,14 @@ export default function WorldMapPage() {
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       <FileListPanel
-        referenceFile={referenceFile}
+        referenceFiles={referenceFiles}
+        unsetFields={unsetFields}
         files={files}
         templateFiles={templateFiles}
         selectedFile={selectedFile}
         onSelect={handleSelect}
         onNew={handleNew}
-        onCreateReference={() => guard(handleCreateReference)}
+        onCreateReference={(field) => guard(() => handleCreateReference(field))}
         showTemplates={showTemplates}
         onToggleTemplates={handleToggleTemplates}
       />
