@@ -94,6 +94,45 @@ const CANDIDATES: Record<CompanionId, Record<string, string[]>> = {
   }
 }
 
+/**
+ * Does a directory entry look like the companion itself?
+ *
+ * The exact-name list above only ever matched an *installed* executable. Both
+ * apps ship release artifacts under electron-builder's
+ * `${name}-${version}-portable.${ext}` and `${name}-${version}.${ext}`, so a
+ * `creidhne-1.11.0-portable.exe` sitting right beside Taliesin — the ordinary
+ * way these two land on a disk together — was never seen. Taliesin's own
+ * releases use the identical pattern, which is why the failure was symmetric.
+ *
+ * **A `-setup.exe` is deliberately NOT matched.** It is the NSIS installer, not
+ * the application: launching it would start an install rather than open the
+ * companion, and it is the file most likely to be sitting in the same downloads
+ * folder. Matching by prefix alone would have picked it roughly half the time.
+ */
+export function isCompanionEntry(id: CompanionId, platform: string, entry: string): boolean {
+  const name = entry.toLowerCase()
+  if (name.includes('-setup') || name.includes('uninstall')) return false
+  // An optional `-<version>` and an optional `-portable`, in that order.
+  const suffix = '(?:-\\d[\\d.]*)?(?:-portable)?'
+  if (platform === 'win32') return new RegExp(`^${id}${suffix}\\.exe$`, 'i').test(name)
+  if (platform === 'darwin') return new RegExp(`^${id}${suffix}\\.app$`, 'i').test(name)
+  return new RegExp(`^${id}${suffix}(?:\\.appimage)?$`, 'i').test(name)
+}
+
+/**
+ * Pick one when a directory holds several. An unversioned name wins — it is the
+ * installed executable, and the deliberate one. Otherwise take the highest
+ * version, compared numerically so 1.10.0 beats 1.9.0 as it must.
+ */
+export function preferredCompanionEntry(entries: string[]): string | null {
+  if (entries.length === 0) return null
+  const plain = entries.find((e) => !/-\d/.test(e))
+  if (plain) return plain
+  return (
+    [...entries].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).at(-1) ?? null
+  )
+}
+
 /** Display name as the NSIS package and the desktop entry write it. */
 const PRODUCT_NAME: Record<CompanionId, string> = { creidhne: 'Creidhne' }
 
@@ -142,6 +181,28 @@ async function findIn(probe: CompanionProbe, dir: string, names: string[]): Prom
     if (hit) return join(dir, hit)
   }
   return null
+}
+
+/**
+ * The companion beside `dir`, matched by shape rather than by exact name so a
+ * versioned release artifact is found. Unreadable directory → no sibling, which
+ * is the same answer as an empty one and lets discovery continue.
+ */
+async function findSibling(
+  probe: CompanionProbe,
+  id: CompanionId,
+  dir: string
+): Promise<string | null> {
+  let entries: string[]
+  try {
+    entries = await probe.readdir(dir)
+  } catch {
+    return null
+  }
+  const hit = preferredCompanionEntry(
+    entries.filter((e) => isCompanionEntry(id, probe.platform, e))
+  )
+  return hit ? join(dir, hit) : null
 }
 
 /**
@@ -264,7 +325,7 @@ export async function resolveCompanion(
     staleOverride = true
   }
 
-  const sibling = await findIn(probe, launcherDir(probe), candidatesFor(id, probe.platform))
+  const sibling = await findSibling(probe, id, launcherDir(probe))
   if (sibling) {
     return {
       resolved: { target: sibling, kind: kindOf(sibling), source: 'sibling' },
