@@ -129,7 +129,15 @@ const WallPlacementPreview: React.FC<Props> = ({
   onBlankRowsChange
 }) => {
   const [facing, setFacing] = useState<Facing>('left')
-  const [runId, setRunId] = useState<string>('')
+  /**
+   * One id per cell of the run, filled by hand.
+   *
+   * These used to be derived from a single id as `n`, `n+1`, `n+2`. A legacy
+   * run does not always number in the direction a given face is drawn, so the
+   * wall came out reversed and there was no way to say so. Three boxes have no
+   * direction to get wrong.
+   */
+  const [runIds, setRunIds] = useState<string[]>(['', '', ''])
   const [floorId, setFloorId] = useState<string>('')
   const [cell, setCell] = useState<Cell>({ x: 1, y: 1 })
   const [slot, setSlot] = useState<WallFace>('left')
@@ -153,14 +161,13 @@ const WallPlacementPreview: React.FC<Props> = ({
     if (!ctx) return
 
     // Collect the art first: the headroom depends on the tallest wall in it.
-    const centre = Number.parseInt(runId, 10)
-    const hasRun = assets && Number.isInteger(centre) && centre > 0
     const cells = runCells(facing)
     const walls: { cell: Cell; bitmap: ImageBitmap }[] = []
     const notFound: number[] = []
-    if (hasRun) {
+    if (assets) {
       for (let i = 0; i < cells.length; i++) {
-        const id = centre + i
+        const id = Number.parseInt(runIds[i] ?? '', 10)
+        if (!Number.isInteger(id) || id < 1) continue
         const bitmap = await getStcBitmap(id, assets)
         if (bitmap) walls.push({ cell: cells[i]!, bitmap })
         else notFound.push(id)
@@ -249,7 +256,7 @@ const WallPlacementPreview: React.FC<Props> = ({
       ctx.lineTo(x0 + ISO_HTILE_W, foot - split.blank + 0.5)
       ctx.stroke()
     }
-  }, [assets, converted, scale, floorId, runId, zoom, facing, cell, slot, split.blank])
+  }, [assets, converted, scale, floorId, runIds, zoom, facing, cell, slot, split.blank])
 
   useEffect(() => {
     if (open) draw()
@@ -286,15 +293,29 @@ const WallPlacementPreview: React.FC<Props> = ({
                   : 'Run along y=0, in the left slot'}
               </Typography>
             </Box>
-            <TextField
-              size="small"
-              label="Reference wall id"
-              type="number"
-              value={runId}
-              onChange={(e) => setRunId(e.target.value)}
-              helperText="The first of three. It and the next two make the run."
-              sx={{ width: 220 }}
-            />
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Reference walls
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                {runCells(facing).map((c, i) => (
+                  <TextField
+                    key={`${c.x},${c.y}`}
+                    size="small"
+                    label={`${c.x},${c.y}`}
+                    type="number"
+                    value={runIds[i] ?? ''}
+                    onChange={(e) =>
+                      setRunIds((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+                    }
+                    sx={{ width: 96 }}
+                  />
+                ))}
+              </Stack>
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                One id per cell. Leave a box empty for no wall there.
+              </Typography>
+            </Box>
             <TextField
               size="small"
               label="Ground tile id"
