@@ -83,8 +83,22 @@ function factorDimensions(sizeBytes: number): DimPair[] {
   return pairs
 }
 
+/**
+ * Whether a candidate shape is offered before the user asks for "show all".
+ *
+ * There is NO minimum. A `w >= 8 && h >= 8` floor used to be applied here, and
+ * it hid the correct answer for real maps: lod31126 is 1296 bytes = 216 tiles =
+ * 4x54 (Caermoire Inn Corridor), so the picker offered 8x27, 9x24 and 12x18 and
+ * buried the true shape behind the toggle. Narrow maps are not exotic — of the
+ * 998 maps in the world repo, 36 are under 8 wide and 33 are under 8 tall, the
+ * smallest being 4. A filter that hides a valid shape is worse than a longer
+ * list, and the sort below already ranks square-ish shapes first.
+ *
+ * The ceiling stays: no DA map approaches 512 on a side, so a factor pair that
+ * large is an artefact of the file size rather than a shape anyone authored.
+ */
 function isReasonable(w: number, h: number): boolean {
-  return w >= 8 && h >= 8 && w <= 512 && h <= 512
+  return w <= 512 && h <= 512
 }
 
 function pairLabel(p: DimPair): string {
@@ -234,6 +248,21 @@ const DimensionPickerDialog: React.FC<Props> = ({
     }
   }, [renderCanvas])
 
+  // Focus the default action as soon as it stops being disabled, so the user
+  // can see what Enter will do. Once per opening: `rendering` flips on every
+  // size step, and re-focusing there would yank focus off the Select mid-browse.
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const focusedThisOpening = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      focusedThisOpening.current = false
+      return
+    }
+    if (focusedThisOpening.current || rendering || !selected) return
+    focusedThisOpening.current = true
+    confirmRef.current?.focus()
+  }, [open, rendering, selected])
+
   const totalTiles = fileBuffer.length / 6
   const pairsInView = displayPairs.length
   const hasUnreasonable = pairs.some((p) => !p.reasonable)
@@ -255,8 +284,26 @@ const DimensionPickerDialog: React.FC<Props> = ({
     )
   }
 
+  // Enter locks in (HTOO-426).
+  //
+  // `autoFocus` alone did not do it. Opening the dialog starts a preview
+  // render, and every control here — Lock In included — is disabled while
+  // `rendering` is true, so at mount there was no enabled button to focus.
+  // Focus stayed on the dialog paper, where Enter means nothing.
+  //
+  // Two halves. This handler catches Enter wherever focus sits, and skips when
+  // the key came from a control that handles Enter itself — otherwise Enter on
+  // Cancel would cancel AND confirm. The effect below then gives the default
+  // action a visible focus ring once the preview settles.
+  const handleDialogKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key !== 'Enter' || !selected || rendering) return
+    if ((e.target as HTMLElement).closest('button, [role="combobox"]')) return
+    e.preventDefault()
+    onConfirm(selected.width, selected.height)
+  }
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth onKeyDown={handleDialogKeyDown}>
       <DialogTitle>
         Determine Map Dimensions
         <Typography
@@ -418,7 +465,12 @@ const DimensionPickerDialog: React.FC<Props> = ({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button
+          ref={confirmRef}
           variant="contained"
+          // Covers the case where no preview runs at all (no client path), so
+          // the button is enabled at mount and this is enough on its own. When
+          // a preview does run, the effect above focuses it afterwards.
+          autoFocus
           onClick={() => selected && onConfirm(selected.width, selected.height)}
           disabled={!selected || rendering}
         >

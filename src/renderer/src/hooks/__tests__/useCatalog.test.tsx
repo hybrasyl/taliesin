@@ -16,17 +16,81 @@ beforeEach(() => {
 
 describe('parseMapFilename', () => {
   it('parses a canonical lod###.map filename', () => {
-    expect(parseMapFilename('lod00500.map')).toEqual({ mapNumber: 500, variant: null })
+    expect(parseMapFilename('lod00500.map')).toEqual({
+      mapNumber: 500,
+      variant: null,
+      label: 'lod500'
+    })
   })
   it('parses a variant filename', () => {
-    expect(parseMapFilename('lod00500-summer.map')).toEqual({ mapNumber: 500, variant: 'summer' })
+    expect(parseMapFilename('lod00500-summer.map')).toEqual({
+      mapNumber: 500,
+      variant: 'summer',
+      label: 'lod500'
+    })
   })
-  it('returns null for non-map filenames', () => {
+  it('returns null only for a file that is not a .map at all', () => {
     expect(parseMapFilename('readme.txt')).toBeNull()
-    expect(parseMapFilename('lod.map')).toBeNull()
+    expect(parseMapFilename('lod2001.png')).toBeNull()
+    expect(parseMapFilename('map-catalog.json')).toBeNull()
   })
   it('is case-insensitive on the .map extension', () => {
-    expect(parseMapFilename('lod00500.MAP')).toEqual({ mapNumber: 500, variant: null })
+    expect(parseMapFilename('lod00500.MAP')).toEqual({
+      mapNumber: 500,
+      variant: null,
+      label: 'lod500'
+    })
+  })
+
+  // Every one of these is a real file in E:\Hybrasyl Dev\Maps\LOD 8.x Maps,
+  // and every one was silently dropped from the catalog before.
+  it('keeps a Windows copy duplicate, with the suffix as the variant', () => {
+    expect(parseMapFilename('lod0001 (2).map')).toEqual({
+      mapNumber: 1,
+      variant: '(2)',
+      label: 'lod1'
+    })
+  })
+  it('accepts an underscore variant separator', () => {
+    expect(parseMapFilename('lod505_1.map')).toEqual({
+      mapNumber: 505,
+      variant: '1',
+      label: 'lod505'
+    })
+  })
+  it('accepts a parenthesised suffix with no separator', () => {
+    expect(parseMapFilename('lod15500(x).map')).toEqual({
+      mapNumber: 15500,
+      variant: '(x)',
+      label: 'lod15500'
+    })
+  })
+  it('keeps a name with no id at all, and states that it has none', () => {
+    expect(parseMapFilename('lod향도곡.map')).toEqual({
+      mapNumber: null,
+      variant: null,
+      label: 'lod향도곡'
+    })
+  })
+  it('reads a bare number as an id but labels it as written', () => {
+    expect(parseMapFilename('214214.map')).toEqual({
+      mapNumber: 214214,
+      variant: null,
+      label: '214214'
+    })
+  })
+  it('does not scrape digits out of an unknown prefix', () => {
+    // `nova0001` is not map 1. Claiming it is would sort it among the lod1s.
+    expect(parseMapFilename('nova0001.map')).toEqual({
+      mapNumber: null,
+      variant: null,
+      label: 'nova0001'
+    })
+    expect(parseMapFilename('rudin001.map')).toEqual({
+      mapNumber: null,
+      variant: null,
+      label: 'rudin001'
+    })
   })
 })
 
@@ -78,6 +142,41 @@ describe('useCatalog', () => {
     expect(result.current.entries).toEqual([])
     expect(result.current.selectedEntry).toBeNull()
     expect(api.catalogLoad).not.toHaveBeenCalled()
+  })
+
+  it('lists every .map file and orders the unnamed ones last', async () => {
+    // A slice of the real "LOD 8.x Maps" directory, whose odd names the catalog
+    // used to drop on the floor.
+    api.catalogScan.mockResolvedValue([
+      { filename: 'rudin001.map', sizeBytes: 6 },
+      { filename: 'lod0002.map', sizeBytes: 6 },
+      { filename: 'lod0001 (2).map', sizeBytes: 6 },
+      { filename: 'nova0001.map', sizeBytes: 6 },
+      { filename: 'lod0001.map', sizeBytes: 6 },
+      { filename: '214214.map', sizeBytes: 6 }
+    ])
+    const { result } = renderHook(() => useCatalog('/maps'))
+    await waitFor(() => expect(result.current.entries).toHaveLength(6))
+
+    expect(result.current.entries.map((e) => e.filename)).toEqual([
+      // Numbered first, ascending; canonical before its variant.
+      'lod0001.map',
+      'lod0001 (2).map',
+      'lod0002.map',
+      '214214.map',
+      // Then the names that state no id, alphabetically.
+      'nova0001.map',
+      'rudin001.map'
+    ])
+    expect(result.current.entries.map((e) => e.label)).toEqual([
+      'lod1',
+      'lod1',
+      'lod2',
+      '214214',
+      'nova0001',
+      'rudin001'
+    ])
+    expect(result.current.entries.at(-1)?.mapNumber).toBeNull()
   })
 
   it('loads catalog when dirPath is set', async () => {

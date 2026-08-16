@@ -35,7 +35,7 @@ import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
-import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
+import { useSettingsStore, flushSettings, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
@@ -277,10 +277,18 @@ function CompanionCard() {
   // discovery visibly rather than leaving the card describing the old answer.
   useEffect(() => {
     let cancelled = false
-    window.api
-      .companionStatus()
-      .then((s) => !cancelled && setStatus(s))
-      .catch(() => !cancelled && setStatus(null))
+    // Flush first. Main answers from settings on disk, and the store's write is
+    // debounced 200 ms, so asking straight after a pick asked about the previous
+    // value — which is why a freshly-chosen Creidhne read "Not found".
+    void (async () => {
+      try {
+        await flushSettings()
+        const s = await window.api.companionStatus()
+        if (!cancelled) setStatus(s)
+      } catch {
+        if (!cancelled) setStatus(null)
+      }
+    })()
     return () => {
       cancelled = true
     }

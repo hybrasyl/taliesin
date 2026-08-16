@@ -18,7 +18,7 @@ import {
   GiBlacksmith,
   GiBugNet
 } from 'react-icons/gi'
-import { useSettingsStore } from '../store/settingsStore'
+import { useSettingsStore, flushSettings } from '../store/settingsStore'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
 
@@ -63,10 +63,17 @@ const NavToolbar: React.FC = () => {
   const [companionFound, setCompanionFound] = useState(false)
   useEffect(() => {
     let cancelled = false
-    window.api
-      .companionStatus()
-      .then((s) => !cancelled && setCompanionFound(!!s.resolved))
-      .catch(() => !cancelled && setCompanionFound(false))
+    // Flushed first for the same reason as the Settings card: main reads the
+    // override from disk, and the store's write is debounced.
+    void (async () => {
+      try {
+        await flushSettings()
+        const s = await window.api.companionStatus()
+        if (!cancelled) setCompanionFound(!!s.resolved)
+      } catch {
+        if (!cancelled) setCompanionFound(false)
+      }
+    })()
     return () => {
       cancelled = true
     }

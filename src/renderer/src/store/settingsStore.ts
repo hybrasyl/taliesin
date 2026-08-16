@@ -176,18 +176,33 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 // flurry of edits collapses to one write; the main-side save queue
 // (.then(fn, fn) resilient) further serializes writes in submission order.
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+/** The write in flight, so `flushSettings` can await one it did not start. */
+let savePromise: Promise<void> = Promise.resolve()
 
-useSettingsStore.subscribe((state) => {
-  // Never persist until the first disk load has landed (see `hydrated` above).
-  if (!hydrated) return
-  if (suppressNextSave) {
-    suppressNextSave = false
-    return
-  }
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    if (typeof window === 'undefined' || !window.api?.saveSettings) return
-    const {
+function persist(state: SettingsStore): Promise<void> {
+  if (typeof window === 'undefined' || !window.api?.saveSettings) return Promise.resolve()
+  const {
+    theme,
+    clientPath,
+    brigidAssetsPath,
+    libraries,
+    activeLibrary,
+    mapDirectories,
+    activeMapDirectory,
+    musicLibraryPath,
+    musicWorkingDirs,
+    activeMusicWorkingDir,
+    ffmpegPath,
+    packDir,
+    companionPath,
+    musEncodeKbps,
+    musEncodeSampleRate,
+    fileListViewMode
+  } = state
+  // Promise.resolve wraps the IPC result so a non-thenable return (e.g. a
+  // test stub) can't break the .catch chain.
+  return Promise.resolve(
+    window.api.saveSettings({
       theme,
       clientPath,
       brigidAssetsPath,
@@ -204,31 +219,44 @@ useSettingsStore.subscribe((state) => {
       musEncodeKbps,
       musEncodeSampleRate,
       fileListViewMode
-    } = state
-    // Promise.resolve wraps the IPC result so a non-thenable return (e.g. a
-    // test stub) can't break the .catch chain.
-    Promise.resolve(
-      window.api.saveSettings({
-        theme,
-        clientPath,
-        brigidAssetsPath,
-        libraries,
-        activeLibrary,
-        mapDirectories,
-        activeMapDirectory,
-        musicLibraryPath,
-        musicWorkingDirs,
-        activeMusicWorkingDir,
-        ffmpegPath,
-        packDir,
-        companionPath,
-        musEncodeKbps,
-        musEncodeSampleRate,
-        fileListViewMode
-      })
-    ).catch((err) => console.error('[settings] save IPC failed:', err))
+    })
+  ).catch((err) => console.error('[settings] save IPC failed:', err))
+}
+
+useSettingsStore.subscribe((state) => {
+  // Never persist until the first disk load has landed (see `hydrated` above).
+  if (!hydrated) return
+  if (suppressNextSave) {
+    suppressNextSave = false
+    return
+  }
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    savePromise = persist(state)
   }, 200)
 })
+
+/**
+ * Write any pending change NOW and resolve once main has it.
+ *
+ * The debounce is right for typing and wrong for anything that immediately asks
+ * **main** a question about what was just set. Main answers from the settings on
+ * disk, so for 200 ms plus a round trip it answers about the previous value.
+ * That is what left a freshly-picked Creidhne reading "Not found" with Test
+ * Launch disabled, until Settings was left and re-entered (HTOO-292).
+ *
+ * Callers that only mutate state never need this; callers that mutate and then
+ * ask main do.
+ */
+export async function flushSettings(): Promise<void> {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+    savePromise = persist(useSettingsStore.getState())
+  }
+  await savePromise
+}
 
 /**
  * Binary .map files live at `<world>/mapfiles`, sibling to `<world>/xml`.

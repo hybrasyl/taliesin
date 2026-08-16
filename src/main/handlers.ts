@@ -137,6 +137,15 @@ export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettin
     const worldRoot = dirname(lib)
     if (worldRoot && worldRoot !== lib) ctx.settingsRoots.add(worldRoot)
   }
+  // EVERY configured map directory, not just the active one — the same rule the
+  // libraries above and the music working dirs below follow. Blessing only the
+  // active one made switching source a race: the renderer sets the new active
+  // directory and starts scanning it immediately, while the roots only widen
+  // once the saveSettings IPC has round-tripped back to here. Until it did,
+  // catalog:scan, catalog:load and fs:readFile against the newly chosen source
+  // were refused with "not inside any allowed root". Blessing them all removes
+  // the window rather than narrowing it.
+  for (const d of settings.mapDirectories ?? []) ctx.settingsRoots.add(d.path)
   if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
   if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
   // All music working dirs, not just the active one, so previewing a deployed
@@ -618,7 +627,13 @@ export async function catalogScan(
 ): Promise<{ filename: string; sizeBytes: number }[]> {
   const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
   const entries = await fs.readdir(safeDir, { withFileTypes: true })
-  const maps = entries.filter((e) => !e.isDirectory() && /^lod\d+(?:-[^.]+)?\.map$/i.test(e.name))
+  // Every .map file, whatever it is called. This used to demand
+  // `lod<digits>[-variant].map` and dropped the rest without a word — 1036 of
+  // the 2690 files in one real directory, including 1007 Windows copy
+  // duplicates (`lod0001 (2).map`) and every Korean-titled map. The renderer's
+  // parseMapFilename now reads a name for what it offers instead of using it as
+  // a gate, so the only test left here is the extension.
+  const maps = entries.filter((e) => !e.isDirectory() && /\.map$/i.test(e.name))
   return Promise.all(
     maps.map(async (e) => {
       const stat = await fs.stat(join(safeDir, e.name))

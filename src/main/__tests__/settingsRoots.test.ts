@@ -38,6 +38,31 @@ describe('applySettingsRoots', () => {
     expect(roots.has('/f/Hybrasyl/world')).toBe(true) // world parent
   })
 
+  it('whitelists every configured map directory, not just the active one', () => {
+    const ctx = makeCtx()
+    applySettingsRoots(ctx, {
+      ...base,
+      mapDirectories: [
+        { path: '/repos/world/mapfiles', name: 'World' },
+        { path: '/hyb/Maps/map-collection-prime', name: 'Prime' },
+        { path: '/games/Dark Ages/maps', name: 'Client' }
+      ],
+      activeMapDirectory: '/repos/world/mapfiles'
+    })
+    const roots = new Set(allRoots(ctx))
+    expect(roots.has('/repos/world/mapfiles')).toBe(true)
+    // The inactive sources. Switching to one of these used to be refused by
+    // catalog:scan / catalog:load until the settings save round-tripped back.
+    expect(roots.has('/hyb/Maps/map-collection-prime')).toBe(true)
+    expect(roots.has('/games/Dark Ages/maps')).toBe(true)
+  })
+
+  it('whitelists an active map directory that is not in the configured list', () => {
+    const ctx = makeCtx()
+    applySettingsRoots(ctx, { ...base, activeMapDirectory: '/one/off' })
+    expect(new Set(allRoots(ctx)).has('/one/off')).toBe(true)
+  })
+
   it('whitelists all music working dirs, not just the active one', () => {
     const ctx = makeCtx()
     applySettingsRoots(ctx, {

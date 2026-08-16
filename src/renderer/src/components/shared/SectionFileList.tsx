@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Divider,
@@ -23,6 +23,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight'
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore'
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess'
 import { useSettingsStore } from '../../store/settingsStore'
+import { nextCursorIndex } from '../../utils/listKeyboard'
 import {
   allFolderPaths,
   buildFileTree,
@@ -112,6 +113,31 @@ export default function SectionFileList<T extends TreeFile>({
     })
 
   const folderMode = viewMode === 'folder'
+
+  // ── Arrow-key navigation (HTOO-426) ─────────────────────────────────────────
+  //
+  // This list is not virtualized and its rows are real ListItemButtons, so the
+  // rows can hold focus themselves and Enter/Space already activate them. Arrow
+  // keys therefore only have to move focus, and the row order is whatever is in
+  // the DOM — folder headers included, which is what a tree should do.
+  //
+  // `[role="button"]` selects exactly the ListItemButtons: MUI renders them as
+  // divs with that role. A real <button> in the header slot (the world map
+  // editor's "Create Reference Set") carries no role attribute and is skipped,
+  // which is right — it is an action, not a row.
+  const listBodyRef = useRef<HTMLDivElement>(null)
+
+  const handleListKeyDown = useCallback((e: React.KeyboardEvent): void => {
+    const rows = Array.from(
+      listBodyRef.current?.querySelectorAll<HTMLElement>('[role="button"]') ?? []
+    )
+    if (rows.length === 0) return
+    const current = rows.indexOf(document.activeElement as HTMLElement)
+    const next = nextCursorIndex(e.key, current, rows.length)
+    if (next === null) return
+    e.preventDefault()
+    rows[next]?.focus()
+  }, [])
 
   // The trees are built here rather than in renderList so that expanding one
   // folder does not re-group every file, and so the expand-all button can read
@@ -286,6 +312,11 @@ export default function SectionFileList<T extends TreeFile>({
           placeholder="Filter..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowDown') return
+            e.preventDefault()
+            listBodyRef.current?.querySelector<HTMLElement>('[role="button"]')?.focus()
+          }}
           slotProps={{
             input: {
               startAdornment: (
@@ -298,7 +329,7 @@ export default function SectionFileList<T extends TreeFile>({
         />
       </Box>
       <Divider />
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box ref={listBodyRef} onKeyDown={handleListKeyDown} sx={{ flex: 1, overflow: 'auto' }}>
         {header?.(query)}
         {nothingAtAll ? (
           <Typography variant="body2" sx={{ color: 'text.secondary', p: 2 }}>

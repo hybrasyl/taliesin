@@ -33,6 +33,36 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **The editor file lists take the keyboard.** Up and Down move through the rows, Home and End go to
+  the ends, and Enter opens the row. Down from the filter box moves into the first row. This applies
+  to the map catalog, the map list and the world map list.
+- **Enter accepts the map size.** The dimensions window puts the keyboard on the "Lock In" button as
+  soon as the preview is ready. After you accept a size, the keyboard returns to the map list, so
+  the next map needs no mouse.
+
+### Fixed
+
+- **The dimensions window offers narrow map shapes.** It hid any shape with a side below 8 tiles
+  behind the "show all" link. Map 31126, the Caermoire Inn Corridor, is 4 by 54, so its true shape
+  was hidden. 36 maps in the world are less than 8 tiles wide and 33 are less than 8 tiles tall.
+- **The map catalog lists every `.map` file.** It listed only files named `lod<number>.map` or
+  `lod<number>-<variant>.map`. In one directory of 2690 files this hid 1036 of them, which included
+  1007 copies made by Windows (`lod0001 (2).map`), maps with Korean names, and maps with a different
+  prefix. A file whose name gives no map number is listed at the end.
+- **A change of map source is clean.** Taliesin refused to read a map directory that was configured
+  but not active, and it tried to read the previous map from the new directory. Both faults wrote
+  errors to the log and could leave the catalog empty.
+- **Taliesin finds Creidhne when it is a downloaded release file.** Taliesin looked for a file named
+  exactly `creidhne.exe`, which is the name only an installed copy has. A release file carries its
+  version, for example `creidhne-1.11.0-portable.exe`, so a copy next to Taliesin was not found.
+  Taliesin now accepts the release names. It does not accept the installer, `-setup.exe`, because
+  that file starts an installation and does not start Creidhne.
+- **A Creidhne path you select by hand takes effect immediately.** Taliesin asked the main process
+  where Creidhne is before it wrote your selection to disk, so the answer was about the previous
+  value. The Test Launch button stayed off until you left the page and came back.
+
 ## [2.11.0] - 2026-08-14
 
 ### Added

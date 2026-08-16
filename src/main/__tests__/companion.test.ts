@@ -6,6 +6,8 @@ import {
   launcherDir,
   parseInstallLocations,
   pickerFilters,
+  isCompanionEntry,
+  preferredCompanionEntry,
   type CompanionProbe
 } from '../companion'
 
@@ -61,6 +63,61 @@ describe('launcherDir', () => {
       env: { PORTABLE_EXECUTABLE_DIR: '/tmp/attacker' }
     })
     expect(launcherDir(probe)).toBe('/opt/taliesin')
+  })
+})
+
+describe('release-artifact naming', () => {
+  // Both apps ship `${name}-${version}-portable.${ext}` and
+  // `${name}-${version}.${ext}`. The exact-name list only ever matched an
+  // installed executable, so a downloaded portable beside Taliesin was invisible
+  // -- symmetrically, since Taliesin's own releases are named the same way.
+  it('accepts the shipped artifact names', () => {
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhne.exe')).toBe(true)
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhne-1.11.0-portable.exe')).toBe(true)
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhne-1.11.0.exe')).toBe(true)
+    expect(isCompanionEntry('creidhne', 'win32', 'Creidhne-1.11.0-Portable.EXE')).toBe(true)
+    expect(isCompanionEntry('creidhne', 'linux', 'creidhne-1.11.0.AppImage')).toBe(true)
+    expect(isCompanionEntry('creidhne', 'darwin', 'Creidhne.app')).toBe(true)
+  })
+
+  it('refuses the installer, which is the dangerous near-match', () => {
+    // Launching this would start an install, not the companion -- and it is the
+    // file most likely to be in the same downloads folder as the portable.
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhne-1.11.0-setup.exe')).toBe(false)
+    expect(isCompanionEntry('creidhne', 'win32', 'Uninstall Creidhne.exe')).toBe(false)
+  })
+
+  it('refuses names that merely start with the id', () => {
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhne-helper.exe')).toBe(false)
+    expect(isCompanionEntry('creidhne', 'win32', 'creidhnex.exe')).toBe(false)
+    expect(isCompanionEntry('creidhne', 'win32', 'taliesin.exe')).toBe(false)
+  })
+
+  it('prefers the unversioned name, else the highest version', () => {
+    expect(preferredCompanionEntry(['creidhne-1.9.0-portable.exe', 'creidhne.exe'])).toBe(
+      'creidhne.exe'
+    )
+    // Numeric compare, or 1.9.0 would beat 1.10.0 on a plain string sort.
+    expect(
+      preferredCompanionEntry(['creidhne-1.9.0-portable.exe', 'creidhne-1.10.0-portable.exe'])
+    ).toBe('creidhne-1.10.0-portable.exe')
+    expect(preferredCompanionEntry([])).toBeNull()
+  })
+
+  it('finds a versioned portable sitting beside the launcher', async () => {
+    const probe = makeProbe({
+      readdir: async () => [
+        'taliesin-2.11.0-portable.exe',
+        'creidhne-1.11.0-setup.exe',
+        'creidhne-1.11.0-portable.exe'
+      ]
+    })
+    const status = await resolveCompanion(probe, 'creidhne', null)
+    expect(status.resolved).toEqual({
+      target: join('C:', 'Program Files', 'Taliesin', 'creidhne-1.11.0-portable.exe'),
+      kind: 'binary',
+      source: 'sibling'
+    })
   })
 })
 

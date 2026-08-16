@@ -18,6 +18,9 @@ interface Props {
   onUpdateDraft: (changes: Partial<CatalogMeta>) => void
   onSave: (overrides?: Partial<import('../../hooks/useCatalog').CatalogMeta>) => Promise<void>
   onExport: () => void
+  /** Called once the dimension dialog closes, so the page can put focus back on
+   *  the map list — the next map is usually the next keypress (HTOO-426). */
+  onDimensionDialogClosed?: () => void
 }
 
 const MapCatalogEditor: React.FC<Props> = ({
@@ -28,7 +31,8 @@ const MapCatalogEditor: React.FC<Props> = ({
   clientPath,
   onUpdateDraft,
   onSave,
-  onExport
+  onExport,
+  onDimensionDialogClosed
 }) => {
   const [fileBuffer, setFileBuffer] = useState<Uint8Array | null>(null)
   const [saving, setSaving] = useState(false)
@@ -81,6 +85,12 @@ const MapCatalogEditor: React.FC<Props> = ({
   const handlePickerConfirm = async (width: number, height: number) => {
     setPickerOpen(false)
     await onSave({ width, height })
+    onDimensionDialogClosed?.()
+  }
+
+  const handlePickerCancel = (): void => {
+    setPickerOpen(false)
+    onDimensionDialogClosed?.()
   }
 
   const canExport = draft.width != null && draft.height != null
@@ -92,7 +102,7 @@ const MapCatalogEditor: React.FC<Props> = ({
         {/* Title row */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <Typography variant="h6" sx={{ color: 'text.button', fontWeight: 'bold', flex: 1 }}>
-            lod{entry.mapNumber}
+            {entry.label}
           </Typography>
           {entry.variant && <Chip label={entry.variant} size="small" variant="outlined" />}
           <Typography
@@ -227,7 +237,7 @@ const MapCatalogEditor: React.FC<Props> = ({
           fileBuffer={fileBuffer}
           clientPath={clientPath}
           onConfirm={handlePickerConfirm}
-          onCancel={() => setPickerOpen(false)}
+          onCancel={handlePickerCancel}
         />
       )}
     </Box>
