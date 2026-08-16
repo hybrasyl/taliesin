@@ -74,18 +74,30 @@ describe('findHits', () => {
     expect(findHits(200, 200, points)).toEqual([])
   })
 
-  it('returns every point under the cursor, nearest first', () => {
-    // 103,103 is 3 from the second point and 4 from the first.
-    expect(findHits(103, 103, points)).toEqual([1, 0])
+  it('anchors the box at the point, as the client does, not on its centre', () => {
+    const one = [pt(100, 100)]
+    // The box runs from the point, so the point itself is a hit ...
+    expect(findHits(100, 100, one)).toEqual([0])
+    expect(findHits(111, 111, one)).toEqual([0])
+    // ... and one past the far edge is not.
+    expect(findHits(112, 100, one)).toEqual([])
+    // Up and left of the point is outside the box. Under the old centred
+    // marker this was a hit, and it is what drew every node 6px adrift.
+    expect(findHits(99, 99, one)).toEqual([])
+    expect(findHits(95, 95, one)).toEqual([])
   })
 
-  it('breaks a distance tie by list order', () => {
-    expect(findHits(102, 102, points)).toEqual([0, 1])
+  it('returns every point under the cursor, nearest to the box centre first', () => {
+    // 108,108 is inside both boxes: 2 from the second's centre (110,110) and
+    // 2 from the first's (106,106) — the tie falls to list order.
+    expect(findHits(108, 108, points)).toEqual([0, 1])
+    // 110,110 is the second box's centre and still inside the first.
+    expect(findHits(110, 110, points)).toEqual([1, 0])
   })
 
-  it('uses a square radius on each axis, matching the marker', () => {
-    expect(findHits(106, 100, [pt(100, 100)])).toEqual([0])
-    expect(findHits(107, 100, [pt(100, 100)])).toEqual([])
+  it('excludes a point whose box the cursor has left', () => {
+    // Inside the second box only.
+    expect(findHits(115, 115, points)).toEqual([1])
   })
 })
 

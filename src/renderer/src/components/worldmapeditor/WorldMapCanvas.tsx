@@ -14,6 +14,15 @@
  *   box: a legacy 640×480 EPF, or a world_maps pack PNG of any size.
  *   screenToField() / fieldToScreen() handle the conversion — same algorithm as
  *   xml-map-maker's ScreenPointToWorldMapPoint().
+ *
+ * Marker anchor:
+ *   A point's x/y is the **top-left** of its 12×12 box, not its centre. This is
+ *   what the client does — Brigid's `WorldMapNode` takes `X = node.X, Y =
+ *   node.Y` and draws the box at `[X, X+12) × [Y, Y+12)`, with the label 3px to
+ *   its right. Taliesin used to centre the marker on the point, which drew every
+ *   node 6 field pixels up and left of where the player sees it. Drawing, hit
+ *   testing and the overlap check all use the client's box now, so what the
+ *   editor shows is what the client shows.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -22,7 +31,7 @@ import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import FitScreenIcon from '@mui/icons-material/FitScreen'
 import { renderField, FIELD_WIDTH, FIELD_HEIGHT } from '../../utils/worldMapRenderer'
-import type { WorldMapPoint } from '../../data/worldMapData'
+import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,6 +56,15 @@ export interface WorldMapCanvasProps {
    * which reads as two points rather than one being moved.
    */
   hiddenIndex?: number | null
+  /**
+   * Whether Alt may place a point on top of another (HTOO-413).
+   *
+   * True only for a reference set. A reference set is a catalogue, and the sets
+   * that reach a player are derived from it, so two of its points that overlap
+   * are normally split across different derived sets and never drawn together.
+   * In an individual set an overlap is a fault, not an authoring choice.
+   */
+  allowOverlap?: boolean
   sx?: SxProps
 }
 
@@ -143,22 +161,32 @@ function fieldToScreen(fx: number, fy: number, s: ViewState): { x: number; y: nu
 
 // ── Point hit detection ───────────────────────────────────────────────────────
 
-const HIT_RADIUS = 6
-
 /**
  * Every point under the cursor, nearest first.
  *
+ * The test is the client's own node box: `[x, x + 12) × [y, y + 12)`, anchored
+ * at the point, not centred on it. See the anchor note at the top of the file.
+ *
  * This returns a list rather than the first match because two points can sit
- * inside each other's radius (HTOO-413). Taking the first in list order made
- * the later one unreachable by clicking.
+ * inside each other's box (HTOO-413). Taking the first in list order made the
+ * later one unreachable by clicking.
  */
 export function findHits(imgX: number, imgY: number, points: WorldMapPoint[]): number[] {
   const hits: { i: number; d: number }[] = []
+  const half = CLIENT_NODE_BOX / 2
   for (let i = 0; i < points.length; i++) {
     const p = points[i]!
-    const dx = Math.abs(p.x - imgX)
-    const dy = Math.abs(p.y - imgY)
-    if (dx <= HIT_RADIUS && dy <= HIT_RADIUS) hits.push({ i, d: dx * dx + dy * dy })
+    if (
+      imgX >= p.x &&
+      imgX < p.x + CLIENT_NODE_BOX &&
+      imgY >= p.y &&
+      imgY < p.y + CLIENT_NODE_BOX
+    ) {
+      // Rank by distance from the box centre, so the nearest box wins a stack.
+      const dx = imgX - (p.x + half)
+      const dy = imgY - (p.y + half)
+      hits.push({ i, d: dx * dx + dy * dy })
+    }
   }
   hits.sort((a, b) => a.d - b.d || a.i - b.i)
   return hits.map((h) => h.i)
@@ -181,14 +209,24 @@ export function cycleHit(hits: number[], selected: number | null): number | null
 
 // ── Point drawing ─────────────────────────────────────────────────────────────
 
-const BOX_SIZE = 12 // 12×12 image-space pixels (same as xml-map-maker mapbox.png)
 /** The marker never shrinks below this on screen, or it cannot be aimed at. */
 const MIN_BOX_SCREEN = 6
 /** The label is screen-sized, not field-sized, so it stays readable at any zoom. */
 const LABEL_FONT_PX = 11
+/** Brigid's BOX_GAP — the space between the node box and its label. */
+const LABEL_GAP_PX = 3
 
 function markerScreenSize(s: ViewState): number {
-  return Math.max(MIN_BOX_SCREEN, BOX_SIZE * s.scaleFactor)
+  return Math.max(MIN_BOX_SCREEN, CLIENT_NODE_BOX * s.scaleFactor)
+}
+
+/** The marker box in screen pixels, anchored at the point like the client. */
+function markerRect(
+  p: { x: number; y: number },
+  s: ViewState
+): { x: number; y: number; size: number } {
+  const { x, y } = fieldToScreen(p.x, p.y, s)
+  return { x, y, size: markerScreenSize(s) }
 }
 
 function drawPoint(
@@ -197,14 +235,13 @@ function drawPoint(
   selected: boolean,
   s: ViewState
 ) {
-  const { x: sx, y: sy } = fieldToScreen(p.x, p.y, s)
-  const b = markerScreenSize(s)
+  const { x, y, size } = markerRect(p, s)
 
   ctx.fillStyle = selected ? 'rgba(255,200,50,0.9)' : 'rgba(0,100,200,0.85)'
   ctx.strokeStyle = selected ? '#ffc832' : '#2196f3'
   ctx.lineWidth = selected ? 2 : 1
-  ctx.fillRect(sx - b / 2, sy - b / 2, b, b)
-  ctx.strokeRect(sx - b / 2, sy - b / 2, b, b)
+  ctx.fillRect(x, y, size, size)
+  ctx.strokeRect(x, y, size, size)
 
   if (p.name) {
     ctx.font = `${LABEL_FONT_PX}px sans-serif`
@@ -213,7 +250,7 @@ function drawPoint(
     ctx.textBaseline = 'middle'
     ctx.shadowColor = 'rgba(0,0,0,0.8)'
     ctx.shadowBlur = 3
-    ctx.fillText(p.name, sx + b / 2 + 3, sy)
+    ctx.fillText(p.name, x + size + LABEL_GAP_PX, y + size / 2)
     ctx.shadowBlur = 0
   }
 }
@@ -230,6 +267,7 @@ export default function WorldMapCanvas({
   onPlacePoint,
   pendingPoint,
   hiddenIndex,
+  allowOverlap = false,
   sx
 }: WorldMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -366,32 +404,30 @@ export default function WorldMapCanvas({
 
     // The point the dialog is editing, at its typed position (HTOO-412).
     if (pendingPoint) {
-      const { x: px, y: py } = fieldToScreen(pendingPoint.x, pendingPoint.y, s)
-      const b = markerScreenSize(s)
+      const { x, y, size } = markerRect(pendingPoint, s)
       ctx.strokeStyle = '#ffc832'
       ctx.lineWidth = 2
       ctx.setLineDash([4, 3])
-      ctx.strokeRect(px - b / 2, py - b / 2, b, b)
+      ctx.strokeRect(x, y, size, size)
       ctx.setLineDash([])
     }
 
     // Hover crosshair / ghost box in place mode
     if (hoverPos && placeMode) {
-      const { x: sx, y: sy } = fieldToScreen(hoverPos.x, hoverPos.y, s)
-      const b = markerScreenSize(s)
+      const { x, y, size } = markerRect(hoverPos, s)
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'
       ctx.lineWidth = 1
       ctx.setLineDash([3, 3])
-      ctx.strokeRect(sx - b / 2, sy - b / 2, b, b)
+      ctx.strokeRect(x, y, size, size)
       ctx.setLineDash([])
 
       ctx.fillStyle = 'rgba(0,0,0,0.7)'
-      ctx.fillRect(sx + b / 2 + 3, sy - 9, 64, 16)
+      ctx.fillRect(x + size + LABEL_GAP_PX, y + size / 2 - 8, 64, 16)
       ctx.fillStyle = 'white'
       ctx.font = '10px monospace'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'middle'
-      ctx.fillText(`${hoverPos.x},${hoverPos.y}`, sx + b / 2 + 6, sy)
+      ctx.fillText(`${hoverPos.x},${hoverPos.y}`, x + size + LABEL_GAP_PX + 3, y + size / 2)
     }
   }, [view, points, selectedIndex, hoverPos, placeMode, pendingPoint, hiddenIndex])
 
@@ -487,8 +523,9 @@ export default function WorldMapCanvas({
       if (!pos) return
       // Alt skips the hit test, which is the only way to put a point on top of
       // one that is already there (HTOO-413). Ctrl and Shift are the map list's
-      // multi-select and would read inconsistently here.
-      if (placeMode && e.altKey) {
+      // multi-select and would read inconsistently here. Only a reference set
+      // takes the modifier at all — see `allowOverlap`.
+      if (placeMode && allowOverlap && e.altKey) {
         onPlacePoint(pos.x, pos.y)
         return
       }
@@ -500,7 +537,7 @@ export default function WorldMapCanvas({
       }
       if (placeMode) onPlacePoint(pos.x, pos.y)
     },
-    [eventToField, points, placeMode, selectedIndex, onPointClick, onPlacePoint]
+    [eventToField, points, placeMode, allowOverlap, selectedIndex, onPointClick, onPlacePoint]
   )
 
   const cursor = panning ? 'grabbing' : placeMode ? 'crosshair' : 'pointer'

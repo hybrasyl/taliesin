@@ -406,14 +406,16 @@ export default function WorldMapEditorPanel({
           sx={{ alignSelf: 'flex-start', mb: 1 }}
         />
       )}
-      {/* Overlap warning — the client cannot click the point it draws on top */}
-      {overlapPairs.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
+      {/* Overlap — a fault in a set a player receives, expected in a reference
+          set, whose overlapping points are normally split across derived sets. */}
+      {!isReferenceSet && overlapPairs.length > 0 && (
+        <Alert severity="error" sx={{ mb: 1, flexShrink: 0 }}>
           {overlapPairs.length === 1
             ? 'One pair of points overlaps'
             : `${overlapPairs.length} pairs of points overlap`}
           . The client draws the later point on top, but a click goes to the earlier one, so the
-          point on top cannot be reached in game.{' '}
+          point on top cannot be reached in game. Points may overlap in a reference set, not in a
+          set a player receives.{' '}
           {overlapPairs
             .slice(0, 3)
             .map(
@@ -506,7 +508,9 @@ export default function WorldMapEditorPanel({
             />
             {placeMode && (
               <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic' }}>
-                Click map to place — hold Alt to place on top of a point
+                {isReferenceSet
+                  ? 'Click map to place — hold Alt to place on top of a point'
+                  : 'Click map to place'}
               </Typography>
             )}
             {isExisting && !isReferenceSet && (
@@ -545,6 +549,7 @@ export default function WorldMapEditorPanel({
           // would sit apart and read as two points.
           pendingPoint={dialogState ? { x: dialogState.canvasX, y: dialogState.canvasY } : null}
           hiddenIndex={dialogState?.editIndex ?? null}
+          allowOverlap={!!isReferenceSet}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
         />
 
