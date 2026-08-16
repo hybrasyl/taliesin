@@ -350,6 +350,7 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     packDelete: (p) => handlers.packDelete(handlerCtx, p),
     packAddAsset: (d, s, t) => handlers.packAddAsset(handlerCtx, d, s, t),
     packRemoveAsset: (d, f) => handlers.packRemoveAsset(handlerCtx, d, f),
+    packRenameAsset: (d, o, n) => handlers.packRenameAsset(handlerCtx, d, o, n),
     packCompile: (d, m, f, o) => handlers.packCompile(handlerCtx, d, m, f, o),
     packImport: (d, p, o) => handlers.packImport(handlerCtx, d, p, o),
 

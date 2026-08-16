@@ -420,6 +420,14 @@ const StaticTileManagerPage: React.FC = () => {
     [assets, hasWallId, wallId]
   )
 
+  /**
+   * Where a batch of floors starts numbering.
+   *
+   * The id in the box, when it holds one. The batch paths used to count from 1
+   * regardless, so a run the author had numbered was silently renumbered.
+   */
+  const floorStartId = Number.isInteger(floorId) && floorId > 0 ? floorId : 1
+
   /** The source's own height, offered the same way — a label, not a write. */
   const sourceHeight = previewCell?.height ?? null
 
@@ -539,9 +547,17 @@ const StaticTileManagerPage: React.FC = () => {
           orientationChoice === 'auto' ? detectOrientation(cell).orientation : orientationChoice
         const opts = { layer: 'floor' as const, scale }
         const conv = convertCell(cell, opts, orient)
-        const id = nextSlotId(packAssets, staticTilesKind.parseSlot, { namespace: 'floor' })
-        // Fresh-pack floor ids start at 1 — inside the legacy range — so a batch
-        // can silently target animated/cycled ids. Write anyway, but collect them.
+        // `firstId` is the id in the box. Without it the batch counted from 1
+        // and ignored the number the author had just typed, which is how a run
+        // meant for 24000 landed on 1-32. The run still steps up from whichever
+        // is higher -- the typed id or the pack's own highest floor -- so it
+        // cannot silently overwrite what is already there.
+        const id = nextSlotId(packAssets, staticTilesKind.parseSlot, {
+          namespace: 'floor',
+          firstId: floorStartId
+        })
+        // A floor id inside the legacy range can be animated or palette-cycled,
+        // and the client ignores pack art for those. Write anyway, but say so.
         const elig = checkTileEligibility(assets, 'floor', id)
         if (!elig.eligible && elig.reason) {
           ineligible.push(`${id} (${describeIneligibility(elig.reason)})`)
@@ -577,7 +593,8 @@ const StaticTileManagerPage: React.FC = () => {
     scale,
     sourcePath,
     showStatus,
-    assets
+    assets,
+    floorStartId
   ])
 
   // Multi-file batch import: pick many PNGs and commit each as its own tile for
@@ -612,11 +629,22 @@ const StaticTileManagerPage: React.FC = () => {
           let id: number
           let filename: string
           if (layer === 'wall') {
-            const next = nextWallId({
-              used: mintedWalls,
-              sotp: assets?.sotp ?? null,
-              passability: passabilityPref === 'any' ? undefined : passabilityPref
-            })
+            // A typed id starts the run, for the same reason the floor id does.
+            // With the box empty the allocator picks, as before.
+            let next: number | null = null
+            if (hasWallId) {
+              for (let candidate = wallId; candidate <= WALL_ID_MAX; candidate++) {
+                if (mintedWalls.has(candidate) || !isCommittableWallId(candidate)) continue
+                next = candidate
+                break
+              }
+            } else {
+              next = nextWallId({
+                used: mintedWalls,
+                sotp: assets?.sotp ?? null,
+                passability: passabilityPref === 'any' ? undefined : passabilityPref
+              })
+            }
             if (next === null) {
               exhausted = true
               break
@@ -625,7 +653,10 @@ const StaticTileManagerPage: React.FC = () => {
             mintedWalls.add(id)
             filename = `wall${String(id).padStart(5, '0')}.png`
           } else {
-            id = nextSlotId(packAssets, staticTilesKind.parseSlot, { namespace: 'floor' })
+            id = nextSlotId(packAssets, staticTilesKind.parseSlot, {
+              namespace: 'floor',
+              firstId: floorStartId
+            })
             filename = `floor${String(id).padStart(5, '0')}.png`
           }
           const opts = { layer, scale, wallHeight: layer === 'wall' ? buf.height : undefined }
@@ -678,7 +709,10 @@ const StaticTileManagerPage: React.FC = () => {
     passabilityPref,
     usedIds.wall,
     assets,
-    showStatus
+    showStatus,
+    floorStartId,
+    hasWallId,
+    wallId
   ])
 
   if (!packDir) {

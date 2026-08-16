@@ -1212,6 +1212,39 @@ export async function packRemoveAsset(
   }
 }
 
+/**
+ * Rename an asset inside a pack's own directory.
+ *
+ * For a numeric-id kind the filename IS the tile number, so this is how a tile
+ * that was committed to the wrong id is corrected — without deleting the art
+ * and converting it again.
+ *
+ * Refuses to overwrite. A pack cannot hold two entries with one name, and a
+ * silent overwrite here would destroy the art already at the target id, which
+ * is exactly the mistake this exists to undo. The caller is told, and picks
+ * another number.
+ */
+export async function packRenameAsset(
+  ctx: HandlerContext,
+  packDir: string,
+  oldFilename: string,
+  newFilename: string
+): Promise<void> {
+  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const src = assertInside(safePack, oldFilename)
+  const dst = assertInside(safePack, newFilename)
+  if (src === dst) return
+  try {
+    await fs.access(dst)
+    throw new Error(`${newFilename} already exists in this pack`)
+  } catch (err) {
+    // ENOENT is the good case: nothing is there, so the rename is safe.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+  }
+  await fs.mkdir(dirname(dst), { recursive: true })
+  await fs.rename(src, dst)
+}
+
 export async function packCompile(
   ctx: HandlerContext,
   packDir: string,
@@ -1236,14 +1269,48 @@ export async function packCompile(
   return new Promise<void>((resolve, reject) => {
     const output = createWriteStream(safeOut)
     const archive = archiver('zip', { zlib: { level: 9 } })
-    output.on('close', () => resolve())
-    archive.on('error', (err: Error) => reject(err))
+
+    // Every way this can end has to settle the promise. It used to listen for
+    // 'close' on the output and 'error' on the archive, and nothing else — so
+    // a failure on the OUTPUT stream settled nothing and the caller waited for
+    // a close that was never coming. On Windows that is one file lock away:
+    // write over a .datf another process holds open and the stream emits EBUSY,
+    // the renderer's Compile button spins, and no error is reported anywhere.
+    // An unhandled 'error' on a stream also throws in main, and main installs
+    // no uncaughtException handler.
+    //
+    // `settled` because a failing pipe can emit on both ends, and the second
+    // call must not turn a reported failure into a reported success.
+    let settled = false
+    const fail = (err: Error): void => {
+      if (settled) return
+      settled = true
+      archive.abort()
+      output.destroy()
+      reject(err)
+    }
+    const done = (): void => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+
+    output.on('close', done)
+    output.on('error', (err: Error) => fail(new Error(`cannot write ${safeOut}: ${err.message}`)))
+    archive.on('error', fail)
+    // An entry-level fault — a file deleted between save and compile — arrives
+    // as a warning and is skipped. Skipping it silently ships a pack missing
+    // art nobody asked it to drop, so it fails the compile instead.
+    archive.on('warning', (err: Error & { code?: string }) =>
+      fail(new Error(`cannot add an asset to the pack: ${err.message}`))
+    )
+
     archive.pipe(output)
     archive.append(JSON.stringify(parsedManifest, null, 2), { name: '_manifest.json' })
     for (const { name, abs } of resolved) {
       archive.file(abs, { name })
     }
-    archive.finalize()
+    archive.finalize().catch(fail)
   }).then(async () => {
     // The pack set is bound at scan time: loadPacks keeps an open zip directory
     // and an entry map per pack. Writing a .datf over one main already holds
@@ -1775,6 +1842,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('pack:delete', (_, p) => packDelete(ctx, p))
   ipcMain.handle('pack:addAsset', (_, d, s, t) => packAddAsset(ctx, d, s, t))
   ipcMain.handle('pack:removeAsset', (_, d, f) => packRemoveAsset(ctx, d, f))
+  ipcMain.handle('pack:renameAsset', (_, d, o, n) => packRenameAsset(ctx, d, o, n))
   ipcMain.handle('pack:compile', (_, d, m, f, o) => packCompile(ctx, d, m, f, o))
   ipcMain.handle('pack:import', (_, d, p, o) => packImport(ctx, d, p, o))
 

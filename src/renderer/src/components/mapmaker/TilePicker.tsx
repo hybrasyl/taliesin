@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { Box, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import {
+  Box,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  IconButton
+} from '@mui/material'
+import UpgradeIcon from '@mui/icons-material/Upgrade'
 import { FilterField } from '../shared/FilterField'
+import { coveredIdSet } from '../../utils/packOverride'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   loadMapAssets,
@@ -106,6 +115,20 @@ const TilePicker: React.FC<Props> = ({
   // edits across the settings store and the main-process schema, and the card
   // leaves it undecided — see HTOO-334.
   const [zoom, setZoom] = useState<PickerZoom>(1)
+  /**
+   * Show ids that only an installed `.datf` pack provides.
+   *
+   * The two id lists below are built from the legacy client: foreground from
+   * the `stc*.hpf` entries in `ia.dat`, background from the TILEA.BMP tile
+   * count. A pack tile at an id the legacy set never had — and 9008-9999 is a
+   * block of 992 such ids — therefore had no row at all. It could not be seen
+   * and could not be placed, so it could never reach a map, whatever the pack
+   * said. Off by default: the legacy set is what a map is usually built from,
+   * and 992 empty-looking numbers in the list is not a help.
+   */
+  const [includePack, setIncludePack] = useState(false)
+  const [packFloorIds, setPackFloorIds] = useState<number[]>([])
+  const [packWallIds, setPackWallIds] = useState<number[]>([])
 
   // Load assets
   useEffect(() => {
@@ -127,6 +150,23 @@ const TilePicker: React.FC<Props> = ({
         setFgEntryIds(ids)
       })
       .finally(() => setLoading(false))
+  }, [clientPath])
+
+  // Which ids an installed pack covers. Read whether or not the toggle is on,
+  // so turning it on is instant and the button can say there is nothing to add.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      coveredIdSet('floor', (id) => Number(id)),
+      coveredIdSet('wall', (id) => Number(id))
+    ]).then(([floor, wall]) => {
+      if (cancelled) return
+      setPackFloorIds([...floor].sort((a, b) => a - b))
+      setPackWallIds([...wall].sort((a, b) => a - b))
+    })
+    return () => {
+      cancelled = true
+    }
   }, [clientPath])
 
   // Pre-render background tile bitmaps
@@ -160,15 +200,26 @@ const TilePicker: React.FC<Props> = ({
 
   const isBg = activeLayer === 'background'
 
+  /** Ids only a pack provides — the legacy set has nothing at that number. */
+  const packOnlyIds = useMemo(() => {
+    const legacy = new Set(
+      isBg ? Array.from({ length: (assets?.groundTileCount ?? 0) + 1 }, (_, i) => i) : fgEntryIds
+    )
+    return (isBg ? packFloorIds : packWallIds).filter((id) => !legacy.has(id))
+  }, [isBg, assets, fgEntryIds, packFloorIds, packWallIds])
+
   // Filter tile IDs
   const tileIds = useMemo(() => {
-    const ids = isBg
+    const legacy = isBg
       ? Array.from({ length: (assets?.groundTileCount ?? 0) + 1 }, (_, i) => i)
       : fgEntryIds
+    // Merged in numeric order rather than appended: a pack id belongs beside
+    // its neighbours, because the number is what the author is looking for.
+    const ids = includePack ? [...legacy, ...packOnlyIds].sort((a, b) => a - b) : legacy
     if (!filter.trim()) return ids
     const q = filter.trim()
     return ids.filter((id) => String(id).includes(q))
-  }, [isBg, assets, fgEntryIds, filter])
+  }, [isBg, assets, fgEntryIds, filter, includePack, packOnlyIds])
 
   // Columns, cell size and the virtualizer's row height all move together with
   // the zoom. Change one alone and rows overlap or clip rather than erroring.
@@ -263,8 +314,8 @@ const TilePicker: React.FC<Props> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Layer selector */}
-      <Box sx={{ px: 1, pt: 1 }}>
+      {/* Layer selector, and the pack-asset toggle beside it */}
+      <Box sx={{ px: 1, pt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <ToggleButtonGroup
           value={activeLayer}
           exclusive
@@ -286,6 +337,28 @@ const TilePicker: React.FC<Props> = ({
             R-FG
           </ToggleButton>
         </ToggleButtonGroup>
+        <Tooltip
+          title={
+            packOnlyIds.length === 0
+              ? 'No installed pack covers a tile the client does not have'
+              : includePack
+                ? `Exclude Hybrasyl Assets (${packOnlyIds.length})`
+                : `Include Hybrasyl Assets (${packOnlyIds.length})`
+          }
+        >
+          <span>
+            <IconButton
+              size="small"
+              disabled={packOnlyIds.length === 0}
+              onClick={() => setIncludePack((v) => !v)}
+              color={includePack ? 'primary' : 'default'}
+              aria-label={includePack ? 'Exclude Hybrasyl Assets' : 'Include Hybrasyl Assets'}
+              aria-pressed={includePack}
+            >
+              <UpgradeIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
       {/* Filter */}
       <Box sx={{ px: 1, py: 0.5 }}>
