@@ -27,6 +27,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import BuildIcon from '@mui/icons-material/Build'
 import SaveIcon from '@mui/icons-material/Save'
 import { getKind } from '../../packKinds'
+import { useUiStore } from '../../store/uiStore'
 import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import { brigidAssetsDir, fileIn, packWorkingDir } from '../../utils/pickerDefaults'
@@ -217,6 +218,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const kind = getKind(draft.content_type)
   const namespaceList = useMemo(() => kind.namespaces?.(draft.assets) ?? [], [kind, draft.assets])
   const hasMenu = namespaceList.length > 0 || !!kind.customNamespacePrompt
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   // "Add PNG" for single-format (image) kinds; generic "Add file" for multi-format (audio) kinds
   const addLabel = useMemo(() => {
     const exts = kind.fileExtensions ?? ['png']
@@ -296,15 +298,36 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     [draft.assets, draft.content_type, kind, packDir, onStatus]
   )
 
+  /**
+   * A static_tiles pack has one correct door, and this is not it (HTOO-416).
+   *
+   * The generic add writes `wall{n}.png` where n is one past the highest id in
+   * *this pack*, starting at 1. A pack's own contents say nothing about where
+   * the legacy tiles end, so that is never a correct wall id — and
+   * `isRenderedTileIndex` never renders 0 to 12, so the first twelve walls added
+   * this way are silently dead art that compiles and is ignored by the client.
+   *
+   * The Static Tile Manager asks everything this path skips: the conversion
+   * through `convertCell`, the angled face, the mintable window, a deliberate
+   * replace, the walkability preference, and the eligibility pre-flight. So the
+   * fix is to send the user there rather than to reimplement the questions here.
+   */
+  const redirectToManager = kind.type === 'static_tiles'
+
   const handleAddClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (redirectToManager) {
+        setCurrentPage('statictiles')
+        onStatus('Static tiles are added in the Static Tile Manager, which asks for the tile id.')
+        return
+      }
       if (hasMenu) {
         setAddMenuAnchor(e.currentTarget)
       } else {
         addAssetInNamespace(undefined)
       }
     },
-    [hasMenu, addAssetInNamespace]
+    [redirectToManager, setCurrentPage, onStatus, hasMenu, addAssetInNamespace]
   )
 
   const handleMenuPick = useCallback(
@@ -482,10 +505,10 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
         <Button
           size="small"
           startIcon={<AddIcon />}
-          endIcon={hasMenu ? <ArrowDropDownIcon /> : undefined}
+          endIcon={hasMenu && !redirectToManager ? <ArrowDropDownIcon /> : undefined}
           onClick={handleAddClick}
         >
-          {addLabel}
+          {redirectToManager ? 'Add in Static Tile Manager' : addLabel}
         </Button>
         <Menu
           anchorEl={addMenuAnchor}

@@ -747,3 +747,44 @@ describe('PackEditor — pack prop reset', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
   })
 })
+
+describe('PackEditor — static_tiles has one door (HTOO-416)', () => {
+  function renderStaticTiles() {
+    return render(
+      <PackEditor
+        pack={makePack({ content_type: 'static_tiles' as ContentType, covers: {} })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+  }
+
+  it('sends the user to the Static Tile Manager instead of adding', async () => {
+    const { useUiStore } = await import('../../../store/uiStore')
+    useUiStore.setState({ currentPage: 'assetpacks', pendingPage: null })
+    renderStaticTiles()
+
+    await userEvent.click(screen.getByRole('button', { name: /Add in Static Tile Manager/i }))
+
+    expect(useUiStore.getState().currentPage).toBe('statictiles')
+    // No picker is opened: this path cannot ask what the Manager asks.
+    expect(api.openFile).not.toHaveBeenCalled()
+    expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('Static Tile Manager'))
+  })
+
+  it('leaves every other kind adding as before', async () => {
+    api.openFile.mockResolvedValue(null)
+    render(
+      <PackEditor
+        pack={makePack()}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    expect(screen.queryByRole('button', { name: /Add in Static Tile Manager/i })).toBeNull()
+  })
+})

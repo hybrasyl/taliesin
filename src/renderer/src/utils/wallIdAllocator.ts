@@ -1,44 +1,132 @@
 import type { SotpFile } from '@eriscorp/dalib-ts'
 
-// ── Wall (foreground) tile-ID allocation for minted static_tiles ──────────────
+// ── Wall (foreground) tile-ID allocation for static_tiles ─────────────────────
 //
-// Constraints (see docs/plans/complete/static-tile-manager.md — "authoritative DA tile
-// geometry" and "Server-side constraints"):
+// There are exactly two hard limits on a wall id. Both come from something that
+// breaks if you cross it:
 //
-//  - Client render filter (Brigid IsRenderedTileIndex):
+//  - **Client render filter** (Brigid `IsRenderedTileIndex`):
 //        (id > 10012) || ((id % 10000) > 12)
-//    → IDs 0–12 and 10000–10012 are sentinels that never render; 13–9999 are the
-//      legacy wall range and DO render.
-//  - New IDs are minted ABOVE the sentinel/legacy range (> 10012) so they can't
-//    collide with a legacy wall.
-//  - Server hard ceiling: the embedded sotp.dat is 20,423 bytes, indexed 1-based
-//    (byte for id N at [N-1]); a foreground id > 20423 indexes out of range and
-//    CRASHES map load (unchecked). So 20423 is the inclusive maximum.
+//    Ids 0–12 and 10000–10012 never draw. Art committed there is dead: the pack
+//    compiles and the client ignores it.
+//  - **Server ceiling.** The embedded `sotp.dat` is 20,423 bytes, indexed
+//    1-based, and the server reads `Game.Collisions[id - 1]` unchecked. An id
+//    above 20,423 throws and takes down map load. 20,423 is the maximum.
 //
-//  ⇒ mintable window = [10013, 20423].
+// Everything between those is a legal target.
 //
-// Walkability is fixed per-id by the same sotp.dat byte the map renderer already
-// reads (mapRenderer.isTilePassable): low nibble 0x0f == 0 → passable, else
-// blocking. A minted id inherits whatever byte its slot holds; the allocator
-// surfaces that so authors don't ship walls players walk through (or vice-versa).
+// This file used to declare a "mintable window" of [10013, 20423], on the
+// reasoning that a new id must sit above the whole legacy range so it cannot
+// collide with a legacy wall. That window is not a constraint. It belongs to a
+// different mechanism — the SOTP overlay, which pairs a widened table with an
+// override — and nothing about committing art to a lower id needs it. The world
+// card on static tile dedup (WLD-44) is the reference: it identifies 2,938 ids
+// that are free to take new art, and they run from 24 upward.
+//
+// What IS true is that most low ids already carry legacy art some map places, so
+// picking one at random overwrites something. That is a question of WHICH id,
+// not of which range, and it is answered by RECLAIMABLE_WALL_IDS below.
+//
+// Walkability is fixed per-id by the same sotp.dat byte the map renderer reads
+// (mapRenderer.isTilePassable): low nibble 0x0f == 0 → passable, else blocking.
+// An id inherits whatever byte its slot holds; the allocator surfaces that so
+// authors don't ship walls players walk through, or flowers they collide with.
 
-/** Lowest wall id that is safe to mint (above sentinels + legacy walls). */
-export const WALL_ID_MINT_MIN = 10013
+/** Lowest wall id the client draws. */
+export const WALL_ID_MIN = 13
 /** Highest wall id the server can index without crashing (sotp.dat length). */
-export const WALL_ID_MINT_MAX = 20423
+export const WALL_ID_MAX = 20423
 
 /**
  * Mirror of Brigid's `IsRenderedTileIndex`: which foreground ids the client
- * actually renders. IDs 0–12 and 10000–10012 are sentinels; everything else is
- * rendered (13–9999 legacy, 10013+ minted).
+ * actually draws. Ids 0–12 and 10000–10012 are sentinels and never draw.
  */
 export function isRenderedTileIndex(id: number): boolean {
   return id > 10012 || id % 10000 > 12
 }
 
-/** True when `id` is inside the mintable window [10013, 20423]. */
-export function isMintableWallId(id: number): boolean {
-  return Number.isInteger(id) && id >= WALL_ID_MINT_MIN && id <= WALL_ID_MINT_MAX
+/**
+ * True when art committed to `id` can reach a player: an integer the client
+ * draws, at or below the id the server can index.
+ *
+ * This is the whole rule. There is no separate rule for a new tile and a
+ * replacement — the client and the server do not know which one you meant.
+ */
+export function isCommittableWallId(id: number): boolean {
+  return Number.isInteger(id) && id > 0 && id <= WALL_ID_MAX && isRenderedTileIndex(id)
+}
+
+/**
+ * Ids that are free to take new art, from WLD-44 "Preferred for overwrite".
+ *
+ * Each entry is an inclusive range. These were reviewed against `ia.dat`: every
+ * one exists, and none of them is placed in a loaded map, so overwriting one
+ * changes nothing that a player sees today. The 45 ids WLD-44 lists as still
+ * placed are excluded here — they need their cells cleared first, so they are
+ * not something to hand out by default.
+ *
+ * This is a starting pool, not a limit. Any id `isCommittableWallId` accepts is
+ * a legal target; this is the set that costs nothing to take.
+ */
+export const RECLAIMABLE_WALL_IDS: readonly (readonly [number, number])[] = [
+  [25, 26],
+  [35, 38],
+  [47, 48],
+  [2901, 2901],
+  [2907, 2907],
+  [2920, 2920],
+  [2926, 2926],
+  [2937, 2937],
+  [2942, 2943],
+  [2949, 2949],
+  [2955, 2955],
+  [2968, 2968],
+  [2974, 2974],
+  [2984, 2985],
+  [2990, 2991],
+  [2997, 2997],
+  [3003, 3003],
+  [3016, 3016],
+  [3022, 3022],
+  [3132, 3132],
+  [3175, 3175],
+  [3317, 3369],
+  [5898, 5909],
+  [5914, 5920],
+  [6159, 6160],
+  [6453, 6497],
+  [6641, 6645],
+  [7422, 7423],
+  [8111, 8158],
+  [8558, 8560],
+  [8581, 8582],
+  [8587, 8588],
+  [14324, 14508],
+  [14567, 14579],
+  [14632, 14651],
+  [14697, 14739],
+  [14742, 14748],
+  [14751, 14758],
+  [14769, 14789],
+  [15091, 15262],
+  [15406, 15425],
+  [15438, 15525],
+  [18487, 18546],
+  [18549, 18571],
+  [18650, 18674],
+  [18676, 18791],
+  [19006, 19061],
+  [19129, 19290]
+]
+
+/** How many ids the reclaimable pool holds. */
+export function reclaimableWallIdCount(): number {
+  return RECLAIMABLE_WALL_IDS.reduce((n, [lo, hi]) => n + (hi - lo + 1), 0)
+}
+
+/** True when `id` is in the reclaimable pool. */
+export function isReclaimableWallId(id: number): boolean {
+  return RECLAIMABLE_WALL_IDS.some(([lo, hi]) => id >= lo && id <= hi)
 }
 
 export type Walkability = 'blocking' | 'passable' | 'unknown'
@@ -70,31 +158,37 @@ export interface NextWallIdOptions {
   sotp?: SotpFile | null
   /** Require the allocated id to have this walkability. */
   passability?: 'blocking' | 'passable'
-  /** Override the window (defaults to the mintable window). */
-  min?: number
-  max?: number
+  /**
+   * Search the whole legal range instead of the reclaimable pool. Every id it
+   * can return is legal, but most of them carry legacy art a map still places.
+   */
+  anyId?: boolean
 }
 
 /**
- * Lowest free mintable wall id satisfying the window, the used-set, and (when a
- * sotp table is supplied) the requested walkability. Returns null if the window
- * is exhausted.
+ * The lowest free wall id, taken from the reclaimable pool by default.
+ *
+ * Returns null when the pool is exhausted, or when nothing in it matches the
+ * requested walkability.
  *
  * Degrades gracefully: if `passability` is requested but no `sotp` table is
- * available, the walkability filter is skipped (range-only allocation) — the
- * caller is expected to surface "walkability unknown" in that case.
+ * available, the walkability filter is skipped — the caller is expected to
+ * surface "walkability unknown" in that case.
  */
 export function nextWallId(opts: NextWallIdOptions = {}): number | null {
-  const min = opts.min ?? WALL_ID_MINT_MIN
-  const max = opts.max ?? WALL_ID_MINT_MAX
   const used = opts.used instanceof Set ? opts.used : new Set<number>(opts.used ?? [])
   const filterWalk = !!opts.passability && !!opts.sotp
+  const ranges: readonly (readonly [number, number])[] = opts.anyId
+    ? [[WALL_ID_MIN, WALL_ID_MAX]]
+    : RECLAIMABLE_WALL_IDS
 
-  for (let id = min; id <= max; id++) {
-    if (used.has(id)) continue
-    if (!isMintableWallId(id)) continue
-    if (filterWalk && wallWalkability(opts.sotp, id) !== opts.passability) continue
-    return id
+  for (const [lo, hi] of ranges) {
+    for (let id = lo; id <= hi; id++) {
+      if (used.has(id)) continue
+      if (!isCommittableWallId(id)) continue
+      if (filterWalk && wallWalkability(opts.sotp, id) !== opts.passability) continue
+      return id
+    }
   }
   return null
 }
