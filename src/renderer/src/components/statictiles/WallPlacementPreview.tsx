@@ -70,11 +70,25 @@ function bufferToCanvas(buf: PixelBuffer): HTMLCanvasElement {
 }
 
 const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, assets, scale }) => {
-  const [neighborId, setNeighborId] = useState<string>('')
-  const [floorId, setFloorId] = useState<string>('1')
+  const [leftId, setLeftId] = useState<string>('')
+  const [rightId, setRightId] = useState<string>('')
+  const [floorId, setFloorId] = useState<string>('')
   const [zoom, setZoom] = useState<number>(3)
-  const [neighborMissing, setNeighborMissing] = useState(false)
+  const [missing, setMissing] = useState<number[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  /**
+   * Fill both sides from the run the tile belongs to.
+   *
+   * A legacy wall is drawn as a run of consecutive ids, so the pieces beside
+   * tile 3025 are 3024 and 3026. Typing the id of the tile being replaced is
+   * therefore enough to stand it back in its own wall.
+   */
+  const fillRun = useCallback((center: number) => {
+    setLeftId(String(center - 1))
+    setRightId(String(center + 1))
+  }, [])
+  const [runId, setRunId] = useState<string>('')
 
   const draw = useCallback(async () => {
     const canvas = canvasRef.current
@@ -103,7 +117,13 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
     ctx.fillRect(0, 0, sceneW, sceneH)
 
     const floor = Number.parseInt(floorId, 10)
-    const neighbor = Number.parseInt(neighborId, 10)
+    // The cells either side of the subject, each with its own id, so a run of
+    // consecutive legacy ids stands as the wall it is in the game.
+    const sides: { cell: number; id: number }[] = []
+    const left = Number.parseInt(leftId, 10)
+    const right = Number.parseInt(rightId, 10)
+    if (Number.isInteger(left) && left > 0) sides.push({ cell: SUBJECT_CELL - 1, id: left })
+    if (Number.isInteger(right) && right > 0) sides.push({ cell: SUBJECT_CELL + 1, id: right })
 
     // Ground first, exactly as renderMap orders it.
     if (assets && Number.isInteger(floor) && floor > 0) {
@@ -119,22 +139,20 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
       }
     }
 
-    // Neighbours on the cells either side of the subject.
-    let missing = false
-    if (assets && Number.isInteger(neighbor) && neighbor > 0) {
-      const bmp = await getStcBitmap(neighbor, assets)
-      if (bmp) {
-        for (let x = 0; x < CELLS; x++) {
-          if (x === SUBJECT_CELL) continue
-          const sx = originX + x * ISO_HTILE_W - ISO_HTILE_W
-          const base = headroom + x * (ISO_HTILE_W / 2) + ISO_HTILE_W
-          ctx.drawImage(bmp, sx, base - bmp.height)
+    const notFound: number[] = []
+    if (assets) {
+      for (const { cell, id } of sides) {
+        const bmp = await getStcBitmap(id, assets)
+        if (!bmp) {
+          notFound.push(id)
+          continue
         }
-      } else {
-        missing = true
+        const sx = originX + cell * ISO_HTILE_W - ISO_HTILE_W
+        const base = headroom + cell * (ISO_HTILE_W / 2) + ISO_HTILE_W
+        ctx.drawImage(bmp, sx, base - bmp.height)
       }
     }
-    setNeighborMissing(missing)
+    setMissing(notFound)
 
     // The subject, bottom-anchored on its own cell like any other wall. Art
     // authored at 2× is drawn at its 1× footprint, because the scene is 1×.
@@ -154,7 +172,7 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
       ctx.lineTo(sx + w, base + 0.5)
       ctx.stroke()
     }
-  }, [assets, converted, scale, floorId, neighborId, zoom])
+  }, [assets, converted, scale, floorId, leftId, rightId, zoom])
 
   useEffect(() => {
     if (open) draw()
@@ -173,12 +191,34 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
           <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <TextField
               size="small"
-              label="Neighbour wall id"
+              label="Wall run from id"
               type="number"
-              value={neighborId}
-              onChange={(e) => setNeighborId(e.target.value)}
-              helperText="A legacy wall to stand beside. Leave empty for none."
-              sx={{ width: 200 }}
+              value={runId}
+              onChange={(e) => {
+                setRunId(e.target.value)
+                const n = Number.parseInt(e.target.value, 10)
+                if (Number.isInteger(n) && n > 1) fillRun(n)
+              }}
+              helperText="The tile this one stands in for. Fills both sides with its run."
+              sx={{ width: 220 }}
+            />
+            <TextField
+              size="small"
+              label="Left wall id"
+              type="number"
+              value={leftId}
+              onChange={(e) => setLeftId(e.target.value)}
+              helperText="Empty for none."
+              sx={{ width: 140 }}
+            />
+            <TextField
+              size="small"
+              label="Right wall id"
+              type="number"
+              value={rightId}
+              onChange={(e) => setRightId(e.target.value)}
+              helperText="Empty for none."
+              sx={{ width: 140 }}
             />
             <TextField
               size="small"
@@ -186,8 +226,8 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
               type="number"
               value={floorId}
               onChange={(e) => setFloorId(e.target.value)}
-              helperText="The floor under the run."
-              sx={{ width: 160 }}
+              helperText="Empty for no floor."
+              sx={{ width: 140 }}
             />
             <Box>
               <Typography variant="overline" color="text.secondary">
@@ -212,9 +252,9 @@ const WallPlacementPreview: React.FC<Props> = ({ open, onClose, converted, asset
               No client loaded. Set a client path in Settings to draw legacy neighbours and ground.
             </Alert>
           )}
-          {neighborMissing && (
+          {missing.length > 0 && (
             <Alert severity="warning" sx={{ py: 0 }}>
-              No legacy wall for that id. Ids 1–12 and 10001–10012 are never drawn.
+              No legacy wall for {missing.join(' or ')}. Ids 1–12 and 10001–10012 are never drawn.
             </Alert>
           )}
           {!converted && (

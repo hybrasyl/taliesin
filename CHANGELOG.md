@@ -37,8 +37,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 - **Wide wall art becomes a run of tiles, not one squeezed tile.** Before, the whole image was
   fitted to one 28 pixel face, so art drawn as three tiles was shrunk into one. The Static Tile
-  Manager now cuts a loose source into one tile for each face. It counts the tiles from the width of
-  the art, and you can correct the count. Step through the tiles to commit each one.
+  Manager now cuts a loose source into one tile for each face. Set how many tiles the art covers.
+  Taliesin offers the count the width suggests, and it is yours to accept or ignore.
 - **Mirror a wall source to get the opposite face.** One drawing makes both halves of a left and
   right pair. Mirroring a run also reverses the order of its tiles, which is what turns the south
   wall of a building into its east wall.
@@ -48,10 +48,14 @@ record; where they disagree with this file, the git history was taken as authori
   taller and the art keeps its size. For a tile that replaces a legacy wall, the height must stay
   the height of the legacy wall, so the rows take from the art.
 - **See a wall tile in place before you commit it.** The "Preview in place" window puts the
-  converted tile in a run of map cells, with the same geometry the map uses. Give it a legacy wall
-  id to stand a real wall on each side, and a ground tile id for the floor below. A line marks the
-  base of the cell. Use it to see whether the tile is the right height, and whether the blank rows
-  put the art where you want it.
+  converted tile in a run of map cells, with the same geometry the map uses. Give it the id of the
+  tile it stands in for, and Taliesin puts the two tiles either side of that id on the left and the
+  right, which is the wall as the game draws it. Set each side by hand instead if you want. Add a
+  ground tile id for the floor below. A line marks the base of the cell. Use it to see whether the
+  tile is the right height, and whether the blank rows put the art where you want it.
+- **Every sliced tile is on screen at once.** A run of wall tiles is one drawing that was cut up, so
+  the cuts are judged as a run. Before, a next button showed one tile at a time. The tiles are now
+  drawn in order, touching, and you select one to preview and commit it.
 - **A reference map set for each field map.** Before, one reference set served every field, so
   unrelated fields shared one list of points. Each field map now has its own reference set, named
   `ReferenceMapSet.<field>.xml`. A point belongs to the reference set of its field, so a point that
@@ -87,13 +91,22 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
-- **The Static Tile Manager stops filling in tile numbers and heights for you.** The wall tile id
-  starts empty. Before, it started at 10013, the bottom of the range for a new tile, which in
-  Replace mode read as an instruction to replace tile 10013. Use the "Use next free id" button to
-  get the suggestion. The wall height is now yours: Taliesin sets it once from the art you import
-  and does not write it again. Before, it derived the height from the legacy tile and wrote it back
-  over the height you typed. The height of the legacy tile, and the height of the art, are shown
-  beside the field instead. Select one to use it.
+- **A wall tile can take any id the client draws.** Taliesin refused a new tile below 10013. That
+  limit is not real: it belongs to a different piece of work, and no part of the client or the
+  server knows whether you meant to add a tile or to replace one. The rules now are the two that
+  break something. Ids 0-12 and 10000-10012 never draw. An id above 20423 crashes the server when
+  it loads a map. Everything between is accepted.
+- **"Use next free id" offers an id that costs nothing to take.** It gives the lowest free id from
+  the 1229 the world team reviewed: each one exists in the client, and no map places it. Before, it
+  counted up from 10013. Taliesin says so when you type an id from outside that set, because the id
+  may carry legacy art that a map still places.
+- **The Static Tile Manager stops filling in tile numbers, counts and heights for you.** The wall
+  tile id starts empty. The tile count starts at one. The wall height keeps the last value you set.
+  Before, all three were derived: the id from the bottom of a range, and the count and the height
+  from the pixel size of the art you imported. Art is drawn at whatever resolution suits the artist,
+  so a 587 by 958 drawing of one sign became 21 tiles, each 958 pixels tall. The numbers the source
+  suggests, and the height of the legacy tile, are offered as buttons beside the fields. Select one
+  to use it.
 - **The Static Tile Manager reads a source as isometric by default.** Most art is drawn in the
   projection it is for. Choose Orthogonal for art drawn square, or Auto to let Taliesin decide.
 - **A file picker opens where the work is.** The Open Map picker opens in the map source. The

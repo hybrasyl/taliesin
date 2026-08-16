@@ -18,8 +18,6 @@ import {
 import ImageIcon from '@mui/icons-material/Image'
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd'
 import SaveIcon from '@mui/icons-material/Save'
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
-import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ViewInArIcon from '@mui/icons-material/ViewInAr'
 import { useSettingsStore } from '../store/settingsStore'
@@ -46,10 +44,10 @@ import { previewScale } from '../utils/previewFit'
 import {
   nextWallId,
   wallWalkability,
-  isMintableWallId,
+  isCommittableWallId,
   isRenderedTileIndex,
-  WALL_ID_MINT_MIN,
-  WALL_ID_MINT_MAX,
+  isReclaimableWallId,
+  WALL_ID_MAX,
   Walkability
 } from '../utils/wallIdAllocator'
 import { legacyWallHeight } from '../utils/wallHeight'
@@ -66,6 +64,7 @@ import { nextSlotId } from '../packKinds/helpers'
 import type { PackProject, PackAsset } from '../packKinds/types'
 import WangSlicePanel from '../components/statictiles/WangSlicePanel'
 import CommittedTiles from '../components/statictiles/CommittedTiles'
+import CellStrip from '../components/statictiles/CellStrip'
 import WallPlacementPreview from '../components/statictiles/WallPlacementPreview'
 
 interface PackSummary {
@@ -147,7 +146,7 @@ const StaticTileManagerPage: React.FC = () => {
   const [spacingY, setSpacingY] = useState(0)
   const [cellIndex, setCellIndex] = useState(0)
   // ── Loose-mode shaping (HTOO-418/419) ──────────────────────────────────────
-  /** How many wall tiles the source covers; seeded from its width on load. */
+  /** How many wall tiles the source is cut into. Always the author's answer. */
   const [wallColumns, setWallColumns] = useState(1)
   /** Mirror the source, which turns a face into its opposite. */
   const [mirrorSource, setMirrorSource] = useState(false)
@@ -173,12 +172,14 @@ const StaticTileManagerPage: React.FC = () => {
   const [wallMode, setWallMode] = useState<WallMode>('mint')
   const [passabilityPref, setPassabilityPref] = useState<PassabilityPref>('any')
   /**
-   * The wall id, as typed. It starts empty rather than at the bottom of the
-   * mint window: a number already in the box reads as a decision, and in
-   * Replace mode it reads as "replace tile 10013", which nobody asked for.
+   * The wall id, as typed. It starts empty: a number already in the box reads
+   * as a decision, and it used to start at 10013 and read as "replace tile
+   * 10013". There is no range that makes an id new rather than a replacement --
+   * see wallIdAllocator -- so the box has nothing to fill itself in with.
    */
   const [wallIdText, setWallIdText] = useState<string>('')
-  const [wallHeightField, setWallHeightField] = useState<number>(GROUND_TILE_HEIGHT)
+  /** Four iso steps — a common legacy wall. A starting point, not a derivation. */
+  const [wallHeightField, setWallHeightField] = useState<number>(56)
   const [wallFace, setWallFace] = useState<WallFace>('left')
   const [floorId, setFloorId] = useState<number>(1)
   const [placementOpen, setPlacementOpen] = useState(false)
@@ -255,20 +256,15 @@ const StaticTileManagerPage: React.FC = () => {
       setSourceImage(buf)
       setSourcePath(path)
       setCellIndex(0)
-      // Seed the run length from the art's width rather than asking for it —
-      // a 28-wide drawing is one tile, an 84-wide one is three (HTOO-419).
-      const columns = wallColumnsFor(buf.width)
-      setWallColumns(columns)
+      // Nothing about the tile is derived from the source's pixel size. A
+      // source is art at whatever resolution it was drawn — a 587×958 drawing
+      // of one sign is not 21 tiles wide, and it is not a 958px tall wall. Both
+      // numbers stay where the author put them; the counts the source suggests
+      // are offered as buttons instead.
+      setWallColumns(1)
       setMirrorSource(false)
       setBlankRowsBelow(0)
-      // Seed the height from the art, once, on load. Nothing writes it again:
-      // after this the height is the author's, and it stays what they typed.
-      setWallHeightField(buf.height)
-      showStatus(
-        columns > 1
-          ? `Loaded ${buf.width}×${buf.height} source — ${columns} tiles wide`
-          : `Loaded ${buf.width}×${buf.height} source`
-      )
+      showStatus(`Loaded ${buf.width}×${buf.height} source`)
     } catch (e) {
       showStatus(`Load failed: ${e instanceof Error ? e.message : 'unknown error'}`)
     }
@@ -427,6 +423,15 @@ const StaticTileManagerPage: React.FC = () => {
   /** The source's own height, offered the same way — a label, not a write. */
   const sourceHeight = previewCell?.height ?? null
 
+  /**
+   * How many faces the source would be if it were drawn at tile resolution.
+   *
+   * Offered, never applied. Art is drawn at whatever resolution suits the
+   * artist, so a 587-pixel-wide sign is one tile that happens to be 21 faces
+   * across, not a run of 21 tiles. Only the author knows which.
+   */
+  const sourceFaceCount = sourceImage ? wallColumnsFor(sourceImage.width) : 1
+
   const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, hasWallId ? wallId : -1)
 
   // Pre-flight the commit target against the legacy tables — a pack PNG for a
@@ -455,26 +460,18 @@ const StaticTileManagerPage: React.FC = () => {
       showStatus(layer === 'wall' ? 'Enter a wall tile id' : 'Enter a floor tile id')
       return
     }
-    // The mint window exists because of sotp.dat: a NEW id needs a collision
-    // byte nothing has declared, and an id past the array ceiling crashes the
-    // server on map load. **Replacing a legacy id has neither problem** -- its
-    // byte is already in the table and no server-side change is involved -- so
-    // the window was never about replacement, and applying it here refused
-    // every legacy wall (13-9999), contradicting the comment twelve lines up.
-    //
-    // What still applies in both modes is the client's own render filter: ids
-    // 0-12 and 10000-10012 are sentinels it never draws, so art committed there
-    // is invisible whatever the intent.
-    if (layer === 'wall') {
-      if (wallMode === 'replace') {
-        if (!isRenderedTileIndex(id)) {
-          showStatus(`Wall id ${id} is a sentinel the client never renders`)
-          return
-        }
-      } else if (!isMintableWallId(id)) {
-        showStatus(`A new wall id must be ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`)
-        return
-      }
+    // One rule, both modes. The client and the server do not know whether the
+    // author meant to add a tile or to replace one, so nothing else can differ:
+    // ids 0-12 and 10000-10012 are sentinels the client never draws, and an id
+    // above 20423 indexes past sotp.dat and crashes the server on map load.
+    // (There is no "mint window" -- see wallIdAllocator and WLD-44.)
+    if (layer === 'wall' && !isCommittableWallId(id)) {
+      showStatus(
+        isRenderedTileIndex(id)
+          ? `Wall id ${id} is above ${WALL_ID_MAX}, which crashes map load`
+          : `Wall id ${id} is a sentinel the client never renders`
+      )
+      return
     }
     const used = layer === 'wall' ? usedIds.wall : usedIds.floor
     const overwriting = used.has(id)
@@ -792,6 +789,17 @@ const StaticTileManagerPage: React.FC = () => {
                     }
                   />
                 )}
+                {layer === 'wall' && sourceFaceCount > 1 && sourceFaceCount !== wallColumns && (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`Source is ${sourceFaceCount} faces wide`}
+                    onClick={() => {
+                      setWallColumns(sourceFaceCount)
+                      setCellIndex(0)
+                    }}
+                  />
+                )}
                 {layer === 'wall' && (
                   <TextField
                     size="small"
@@ -964,27 +972,12 @@ const StaticTileManagerPage: React.FC = () => {
             />
           ) : (
             <Stack spacing={2}>
-              {cells.length > 1 && (
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <IconButton
-                    size="small"
-                    disabled={cellIndex <= 0}
-                    onClick={() => setCellIndex((i) => Math.max(0, i - 1))}
-                  >
-                    <NavigateBeforeIcon />
-                  </IconButton>
-                  <Typography variant="body2">
-                    {inputMode === 'loose' ? 'Tile' : 'Cell'} {cellIndex + 1} / {cells.length}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    disabled={cellIndex >= cells.length - 1}
-                    onClick={() => setCellIndex((i) => Math.min(cells.length - 1, i + 1))}
-                  >
-                    <NavigateNextIcon />
-                  </IconButton>
-                </Stack>
-              )}
+              <CellStrip
+                cells={cells}
+                selected={Math.min(cellIndex, cells.length - 1)}
+                onSelect={setCellIndex}
+                noun={inputMode === 'loose' ? 'Tile' : 'Cell'}
+              />
               <Stack direction="row" spacing={4} sx={{ flexWrap: 'wrap' }}>
                 <Box>
                   <Typography variant="subtitle2">
@@ -1079,8 +1072,8 @@ const StaticTileManagerPage: React.FC = () => {
                     value={wallMode}
                     onChange={(_, v) => v && setWallMode(v)}
                   >
-                    <ToggleButton value="mint">Mint new</ToggleButton>
-                    <ToggleButton value="replace">Replace legacy</ToggleButton>
+                    <ToggleButton value="mint">New id</ToggleButton>
+                    <ToggleButton value="replace">Overwrite</ToggleButton>
                   </ToggleButtonGroup>
 
                   {wallMode === 'mint' && (
@@ -1110,20 +1103,17 @@ const StaticTileManagerPage: React.FC = () => {
                     type="number"
                     value={wallIdText}
                     onChange={(e) => setWallIdText(e.target.value)}
-                    error={
-                      hasWallId &&
-                      (wallMode === 'replace'
-                        ? !isRenderedTileIndex(wallId)
-                        : !isMintableWallId(wallId))
-                    }
-                    helperText={
-                      wallMode === 'replace'
-                        ? 'Any id the client renders. Sentinels 0–12 and 10000–10012 are never drawn.'
-                        : `Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`
-                    }
+                    error={hasWallId && !isCommittableWallId(wallId)}
+                    helperText={`1–${WALL_ID_MAX}. Sentinels 0–12 and 10000–10012 never draw.`}
                   />
 
-                  {wallMode === 'mint' && suggestedWallId !== null && (
+                  {hasWallId && isCommittableWallId(wallId) && !isReclaimableWallId(wallId) && (
+                    <Typography variant="caption" color="text.disabled">
+                      Not in the reclaimable pool. The id may carry legacy art that a map places.
+                    </Typography>
+                  )}
+
+                  {suggestedWallId !== null && (
                     <Button
                       size="small"
                       variant="text"
@@ -1182,12 +1172,6 @@ const StaticTileManagerPage: React.FC = () => {
                     <MenuItem value="right">Right (roofline falls →)</MenuItem>
                   </TextField>
                 </>
-              )}
-
-              {layer === 'wall' && wallMode === 'replace' && !clientPath && (
-                <Alert severity="info" sx={{ py: 0 }}>
-                  Set a client path in Settings to auto-derive legacy wall heights and walkability.
-                </Alert>
               )}
 
               {!assets && (
