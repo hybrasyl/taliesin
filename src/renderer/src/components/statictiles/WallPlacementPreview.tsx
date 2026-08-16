@@ -15,9 +15,11 @@ import {
 } from '@mui/material'
 import { PixelBuffer } from '../../utils/duotone'
 import { TileScale } from '../../utils/tileConvert'
+import type { WallFace } from '../../utils/tileConvert'
 import {
   getGroundBitmap,
   getStcBitmap,
+  drawDiamond,
   ISO_HTILE_W,
   GROUND_TILE_HEIGHT
 } from '../../utils/mapRenderer'
@@ -25,27 +27,66 @@ import type { MapAssets } from '../../utils/mapRenderer'
 import { splitWallHeight } from '../../utils/tileShape'
 
 /**
- * See the converted tile standing in a wall.
+ * Stand the converted tile in a 3×3 patch of map, beside a real wall.
  *
- * A tile is judged by the tiles beside it: whether the bases line up, whether
- * the art is the right height, whether the raise puts it where it should be.
- * None of that shows against a checkerboard.
+ * The tile is not standing in for anything. It is a new tile, placed on a cell
+ * and a slot of its own, next to walls the author picked to judge it against.
+ * What the author needs to see is whether it lines up with them — so the patch
+ * uses the map renderer's geometry exactly, and the tile can be moved from cell
+ * to cell and from slot to slot without leaving the window.
  *
- * **The bases must be on one line.** In a map cell the two foreground slots are
- * drawn at `sx_base − 28` and `sx_base`, both anchored at `sy_base + 28` — the
- * same base, 28 apart. A wall face is therefore a row of slots that all share
- * one base, and it runs along the `x − y` diagonal, where `x + y` does not
- * change. Stepping along `x` instead moves the base down 14 pixels per cell,
- * which is a stair rather than a wall, and it is what this window drew before.
+ * The geometry, from `renderMap`:
  *
- * A ground diamond is 56 wide and covers two slots. It sits at the left slot's
- * x, 28 above the base — so the base line is the bottom of the diamond.
+ *     sxBase = originX + (x − y)·28        syBase = originY + (x + y)·14
+ *     left  slot → (sxBase − 28, syBase + 28 − h)
+ *     right slot → (sxBase,      syBase + 28 − h)
+ *     ground     → (sxBase − 28, syBase)
+ *
+ * So the two slots of one cell share a base 28 apart, and each step of x or y
+ * moves the next cell 14 pixels down. A wall face is a column or a row of that
+ * grid, not a horizontal line, and not a diagonal:
+ *
+ * - A **left-facing** run goes down the y axis at constant x, in the RIGHT
+ *   slot: (0,0), (0,1), (0,2). Its tiles step down and to the left.
+ * - A **right-facing** run goes along the x axis at constant y, in the LEFT
+ *   slot: (0,0), (1,0), (2,0). Its tiles step down and to the right. It is the
+ *   mirror of the other.
+ *
+ * A tile made for one of those faces is placed in the opposite slot of a cell
+ * beside the run.
  */
 
-/** Wall slots in the run. Two of them make one map cell. */
-const SLOTS = 6
-/** The converted tile takes this slot, leaving neighbours on both sides. */
-const SUBJECT_SLOT = 2
+/** The patch is 3 cells on a side. */
+const GRID = 3
+
+/** Which way a wall face runs, and therefore which slot carries it. */
+type Facing = 'left' | 'right'
+
+/** A cell of the patch. */
+interface Cell {
+  x: number
+  y: number
+}
+
+/** The cells a run of the given facing occupies, in draw order. */
+function runCells(facing: Facing): Cell[] {
+  return facing === 'left'
+    ? [
+        { x: 0, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: 2 }
+      ]
+    : [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 2, y: 0 }
+      ]
+}
+
+/** The slot a run of the given facing sits in. */
+function runSlot(facing: Facing): WallFace {
+  return facing === 'left' ? 'right' : 'left'
+}
 
 interface Props {
   open: boolean
@@ -87,13 +128,23 @@ const WallPlacementPreview: React.FC<Props> = ({
   blankRows,
   onBlankRowsChange
 }) => {
+  const [facing, setFacing] = useState<Facing>('left')
   const [runId, setRunId] = useState<string>('')
   const [floorId, setFloorId] = useState<string>('')
+  const [cell, setCell] = useState<Cell>({ x: 1, y: 1 })
+  const [slot, setSlot] = useState<WallFace>('left')
   const [zoom, setZoom] = useState<number>(3)
   const [missing, setMissing] = useState<number[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const split = splitWallHeight(wallHeight, blankRows)
+
+  // A tile for a left-facing wall goes in the slot the run does not use, and
+  // the other way round. Changing the facing moves the tile with it.
+  const changeFacing = useCallback((next: Facing) => {
+    setFacing(next)
+    setSlot(next === 'left' ? 'left' : 'right')
+  }, [])
 
   const draw = useCallback(async () => {
     const canvas = canvasRef.current
@@ -101,12 +152,34 @@ const WallPlacementPreview: React.FC<Props> = ({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // Collect the art first: the headroom depends on the tallest wall in it.
+    const centre = Number.parseInt(runId, 10)
+    const hasRun = assets && Number.isInteger(centre) && centre > 0
+    const cells = runCells(facing)
+    const walls: { cell: Cell; bitmap: ImageBitmap }[] = []
+    const notFound: number[] = []
+    if (hasRun) {
+      for (let i = 0; i < cells.length; i++) {
+        const id = centre + i
+        const bitmap = await getStcBitmap(id, assets)
+        if (bitmap) walls.push({ cell: cells[i]!, bitmap })
+        else notFound.push(id)
+      }
+    }
+    setMissing(notFound)
+
+    const floor = Number.parseInt(floorId, 10)
+    const ground =
+      assets && Number.isInteger(floor) && floor > 0 ? await getGroundBitmap(floor, assets) : null
+
     const subjectH = converted ? converted.height / scale : 0
-    const sceneW = SLOTS * ISO_HTILE_W
-    // Room above the base for the tallest thing that can stand on it.
-    const headroom = Math.ceil(Math.max(subjectH, ISO_HTILE_W * 6)) + ISO_HTILE_W
-    const baseY = headroom
-    const sceneH = baseY + GROUND_TILE_HEIGHT + ISO_HTILE_W
+    const tallest = Math.max(subjectH, ...walls.map((w) => w.bitmap.height), ISO_HTILE_W)
+
+    const originX = GRID * ISO_HTILE_W
+    const headroom = Math.ceil(tallest) + ISO_HTILE_W
+    const originY = headroom
+    const sceneW = 2 * GRID * ISO_HTILE_W + ISO_HTILE_W * 2
+    const sceneH = originY + 2 * GRID * (ISO_HTILE_W / 2) + GROUND_TILE_HEIGHT
 
     canvas.width = Math.ceil(sceneW * zoom)
     canvas.height = Math.ceil(sceneH * zoom)
@@ -116,63 +189,67 @@ const WallPlacementPreview: React.FC<Props> = ({
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, sceneW, sceneH)
 
-    // Ground: one 56-wide diamond per cell, its bottom on the base line.
-    const floor = Number.parseInt(floorId, 10)
-    if (assets && Number.isInteger(floor) && floor > 0) {
-      const bmp = await getGroundBitmap(floor, assets)
-      if (bmp) {
-        for (let slot = 0; slot < SLOTS; slot += 2) {
-          ctx.drawImage(bmp, slot * ISO_HTILE_W, baseY - ISO_HTILE_W)
+    const sxBase = (c: Cell): number => originX + (c.x - c.y) * ISO_HTILE_W
+    const syBase = (c: Cell): number => originY + (c.x + c.y) * (ISO_HTILE_W / 2)
+    const slotX = (c: Cell, s: WallFace): number => sxBase(c) - (s === 'left' ? ISO_HTILE_W : 0)
+    const footY = (c: Cell): number => syBase(c) + ISO_HTILE_W
+
+    // Ground, then the outline of every cell, then the foreground — the order
+    // renderMap uses, so a nearer tile covers a farther one.
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const c = { x, y }
+        if (ground) ctx.drawImage(ground, sxBase(c) - ISO_HTILE_W, syBase(c))
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
+        ctx.lineWidth = 1 / zoom
+        drawDiamond(ctx, sxBase(c), syBase(c) + ISO_HTILE_W / 2)
+        ctx.stroke()
+      }
+    }
+
+    const sub = converted ? bufferToCanvas(converted) : null
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const wall = walls.find((w) => w.cell.x === x && w.cell.y === y)
+        if (wall) {
+          const c = wall.cell
+          ctx.drawImage(wall.bitmap, slotX(c, runSlot(facing)), footY(c) - wall.bitmap.height)
+        }
+        if (sub && converted && cell.x === x && cell.y === y) {
+          const c = { x, y }
+          const w = converted.width / scale
+          ctx.drawImage(
+            sub,
+            0,
+            0,
+            converted.width,
+            converted.height,
+            slotX(c, slot),
+            footY(c) - subjectH,
+            w,
+            subjectH
+          )
         }
       }
     }
 
-    // Neighbours: consecutive ids either side, which is how a legacy wall runs.
-    const centre = Number.parseInt(runId, 10)
-    const notFound: number[] = []
-    if (assets && Number.isInteger(centre) && centre > 0) {
-      for (let slot = 0; slot < SLOTS; slot++) {
-        if (slot === SUBJECT_SLOT) continue
-        const id = centre + (slot - SUBJECT_SLOT)
-        if (id < 1) continue
-        const bmp = await getStcBitmap(id, assets)
-        if (!bmp) {
-          notFound.push(id)
-          continue
-        }
-        // Every wall is bottom-anchored on the shared base.
-        ctx.drawImage(bmp, slot * ISO_HTILE_W, baseY - bmp.height)
-      }
-    }
-    setMissing(notFound)
-
-    // The subject, on the same base. Art authored at 2× draws at its 1×
-    // footprint, because the scene is 1×.
-    if (converted) {
-      const sub = bufferToCanvas(converted)
-      const w = converted.width / scale
-      const x = SUBJECT_SLOT * ISO_HTILE_W
-      ctx.drawImage(sub, 0, 0, converted.width, converted.height, x, baseY - subjectH, w, subjectH)
-    }
-
-    // The base line itself, across the whole run.
-    ctx.strokeStyle = 'rgba(0, 200, 255, 0.55)'
+    // Mark the tile's own slot: its foot, and where its art stops when raised.
+    const x0 = slotX(cell, slot)
+    const foot = footY(cell)
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.9)'
     ctx.lineWidth = 1 / zoom
     ctx.beginPath()
-    ctx.moveTo(0, baseY + 0.5)
-    ctx.lineTo(sceneW, baseY + 0.5)
+    ctx.moveTo(x0, foot + 0.5)
+    ctx.lineTo(x0 + ISO_HTILE_W, foot + 0.5)
     ctx.stroke()
-
-    // Where the art of the subject ends, when it is raised off the base.
     if (converted && split.blank > 0) {
-      const y = baseY - split.blank
-      ctx.strokeStyle = 'rgba(255, 180, 0, 0.8)'
+      ctx.strokeStyle = 'rgba(255, 180, 0, 0.9)'
       ctx.beginPath()
-      ctx.moveTo(SUBJECT_SLOT * ISO_HTILE_W, y + 0.5)
-      ctx.lineTo((SUBJECT_SLOT + 1) * ISO_HTILE_W, y + 0.5)
+      ctx.moveTo(x0, foot - split.blank + 0.5)
+      ctx.lineTo(x0 + ISO_HTILE_W, foot - split.blank + 0.5)
       ctx.stroke()
     }
-  }, [assets, converted, scale, floorId, runId, zoom, split.blank])
+  }, [assets, converted, scale, floorId, runId, zoom, facing, cell, slot, split.blank])
 
   useEffect(() => {
     if (open) draw()
@@ -184,20 +261,39 @@ const WallPlacementPreview: React.FC<Props> = ({
       <DialogContent dividers>
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Every tile in the run stands on one base line, which is how a wall is drawn in a map.
-            The blue line is that base. The orange line is where the art of your tile stops, when
-            blank rows raise it.
+            A 3×3 patch of map, drawn the way the game draws it. The wall runs down one edge. Your
+            tile stands on a cell and a slot of its own — move it to see how it meets them. The blue
+            line is the foot of your tile&apos;s slot. The orange line is where its art stops.
           </Typography>
 
           <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Wall face
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={facing}
+                onChange={(_, v) => v && changeFacing(v)}
+              >
+                <ToggleButton value="left">Left-facing</ToggleButton>
+                <ToggleButton value="right">Right-facing</ToggleButton>
+              </ToggleButtonGroup>
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                {facing === 'left'
+                  ? 'Run down x=0, in the right slot'
+                  : 'Run along y=0, in the left slot'}
+              </Typography>
+            </Box>
             <TextField
               size="small"
-              label="Wall run from id"
+              label="Reference wall id"
               type="number"
               value={runId}
               onChange={(e) => setRunId(e.target.value)}
-              helperText="The tile this one stands in for. Its run fills the slots beside it."
-              sx={{ width: 240 }}
+              helperText="The first of three. It and the next two make the run."
+              sx={{ width: 220 }}
             />
             <TextField
               size="small"
@@ -208,6 +304,46 @@ const WallPlacementPreview: React.FC<Props> = ({
               helperText="Empty for no floor."
               sx={{ width: 150 }}
             />
+          </Stack>
+
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Your tile&apos;s cell
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 32px)', gap: 0.5 }}>
+                {Array.from({ length: GRID * GRID }, (_, i) => {
+                  const x = i % GRID
+                  const y = Math.floor(i / GRID)
+                  const selected = cell.x === x && cell.y === y
+                  return (
+                    <Button
+                      key={i}
+                      size="small"
+                      variant={selected ? 'contained' : 'outlined'}
+                      onClick={() => setCell({ x, y })}
+                      sx={{ minWidth: 0, px: 0 }}
+                    >
+                      {x},{y}
+                    </Button>
+                  )
+                })}
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Slot
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={slot}
+                onChange={(_, v) => v && setSlot(v)}
+              >
+                <ToggleButton value="left">Left</ToggleButton>
+                <ToggleButton value="right">Right</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
             <TextField
               size="small"
               label="Tile height"
