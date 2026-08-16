@@ -77,6 +77,11 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **A static tile pack has one door.** The pack editor's Add Asset button wrote `wall<n>.png`, where
+  `n` was one more than the highest number in that pack. A pack does not know where the legacy tiles
+  end, so that number was never correct. The client draws no tile from 0 to 12, so the first twelve
+  walls added this way were dead art: the pack compiled and the client ignored it. The button now
+  opens the Static Tile Manager, which asks for the tile number and checks it.
 - **The world map editor says which art it shows.** A badge names the source: an asset pack, with
   the size of the image, or the legacy `setoa.dat`. A pack that covers a field but does not open
   fell back to the legacy art without a word, so the preview was of the wrong picture. The editor
