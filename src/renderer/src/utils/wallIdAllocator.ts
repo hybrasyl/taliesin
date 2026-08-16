@@ -17,15 +17,21 @@ import type { SotpFile } from '@eriscorp/dalib-ts'
 //
 // This file used to declare a "mintable window" of [10013, 20423], on the
 // reasoning that a new id must sit above the whole legacy range so it cannot
-// collide with a legacy wall. That window is not a constraint. It belongs to a
-// different mechanism — the SOTP overlay, which pairs a widened table with an
-// override — and nothing about committing art to a lower id needs it. The world
-// card on static tile dedup (WLD-44) is the reference: it identifies 2,938 ids
-// that are free to take new art, and they run from 24 upward.
+// collide with a legacy wall. **There is no such window, and 10,000 is not a
+// boundary.** Do not reintroduce one, and do not repeat the claim that the
+// window belongs somewhere else instead — it belongs nowhere.
 //
-// What IS true is that most low ids already carry legacy art some map places, so
-// picking one at random overwrites something. That is a question of WHICH id,
-// not of which range, and it is answered by RECLAIMABLE_WALL_IDS below.
+// The space below 10,000 is not more crowded than the space above it. It is
+// less. WLD-44 counts 19,432 static tiles against a 20,423 ceiling, and the
+// missing 992 are one contiguous block at **9008–9999** — the largest run of
+// ids with no legacy art anywhere in the table, and it is below 10,000. The
+// same card identifies 2,938 further ids that are free to take new art, and
+// they start at 24.
+//
+// What IS true is that many ids already carry legacy art that some map places,
+// so picking one at random overwrites something a player can see. That is a
+// question of WHICH id, not of which range, and RECLAIMABLE_WALL_IDS answers
+// it.
 //
 // Walkability is fixed per-id by the same sotp.dat byte the map renderer reads
 // (mapRenderer.isTilePassable): low nibble 0x0f == 0 → passable, else blocking.
