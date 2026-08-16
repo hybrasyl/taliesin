@@ -35,6 +35,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Wide wall art becomes a run of tiles, not one squeezed tile.** Before, the whole image was
+  fitted to one 28 pixel face, so art drawn as three tiles was shrunk into one. The Static Tile
+  Manager now cuts a loose source into one tile for each face. It counts the tiles from the width of
+  the art, and you can correct the count. Step through the tiles to commit each one.
+- **Mirror a wall source to get the opposite face.** One drawing makes both halves of a left and
+  right pair. Mirroring a run also reverses the order of its tiles, which is what turns the south
+  wall of a building into its east wall.
+- **Move wall art up or down its tile with blank rows.** A wall sits on the bottom edge of its tile,
+  so rows added below raise the art and rows removed lower it. Use it to hang a sign at the height
+  you want.
 - **A reference map set for each field map.** Before, one reference set served every field, so
   unrelated fields shared one list of points. Each field map now has its own reference set, named
   `ReferenceMapSet.<field>.xml`. A point belongs to the reference set of its field, so a point that

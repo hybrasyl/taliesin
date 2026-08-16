@@ -34,6 +34,13 @@ import { convertCell, TileLayer, TileScale, WallFace } from '../utils/tileConver
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
 import { sliceGrid } from '../utils/gridSlice'
 import {
+  mirrorX,
+  padBelow,
+  sliceColumns,
+  wallColumnsFor,
+  WALL_FACE_WIDTH
+} from '../utils/tileShape'
+import {
   nextWallId,
   wallWalkability,
   isMintableWallId,
@@ -133,6 +140,13 @@ const StaticTileManagerPage: React.FC = () => {
   const [spacingX, setSpacingX] = useState(0)
   const [spacingY, setSpacingY] = useState(0)
   const [cellIndex, setCellIndex] = useState(0)
+  // ── Loose-mode shaping (HTOO-418/419) ──────────────────────────────────────
+  /** How many wall tiles the source covers; seeded from its width on load. */
+  const [wallColumns, setWallColumns] = useState(1)
+  /** Mirror the source, which turns a face into its opposite. */
+  const [mirrorSource, setMirrorSource] = useState(false)
+  /** Blank rows beneath the art. Positive raises it, negative lowers it. */
+  const [blankRowsBelow, setBlankRowsBelow] = useState(0)
 
   // ── Conversion params ───────────────────────────────────────────────────────
   const [layer, setLayer] = useState<TileLayer>('floor')
@@ -223,7 +237,17 @@ const StaticTileManagerPage: React.FC = () => {
       setSourceImage(buf)
       setSourcePath(path)
       setCellIndex(0)
-      showStatus(`Loaded ${buf.width}×${buf.height} source`)
+      // Seed the run length from the art's width rather than asking for it —
+      // a 28-wide drawing is one tile, an 84-wide one is three (HTOO-419).
+      const columns = wallColumnsFor(buf.width)
+      setWallColumns(columns)
+      setMirrorSource(false)
+      setBlankRowsBelow(0)
+      showStatus(
+        columns > 1
+          ? `Loaded ${buf.width}×${buf.height} source — ${columns} tiles wide`
+          : `Loaded ${buf.width}×${buf.height} source`
+      )
     } catch (e) {
       showStatus(`Load failed: ${e instanceof Error ? e.message : 'unknown error'}`)
     }
@@ -242,8 +266,31 @@ const StaticTileManagerPage: React.FC = () => {
         return []
       }
     }
-    return [sourceImage]
-  }, [sourceImage, inputMode, cellW, cellH, marginX, marginY, spacingX, spacingY])
+    // Loose mode shapes the source before it becomes tiles (HTOO-418/419).
+    // Without this, convertWall maps the whole image across one 28-pixel face,
+    // so art meant to be three tiles is shrunk into one.
+    //
+    // Order matters. The mirror is applied to the whole source, so a run's
+    // columns reverse with it — a house's south wall becomes its east wall,
+    // rather than the same columns each flipped in place. Blank rows are
+    // uniform down the image, so they commute with the cut either way.
+    let shaped = mirrorSource ? mirrorX(sourceImage) : sourceImage
+    if (blankRowsBelow !== 0) shaped = padBelow(shaped, blankRowsBelow)
+    return layer === 'wall' ? sliceColumns(shaped, wallColumns) : [shaped]
+  }, [
+    sourceImage,
+    inputMode,
+    cellW,
+    cellH,
+    marginX,
+    marginY,
+    spacingX,
+    spacingY,
+    layer,
+    wallColumns,
+    mirrorSource,
+    blankRowsBelow
+  ])
 
   const previewCell = cells.length > 0 ? cells[Math.min(cellIndex, cells.length - 1)] : null
 
@@ -657,6 +704,53 @@ const StaticTileManagerPage: React.FC = () => {
               </ToggleButtonGroup>
             </Box>
 
+            {inputMode === 'loose' && sourceImage && (
+              <Stack spacing={1}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Shape the source before it becomes tiles
+                </Typography>
+                {layer === 'wall' && (
+                  <TextField
+                    size="small"
+                    label="Tiles wide"
+                    type="number"
+                    value={wallColumns}
+                    onChange={(e) => {
+                      setWallColumns(Math.max(1, Number(e.target.value) || 1))
+                      setCellIndex(0)
+                    }}
+                    helperText={
+                      wallColumns > 1
+                        ? `Cut into ${wallColumns} tiles of ${WALL_FACE_WIDTH}px`
+                        : 'One tile — the whole image is fitted to one face'
+                    }
+                  />
+                )}
+                <TextField
+                  size="small"
+                  label="Blank rows below"
+                  type="number"
+                  value={blankRowsBelow}
+                  onChange={(e) => setBlankRowsBelow(Number(e.target.value) || 0)}
+                  helperText={
+                    blankRowsBelow > 0
+                      ? 'Raises the art off the tile base'
+                      : blankRowsBelow < 0
+                        ? 'Lowers the art by cutting rows from below'
+                        : 'Move the art up or down the tile'
+                  }
+                />
+                <ToggleButton
+                  size="small"
+                  value="mirror"
+                  selected={mirrorSource}
+                  onChange={() => setMirrorSource((v) => !v)}
+                >
+                  Mirror (opposite face)
+                </ToggleButton>
+              </Stack>
+            )}
+
             {inputMode === 'grid' && (
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                 <TextField
@@ -804,7 +898,7 @@ const StaticTileManagerPage: React.FC = () => {
             />
           ) : (
             <Stack spacing={2}>
-              {inputMode === 'grid' && cells.length > 1 && (
+              {cells.length > 1 && (
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <IconButton
                     size="small"
@@ -814,7 +908,7 @@ const StaticTileManagerPage: React.FC = () => {
                     <NavigateBeforeIcon />
                   </IconButton>
                   <Typography variant="body2">
-                    Cell {cellIndex + 1} / {cells.length}
+                    {inputMode === 'loose' ? 'Tile' : 'Cell'} {cellIndex + 1} / {cells.length}
                   </Typography>
                   <IconButton
                     size="small"
