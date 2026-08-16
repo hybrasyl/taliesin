@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
-  TextField,
   IconButton,
   Tooltip,
   List,
@@ -11,6 +10,7 @@ import {
   Divider,
   Button
 } from '@mui/material'
+import { FilterField } from '../shared/FilterField'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useSettingsStore } from '../../store/settingsStore'
@@ -168,13 +168,7 @@ const PrefabSidebar: React.FC<Props> = ({
       </Box>
       {/* Search */}
       <Box sx={{ px: 1, py: 0.5 }}>
-        <TextField
-          size="small"
-          placeholder="Filter..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          fullWidth
-        />
+        <FilterField placeholder="Filter..." value={filter} onChange={setFilter} fullWidth />
       </Box>
       <Typography
         variant="caption"

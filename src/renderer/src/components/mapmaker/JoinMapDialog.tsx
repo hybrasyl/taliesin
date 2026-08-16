@@ -22,6 +22,7 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import { MapFile } from '@eriscorp/dalib-ts'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import { filenameFromPath } from '../../utils/format'
+import { mapFilesDir } from '../../utils/pickerDefaults'
 import {
   ISO_FOREGROUND_PAD,
   ISO_HTILE_W,
@@ -287,7 +288,10 @@ const JoinMapDialog: React.FC<Props> = ({
   // ── Source selection ───────────────────────────────────────────────────────
 
   const handleBrowse = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'DA Map Files', extensions: ['map'] }])
+    const path = await window.api.openFile(
+      [{ name: 'DA Map Files', extensions: ['map'] }],
+      mapFilesDir()
+    )
     if (!path) return
     try {
       const buf = await window.api.readFile(path)

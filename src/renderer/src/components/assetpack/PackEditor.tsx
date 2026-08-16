@@ -29,6 +29,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import { getKind } from '../../packKinds'
 import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
+import { brigidAssetsDir, fileIn, packWorkingDir } from '../../utils/pickerDefaults'
 import { scanDyeUsage } from '../../packKinds/itemIconsDye'
 import AssetThumbnail from './AssetThumbnail'
 import { clearPackCaches } from '../../utils/packCaches'
@@ -241,9 +242,13 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const addAssetInNamespace = useCallback(
     async (namespace: string | undefined) => {
       const extensions = kind.fileExtensions ?? ['png']
-      const filePath = (await window.api.openFile([{ name: kind.label, extensions }])) as
-        | string
-        | null
+      // The pack working directory, not this pack's own folder: source art is
+      // staged beside the pack projects, and what is already in the folder is
+      // what the user is adding to.
+      const filePath = (await window.api.openFile(
+        [{ name: kind.label, extensions }],
+        packWorkingDir()
+      )) as string | null
       if (!filePath) return
 
       // Image kinds decode the picked PNG once (dimension validation + the
@@ -365,7 +370,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
 
     const outputPath = await window.api.saveFile(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      `${reduced.pack_id}.datf`
+      fileIn(brigidAssetsDir(), `${reduced.pack_id}.datf`)
     )
     if (!outputPath) return
 

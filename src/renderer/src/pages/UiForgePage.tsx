@@ -24,6 +24,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { getKind } from '../packKinds'
+import { brigidAssetsDir, fileIn } from '../utils/pickerDefaults'
 import type { PackProject } from '../packKinds'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
@@ -264,7 +265,7 @@ const UiForgePage: React.FC = () => {
     const kind = getKind('ui_panels')
     const outputPath = await window.api.saveFile(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      `${project.pack_id}.datf`
+      fileIn(brigidAssetsDir(), `${project.pack_id}.datf`)
     )
     if (!outputPath) return
     const manifest = {

@@ -7,8 +7,8 @@ import React, {
   useState
 } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Box, Typography, TextField, InputAdornment, Chip } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { Box, Typography, Chip } from '@mui/material'
+import { FilterField } from '../shared/FilterField'
 import { CatalogEntry } from '../../hooks/useCatalog'
 import { nextCursorIndex, isActivateKey, clampCursor } from '../../utils/listKeyboard'
 
@@ -137,22 +137,12 @@ const MapCatalogList: React.FC<Props> = ({ entries, selectedFilename, onSelect, 
     >
       {/* Search bar */}
       <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-        <TextField
-          size="small"
+        <FilterField
           fullWidth
           placeholder="Search maps…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           onKeyDown={handleSearchKeyDown}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
         />
       </Box>
       {/* Count */}

@@ -18,6 +18,7 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import SaveIcon from '@mui/icons-material/Save'
+import { FilterField } from '../components/shared/FilterField'
 import { useSettingsStore } from '../store/settingsStore'
 
 interface SfxEntry {
@@ -250,11 +251,10 @@ const SfxPage: React.FC = () => {
         >
           {filtered.length} / {entries.length} entries
         </Typography>
-        <TextField
-          size="small"
+        <FilterField
           placeholder="Filter by name or ID…"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={setFilter}
           sx={{ width: 260 }}
         />
         {playingEntry && (

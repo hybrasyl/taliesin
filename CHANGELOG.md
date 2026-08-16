@@ -43,6 +43,16 @@ record; where they disagree with this file, the git history was taken as authori
   the next map needs no mouse.
 - **A "Reload packs" button in Settings.** Use it for a `.datf` pack that arrived from outside
   Taliesin. Taliesin re-reads a pack that it compiles itself.
+- **A clear button on every filter and search box.** The button shows only while the box holds
+  text. The Escape key does the same thing. In a dialog, the first Escape clears the box and the
+  second Escape closes the dialog.
+
+### Changed
+
+- **A file picker opens where the work is.** The Open Map picker opens in the map source. The
+  Import `.datf` picker opens in the Brigid asset directory. The other pickers open in the
+  directory that holds the files they ask for. A picker that has no directory in Settings opens
+  where it opened before.
 
 ### Fixed
 

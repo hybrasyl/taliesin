@@ -362,7 +362,10 @@ function CompanionCard() {
           // bundle is a `.app` directory and a Linux install may be an AppImage
           // or a desktop entry. Asking for `exe` everywhere is what stopped this
           // setting from being populated at all off Windows.
-          const f = await window.api.openFile(await window.api.companionPickerFilters())
+          const f = await window.api.openFile(
+            await window.api.companionPickerFilters(),
+            companionPath ?? undefined
+          )
           if (f) setCompanionPath(f)
         }}
       />
@@ -927,7 +930,10 @@ function FfmpegCard() {
         onChange={(v) => setFfmpegPath(v || null)}
         placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
         onBrowse={async () => {
-          const f = await window.api.openFile([{ name: 'Executable', extensions: ['exe', '*'] }])
+          const f = await window.api.openFile(
+            [{ name: 'Executable', extensions: ['exe', '*'] }],
+            ffmpegPath ?? undefined
+          )
           if (f) setFfmpegPath(f)
         }}
       />

@@ -1,14 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
-import {
-  Box,
-  Typography,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Tooltip,
-  Chip
-} from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { Box, Typography, IconButton, Tooltip, Chip } from '@mui/material'
+import { FilterField } from '../shared/FilterField'
 import SyncIcon from '@mui/icons-material/Sync'
 import AddIcon from '@mui/icons-material/Add'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -75,22 +67,7 @@ const MusicList: React.FC<Props> = ({
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ px: 1.5, pt: 1.5, pb: 1, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-        <TextField
-          size="small"
-          placeholder="Search…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ flex: 1 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
-        />
+        <FilterField placeholder="Search…" value={query} onChange={setQuery} sx={{ flex: 1 }} />
         <Tooltip title="Import files">
           <IconButton size="small" onClick={onImport}>
             <AddIcon fontSize="small" />

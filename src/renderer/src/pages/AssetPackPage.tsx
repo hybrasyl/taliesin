@@ -15,6 +15,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
+import { brigidAssetsDir } from '../utils/pickerDefaults'
 import PackEditor from '../components/assetpack/PackEditor'
 import CreatePackDialog from '../components/assetpack/CreatePackDialog'
 import { getKind, isKnownContentType } from '../packKinds'
@@ -109,7 +110,10 @@ const AssetPackPage: React.FC = () => {
   // refresh the list, and select the new pack.
   const handleImport = useCallback(async () => {
     if (!packDir) return
-    const datfPath = await window.api.openFile([{ name: 'DATF Asset Pack', extensions: ['datf'] }])
+    const datfPath = await window.api.openFile(
+      [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
+      brigidAssetsDir()
+    )
     if (!datfPath) return
     try {
       const result = await window.api.packImport(datfPath, packDir)

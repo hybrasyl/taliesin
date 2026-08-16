@@ -17,6 +17,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import { FilterField } from '../components/shared/FilterField'
 import { useSettingsStore } from '../store/settingsStore'
 import type { PrefabSummary, Prefab } from '../utils/prefabTypes'
 import { loadMapAssets, type MapAssets } from '../utils/mapRenderer'
@@ -173,11 +174,10 @@ const PrefabCatalogPage: React.FC = () => {
         >
           {filtered.length} / {prefabs.length} prefabs
         </Typography>
-        <TextField
-          size="small"
+        <FilterField
           placeholder="Filter..."
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={setFilter}
           sx={{ width: 260 }}
         />
         <Tooltip title="Refresh">

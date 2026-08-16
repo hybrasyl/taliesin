@@ -24,6 +24,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useTransientStatus } from '../hooks/useTransientStatus'
+import { packWorkingDir } from '../utils/pickerDefaults'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
@@ -212,7 +213,10 @@ const StaticTileManagerPage: React.FC = () => {
   }, [setPackDir])
 
   const handleImport = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'PNG image', extensions: ['png'] }])
+    const path = await window.api.openFile(
+      [{ name: 'PNG image', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (!path) return
     try {
       const buf = await loadPixelBufferFromPath(path)
@@ -473,7 +477,10 @@ const StaticTileManagerPage: React.FC = () => {
   // dropped. Runs independent of the single-source preview / grid slicing.
   const batchImport = useCallback(async () => {
     if (!packDir || !project || !selectedPack) return
-    const paths = await window.api.openFiles([{ name: 'PNG image', extensions: ['png'] }])
+    const paths = await window.api.openFiles(
+      [{ name: 'PNG image', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (paths.length === 0) return
     setCommitting(true)
     setBatchProgress({ done: 0, total: paths.length })
