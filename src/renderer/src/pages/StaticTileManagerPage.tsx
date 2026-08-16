@@ -37,9 +37,11 @@ import {
   mirrorX,
   padBelow,
   sliceColumns,
+  splitWallHeight,
   wallColumnsFor,
   WALL_FACE_WIDTH
 } from '../utils/tileShape'
+import { previewScale } from '../utils/previewFit'
 import {
   nextWallId,
   wallWalkability,
@@ -75,13 +77,14 @@ type OrientationChoice = 'auto' | Orientation
 type WallMode = 'mint' | 'replace'
 type PassabilityPref = 'any' | 'blocking' | 'passable'
 
-const PREVIEW_SCALE = 5
+/** The square each preview is drawn to fit. Sources are any size (HTOO-418). */
+const PREVIEW_BOX = 320
 
-/** Paint a PixelBuffer into a canvas at an integer display scale, crisp. */
+/** Paint a PixelBuffer into a canvas, magnified to fit `box`, crisp. */
 function paintBuffer(
   canvas: HTMLCanvasElement | null,
   buf: PixelBuffer | null,
-  displayScale: number,
+  box: number,
   overlayDiamond: boolean
 ): void {
   if (!canvas) return
@@ -89,8 +92,9 @@ function paintBuffer(
   if (!ctx) return
   const w = buf?.width ?? 1
   const h = buf?.height ?? 1
-  canvas.width = Math.max(1, w * displayScale)
-  canvas.height = Math.max(1, h * displayScale)
+  const displayScale = previewScale(w, h, box)
+  canvas.width = Math.max(1, Math.round(w * displayScale))
+  canvas.height = Math.max(1, Math.round(h * displayScale))
   ctx.imageSmoothingEnabled = false
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   if (!buf) return
@@ -270,12 +274,11 @@ const StaticTileManagerPage: React.FC = () => {
     // Without this, convertWall maps the whole image across one 28-pixel face,
     // so art meant to be three tiles is shrunk into one.
     //
-    // Order matters. The mirror is applied to the whole source, so a run's
-    // columns reverse with it — a house's south wall becomes its east wall,
-    // rather than the same columns each flipped in place. Blank rows are
-    // uniform down the image, so they commute with the cut either way.
-    let shaped = mirrorSource ? mirrorX(sourceImage) : sourceImage
-    if (blankRowsBelow !== 0) shaped = padBelow(shaped, blankRowsBelow)
+    // The mirror is applied to the whole source, so a run's columns reverse with
+    // it — a house's south wall becomes its east wall, rather than the same
+    // columns each flipped in place. Blank rows are NOT applied here: they are a
+    // property of the converted tile, not of the source (see `converted`).
+    const shaped = mirrorSource ? mirrorX(sourceImage) : sourceImage
     return layer === 'wall' ? sliceColumns(shaped, wallColumns) : [shaped]
   }, [
     sourceImage,
@@ -288,11 +291,14 @@ const StaticTileManagerPage: React.FC = () => {
     spacingY,
     layer,
     wallColumns,
-    mirrorSource,
-    blankRowsBelow
+    mirrorSource
   ])
 
   const previewCell = cells.length > 0 ? cells[Math.min(cellIndex, cells.length - 1)] : null
+  /** Reported so a reduced preview is never mistaken for the art's real size. */
+  const previewFit = previewCell
+    ? previewScale(previewCell.width, previewCell.height, PREVIEW_BOX)
+    : 1
 
   const detected = useMemo(
     () => (previewCell ? detectOrientation(previewCell) : null),
@@ -302,23 +308,35 @@ const StaticTileManagerPage: React.FC = () => {
     orientationChoice === 'auto' ? (detected?.orientation ?? 'orthogonal') : orientationChoice
 
   // ── Derived: converted output ───────────────────────────────────────────────
+  /** The art's share of the wall height, and the blank rows below it. */
+  const wallSplit = useMemo(
+    () => splitWallHeight(wallHeightField, blankRowsBelow),
+    [wallHeightField, blankRowsBelow]
+  )
+
   const converted = useMemo<PixelBuffer | null>(() => {
     if (!previewCell) return null
-    const opts = {
-      layer,
-      scale,
-      wallHeight: layer === 'wall' ? wallHeightField : undefined,
-      wallFace
+    if (layer !== 'wall') {
+      return convertCell(previewCell, { layer, scale }, effectiveOrientation)
     }
-    return convertCell(previewCell, opts, effectiveOrientation)
-  }, [previewCell, layer, scale, wallHeightField, wallFace, effectiveOrientation])
+    // Convert into the art's share, then leave the rest of the tile empty. The
+    // rows cannot be padded onto the source: convertWall maps the whole source
+    // down the face, so padding is scaled back out and the art never moves.
+    // padBelow works in output pixels, so the row count scales with the tile.
+    const face = convertCell(
+      previewCell,
+      { layer, scale, wallHeight: wallSplit.art, wallFace },
+      effectiveOrientation
+    )
+    return wallSplit.blank > 0 ? padBelow(face, wallSplit.blank * scale) : face
+  }, [previewCell, layer, scale, wallSplit, wallFace, effectiveOrientation])
 
   // Paint previews
   useEffect(() => {
-    paintBuffer(srcCanvasRef.current, previewCell, PREVIEW_SCALE, false)
+    paintBuffer(srcCanvasRef.current, previewCell, PREVIEW_BOX, false)
   }, [previewCell])
   useEffect(() => {
-    paintBuffer(outCanvasRef.current, converted, PREVIEW_SCALE, layer === 'floor')
+    paintBuffer(outCanvasRef.current, converted, PREVIEW_BOX, layer === 'floor')
   }, [converted, layer])
 
   // ── Used ids for the loaded pack ────────────────────────────────────────────
@@ -361,9 +379,12 @@ const StaticTileManagerPage: React.FC = () => {
         return
       }
     }
-    // fall back to the source cell height for mint / no-legacy
-    if (previewCell) setWallHeightField(previewCell.height)
-  }, [layer, wallMode, wallId, assets, previewCell])
+    // Fall back to the source cell height for mint / no-legacy. Blank rows are
+    // added on top of it, so the art keeps its own size and the tile grows —
+    // which is what raising a mint tile means. A replacement cannot grow: its
+    // height is the legacy one, so there the rows come out of the art instead.
+    if (previewCell) setWallHeightField(previewCell.height + Math.max(0, blankRowsBelow))
+  }, [layer, wallMode, wallId, assets, previewCell, blankRowsBelow])
 
   const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, wallId)
 
@@ -726,20 +747,20 @@ const StaticTileManagerPage: React.FC = () => {
                     }
                   />
                 )}
-                <TextField
-                  size="small"
-                  label="Blank rows below"
-                  type="number"
-                  value={blankRowsBelow}
-                  onChange={(e) => setBlankRowsBelow(Number(e.target.value) || 0)}
-                  helperText={
-                    blankRowsBelow > 0
-                      ? 'Raises the art off the tile base'
-                      : blankRowsBelow < 0
-                        ? 'Lowers the art by cutting rows from below'
-                        : 'Move the art up or down the tile'
-                  }
-                />
+                {layer === 'wall' && (
+                  <TextField
+                    size="small"
+                    label="Blank rows below"
+                    type="number"
+                    value={blankRowsBelow}
+                    onChange={(e) => setBlankRowsBelow(Math.max(0, Number(e.target.value) || 0))}
+                    helperText={
+                      blankRowsBelow > 0
+                        ? `Art ${wallSplit.art}px, ${wallSplit.blank}px empty base — tile ${wallHeightField}px`
+                        : 'Empty rows at the base raise the art off the ground'
+                    }
+                  />
+                )}
                 <ToggleButton
                   size="small"
                   value="mirror"
@@ -923,6 +944,9 @@ const StaticTileManagerPage: React.FC = () => {
                 <Box>
                   <Typography variant="subtitle2">
                     Source {previewCell ? `(${previewCell.width}×${previewCell.height})` : ''}
+                    {previewCell && previewFit < 1
+                      ? ` — shown at ${Math.round(previewFit * 100)}%`
+                      : ''}
                   </Typography>
                   <Box
                     component="canvas"

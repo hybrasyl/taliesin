@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { convertOrthoTile, resampleTile } from '../tileConvert'
+import { padBelow, splitWallHeight } from '../tileShape'
 import { PixelBuffer } from '../duotone'
 import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W } from '../mapRenderer'
 
@@ -179,5 +180,74 @@ describe('resampleTile — already-isometric normalize (no reprojection)', () =>
     const out = resampleTile(solidSource(64, 32, 1, 2, 3), { layer: 'floor', scale: 2 })
     expect(out.width).toBe(112)
     expect(out.height).toBe(54)
+  })
+})
+
+// ── Raising a wall off its base (HTOO-418) ────────────────────────────────────
+//
+// The blank rows belong to the CONVERTED tile. These tests are the pair: the
+// first states why the source cannot carry them, the rest state what works.
+
+describe('blank rows below a wall', () => {
+  /** The lowest row that still has paint. −1 for a fully transparent tile. */
+  function lastPaintedRow(buf: PixelBuffer): number {
+    for (let y = buf.height - 1; y >= 0; y--) {
+      for (let x = 0; x < buf.width; x++) {
+        if (buf.data[(y * buf.width + x) * 4 + 3] > 0) return y
+      }
+    }
+    return -1
+  }
+
+  /** Empty rows between the lowest paint and the tile base — the raise. */
+  function baseGap(buf: PixelBuffer): number {
+    return buf.height - 1 - lastPaintedRow(buf)
+  }
+
+  const RAISE = 14
+  const source = solidSource(28, 42, 200, 100, 50)
+  /** The tile with no raise: 42 tall, art sitting on the base. */
+  const unraised = convertOrthoTile(source, { layer: 'wall', wallHeight: 42 })
+
+  it('is not the raise asked for when the rows are padded onto the source', () => {
+    expect(baseGap(unraised)).toBe(0)
+    // Pad the source, and take the taller tile the height field then derives.
+    const padded = convertOrthoTile(padBelow(source, RAISE), { layer: 'wall', wallHeight: 56 })
+    // The projection maps the whole source down the face, so the empty rows are
+    // scaled with it: the art lifts by a fraction of the rows, and stretches to
+    // cover the difference. Neither the raise nor the art is what was asked for.
+    expect(baseGap(padded)).toBeGreaterThan(0)
+    expect(baseGap(padded)).toBeLessThan(RAISE)
+  })
+
+  it('raises by exactly the rows asked for when they are added to the converted tile', () => {
+    // The tile total stays 56 — a legacy replacement cannot grow — so the art
+    // takes 42 of it and the last 14 rows are empty.
+    const { art, blank } = splitWallHeight(56, RAISE)
+    expect({ art, blank }).toEqual({ art: 42, blank: RAISE })
+    const out = padBelow(convertOrthoTile(source, { layer: 'wall', wallHeight: art }), blank)
+    expect(out.height).toBe(56)
+    expect(baseGap(out)).toBe(RAISE)
+  })
+
+  it('leaves the art itself untouched — the same face, moved up', () => {
+    const { art, blank } = splitWallHeight(56, RAISE)
+    const out = padBelow(convertOrthoTile(source, { layer: 'wall', wallHeight: art }), blank)
+    // The first 42 rows are the unraised tile, byte for byte: raising places the
+    // art, it does not resample it.
+    expect(Array.from(out.data.subarray(0, unraised.data.length))).toEqual(
+      Array.from(unraised.data)
+    )
+  })
+
+  it('scales the blank rows with the tile, so 2× raises by the same amount', () => {
+    const { art, blank } = splitWallHeight(56, RAISE)
+    const scale = 2
+    const out = padBelow(
+      convertOrthoTile(source, { layer: 'wall', wallHeight: art, scale }),
+      blank * scale
+    )
+    expect(out.height).toBe(56 * scale)
+    expect(baseGap(out)).toBe(RAISE * scale)
   })
 })

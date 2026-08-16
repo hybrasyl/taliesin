@@ -42,9 +42,11 @@ record; where they disagree with this file, the git history was taken as authori
 - **Mirror a wall source to get the opposite face.** One drawing makes both halves of a left and
   right pair. Mirroring a run also reverses the order of its tiles, which is what turns the south
   wall of a building into its east wall.
-- **Move wall art up or down its tile with blank rows.** A wall sits on the bottom edge of its tile,
-  so rows added below raise the art and rows removed lower it. Use it to hang a sign at the height
-  you want.
+- **Raise wall art off the bottom of its tile with blank rows.** A wall sits on the bottom edge of
+  its tile, so rows left empty below raise the art. Use it to hang a sign at the height you want.
+  The rows are part of the tile, not of the source art. For a new tile, the rows make the tile
+  taller and the art keeps its size. For a tile that replaces a legacy wall, the height must stay
+  the height of the legacy wall, so the rows take from the art.
 - **A reference map set for each field map.** Before, one reference set served every field, so
   unrelated fields shared one list of points. Each field map now has its own reference set, named
   `ReferenceMapSet.<field>.xml`. A point belongs to the reference set of its field, so a point that
@@ -87,6 +89,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The Static Tile Manager preview stays inside its panel.** It magnified every image five times,
+  whatever the size of the image. A 512 by 512 drawing therefore filled the screen. The preview now
+  fits the space it has. Small art is still magnified by a whole number of pixels, so a tile stays
+  sharp. Art that is larger than the space is made smaller, and the panel says at what percent.
 - **A static tile pack has one door.** The pack editor's Add Asset button wrote `wall<n>.png`, where
   `n` was one more than the highest number in that pack. A pack does not know where the legacy tiles
   end, so that number was never correct. The client draws no tile from 0 to 12, so the first twelve

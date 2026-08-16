@@ -11,8 +11,8 @@
  * - **Mirror** turns a face into its opposite, so one asset becomes the left and
  *   right pair that terminates a flat object, rather than needing two drawings.
  * - **Blank rows below** move the art up the tile. A wall sits on its bottom
- *   edge, so rows added underneath raise what the player sees, and rows removed
- *   lower it.
+ *   edge, so rows left empty underneath raise what the player sees. These rows
+ *   belong to the CONVERTED tile, not the source — see `splitWallHeight`.
  *
  * All three are pure `PixelBuffer` operations, and none of them stores anything:
  * the result is the art. `static_tiles` carries no per-tile metadata and does not
@@ -90,6 +90,10 @@ export function mirrorX(src: PixelBuffer): PixelBuffer {
  * A wall is drawn from its bottom edge, so this is how the art is placed
  * vertically: blank rows underneath push it up, and removing rows drops it. A
  * negative count never eats into the image beyond leaving one row.
+ *
+ * Apply this to a CONVERTED tile. Padding a source does nothing, because the
+ * projection maps the whole source down the face and scales the padding back
+ * out again — see `splitWallHeight`.
  */
 export function padBelow(src: PixelBuffer, rows: number): PixelBuffer {
   const n = Math.round(rows)
@@ -101,6 +105,27 @@ export function padBelow(src: PixelBuffer, rows: number): PixelBuffer {
   const keep = Math.min(src.height, h)
   data.set(src.data.subarray(0, keep * src.width * 4), 0)
   return { data, width: src.width, height: h }
+}
+
+/**
+ * Divide a wall tile's total height into the art's share and the blank rows
+ * beneath it.
+ *
+ * The rows have to be taken out of the converted tile. `convertWall` maps the
+ * whole source down the face — `v = (fy − yTop)/contentH` runs 0 to 1 over the
+ * entire image — so rows added to the source are scaled straight back out and
+ * the art does not move. Convert the art into `art` rows, then `padBelow` the
+ * result by `blank`, and the total is unchanged.
+ *
+ * `total` is what the tile commits as, and a legacy replacement must match its
+ * HPF height exactly, so the blank rows never grow it: they take from the art.
+ * To keep the art at its own size instead, raise `total` by the same number of
+ * rows. At least one row always stays art.
+ */
+export function splitWallHeight(total: number, blankRows: number): { art: number; blank: number } {
+  const t = Math.max(1, Math.round(total))
+  const blank = Math.min(Math.max(0, Math.round(blankRows)), t - 1)
+  return { art: t - blank, blank }
 }
 
 /**

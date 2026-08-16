@@ -6,6 +6,7 @@ import {
   padBelow,
   isLegacyWallHeight,
   nextLegacyWallHeight,
+  splitWallHeight,
   WALL_FACE_WIDTH
 } from '../tileShape'
 import type { PixelBuffer } from '../duotone'
@@ -133,6 +134,41 @@ describe('padBelow', () => {
 
   it('keeps the width', () => {
     expect(padBelow(ramp(28, 10), 14).width).toBe(28)
+  })
+})
+
+describe('splitWallHeight', () => {
+  it('gives the whole tile to the art when nothing is raised', () => {
+    expect(splitWallHeight(56, 0)).toEqual({ art: 56, blank: 0 })
+  })
+
+  it('takes the blank rows out of the art, so the tile height is unchanged', () => {
+    const { art, blank } = splitWallHeight(56, 14)
+    expect({ art, blank }).toEqual({ art: 42, blank: 14 })
+    expect(art + blank).toBe(56)
+  })
+
+  it('keeps the total for every raise, which is what a legacy replacement needs', () => {
+    for (const rows of [0, 1, 13, 14, 28, 41]) {
+      const s = splitWallHeight(42, rows)
+      expect(s.art + s.blank).toBe(42)
+    }
+  })
+
+  it('always leaves at least one row of art', () => {
+    expect(splitWallHeight(42, 42)).toEqual({ art: 1, blank: 41 })
+    expect(splitWallHeight(42, 999)).toEqual({ art: 1, blank: 41 })
+    expect(splitWallHeight(1, 5)).toEqual({ art: 1, blank: 0 })
+  })
+
+  it('ignores a negative raise rather than cutting into the art', () => {
+    expect(splitWallHeight(56, -14)).toEqual({ art: 56, blank: 0 })
+  })
+
+  it('rounds both, and never lets the total fall below one row', () => {
+    expect(splitWallHeight(56.4, 13.6)).toEqual({ art: 42, blank: 14 })
+    expect(splitWallHeight(0, 0)).toEqual({ art: 1, blank: 0 })
+    expect(splitWallHeight(-9, 3)).toEqual({ art: 1, blank: 0 })
   })
 })
 
