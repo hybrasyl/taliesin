@@ -70,6 +70,15 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The world map editor says which art it shows.** A badge names the source: an asset pack, with
+  the size of the image, or the legacy `setoa.dat`. A pack that covers a field but does not open
+  fell back to the legacy art without a word, so the preview was of the wrong picture. The editor
+  also says when it shows no art because you have not set the client path, instead of showing the
+  same grey rectangle as a field with no art.
+- **The world map editor reports field art that is not 4:3.** The client stretches such an image
+  into the 640 by 480 frame, and so does the editor, because the preview must match the client. The
+  art then moves under the map points, which do not move. The editor now says so. Art within 1
+  percent of 4:3 is not reported.
 - **The world map editor puts a map point where the client puts it.** The editor drew the marker
   around the point. The client draws the 12 by 12 box down and right from the point, and puts the
   label beside the box. Every marker was therefore 6 pixels up and left of the position the player

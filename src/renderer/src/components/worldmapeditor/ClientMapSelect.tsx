@@ -35,7 +35,7 @@ function FieldThumbnail({ fieldName, clientPath, width, height }: ThumbnailProps
     let cancelled = false
 
     renderField(fieldName, clientPath)
-      .then((bitmap) => {
+      .then(({ bitmap }) => {
         if (cancelled) return
         if (!canvasRef.current) {
           setStatus('error')
