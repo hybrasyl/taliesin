@@ -1,5 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
-import { sharedComponents } from './sharedComponents'
+import { sharedComponents, type Surface } from './sharedComponents'
 
 // Dubhaimid — the dark "corporate/boring" theme. Neutral charcoal grays
 // (VS Code-ish), light-gray text, a single muted blue accent, plain system
@@ -7,6 +7,17 @@ import { sharedComponents } from './sharedComponents'
 // dark sibling of Mundanes. Ported from Oghma and reshaped to Taliesin's
 // theme conventions (stock palette keys, inline typography, the same
 // component-override set as the other themes).
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: '#252526',
+  border: '1px solid rgba(255,255,255,0.12)',
+  boxShadow: 'none'
+}
+
 const dubhaimidTheme = responsiveFontSizes(
   createTheme({
     palette: {
@@ -61,15 +72,10 @@ const dubhaimidTheme = responsiveFontSizes(
     shape: { borderRadius: 6 },
 
     components: {
-      ...sharedComponents,
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: '#252526',
-            border: '1px solid rgba(255,255,255,0.12)',
-            boxShadow: 'none'
-          }
+          root: surface
         }
       },
       MuiButton: {

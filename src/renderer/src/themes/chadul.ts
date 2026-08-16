@@ -1,5 +1,17 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
-import { sharedComponents } from './sharedComponents'
+import { sharedComponents, type Surface } from './sharedComponents'
+
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: 'rgba(4,14,6,0.90)',
+  border: '1px solid rgba(46,122,58,0.35)',
+  backdropFilter: 'blur(2px)',
+  boxShadow: '-2px -2px 0 0 #1a4a22, 2px 2px 0 0 #1a4a22'
+}
 
 const chadulTheme = responsiveFontSizes(
   createTheme({
@@ -52,16 +64,10 @@ const chadulTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
-      ...sharedComponents,
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: 'rgba(4,14,6,0.90)',
-            border: '1px solid rgba(46,122,58,0.35)',
-            backdropFilter: 'blur(2px)',
-            boxShadow: '-2px -2px 0 0 #1a4a22, 2px 2px 0 0 #1a4a22'
-          }
+          root: surface
         }
       },
       MuiButton: {
