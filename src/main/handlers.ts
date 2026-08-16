@@ -1244,6 +1244,26 @@ export async function packCompile(
       archive.file(abs, { name })
     }
     archive.finalize()
+  }).then(async () => {
+    // The pack set is bound at scan time: loadPacks keeps an open zip directory
+    // and an entry map per pack. Writing a .datf over one main already holds
+    // therefore changed nothing until a restart (HTOO-421). This process is the
+    // one that just wrote it, so it is the one that should know.
+    //
+    // Unconditional rather than "only if this pack is installed": the output
+    // path may be a brand new pack in the assets directory, and comparing paths
+    // to the configured sources here would duplicate what loadPacks already
+    // does. The reload reads manifests and zip indexes, not asset bytes.
+    //
+    // Failure is logged and swallowed. A compile that succeeded must not be
+    // reported as failed because the refresh afterwards did not — the file is
+    // written either way, and the old behaviour (no refresh at all) is what a
+    // failure here degrades to.
+    try {
+      await reloadPacks(ctx)
+    } catch (err) {
+      console.warn('[packs] reload after compile failed:', (err as Error)?.message ?? err)
+    }
   })
 }
 

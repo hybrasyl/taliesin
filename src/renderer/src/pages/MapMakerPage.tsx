@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
+import { mapFilesDir } from '../utils/pickerDefaults'
 import { isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
@@ -150,7 +151,10 @@ const MapMakerPage: React.FC = () => {
 
     let savePath = tab.filePath
     if (!savePath) {
-      savePath = await window.api.saveFile([{ name: 'DA Map Files', extensions: ['map'] }])
+      savePath = await window.api.saveFile(
+        [{ name: 'DA Map Files', extensions: ['map'] }],
+        mapFilesDir()
+      )
       if (!savePath) return // user cancelled save dialog
     }
     await window.api.writeBytes(savePath, tab.mapFile.toUint8Array())
@@ -229,7 +233,10 @@ const MapMakerPage: React.FC = () => {
   )
 
   const handleOpenMap = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'DA Map Files', extensions: ['map'] }])
+    const path = await window.api.openFile(
+      [{ name: 'DA Map Files', extensions: ['map'] }],
+      mapFilesDir()
+    )
     if (!path) return
     const buf = await window.api.readFile(path)
     const bytes = new Uint8Array(buf)
@@ -252,7 +259,10 @@ const MapMakerPage: React.FC = () => {
     if (!activeTabId || !mapFile) return
     let savePath = filePath
     if (!savePath) {
-      savePath = await window.api.saveFile([{ name: 'DA Map Files', extensions: ['map'] }])
+      savePath = await window.api.saveFile(
+        [{ name: 'DA Map Files', extensions: ['map'] }],
+        mapFilesDir()
+      )
       if (!savePath) return
     }
     await window.api.writeBytes(savePath, mapFile.toUint8Array())
@@ -262,12 +272,18 @@ const MapMakerPage: React.FC = () => {
 
   const handleSaveAs = useCallback(async () => {
     if (!activeTabId || !mapFile) return
-    const savePath = await window.api.saveFile([{ name: 'DA Map Files', extensions: ['map'] }])
+    // Save As starts on the file being copied, so the dialog opens in its
+    // directory with its name filled in. A map that has never been saved has
+    // no such file, and starts in the map source instead.
+    const savePath = await window.api.saveFile(
+      [{ name: 'DA Map Files', extensions: ['map'] }],
+      filePath ?? mapFilesDir()
+    )
     if (!savePath) return
     await window.api.writeBytes(savePath, mapFile.toUint8Array())
     updateTab(activeTabId, { filePath: savePath, dirty: false })
     showStatus('Saved')
-  }, [activeTabId, mapFile, updateTab, showStatus])
+  }, [activeTabId, mapFile, filePath, updateTab, showStatus])
 
   // ── Tile changes + undo/redo ───────────────────────────────────────────────
 

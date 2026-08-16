@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Box,
   Typography,
-  TextField,
   Button,
   CircularProgress,
   Divider,
@@ -18,6 +17,8 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import { DataArchive } from '@eriscorp/dalib-ts'
 import { useSettingsStore } from '../store/settingsStore'
 import { useArchiveStore } from '../store/archiveStore'
+import { FilterField } from '../components/shared/FilterField'
+import { clientDir } from '../utils/pickerDefaults'
 import ArchiveEntryList from '../components/archive/ArchiveEntryList'
 import ArchivePreview from '../components/archive/ArchivePreview'
 import { resolveClientFile } from '../utils/fsCase'
@@ -119,7 +120,10 @@ const ArchivePage: React.FC = () => {
   )
 
   const handleOpenFile = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'DA Archives', extensions: ['dat'] }])
+    const path = await window.api.openFile(
+      [{ name: 'DA Archives', extensions: ['dat'] }],
+      clientDir()
+    )
     if (path) loadArchive(path)
   }, [loadArchive])
 
@@ -283,11 +287,10 @@ const ArchivePage: React.FC = () => {
       {/* Search bar */}
       {archive && (
         <Box sx={{ px: 2, py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <TextField
-            size="small"
+          <FilterField
             placeholder="Filter entries…"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={setFilter}
             fullWidth
           />
         </Box>

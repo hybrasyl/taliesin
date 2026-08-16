@@ -9,19 +9,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  InputAdornment,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
   Snackbar,
-  TextField,
   Tooltip,
   Typography
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
-import SearchIcon from '@mui/icons-material/Search'
+import { FilterField } from '../components/shared/FilterField'
 import { useSettingsStore, useMapFilesDirectory } from '../store/settingsStore'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
@@ -190,22 +188,12 @@ function NewMapDialog({
                   already-assigned maps.
                 </Alert>
               )}
-              <TextField
-                size="small"
+              <FilterField
                 fullWidth
                 placeholder="Filter by name or ID…"
                 autoFocus
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    )
-                  }
-                }}
+                onChange={setSearch}
                 sx={{ mt: 1, mb: 1 }}
               />
               {filtered.length === 0 ? (

@@ -5,10 +5,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  TextField,
   Typography,
   IconButton,
-  InputAdornment,
   ToggleButtonGroup,
   ToggleButton,
   List,
@@ -16,9 +14,10 @@ import {
   Tooltip
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
-import SearchIcon from '@mui/icons-material/Search'
+import { FilterField } from '../shared/FilterField'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
+import { reloadPacks } from '../../utils/packCaches'
 
 interface Props {
   open: boolean
@@ -74,7 +73,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
       try {
         // Rescan installed packs so a .datf dropped in since launch is picked
         // up without a restart, then read the (possibly updated) coverage.
-        await window.api.packReload()
+        await reloadPacks()
         const ids = (await window.api.packListCoveredIds('music')).map((x) => Number(x))
         if (!cancelled) setPackIds(new Set(ids))
         // ID3 title/artist/album for each pack track (curated, few) so rows can
@@ -163,22 +162,12 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 1.5, pt: '8px !important' }}>
-        <TextField
-          size="small"
+        <FilterField
           fullWidth
           placeholder="Filter by id…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           sx={{ mb: 1 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
-          }}
         />
         {filtered.length === 0 ? (
           <Typography

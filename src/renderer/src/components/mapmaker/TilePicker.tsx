@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { Box, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { Box, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { FilterField } from '../shared/FilterField'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   loadMapAssets,
@@ -288,13 +289,7 @@ const TilePicker: React.FC<Props> = ({
       </Box>
       {/* Filter */}
       <Box sx={{ px: 1, py: 0.5 }}>
-        <TextField
-          size="small"
-          placeholder="Filter by ID..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          fullWidth
-        />
+        <FilterField placeholder="Filter by ID..." value={filter} onChange={setFilter} fullWidth />
       </Box>
       {/* Count + zoom */}
       <Box sx={{ px: 1, display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -41,6 +41,18 @@ record; where they disagree with this file, the git history was taken as authori
 - **Enter accepts the map size.** The dimensions window puts the keyboard on the "Lock In" button as
   soon as the preview is ready. After you accept a size, the keyboard returns to the map list, so
   the next map needs no mouse.
+- **A "Reload packs" button in Settings.** Use it for a `.datf` pack that arrived from outside
+  Taliesin. Taliesin re-reads a pack that it compiles itself.
+- **A clear button on every filter and search box.** The button shows only while the box holds
+  text. The Escape key does the same thing. In a dialog, the first Escape clears the box and the
+  second Escape closes the dialog.
+
+### Changed
+
+- **A file picker opens where the work is.** The Open Map picker opens in the map source. The
+  Import `.datf` picker opens in the Brigid asset directory. The other pickers open in the
+  directory that holds the files they ask for. A picker that has no directory in Settings opens
+  where it opened before.
 
 ### Fixed
 
@@ -62,6 +74,13 @@ record; where they disagree with this file, the git history was taken as authori
 - **A Creidhne path you select by hand takes effect immediately.** Taliesin asked the main process
   where Creidhne is before it wrote your selection to disk, so the answer was about the previous
   value. The Test Launch button stayed off until you left the page and came back.
+- **A pack you compile takes effect immediately.** The map editors kept the previous art until you
+  restarted Taliesin. Taliesin now re-reads the pack and clears the images it holds.
+- **You can replace any wall tile.** Replace mode refused every legacy wall id, from 13 to 9999,
+  and accepted only an id from 10013 to 20423. That range is a rule for a **new** tile: a new id
+  needs a collision value that the server and the client do not have. A tile that exists already
+  has one, so the rule does not apply to a replacement. Replace mode now accepts any id that the
+  client draws.
 
 ## [2.11.0] - 2026-08-14
 

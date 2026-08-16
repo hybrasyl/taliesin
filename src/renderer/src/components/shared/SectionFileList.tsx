@@ -3,16 +3,14 @@ import {
   Box,
   Divider,
   IconButton,
-  InputAdornment,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  TextField,
   Tooltip,
   Typography
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { FilterField } from './FilterField'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ViewListIcon from '@mui/icons-material/ViewList'
@@ -306,25 +304,15 @@ export default function SectionFileList<T extends TreeFile>({
         </Box>
       </Box>
       <Box sx={{ px: 1, pb: 1 }}>
-        <TextField
-          size="small"
+        <FilterField
           fullWidth
           placeholder="Filter..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowDown') return
             e.preventDefault()
             listBodyRef.current?.querySelector<HTMLElement>('[role="button"]')?.focus()
-          }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }
           }}
         />
       </Box>

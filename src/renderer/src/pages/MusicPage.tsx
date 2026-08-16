@@ -8,6 +8,7 @@ import {
   needsEnrichment
 } from '../hooks/useMusicLibrary'
 import { useMusicPacks } from '../hooks/useMusicPacks'
+import { musicDir } from '../utils/pickerDefaults'
 import MusicList from '../components/music/MusicList'
 import MusicMetaEditor from '../components/music/MusicMetaEditor'
 import MusicPlayer from '../components/music/MusicPlayer'
@@ -79,9 +80,10 @@ const MusicPage: React.FC = () => {
 
   const handleImport = useCallback(async () => {
     if (!musicLibraryPath) return
-    const filePath = await window.api.openFile([
-      { name: 'Audio Files', extensions: ['mp3', 'ogg', 'mus', 'wav', 'flac'] }
-    ])
+    const filePath = await window.api.openFile(
+      [{ name: 'Audio Files', extensions: ['mp3', 'ogg', 'mus', 'wav', 'flac'] }],
+      musicDir()
+    )
     if (!filePath) return
     const filename = filePath.split(/[\\/]/).pop()!
     const dest = `${musicLibraryPath}/${filename}`

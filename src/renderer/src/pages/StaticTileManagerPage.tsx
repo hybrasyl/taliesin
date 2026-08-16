@@ -24,6 +24,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useTransientStatus } from '../hooks/useTransientStatus'
+import { packWorkingDir } from '../utils/pickerDefaults'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
@@ -36,6 +37,7 @@ import {
   nextWallId,
   wallWalkability,
   isMintableWallId,
+  isRenderedTileIndex,
   WALL_ID_MINT_MIN,
   WALL_ID_MINT_MAX,
   Walkability
@@ -211,7 +213,10 @@ const StaticTileManagerPage: React.FC = () => {
   }, [setPackDir])
 
   const handleImport = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'PNG image', extensions: ['png'] }])
+    const path = await window.api.openFile(
+      [{ name: 'PNG image', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (!path) return
     try {
       const buf = await loadPixelBufferFromPath(path)
@@ -337,9 +342,26 @@ const StaticTileManagerPage: React.FC = () => {
       showStatus('Enter a valid tile id')
       return
     }
-    if (layer === 'wall' && !isMintableWallId(id)) {
-      showStatus(`Wall id must be ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`)
-      return
+    // The mint window exists because of sotp.dat: a NEW id needs a collision
+    // byte nothing has declared, and an id past the array ceiling crashes the
+    // server on map load. **Replacing a legacy id has neither problem** -- its
+    // byte is already in the table and no server-side change is involved -- so
+    // the window was never about replacement, and applying it here refused
+    // every legacy wall (13-9999), contradicting the comment twelve lines up.
+    //
+    // What still applies in both modes is the client's own render filter: ids
+    // 0-12 and 10000-10012 are sentinels it never draws, so art committed there
+    // is invisible whatever the intent.
+    if (layer === 'wall') {
+      if (wallMode === 'replace') {
+        if (!isRenderedTileIndex(id)) {
+          showStatus(`Wall id ${id} is a sentinel the client never renders`)
+          return
+        }
+      } else if (!isMintableWallId(id)) {
+        showStatus(`A new wall id must be ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`)
+        return
+      }
     }
     const used = layer === 'wall' ? usedIds.wall : usedIds.floor
     const overwriting = used.has(id)
@@ -455,7 +477,10 @@ const StaticTileManagerPage: React.FC = () => {
   // dropped. Runs independent of the single-source preview / grid slicing.
   const batchImport = useCallback(async () => {
     if (!packDir || !project || !selectedPack) return
-    const paths = await window.api.openFiles([{ name: 'PNG image', extensions: ['png'] }])
+    const paths = await window.api.openFiles(
+      [{ name: 'PNG image', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (paths.length === 0) return
     setCommitting(true)
     setBatchProgress({ done: 0, total: paths.length })
@@ -922,8 +947,16 @@ const StaticTileManagerPage: React.FC = () => {
                     type="number"
                     value={wallId}
                     onChange={(e) => setWallId(Number(e.target.value))}
-                    error={!isMintableWallId(wallId)}
-                    helperText={`Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`}
+                    error={
+                      wallMode === 'replace'
+                        ? !isRenderedTileIndex(wallId)
+                        : !isMintableWallId(wallId)
+                    }
+                    helperText={
+                      wallMode === 'replace'
+                        ? 'Any id the client renders. Sentinels 0–12 and 10000–10012 are never drawn.'
+                        : `Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`
+                    }
                   />
 
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

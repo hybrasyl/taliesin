@@ -29,6 +29,8 @@ import {
 import { getPaletteNames, loadPaletteByName, renderEntry } from '../../utils/archiveRenderer'
 import { exportFrameAsPng } from '../../uiforge/artExport'
 import { useSettingsStore } from '../../store/settingsStore'
+import { packWorkingDir } from '../../utils/pickerDefaults'
+import { reloadPacks } from '../../utils/packCaches'
 
 /** What the picked art becomes: a convention filename + a human label. */
 export interface ArtTarget {
@@ -147,7 +149,10 @@ const ArtPickerDialog: React.FC<ArtPickerDialogProps> = ({
 
   // ── Tab 0: PNG file ────────────────────────────────────────────────────────
   const choosePng = useCallback(async () => {
-    const p = await window.api.openFile([{ name: 'PNG Image', extensions: ['png'] }])
+    const p = await window.api.openFile(
+      [{ name: 'PNG Image', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (p) setPngPath(p)
   }, [])
 
@@ -172,7 +177,7 @@ const ArtPickerDialog: React.FC<ArtPickerDialogProps> = ({
     let cancelled = false
     ;(async () => {
       try {
-        await window.api.packReload()
+        await reloadPacks()
         const list = await window.api.packListImageEntries()
         if (!cancelled) setPackEntries(list)
       } catch (e) {

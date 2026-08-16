@@ -21,6 +21,7 @@ import ImageIcon from '@mui/icons-material/Image'
 import ClearIcon from '@mui/icons-material/Clear'
 import { useUiStore } from '../../store/uiStore'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
+import { packWorkingDir } from '../../utils/pickerDefaults'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import { Palette, PaletteEntry, VariantDef } from '../../utils/paletteTypes'
 import { buildLuminanceRamp, PixelBuffer } from '../../utils/duotone'
@@ -141,7 +142,10 @@ const PaletteManagerView: React.FC<Props> = ({ packDir, onStatus }) => {
 
   const handlePickTestIcon = useCallback(async () => {
     if (!draft?.id) return
-    const sourcePath = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
+    const sourcePath = await window.api.openFile(
+      [{ name: 'PNG Images', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (!sourcePath) return
     try {
       // Copy the picked PNG into <packDir>/_test_icons/<id>.png so the file

@@ -18,6 +18,7 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import SaveIcon from '@mui/icons-material/Save'
 import { useUiStore } from '../../store/uiStore'
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
+import { packWorkingDir } from '../../utils/pickerDefaults'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import {
   Palette,
@@ -230,7 +231,10 @@ const ColorizeView: React.FC<Props> = ({ packDir, active, onStatus }) => {
   }, [palette, sourceBuf, sourceFilename, calibrations, variants])
 
   const handlePickSource = useCallback(async () => {
-    const path = await window.api.openFile([{ name: 'PNG Images', extensions: ['png'] }])
+    const path = await window.api.openFile(
+      [{ name: 'PNG Images', extensions: ['png'] }],
+      packWorkingDir()
+    )
     if (path) setSourcePath(path)
   }, [setSourcePath])
 

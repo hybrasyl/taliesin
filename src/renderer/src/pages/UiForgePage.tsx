@@ -24,6 +24,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { getKind } from '../packKinds'
+import { brigidAssetsDir, fileIn } from '../utils/pickerDefaults'
 import type { PackProject } from '../packKinds'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
@@ -34,6 +35,7 @@ import { parsePanelXml, serializePanelXml } from '../uiforge/panelXml'
 import { aggregateVariablesUsed } from '../uiforge/variableCatalog'
 import ForgePanel from '../components/uiforge/ForgePanel'
 import PrefabImportDialog from '../components/uiforge/PrefabImportDialog'
+import { clearPackCaches } from '../utils/packCaches'
 
 interface PackSummary {
   filename: string
@@ -263,7 +265,7 @@ const UiForgePage: React.FC = () => {
     const kind = getKind('ui_panels')
     const outputPath = await window.api.saveFile(
       [{ name: 'DATF Asset Pack', extensions: ['datf'] }],
-      `${project.pack_id}.datf`
+      fileIn(brigidAssetsDir(), `${project.pack_id}.datf`)
     )
     if (!outputPath) return
     const manifest = {
@@ -277,6 +279,7 @@ const UiForgePage: React.FC = () => {
     const filenames = project.assets.map((a) => a.filename)
     try {
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
+      clearPackCaches()
       showStatus(`Compiled ${project.pack_id}.datf (${filenames.length} files)`)
     } catch (err) {
       showStatus(`Compile failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
