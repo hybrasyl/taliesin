@@ -47,6 +47,11 @@ record; where they disagree with this file, the git history was taken as authori
   The rows are part of the tile, not of the source art. For a new tile, the rows make the tile
   taller and the art keeps its size. For a tile that replaces a legacy wall, the height must stay
   the height of the legacy wall, so the rows take from the art.
+- **See a wall tile in place before you commit it.** The "Preview in place" window puts the
+  converted tile in a run of map cells, with the same geometry the map uses. Give it a legacy wall
+  id to stand a real wall on each side, and a ground tile id for the floor below. A line marks the
+  base of the cell. Use it to see whether the tile is the right height, and whether the blank rows
+  put the art where you want it.
 - **A reference map set for each field map.** Before, one reference set served every field, so
   unrelated fields shared one list of points. Each field map now has its own reference set, named
   `ReferenceMapSet.<field>.xml`. A point belongs to the reference set of its field, so a point that
@@ -82,6 +87,15 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The Static Tile Manager stops filling in tile numbers and heights for you.** The wall tile id
+  starts empty. Before, it started at 10013, the bottom of the range for a new tile, which in
+  Replace mode read as an instruction to replace tile 10013. Use the "Use next free id" button to
+  get the suggestion. The wall height is now yours: Taliesin sets it once from the art you import
+  and does not write it again. Before, it derived the height from the legacy tile and wrote it back
+  over the height you typed. The height of the legacy tile, and the height of the art, are shown
+  beside the field instead. Select one to use it.
+- **The Static Tile Manager reads a source as isometric by default.** Most art is drawn in the
+  projection it is for. Choose Orthogonal for art drawn square, or Auto to let Taliesin decide.
 - **A file picker opens where the work is.** The Open Map picker opens in the map source. The
   Import `.datf` picker opens in the Brigid asset directory. The other pickers open in the
   directory that holds the files they ask for. A picker that has no directory in Settings opens

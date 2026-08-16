@@ -21,6 +21,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import ViewInArIcon from '@mui/icons-material/ViewInAr'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useTransientStatus } from '../hooks/useTransientStatus'
@@ -65,6 +66,7 @@ import { nextSlotId } from '../packKinds/helpers'
 import type { PackProject, PackAsset } from '../packKinds/types'
 import WangSlicePanel from '../components/statictiles/WangSlicePanel'
 import CommittedTiles from '../components/statictiles/CommittedTiles'
+import WallPlacementPreview from '../components/statictiles/WallPlacementPreview'
 
 interface PackSummary {
   filename: string
@@ -149,13 +151,15 @@ const StaticTileManagerPage: React.FC = () => {
   const [wallColumns, setWallColumns] = useState(1)
   /** Mirror the source, which turns a face into its opposite. */
   const [mirrorSource, setMirrorSource] = useState(false)
-  /** Blank rows beneath the art. Positive raises it, negative lowers it. */
+  /** Blank rows at the base of the tile. They raise the art off the ground. */
   const [blankRowsBelow, setBlankRowsBelow] = useState(0)
 
   // ── Conversion params ───────────────────────────────────────────────────────
   const [layer, setLayer] = useState<TileLayer>('floor')
   const [scale, setScale] = useState<TileScale>(1)
-  const [orientationChoice, setOrientationChoice] = useState<OrientationChoice>('auto')
+  // Most sources are drawn in the projection they are for, so normalize-only is
+  // the common case. Auto stays available for a source drawn square.
+  const [orientationChoice, setOrientationChoice] = useState<OrientationChoice>('isometric')
 
   // ── Target pack ─────────────────────────────────────────────────────────────
   const [packs, setPacks] = useState<PackSummary[]>([])
@@ -168,10 +172,20 @@ const StaticTileManagerPage: React.FC = () => {
   // ── Wall commit controls ────────────────────────────────────────────────────
   const [wallMode, setWallMode] = useState<WallMode>('mint')
   const [passabilityPref, setPassabilityPref] = useState<PassabilityPref>('any')
-  const [wallId, setWallId] = useState<number>(WALL_ID_MINT_MIN)
+  /**
+   * The wall id, as typed. It starts empty rather than at the bottom of the
+   * mint window: a number already in the box reads as a decision, and in
+   * Replace mode it reads as "replace tile 10013", which nobody asked for.
+   */
+  const [wallIdText, setWallIdText] = useState<string>('')
   const [wallHeightField, setWallHeightField] = useState<number>(GROUND_TILE_HEIGHT)
   const [wallFace, setWallFace] = useState<WallFace>('left')
   const [floorId, setFloorId] = useState<number>(1)
+  const [placementOpen, setPlacementOpen] = useState(false)
+
+  /** The typed wall id as a number. NaN while the box is empty. */
+  const wallId = Number.parseInt(wallIdText, 10)
+  const hasWallId = Number.isInteger(wallId) && wallId > 0
 
   const srcCanvasRef = useRef<HTMLCanvasElement>(null)
   const outCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -247,6 +261,9 @@ const StaticTileManagerPage: React.FC = () => {
       setWallColumns(columns)
       setMirrorSource(false)
       setBlankRowsBelow(0)
+      // Seed the height from the art, once, on load. Nothing writes it again:
+      // after this the height is the author's, and it stays what they typed.
+      setWallHeightField(buf.height)
       showStatus(
         columns > 1
           ? `Loaded ${buf.width}×${buf.height} source — ${columns} tiles wide`
@@ -295,6 +312,26 @@ const StaticTileManagerPage: React.FC = () => {
   ])
 
   const previewCell = cells.length > 0 ? cells[Math.min(cellIndex, cells.length - 1)] : null
+
+  /**
+   * Change the raise, and move the tile height with it.
+   *
+   * The rows come out of the tile height, so raising by 14 without growing the
+   * tile would shrink the art by 14. Moving both keeps the art at its own size,
+   * which is what raising a new tile means. The author can then set either
+   * number to whatever they want — a replacement, for instance, holds the
+   * height still and lets the rows take from the art.
+   */
+  const changeBlankRows = useCallback(
+    (raw: number) => {
+      const next = Math.max(0, Math.round(raw) || 0)
+      const delta = next - blankRowsBelow
+      setBlankRowsBelow(next)
+      setWallHeightField((h) => Math.max(1, h + delta))
+    },
+    [blankRowsBelow]
+  )
+
   /** Reported so a reduced preview is never mistaken for the art's real size. */
   const previewFit = previewCell
     ? previewScale(previewCell.width, previewCell.height, PREVIEW_BOX)
@@ -358,40 +395,48 @@ const StaticTileManagerPage: React.FC = () => {
     setFloorId(nextSlotId(project.assets, staticTilesKind.parseSlot!, { namespace: 'floor' }))
   }, [project])
 
-  // Suggest the next wall id when minting (pack / passability / table changes)
-  useEffect(() => {
-    if (layer !== 'wall' || wallMode !== 'mint') return
-    const id = nextWallId({
-      used: usedIds.wall,
-      sotp: assets?.sotp ?? null,
-      passability: passabilityPref === 'any' ? undefined : passabilityPref
-    })
-    if (id !== null) setWallId(id)
-  }, [layer, wallMode, usedIds.wall, assets, passabilityPref])
+  /**
+   * The next free wall id to mint, offered as a suggestion.
+   *
+   * Nothing writes it into the box. The author asks for it with the button.
+   */
+  const suggestedWallId = useMemo(
+    () =>
+      nextWallId({
+        used: usedIds.wall,
+        sotp: assets?.sotp ?? null,
+        passability: passabilityPref === 'any' ? undefined : passabilityPref
+      }),
+    [usedIds.wall, assets, passabilityPref]
+  )
 
-  // Auto-derive height for replacement walls from the decoded HPF
-  useEffect(() => {
-    if (layer !== 'wall') return
-    if (wallMode === 'replace' && assets) {
-      const h = legacyWallHeight(assets, wallId)
-      if (h !== null) {
-        setWallHeightField(h)
-        return
-      }
-    }
-    // Fall back to the source cell height for mint / no-legacy. Blank rows are
-    // added on top of it, so the art keeps its own size and the tile grows —
-    // which is what raising a mint tile means. A replacement cannot grow: its
-    // height is the legacy one, so there the rows come out of the art instead.
-    if (previewCell) setWallHeightField(previewCell.height + Math.max(0, blankRowsBelow))
-  }, [layer, wallMode, wallId, assets, previewCell, blankRowsBelow])
+  /**
+   * The decoded height of the legacy wall being replaced, for reference only.
+   *
+   * This used to be written into the height field. It is the wrong thing to do
+   * twice over. The number is right for a replacement that keeps the legacy
+   * silhouette and wrong for anything else, and, being an effect, it wrote
+   * itself back over every height the author typed — including on each change
+   * of the blank rows, which made the raise look like it did nothing.
+   */
+  const referenceHeight = useMemo(
+    () => (assets && hasWallId ? legacyWallHeight(assets, wallId) : null),
+    [assets, hasWallId, wallId]
+  )
 
-  const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, wallId)
+  /** The source's own height, offered the same way — a label, not a write. */
+  const sourceHeight = previewCell?.height ?? null
+
+  const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, hasWallId ? wallId : -1)
 
   // Pre-flight the commit target against the legacy tables — a pack PNG for a
   // frame-animated or palette-cycled id is silently ignored by the client.
   const targetId = layer === 'wall' ? wallId : floorId
-  const targetEligibility = checkTileEligibility(assets, layer, targetId)
+  // An empty wall id has no target to check, so nothing is reported about it.
+  const hasTargetId = layer === 'wall' ? hasWallId : Number.isInteger(floorId) && floorId > 0
+  const targetEligibility = hasTargetId
+    ? checkTileEligibility(assets, layer, targetId)
+    : { eligible: true as const }
   // Replace mode intentionally writes over a legacy/pack id; any other layer
   // that targets an already-committed id would be a silent clobber, so we block
   // it (and say so) rather than overwrite.
@@ -407,7 +452,7 @@ const StaticTileManagerPage: React.FC = () => {
     if (!packDir || !project || !selectedPack || !converted) return
     const id = layer === 'wall' ? wallId : floorId
     if (!Number.isInteger(id) || id <= 0) {
-      showStatus('Enter a valid tile id')
+      showStatus(layer === 'wall' ? 'Enter a wall tile id' : 'Enter a floor tile id')
       return
     }
     // The mint window exists because of sotp.dat: a NEW id needs a collision
@@ -753,7 +798,7 @@ const StaticTileManagerPage: React.FC = () => {
                     label="Blank rows below"
                     type="number"
                     value={blankRowsBelow}
-                    onChange={(e) => setBlankRowsBelow(Math.max(0, Number(e.target.value) || 0))}
+                    onChange={(e) => changeBlankRows(Number(e.target.value))}
                     helperText={
                       blankRowsBelow > 0
                         ? `Art ${wallSplit.art}px, ${wallSplit.blank}px empty base — tile ${wallHeightField}px`
@@ -1063,12 +1108,13 @@ const StaticTileManagerPage: React.FC = () => {
                     fullWidth
                     label="Wall tile id"
                     type="number"
-                    value={wallId}
-                    onChange={(e) => setWallId(Number(e.target.value))}
+                    value={wallIdText}
+                    onChange={(e) => setWallIdText(e.target.value)}
                     error={
-                      wallMode === 'replace'
+                      hasWallId &&
+                      (wallMode === 'replace'
                         ? !isRenderedTileIndex(wallId)
-                        : !isMintableWallId(wallId)
+                        : !isMintableWallId(wallId))
                     }
                     helperText={
                       wallMode === 'replace'
@@ -1076,6 +1122,16 @@ const StaticTileManagerPage: React.FC = () => {
                         : `Mintable window ${WALL_ID_MINT_MIN}–${WALL_ID_MINT_MAX}`
                     }
                   />
+
+                  {wallMode === 'mint' && suggestedWallId !== null && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setWallIdText(String(suggestedWallId))}
+                    >
+                      Use next free id ({suggestedWallId})
+                    </Button>
+                  )}
 
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                     <Typography variant="body2">Walkability:</Typography>
@@ -1088,13 +1144,30 @@ const StaticTileManagerPage: React.FC = () => {
                     label="Wall height (1×, px)"
                     type="number"
                     value={wallHeightField}
-                    onChange={(e) => setWallHeightField(Number(e.target.value))}
-                    helperText={
-                      wallMode === 'replace'
-                        ? 'Auto-derived from the decoded legacy HPF; match it exactly.'
-                        : 'Legacy walls are multiples of 14 (one iso step).'
-                    }
+                    onChange={(e) => setWallHeightField(Math.max(1, Number(e.target.value) || 1))}
+                    helperText="The whole tile, art and blank rows. Legacy walls are multiples of 14."
                   />
+
+                  {/* Heights worth knowing, as labels. Nothing here writes the
+                      field: the height is the author's, and it stays typed. */}
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                    {sourceHeight !== null && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Source ${sourceHeight}px`}
+                        onClick={() => setWallHeightField(sourceHeight + blankRowsBelow)}
+                      />
+                    )}
+                    {referenceHeight !== null && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Legacy ${wallId} is ${referenceHeight}px`}
+                        onClick={() => setWallHeightField(referenceHeight)}
+                      />
+                    )}
+                  </Stack>
 
                   <TextField
                     select
@@ -1148,6 +1221,16 @@ const StaticTileManagerPage: React.FC = () => {
               )}
 
               <Button
+                variant="outlined"
+                startIcon={<ViewInArIcon />}
+                disabled={!converted}
+                onClick={() => setPlacementOpen(true)}
+                fullWidth
+              >
+                Preview in place…
+              </Button>
+
+              <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
                 disabled={!converted || !selectedPack || committing || wouldOverwrite}
@@ -1179,7 +1262,7 @@ const StaticTileManagerPage: React.FC = () => {
                     setLayer(ns)
                     if (ns === 'floor') setFloorId(id)
                     else {
-                      setWallId(id)
+                      setWallIdText(String(id))
                       setWallMode('replace')
                     }
                     showStatus(`Editing ${ns} ${id} — import art and commit to replace`)
@@ -1190,6 +1273,14 @@ const StaticTileManagerPage: React.FC = () => {
           </Box>
         )}
       </Box>
+
+      <WallPlacementPreview
+        open={placementOpen}
+        onClose={() => setPlacementOpen(false)}
+        converted={converted}
+        assets={assets}
+        scale={scale}
+      />
     </Box>
   )
 }
