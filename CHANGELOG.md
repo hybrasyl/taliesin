@@ -35,6 +35,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Show the tiles that only an asset pack has.** The tile picker built its list from the client:
+  foreground tiles from `ia.dat`, background tiles from the tileset. A pack tile at a number the
+  client has nothing at therefore had no row. It could not be selected and could not be placed, so
+  it could never reach a map. The client has no art for 992 numbers between 9008 and 9999, which is
+  where such a tile most often goes. Use the button beside BG, L-FG and R-FG to include them. They
+  are merged in number order, so a tile is where you look for it.
+- **Change the number of a committed tile.** For a static tile pack the file name is the tile
+  number, so a tile committed to the wrong number meant deleting it and converting the art again.
+  Use the number button on a tile in the Static Tile Manager. Taliesin refuses a number the pack
+  already uses, and a number the client never draws.
 - **Wide wall art becomes a run of tiles, not one squeezed tile.** Before, the whole image was
   fitted to one 28 pixel face, so art drawn as three tiles was shrunk into one. The Static Tile
   Manager now cuts a loose source into one tile for each face. Set how many tiles the art covers.
@@ -117,6 +127,16 @@ record; where they disagree with this file, the git history was taken as authori
   where it opened before.
 
 ### Fixed
+
+- **Compiling a pack cannot hang.** The compile waited for the archive to close and had no answer
+  for a failure to write it. If the output file could not be written, nothing reported the fault and
+  the button turned forever. On Windows one file lock is enough to cause this. Taliesin now reports
+  what went wrong. It also stops the compile if an asset is missing from the disk, instead of
+  shipping a pack that is short of art.
+- **A batch of floor tiles starts at the number you give it.** "Batch import files" and "Commit all
+  cells as floors" counted from 1 and ignored the tile number in the box. A run meant for tile 24000
+  landed on tiles 1 to 32. Both now start at the number you typed and step up from there. A wall
+  number in the box does the same.
 
 - **The Static Tile Manager preview stays inside its panel.** It magnified every image five times,
   whatever the size of the image. A 512 by 512 drawing therefore filled the screen. The preview now
