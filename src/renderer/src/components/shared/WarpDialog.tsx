@@ -58,6 +58,25 @@ export interface WarpDialogProps {
    */
   pointDisplayName?: string
   onPointDisplayNameChange?: (name: string) => void
+  /**
+   * When provided, the point's own position on the field becomes editable
+   * (HTOO-412). `tileX`/`tileY` carry it; this is the way back.
+   *
+   * Distinct from Arrival X/Y, which is where the player lands on the
+   * destination map. The labels below say so, because the two were easy to
+   * confuse when only one pair was on screen.
+   */
+  onPointPositionChange?: (x: number, y: number) => void
+  /** Upper bounds for the position fields, inclusive. */
+  pointMaxX?: number
+  pointMaxY?: number
+}
+
+/** Keep a typed coordinate inside the field. */
+export function clampCoord(raw: string, max: number): number | null {
+  const n = parseInt(raw, 10)
+  if (isNaN(n)) return null
+  return Math.min(max, Math.max(0, n))
 }
 
 // ── Zoom helpers ──────────────────────────────────────────────────────────────
@@ -89,7 +108,10 @@ export default function WarpDialog({
   lockType,
   defaultType,
   pointDisplayName,
-  onPointDisplayNameChange
+  onPointDisplayNameChange,
+  onPointPositionChange,
+  pointMaxX = 639,
+  pointMaxY = 479
 }: WarpDialogProps) {
   const clientPath = useSettingsStore((s) => s.clientPath)
   const mapDirectory = useMapFilesDirectory()
@@ -375,6 +397,36 @@ export default function WarpDialog({
               helperText="Label shown on the world map"
               slotProps={{ htmlInput: { spellCheck: false } }}
             />
+          )}
+
+          {/* Position on the field (HTOO-412) */}
+          {onPointPositionChange !== undefined && (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Field X"
+                size="small"
+                fullWidth
+                value={tileX}
+                onChange={(e) => {
+                  const v = clampCoord(e.target.value, pointMaxX)
+                  if (v !== null) onPointPositionChange(v, tileY)
+                }}
+                helperText={`Where the point sits, 0–${pointMaxX}`}
+                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+              />
+              <TextField
+                label="Field Y"
+                size="small"
+                fullWidth
+                value={tileY}
+                onChange={(e) => {
+                  const v = clampCoord(e.target.value, pointMaxY)
+                  if (v !== null) onPointPositionChange(tileX, v)
+                }}
+                helperText={`Where the point sits, 0–${pointMaxY}`}
+                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+              />
+            </Box>
           )}
 
           {/* Warp type — hidden when lockType is set */}

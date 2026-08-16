@@ -35,6 +35,17 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Zoom and pan in the world map editor.** Use the wheel to zoom on the pointer, or the buttons at
+  the bottom right. Hold the middle mouse button to pan. The button with the arrows fits the whole
+  field again. The point markers and the labels keep a readable size at every zoom.
+- **You can type a map point's position.** The point window has Field X and Field Y. They are the
+  position of the point on the world map. Arrival X and Arrival Y stay the tile the player arrives
+  on. The map shows the point at the new position as you type.
+- **You can place a map point on top of another one.** Hold Alt as you click. Without Alt, a click
+  on a stack of points selects them one after the other, so you can reach a point below.
+- **A warning for map points that overlap.** The client draws the later point on top, but a click
+  goes to the earlier point. The point on top cannot be reached in game.
+
 - **The editor file lists take the keyboard.** Up and Down move through the rows, Home and End go to
   the ends, and Enter opens the row. Down from the filter box moves into the first row. This applies
   to the map catalog, the map list and the world map list.
