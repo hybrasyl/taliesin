@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 // Mundanes — the light "corporate/boring" theme. White and light-gray
 // surfaces, dark text, a single restrained slate-blue accent, plain
@@ -64,6 +65,7 @@ const mundanesTheme = responsiveFontSizes(
     shape: { borderRadius: 6 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

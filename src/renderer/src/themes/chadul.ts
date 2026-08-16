@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 const chadulTheme = responsiveFontSizes(
   createTheme({
@@ -51,6 +52,7 @@ const chadulTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

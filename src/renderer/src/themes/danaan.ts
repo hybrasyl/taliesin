@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 const danaanTheme = responsiveFontSizes(
   createTheme({
@@ -81,6 +82,7 @@ const danaanTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 const grinnealTheme = responsiveFontSizes(
   createTheme({
@@ -51,6 +52,7 @@ const grinnealTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

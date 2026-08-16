@@ -79,6 +79,10 @@ record; where they disagree with this file, the git history was taken as authori
   later point on top, but a click goes to the earlier point. The point on top cannot be reached in
   game.
 
+- **Tooltips take the colours of the theme.** Every tooltip in Taliesin used the grey slab MUI
+  supplies, which is the same in all six themes and matches none of them. A tooltip now uses the
+  same three colours as every other panel: the paper colour behind it, the text colour on it, and
+  the divider colour at its edge. It also has an arrow, so it says which thing it describes.
 - **A file list row tells you what it is when you hover it.** The row is 240 pixels wide and it
   clips the names that do not fit. In folder view it also drops the folder from the label. Hold the
   pointer on a row and Taliesin shows the file path, the map name and the map number, whole. A world

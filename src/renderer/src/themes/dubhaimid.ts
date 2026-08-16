@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 // Dubhaimid — the dark "corporate/boring" theme. Neutral charcoal grays
 // (VS Code-ish), light-gray text, a single muted blue accent, plain system
@@ -60,6 +61,7 @@ const dubhaimidTheme = responsiveFontSizes(
     shape: { borderRadius: 6 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

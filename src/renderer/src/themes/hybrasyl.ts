@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents } from './sharedComponents'
 
 const hybrasylTheme = responsiveFontSizes(
   createTheme({
@@ -69,6 +70,7 @@ const hybrasylTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents,
       MuiPaper: {
         styleOverrides: {
           root: {

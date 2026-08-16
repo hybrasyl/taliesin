@@ -46,15 +46,29 @@ export function RowTooltip({
       disableInteractive
       enterDelay={ENTER_DELAY_MS}
       enterNextDelay={ENTER_DELAY_MS}
-      placement="right"
+      // The row spans the whole 240px panel, so `right` alone would centre the
+      // card against a tall row. `-start` puts its top edge on the row's.
+      placement="right-start"
       title={
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.25 }}>
+        // `auto auto`, not `auto 1fr`: a `1fr` value column takes every pixel
+        // the tooltip's max width allows, so a short value left the card
+        // stretched with empty space beside it. These columns size to their
+        // content and the card ends where the words do.
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'auto auto',
+            justifyContent: 'start',
+            columnGap: 1,
+            rowGap: 0.25
+          }}
+        >
           {lines.map((d) => (
             <React.Fragment key={d.label}>
-              <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {d.label}
               </Typography>
-              <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+              <Typography variant="caption" sx={{ overflowWrap: 'anywhere' }}>
                 {d.value}
               </Typography>
             </React.Fragment>
