@@ -42,6 +42,7 @@ import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
 import WhatsNewDialog from '../components/WhatsNewDialog'
 import logoUrl from '../assets/taliesin.webp'
+import { reloadPacks } from '../utils/packCaches'
 
 // Settings sections are Paper cards laid out in a responsive grid (mirrors the
 // creidhne/oghma pattern). Full-height flex column so cards sharing a grid row
@@ -197,6 +198,8 @@ function DAClientCard() {
 
 function BrigidAssetsCard() {
   const brigidAssetsPath = useSettingsStore((s) => s.brigidAssetsPath)
+  const [reloading, setReloading] = useState(false)
+  const [reloadMessage, setReloadMessage] = useState<string | null>(null)
   const setBrigidAssetsPath = useSettingsStore((s) => s.setBrigidAssetsPath)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Other themes keep the default.
@@ -236,6 +239,34 @@ function BrigidAssetsCard() {
       >
         Use default location
       </Link>
+      <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1, mt: 2 }}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={async () => {
+            setReloading(true)
+            try {
+              await reloadPacks()
+              setReloadMessage('Installed packs re-read.')
+            } finally {
+              setReloading(false)
+            }
+          }}
+          disabled={reloading}
+        >
+          Reload packs
+        </Button>
+        {reloadMessage && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {reloadMessage}
+          </Typography>
+        )}
+      </Stack>
+      <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
+        Taliesin re-reads a pack it compiles itself. Use this for one that arrived any other way —
+        copied in by hand, or built by another tool.
+      </Typography>
     </Paper>
   )
 }

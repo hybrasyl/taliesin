@@ -31,6 +31,7 @@ import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import { scanDyeUsage } from '../../packKinds/itemIconsDye'
 import AssetThumbnail from './AssetThumbnail'
+import { clearPackCaches } from '../../utils/packCaches'
 
 interface Props {
   pack: PackProject
@@ -380,6 +381,10 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       }
       const filenames = reduced.assets.map((a) => a.filename)
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
+      // The map and world map editors preview installed packs from decoded
+      // bitmaps and a coverage snapshot, neither of which knows a pack was just
+      // rewritten. Main refreshed its own registry inside pack:compile.
+      clearPackCaches()
       onStatus(`Compiled ${reduced.pack_id}.datf (${filenames.length} assets)`)
     } catch (err) {
       onStatus(`Compile failed: ${err instanceof Error ? err.message : 'Unknown error'}`)

@@ -34,6 +34,7 @@ import { parsePanelXml, serializePanelXml } from '../uiforge/panelXml'
 import { aggregateVariablesUsed } from '../uiforge/variableCatalog'
 import ForgePanel from '../components/uiforge/ForgePanel'
 import PrefabImportDialog from '../components/uiforge/PrefabImportDialog'
+import { clearPackCaches } from '../utils/packCaches'
 
 interface PackSummary {
   filename: string
@@ -277,6 +278,7 @@ const UiForgePage: React.FC = () => {
     const filenames = project.assets.map((a) => a.filename)
     try {
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
+      clearPackCaches()
       showStatus(`Compiled ${project.pack_id}.datf (${filenames.length} files)`)
     } catch (err) {
       showStatus(`Compile failed: ${err instanceof Error ? err.message : 'Unknown error'}`)

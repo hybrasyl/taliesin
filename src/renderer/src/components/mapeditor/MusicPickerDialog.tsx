@@ -19,6 +19,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
+import { reloadPacks } from '../../utils/packCaches'
 
 interface Props {
   open: boolean
@@ -74,7 +75,7 @@ const MusicPickerDialog: React.FC<Props> = ({ open, value, clientPath, onClose, 
       try {
         // Rescan installed packs so a .datf dropped in since launch is picked
         // up without a restart, then read the (possibly updated) coverage.
-        await window.api.packReload()
+        await reloadPacks()
         const ids = (await window.api.packListCoveredIds('music')).map((x) => Number(x))
         if (!cancelled) setPackIds(new Set(ids))
         // ID3 title/artist/album for each pack track (curated, few) so rows can
