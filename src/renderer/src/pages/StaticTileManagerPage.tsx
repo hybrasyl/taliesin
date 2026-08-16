@@ -1264,6 +1264,10 @@ const StaticTileManagerPage: React.FC = () => {
         converted={converted}
         assets={assets}
         scale={scale}
+        wallHeight={wallHeightField}
+        onWallHeightChange={setWallHeightField}
+        blankRows={blankRowsBelow}
+        onBlankRowsChange={changeBlankRows}
       />
     </Box>
   )

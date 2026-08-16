@@ -47,12 +47,12 @@ record; where they disagree with this file, the git history was taken as authori
   The rows are part of the tile, not of the source art. For a new tile, the rows make the tile
   taller and the art keeps its size. For a tile that replaces a legacy wall, the height must stay
   the height of the legacy wall, so the rows take from the art.
-- **See a wall tile in place before you commit it.** The "Preview in place" window puts the
-  converted tile in a run of map cells, with the same geometry the map uses. Give it the id of the
-  tile it stands in for, and Taliesin puts the two tiles either side of that id on the left and the
-  right, which is the wall as the game draws it. Set each side by hand instead if you want. Add a
-  ground tile id for the floor below. A line marks the base of the cell. Use it to see whether the
-  tile is the right height, and whether the blank rows put the art where you want it.
+- **See a wall tile in place before you commit it.** The "Preview in place" window stands the
+  converted tile in a wall. Give it the id of the tile it stands in for, and Taliesin fills the
+  slots beside it from that run, which is the wall as the game draws it. Every tile in the run
+  stands on one base line, as a wall does in a map. Add a ground tile id for the floor below. Set
+  the tile height and the blank rows in the window, and the tile moves as you type, so you can line
+  it up against its neighbours. What you set there is what commits.
 - **Every sliced tile is on screen at once.** A run of wall tiles is one drawing that was cut up, so
   the cuts are judged as a run. Before, a next button showed one tile at a time. The tiles are now
   drawn in order, touching, and you select one to preview and commit it.
