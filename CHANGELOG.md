@@ -79,6 +79,10 @@ record; where they disagree with this file, the git history was taken as authori
   later point on top, but a click goes to the earlier point. The point on top cannot be reached in
   game.
 
+- **A file list row tells you what it is when you hover it.** The row is 240 pixels wide and it
+  clips the names that do not fit. In folder view it also drops the folder from the label. Hold the
+  pointer on a row and Taliesin shows the file path, the map name and the map number, whole. A world
+  map row shows the path, and the field a reference set serves.
 - **The editor file lists take the keyboard.** Up and Down move through the rows, Home and End go to
   the ends, and Enter opens the row. Down from the filter box moves into the first row. This applies
   to the map catalog, the map list and the world map list.
