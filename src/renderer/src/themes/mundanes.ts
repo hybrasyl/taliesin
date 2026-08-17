@@ -1,4 +1,5 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents, type Surface } from './sharedComponents'
 
 // Mundanes — the light "corporate/boring" theme. White and light-gray
 // surfaces, dark text, a single restrained slate-blue accent, plain
@@ -6,6 +7,17 @@ import { createTheme, responsiveFontSizes } from '@mui/material/styles'
 // shadows. Deliberately the plainest theme in the app. Ported from Oghma
 // and reshaped to Taliesin's theme conventions (stock palette keys,
 // inline typography, the same component-override set as the other themes).
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: '#ffffff',
+  border: '1px solid rgba(0,0,0,0.12)',
+  boxShadow: 'none'
+}
+
 const mundanesTheme = responsiveFontSizes(
   createTheme({
     palette: {
@@ -64,14 +76,10 @@ const mundanesTheme = responsiveFontSizes(
     shape: { borderRadius: 6 },
 
     components: {
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: '#ffffff',
-            border: '1px solid rgba(0,0,0,0.12)',
-            boxShadow: 'none'
-          }
+          root: surface
         }
       },
       MuiButton: {

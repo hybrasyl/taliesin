@@ -79,6 +79,15 @@ record; where they disagree with this file, the git history was taken as authori
   later point on top, but a click goes to the earlier point. The point on top cannot be reached in
   game.
 
+- **A tooltip is one of the app's cards.** Every tooltip in Taliesin used the grey slab MUI
+  supplies, which is the same in all six themes and matches none of them. A tooltip is now made of
+  the same surface as a panel or a dialog in that theme: the same ground, the same edge, and the
+  same bevel. A theme whose cards are flat is an exception in one way. Its tooltip has a shadow,
+  because a card that floats needs one and a card that sits in the page does not.
+- **A file list row tells you what it is when you hover it.** The row is 240 pixels wide and it
+  clips the names that do not fit. In folder view it also drops the folder from the label. Hold the
+  pointer on a row and Taliesin shows the file path, the map name and the map number, whole. A world
+  map row shows the path, and the field a reference set serves.
 - **The editor file lists take the keyboard.** Up and Down move through the rows, Home and End go to
   the ends, and Enter opens the row. Down from the filter box moves into the first row. This applies
   to the map catalog, the map list and the world map list.

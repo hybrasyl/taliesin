@@ -28,6 +28,7 @@ import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import WorldMapEditorPanel from '../components/worldmapeditor/WorldMapEditorPanel'
 import SectionFileList from '../components/shared/SectionFileList'
+import { RowTooltip } from '../components/shared/RowTooltip'
 import { parseWorldMapXml, serializeWorldMapXml } from '../utils/worldMapXml'
 import { FIELD_NAMES } from '../utils/worldMapRenderer'
 import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
@@ -102,21 +103,28 @@ function FileListPanel({
 
   const renderRow = useCallback(
     (f: FileEntry, muted: boolean): React.ReactElement => (
-      <ListItem disablePadding>
-        <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
-          <ListItemText
-            // In folder view the enclosing header already names the folder.
-            primary={viewMode === 'folder' ? f.name.replace(/\.xml$/i, '') : f.display}
-            slotProps={{
-              primary: {
-                noWrap: true,
-                variant: 'body2',
-                ...(muted && { color: 'text.secondary' })
-              }
-            }}
-          />
-        </ListItemButton>
-      </ListItem>
+      <RowTooltip
+        details={[
+          { label: 'File', value: f.rel },
+          { label: 'Field', value: f.referenceField }
+        ]}
+      >
+        <ListItem disablePadding>
+          <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+            <ListItemText
+              // In folder view the enclosing header already names the folder.
+              primary={viewMode === 'folder' ? f.name.replace(/\.xml$/i, '') : f.display}
+              slotProps={{
+                primary: {
+                  noWrap: true,
+                  variant: 'body2',
+                  ...(muted && { color: 'text.secondary' })
+                }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      </RowTooltip>
     ),
     [selectedFile, onSelect, viewMode]
   )
@@ -134,23 +142,31 @@ function FileListPanel({
           {referenceFiles.length > 0 && (
             <List dense disablePadding>
               {referenceFiles.map((ref) => (
-                <ListItem key={ref.rel} disablePadding>
-                  <ListItemButton
-                    selected={selectedFile?.path === ref.path}
-                    onClick={() => onSelect(ref)}
-                  >
-                    <ListItemText
-                      // The field is the identity of a reference set, so it
-                      // leads. The legacy set names no field and says so.
-                      primary={ref.referenceField ?? 'Reference Set (no field)'}
-                      secondary={ref.name}
-                      slotProps={{
-                        primary: { noWrap: true, variant: 'body2' },
-                        secondary: { noWrap: true, variant: 'caption' }
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
+                <RowTooltip
+                  key={ref.rel}
+                  details={[
+                    { label: 'File', value: ref.rel },
+                    { label: 'Field', value: ref.referenceField ?? 'none (legacy set)' }
+                  ]}
+                >
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={selectedFile?.path === ref.path}
+                      onClick={() => onSelect(ref)}
+                    >
+                      <ListItemText
+                        // The field is the identity of a reference set, so it
+                        // leads. The legacy set names no field and says so.
+                        primary={ref.referenceField ?? 'Reference Set (no field)'}
+                        secondary={ref.name}
+                        slotProps={{
+                          primary: { noWrap: true, variant: 'body2' },
+                          secondary: { noWrap: true, variant: 'caption' }
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                </RowTooltip>
               ))}
             </List>
           )}

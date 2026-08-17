@@ -27,6 +27,7 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import RenameReferrersDialog from '../components/mapeditor/RenameReferrersDialog'
 import SectionFileList from '../components/shared/SectionFileList'
+import { RowTooltip } from '../components/shared/RowTooltip'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
 import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
@@ -330,36 +331,44 @@ function FileListPanel({
         ...(muted && { color: 'text.disabled' })
       }
       return (
-        <ListItem disablePadding>
-          <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
-            <ListItemText
-              // In folder view the enclosing header already names the folder,
-              // so the row shows only the filename.
-              primary={viewMode === 'folder' ? baseName(f.rel).replace(/\.xml$/i, '') : f.display}
-              secondary={
-                <>
-                  {f.mapName && (
-                    <Box component="span" sx={italicClip}>
-                      {f.mapName}
-                    </Box>
-                  )}
-                  {f.mapId !== undefined && (
-                    <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
-                  )}
-                </>
-              }
-              slotProps={{
-                primary: {
-                  noWrap: true,
-                  variant: 'body2',
-                  ...(muted && { color: 'text.secondary' })
-                },
+        <RowTooltip
+          details={[
+            { label: 'File', value: f.rel },
+            { label: 'Name', value: f.mapName },
+            { label: 'Map', value: f.mapId !== undefined ? `lod${f.mapId}` : undefined }
+          ]}
+        >
+          <ListItem disablePadding>
+            <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
+              <ListItemText
+                // In folder view the enclosing header already names the folder,
+                // so the row shows only the filename.
+                primary={viewMode === 'folder' ? baseName(f.rel).replace(/\.xml$/i, '') : f.display}
+                secondary={
+                  <>
+                    {f.mapName && (
+                      <Box component="span" sx={italicClip}>
+                        {f.mapName}
+                      </Box>
+                    )}
+                    {f.mapId !== undefined && (
+                      <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
+                    )}
+                  </>
+                }
+                slotProps={{
+                  primary: {
+                    noWrap: true,
+                    variant: 'body2',
+                    ...(muted && { color: 'text.secondary' })
+                  },
 
-                secondary: { component: 'div', variant: 'caption' }
-              }}
-            />
-          </ListItemButton>
-        </ListItem>
+                  secondary: { component: 'div', variant: 'caption' }
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        </RowTooltip>
       )
     },
     [selectedFile, onSelect, viewMode]

@@ -1,4 +1,17 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents, type Surface } from './sharedComponents'
+
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: 'rgba(22,18,14,0.88)',
+  border: '1px solid rgba(122,106,80,0.32)',
+  backdropFilter: 'blur(2px)',
+  boxShadow: '-2px -2px 0 0 #4a5838, 2px 2px 0 0 #504030'
+}
 
 const grinnealTheme = responsiveFontSizes(
   createTheme({
@@ -51,15 +64,10 @@ const grinnealTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: 'rgba(22,18,14,0.88)',
-            border: '1px solid rgba(122,106,80,0.32)',
-            backdropFilter: 'blur(2px)',
-            boxShadow: '-2px -2px 0 0 #4a5838, 2px 2px 0 0 #504030'
-          }
+          root: surface
         }
       },
       MuiButton: {

@@ -1,4 +1,17 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents, type Surface } from './sharedComponents'
+
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: 'rgba(250,242,220,0.94)',
+  border: '1px solid rgba(184,146,42,0.45)',
+  backdropFilter: 'blur(2px)',
+  boxShadow: '-2px -2px 0 0 #b8922a, 2px 2px 0 0 #b8922a'
+}
 
 const danaanTheme = responsiveFontSizes(
   createTheme({
@@ -81,15 +94,10 @@ const danaanTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: 'rgba(250,242,220,0.94)',
-            border: '1px solid rgba(184,146,42,0.45)',
-            backdropFilter: 'blur(2px)',
-            boxShadow: '-2px -2px 0 0 #b8922a, 2px 2px 0 0 #b8922a'
-          }
+          root: surface
         }
       },
       MuiButton: {

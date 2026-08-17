@@ -1,4 +1,17 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
+import { sharedComponents, type Surface } from './sharedComponents'
+
+/**
+ * The raised surface this theme is made of: panels, dialogs, cards, and the
+ * tooltip, which is a card that floats. Declared once so they cannot drift.
+ */
+const surface: Surface = {
+  backgroundImage: 'none',
+  backgroundColor: 'rgba(6,12,18,0.82)',
+  border: '1px solid rgba(58,158,144,0.32)',
+  backdropFilter: 'blur(2px)',
+  boxShadow: '-2px -2px 0 0 #1e5e56, 2px 2px 0 0 #1e5e56'
+}
 
 const hybrasylTheme = responsiveFontSizes(
   createTheme({
@@ -69,15 +82,10 @@ const hybrasylTheme = responsiveFontSizes(
     shape: { borderRadius: 2 },
 
     components: {
+      ...sharedComponents(surface),
       MuiPaper: {
         styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            backgroundColor: 'rgba(6,12,18,0.82)',
-            border: '1px solid rgba(58,158,144,0.32)',
-            backdropFilter: 'blur(2px)',
-            boxShadow: '-2px -2px 0 0 #1e5e56, 2px 2px 0 0 #1e5e56'
-          }
+          root: surface
         }
       },
       MuiButton: {
