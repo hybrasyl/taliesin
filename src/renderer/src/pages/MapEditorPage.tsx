@@ -25,7 +25,7 @@ import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
-import RenameReferrersDialog from '../components/mapeditor/RenameReferrersDialog'
+import RenameReferrersDialog, { type Referrer } from '../components/mapeditor/RenameReferrersDialog'
 import SectionFileList from '../components/shared/SectionFileList'
 import { RowTooltip } from '../components/shared/RowTooltip'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
@@ -411,7 +411,7 @@ export default function MapEditorPage() {
   const [renamePrompt, setRenamePrompt] = useState<{
     oldName: string
     newName: string
-    referrers: { file: string; count: number }[]
+    referrers: Referrer[]
     data: MapData
     fileName: string
     folder: string
@@ -672,14 +672,14 @@ export default function MapEditorPage() {
       await writeMap(data, fileName, folder)
       setSnackbar({
         message:
-          `${sharing.length} maps are named "${oldName}", so inbound warps were left alone — ` +
-          'there is no way to tell which of them each warp meant.',
+          `${sharing.length} maps are named "${oldName}", so references to it were left alone — ` +
+          'there is no way to tell which of them each reference meant.',
         severity: 'warning'
       })
       return
     }
 
-    let referrers: { file: string; count: number }[] = []
+    let referrers: Referrer[] = []
     try {
       referrers = await window.api.scanWarpReferrers(activeLibrary, oldName)
     } catch {
@@ -713,17 +713,18 @@ export default function MapEditorPage() {
       )
       const total = updated.reduce((sum, r) => sum + r.count, 0)
       // Report what changed, not what was intended: the write is per file and
-      // cannot be atomic across dozens of them.
+      // cannot be atomic across dozens of them. "references" rather than
+      // "warps" because a nation, a server config and a world map can all be
+      // in this list.
+      const files = `${updated.length} ${updated.length === 1 ? 'file' : 'files'}`
+      const refs = `${total} ${total === 1 ? 'reference' : 'references'}`
       setSnackbar(
         failed.length > 0
           ? {
-              message: `Updated ${total} warps in ${updated.length} maps. ${failed.length} could not be written: ${failed.join(', ')}`,
+              message: `Updated ${refs} in ${files}. ${failed.length} could not be written: ${failed.join(', ')}`,
               severity: 'warning'
             }
-          : {
-              message: `Updated ${total} ${total === 1 ? 'warp' : 'warps'} in ${updated.length} ${updated.length === 1 ? 'map' : 'maps'}.`,
-              severity: 'success'
-            }
+          : { message: `Updated ${refs} in ${files}.`, severity: 'success' }
       )
       await loadFiles()
       void refreshWorldIndex()

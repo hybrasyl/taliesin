@@ -40,11 +40,19 @@ declare global {
    * type-relative and *is* the `<type>NamesByFilename` / `MapDetail.filename`
    * index key, so names look up directly with no `.ignore/` prefix handling.
    */
+  /**
+   * One XML file that names the map being scanned for.
+   *
+   * Not only maps: a nation, a server config and a world map all name maps and
+   * all break the same way, so `section` says which kind this is.
+   */
   interface WarpReferrer {
-    /** Path relative to the maps section. */
+    /** Path relative to its own section. */
     file: string
-    /** How many of its warps point at the name scanned for. */
+    /** How many references in it name the map scanned for. */
     count: number
+    /** `maps`, `nations`, `serverconfigs`, `worldmaps`. */
+    section: string
   }
 
   interface SectionListing {
