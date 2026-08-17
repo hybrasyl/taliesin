@@ -788,3 +788,180 @@ describe('PackEditor — static_tiles has one door (HTOO-416)', () => {
     expect(screen.queryByRole('button', { name: /Add in Static Tile Manager/i })).toBeNull()
   })
 })
+
+// ── The pack folder is the other half of a pack ──────────────────────────────
+//
+// The editor read the project file and nothing else, so a file added, renamed
+// or deleted on disk was invisible: the list kept naming files that were not
+// there and drew a blank square for each, and never named the ones that were.
+// Sabrael hit this by renaming tiles in Explorer, because the editor offered no
+// way to rename them.
+
+function renderEditor(pack: PackProject): void {
+  render(
+    <PackEditor
+      pack={pack}
+      packDir="/p/my-pack"
+      packFilePath="/p/pack.json"
+      onSave={onSave}
+      onStatus={onStatus}
+    />
+  )
+}
+
+/** What `listDir` reports for the pack folder in a given test. */
+function onDisk(...names: string[]): void {
+  api.listDir.mockResolvedValue(names.map((name) => ({ name, isDirectory: false })))
+}
+
+describe('PackEditor - reconciling with the pack folder', () => {
+  it('reports a file on disk that the pack does not name', async () => {
+    onDisk('skill00001.png', 'skill00002.png')
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+
+    expect(await screen.findByText(/not in this pack/i)).toBeTruthy()
+  })
+
+  it('adopts the untracked files when asked, and marks the pack unsaved', async () => {
+    const user = userEvent.setup()
+    onDisk('skill00001.png', 'skill00002.png')
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+
+    await user.click(await screen.findByRole('button', { name: /^Add 1$/ }))
+    await waitFor(() => expect(screen.getByLabelText('delete skill00002.png')).toBeTruthy())
+  })
+
+  it('reports a file the pack names that is not on disk', async () => {
+    onDisk('skill00001.png')
+    renderEditor(
+      makePack({
+        assets: [
+          { filename: 'skill00001.png', sourcePath: '/a.png' },
+          { filename: 'skill00009.png', sourcePath: '/b.png' }
+        ]
+      })
+    )
+
+    expect(await screen.findByText(/are not in the pack folder/i)).toBeTruthy()
+    // And on the row itself, so it is obvious which one.
+    expect(screen.getByText('not in the pack folder')).toBeTruthy()
+  })
+
+  it('drops the missing entries when asked', async () => {
+    const user = userEvent.setup()
+    onDisk('skill00001.png')
+    renderEditor(
+      makePack({
+        assets: [
+          { filename: 'skill00001.png', sourcePath: '/a.png' },
+          { filename: 'skill00009.png', sourcePath: '/b.png' }
+        ]
+      })
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^Remove 1$/ }))
+    await waitFor(() => expect(screen.queryByLabelText('delete skill00009.png')).toBeNull())
+    expect(screen.getByLabelText('delete skill00001.png')).toBeTruthy()
+  })
+
+  it('says nothing when the folder and the pack agree', async () => {
+    onDisk('skill00001.png')
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+
+    await waitFor(() => expect(api.listDir).toHaveBeenCalled())
+    expect(screen.queryByText(/not in this pack/i)).toBeNull()
+    expect(screen.queryByText(/are not in the pack folder/i)).toBeNull()
+  })
+})
+
+describe('PackEditor - renaming an asset', () => {
+  it('moves the file and renames the entry', async () => {
+    const user = userEvent.setup()
+    onDisk('skill00001.png')
+    api.packRenameAsset.mockResolvedValue(undefined)
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+
+    await user.click(screen.getByLabelText('rename skill00001.png'))
+    const field = await screen.findByLabelText('File name')
+    await user.clear(field)
+    await user.type(field, 'skill00042.png')
+    await user.click(screen.getByRole('button', { name: 'Rename' }))
+
+    await waitFor(() =>
+      expect(api.packRenameAsset).toHaveBeenCalledWith(
+        '/p/my-pack',
+        'skill00001.png',
+        'skill00042.png'
+      )
+    )
+    expect(await screen.findByLabelText('delete skill00042.png')).toBeTruthy()
+  })
+
+  it('leaves the entry alone when the move fails', async () => {
+    // The file moves first precisely so this cannot leave the pack naming art
+    // that is not there.
+    const user = userEvent.setup()
+    onDisk('skill00001.png')
+    api.packRenameAsset.mockRejectedValue(new Error('skill00042.png already exists in this pack'))
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+
+    await user.click(screen.getByLabelText('rename skill00001.png'))
+    const field = await screen.findByLabelText('File name')
+    await user.clear(field)
+    await user.type(field, 'skill00042.png')
+    await user.click(screen.getByRole('button', { name: 'Rename' }))
+
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/already exists/))
+    )
+    expect(screen.getByLabelText('delete skill00001.png')).toBeTruthy()
+  })
+})
+
+describe('PackEditor - whether the .datf is up to date', () => {
+  it('says a pack has never been compiled', async () => {
+    onDisk('skill00001.png')
+    renderEditor(makePack({ assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }] }))
+    expect(await screen.findByText('Never compiled')).toBeTruthy()
+  })
+
+  it('says nothing when the compile is newer than the last edit', async () => {
+    onDisk('skill00001.png')
+    renderEditor(
+      makePack({
+        assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }],
+        updatedAt: '2024-01-01T00:00:00Z',
+        compiledAt: '2024-01-02T00:00:00Z'
+      })
+    )
+    await waitFor(() => expect(api.listDir).toHaveBeenCalled())
+    expect(screen.queryByText('Never compiled')).toBeNull()
+    expect(screen.queryByText('Uncompiled changes')).toBeNull()
+  })
+
+  it('says the .datf is behind when the project was edited after it', async () => {
+    onDisk('skill00001.png')
+    renderEditor(
+      makePack({
+        assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }],
+        updatedAt: '2024-01-03T00:00:00Z',
+        compiledAt: '2024-01-02T00:00:00Z'
+      })
+    )
+    expect(await screen.findByText('Uncompiled changes')).toBeTruthy()
+  })
+
+  it('says the .datf is behind as soon as an edit is made', async () => {
+    const user = userEvent.setup()
+    onDisk('skill00001.png', 'skill00002.png')
+    renderEditor(
+      makePack({
+        assets: [{ filename: 'skill00001.png', sourcePath: '/a.png' }],
+        updatedAt: '2024-01-01T00:00:00Z',
+        compiledAt: '2024-01-02T00:00:00Z'
+      })
+    )
+    await user.click(await screen.findByRole('button', { name: /^Add 1$/ }))
+    expect(await screen.findByText('Uncompiled changes')).toBeTruthy()
+  })
+})

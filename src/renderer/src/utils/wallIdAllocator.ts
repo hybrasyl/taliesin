@@ -63,13 +63,26 @@ export function isCommittableWallId(id: number): boolean {
 }
 
 /**
- * Ids that are free to take new art, from WLD-44 "Preferred for overwrite".
+ * The empty band: ids the legacy client has no art for at all.
  *
- * Each entry is an inclusive range. These were reviewed against `ia.dat`: every
- * one exists, and none of them is placed in a loaded map, so overwriting one
- * changes nothing that a player sees today. The 45 ids WLD-44 lists as still
- * placed are excluded here — they need their cells cleared first, so they are
- * not something to hand out by default.
+ * `ia.dat` holds 19,432 tiles against a 20,423 ceiling, and the 992 missing are
+ * one contiguous run (WLD-44). There is nothing at these ids to overwrite, no
+ * duplicate to dedup and no cell to clear, which makes them the cheapest ids in
+ * the table — cheaper than the reviewed pool below, where each id at least
+ * *has* legacy art even if no map places it.
+ */
+export const EMPTY_WALL_ID_BAND: readonly [number, number] = [9008, 9999]
+
+/**
+ * Ids that are free to take new art.
+ *
+ * Two sources, both from WLD-44. The empty band above, and its "Preferred for
+ * overwrite" list — reviewed against `ia.dat`, every one exists, and none is
+ * placed in a loaded map, so overwriting one changes nothing a player sees
+ * today. The 45 ids WLD-44 lists as still placed are excluded: they need their
+ * cells cleared first, so they are not something to hand out by default.
+ *
+ * Each entry is an inclusive range, sorted and non-overlapping.
  *
  * This is a starting pool, not a limit. Any id `isCommittableWallId` accepts is
  * a legal target; this is the set that costs nothing to take.
@@ -107,6 +120,8 @@ export const RECLAIMABLE_WALL_IDS: readonly (readonly [number, number])[] = [
   [8558, 8560],
   [8581, 8582],
   [8587, 8588],
+  // The empty band. No legacy art at any of these — see EMPTY_WALL_ID_BAND.
+  EMPTY_WALL_ID_BAND,
   [14324, 14508],
   [14567, 14579],
   [14632, 14651],

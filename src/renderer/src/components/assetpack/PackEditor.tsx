@@ -19,13 +19,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Checkbox
+  Checkbox,
+  Chip,
+  Alert
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import BuildIcon from '@mui/icons-material/Build'
 import SaveIcon from '@mui/icons-material/Save'
+import TagIcon from '@mui/icons-material/Tag'
+import SyncIcon from '@mui/icons-material/Sync'
 import { getKind } from '../../packKinds'
 import { useUiStore } from '../../store/uiStore'
 import type { PackAsset, PackProject } from '../../packKinds'
@@ -63,27 +67,46 @@ interface RenderRowsArgs {
   meta: Record<string, Record<string, unknown>>
   onMetaFieldChange: (filename: string, fieldKey: string, value: unknown) => void
   onRemoveAsset: (filename: string) => void
+  onRenameAsset: (filename: string) => void
+  /** Named by the project but absent from the pack folder. */
+  missing: ReadonlySet<string>
 }
 
 // Render the asset table body. For kinds that declare a namespaces() method,
 // rows are grouped under namespace headings (skill / spell for ability_icons,
 // per-source-file for ui_sprite_overrides). Other kinds render flat.
 function renderRows(args: RenderRowsArgs): React.ReactElement[] {
-  const { assets, kind, metaFieldEntries, packDir, meta, onMetaFieldChange, onRemoveAsset } = args
+  const {
+    assets,
+    kind,
+    metaFieldEntries,
+    packDir,
+    meta,
+    onMetaFieldChange,
+    onRemoveAsset,
+    onRenameAsset,
+    missing
+  } = args
   const colSpan = 4 + metaFieldEntries.length
 
   const renderOne = (asset: PackAsset): React.ReactElement => {
     const slot = kind.parseSlot(asset.filename)
     const assetMeta = meta[asset.filename] ?? {}
+    const isMissing = missing.has(asset.filename)
     return (
       <TableRow key={asset.filename}>
         <TableCell>
-          <AssetThumbnail packDir={packDir} filename={asset.filename} />
+          <AssetThumbnail packDir={packDir} filename={asset.filename} missing={isMissing} />
         </TableCell>
         <TableCell>
           <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
             {asset.filename}
           </Typography>
+          {isMissing && (
+            <Typography variant="caption" sx={{ color: 'error.main', display: 'block' }}>
+              not in the pack folder
+            </Typography>
+          )}
         </TableCell>
         <TableCell>
           <Typography
@@ -109,7 +132,16 @@ function renderRows(args: RenderRowsArgs): React.ReactElement[] {
             )}
           </TableCell>
         ))}
-        <TableCell>
+        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+          <Tooltip title="Rename">
+            <IconButton
+              size="small"
+              onClick={() => onRenameAsset(asset.filename)}
+              aria-label={`rename ${asset.filename}`}
+            >
+              <TagIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <IconButton
             size="small"
             onClick={() => onRemoveAsset(asset.filename)}
@@ -209,11 +241,102 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null)
   const [customNsDialogOpen, setCustomNsDialogOpen] = useState(false)
   const [customNsValue, setCustomNsValue] = useState('')
+  /** Files under the pack directory, as last read from disk. Null until read. */
+  const [onDisk, setOnDisk] = useState<Set<string> | null>(null)
+  /** The asset being renamed, and the name typed for it. */
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
 
   useEffect(() => {
     setDraft(pack)
     setDirty(false)
   }, [pack])
+
+  /**
+   * Read the pack directory.
+   *
+   * The project file was the only thing the editor ever looked at, so a file
+   * added, renamed or deleted on disk was invisible: the list kept naming files
+   * that were not there (and drew a blank thumbnail for each), and never named
+   * the ones that were. Refresh rescanned the *pack list*, not the pack.
+   */
+  const rescan = useCallback(async (): Promise<Set<string>> => {
+    const found = new Set<string>()
+    const walk = async (dir: string, prefix: string): Promise<void> => {
+      // Defensive about the shape, not just the throw: a missing directory
+      // rejects, but a mocked or absent `window.api` resolves undefined, and a
+      // pack editor must not blow up because a folder could not be read.
+      let entries: { name: string; isDirectory: boolean }[] = []
+      try {
+        entries = (await window.api.listDir(dir)) ?? []
+      } catch {
+        return
+      }
+      if (!Array.isArray(entries)) return
+      for (const e of entries) {
+        // ui_sprite_overrides nests one level, so a name may carry a slash.
+        if (e.isDirectory) await walk(`${dir}/${e.name}`, `${prefix}${e.name}/`)
+        else found.add(`${prefix}${e.name}`)
+      }
+    }
+    await walk(packDir, '')
+    setOnDisk(found)
+    return found
+  }, [packDir])
+
+  useEffect(() => {
+    void rescan()
+  }, [rescan, draft.assets])
+
+  /** Named by the project but not on disk — a blank row with nothing behind it. */
+  const missingFiles = useMemo(
+    () =>
+      onDisk ? draft.assets.filter((a) => !onDisk.has(a.filename)).map((a) => a.filename) : [],
+    [onDisk, draft.assets]
+  )
+
+  /** On disk but not in the project — art the pack would not ship. */
+  const untrackedFiles = useMemo(() => {
+    if (!onDisk) return []
+    const named = new Set(draft.assets.map((a) => a.filename))
+    return [...onDisk].filter((f) => !named.has(f) && !f.startsWith('.')).sort()
+  }, [onDisk, draft.assets])
+
+  /**
+   * Whether the `.datf` is behind the project.
+   *
+   * `updatedAt` moves on every edit the editor makes, including adopting a file
+   * found on disk, so a change made outside Taliesin still shows up here once
+   * the folder is rescanned. A pack that has never been compiled is not
+   * "behind" — it has nothing to be behind — so it says that instead.
+   */
+  const compileState = useMemo<'never' | 'stale' | 'current'>(() => {
+    if (!draft.compiledAt) return 'never'
+    return dirty || draft.updatedAt > draft.compiledAt ? 'stale' : 'current'
+  }, [draft.compiledAt, draft.updatedAt, dirty])
+
+  const adoptUntracked = useCallback(() => {
+    if (untrackedFiles.length === 0) return
+    setDraft((prev) => ({
+      ...prev,
+      assets: [...prev.assets, ...untrackedFiles.map((filename) => ({ filename, sourcePath: '' }))],
+      updatedAt: new Date().toISOString()
+    }))
+    setDirty(true)
+    onStatus(`Added ${untrackedFiles.length} file(s) found in the pack folder`)
+  }, [untrackedFiles, onStatus])
+
+  const dropMissing = useCallback(() => {
+    if (missingFiles.length === 0) return
+    const gone = new Set(missingFiles)
+    setDraft((prev) => ({
+      ...prev,
+      assets: prev.assets.filter((a) => !gone.has(a.filename)),
+      updatedAt: new Date().toISOString()
+    }))
+    setDirty(true)
+    onStatus(`Removed ${gone.size} entry(s) whose file is not in the pack folder`)
+  }, [missingFiles, onStatus])
 
   const kind = getKind(draft.content_type)
   const namespaceList = useMemo(() => kind.namespaces?.(draft.assets) ?? [], [kind, draft.assets])
@@ -369,6 +492,42 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     [packDir]
   )
 
+  /**
+   * Rename an asset, keeping the project and the disk together.
+   *
+   * For a numeric-id kind the filename IS the id, so this is how a tile lands on
+   * the wrong number and gets moved to the right one. The file moves first: if
+   * the project were written first and the move then failed, the pack would name
+   * art that is not there — which is the state this editor could not previously
+   * even show.
+   */
+  const commitRename = useCallback(async (): Promise<void> => {
+    const from = renaming
+    const to = renameText.trim()
+    setRenaming(null)
+    if (!from || !to || from === to) return
+    try {
+      await window.api.packRenameAsset(packDir, from, to)
+      setDraft((prev) => {
+        const meta = { ...(prev.assetMeta ?? {}) }
+        if (meta[from]) {
+          meta[to] = meta[from]!
+          delete meta[from]
+        }
+        return {
+          ...prev,
+          assets: prev.assets.map((a) => (a.filename === from ? { ...a, filename: to } : a)),
+          assetMeta: Object.keys(meta).length > 0 ? meta : undefined,
+          updatedAt: new Date().toISOString()
+        }
+      })
+      setDirty(true)
+      onStatus(`Renamed ${from} to ${to}`)
+    } catch (err) {
+      onStatus(`Rename failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }, [renaming, renameText, packDir, onStatus])
+
   const handleMetaFieldChange = useCallback(
     (filename: string, fieldKey: string, value: unknown) => {
       setDraft((prev) => {
@@ -409,6 +568,17 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       }
       const filenames = reduced.assets.map((a) => a.filename)
       await window.api.packCompile(packDir, manifest, filenames, outputPath)
+      // Remember that this happened, and where. Without it the editor cannot
+      // tell a pack that has been compiled from one that never has, so it
+      // cannot say that the .datf is behind the project.
+      const compiled: PackProject = {
+        ...reduced,
+        compiledAt: new Date().toISOString(),
+        compiledTo: outputPath
+      }
+      await window.api.packSave(packFilePath, compiled)
+      setDraft(compiled)
+      onSave(compiled)
       // The map and world map editors preview installed packs from decoded
       // bitmaps and a coverage snapshot, neither of which knows a pack was just
       // rewritten. Main refreshed its own registry inside pack:compile.
@@ -419,7 +589,7 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
     } finally {
       setCompiling(false)
     }
-  }, [draft, kind, packDir, packFilePath, onStatus])
+  }, [draft, kind, packDir, packFilePath, onSave, onStatus])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
@@ -437,6 +607,24 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
         <Typography variant="h6" sx={{ flex: 1 }}>
           {draft.pack_id}
         </Typography>
+        {compileState !== 'current' && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color={compileState === 'never' ? 'default' : 'warning'}
+            label={compileState === 'never' ? 'Never compiled' : 'Uncompiled changes'}
+          />
+        )}
+        <Tooltip title="Re-read the pack folder">
+          <IconButton
+            size="small"
+            onClick={() => void rescan()}
+            sx={{ color: 'text.primary' }}
+            aria-label="rescan pack folder"
+          >
+            <SyncIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Save">
           <span>
             <IconButton
@@ -460,6 +648,38 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           {compiling ? 'Compiling...' : 'Compile .datf'}
         </Button>
       </Box>
+      {(untrackedFiles.length > 0 || missingFiles.length > 0) && (
+        <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {untrackedFiles.length > 0 && (
+            <Alert
+              severity="info"
+              action={
+                <Button size="small" onClick={adoptUntracked}>
+                  Add {untrackedFiles.length}
+                </Button>
+              }
+            >
+              {untrackedFiles.length} file(s) in the pack folder are not in this pack, so they will
+              not be compiled into the `.datf`: {untrackedFiles.slice(0, 6).join(', ')}
+              {untrackedFiles.length > 6 ? ', …' : ''}
+            </Alert>
+          )}
+          {missingFiles.length > 0 && (
+            <Alert
+              severity="warning"
+              action={
+                <Button size="small" color="inherit" onClick={dropMissing}>
+                  Remove {missingFiles.length}
+                </Button>
+              }
+            >
+              {missingFiles.length} file(s) this pack names are not in the pack folder. Compiling
+              stops rather than shipping a pack without them: {missingFiles.slice(0, 6).join(', ')}
+              {missingFiles.length > 6 ? ', …' : ''}
+            </Alert>
+          )}
+        </Box>
+      )}
       {/* Manifest fields */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
@@ -548,7 +768,12 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
               packDir,
               meta: draft.assetMeta ?? {},
               onMetaFieldChange: handleMetaFieldChange,
-              onRemoveAsset: handleRemoveAsset
+              missing: new Set(missingFiles),
+              onRemoveAsset: handleRemoveAsset,
+              onRenameAsset: (f: string) => {
+                setRenaming(f)
+                setRenameText(f)
+              }
             })}
           </TableBody>
         </Table>
@@ -603,6 +828,34 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           </DialogActions>
         </Dialog>
       )}
+      <Dialog open={renaming !== null} onClose={() => setRenaming(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Rename asset</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="File name"
+            value={renameText}
+            onChange={(e) => setRenameText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void commitRename()
+            }}
+            helperText={
+              kind.parseSlot(renameText)
+                ? `Reads as ${kind.parseSlot(renameText)!.namespace} ${kind.parseSlot(renameText)!.id}`
+                : 'This name does not read as a slot for this pack kind'
+            }
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenaming(null)}>Cancel</Button>
+          <Button variant="contained" onClick={() => void commitRename()}>
+            Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -8,6 +8,7 @@ import {
   isReclaimableWallId,
   reclaimableWallIdCount,
   RECLAIMABLE_WALL_IDS,
+  EMPTY_WALL_ID_BAND,
   wallWalkability,
   nextWallId
 } from '../wallIdAllocator'
@@ -63,9 +64,27 @@ describe('isCommittableWallId — the only two hard limits', () => {
 })
 
 describe('the reclaimable pool (WLD-44)', () => {
-  it('holds the 1229 ids the card reviewed, less the placed ones', () => {
-    // 1274 preferred for overwrite, less the 45 still placed in loaded maps.
-    expect(reclaimableWallIdCount()).toBe(1274 - 45)
+  it('holds the reviewed ids and the empty band', () => {
+    // 1274 preferred for overwrite less the 45 still placed, plus the 992 the
+    // legacy client has no art for at all.
+    expect(reclaimableWallIdCount()).toBe(1274 - 45 + 992)
+  })
+
+  it('includes the empty band, which has no legacy art to overwrite at all', () => {
+    // These fired "not in the reclaimable pool — may carry legacy art a map
+    // places" when they are the one part of the table that carries none.
+    const [lo, hi] = EMPTY_WALL_ID_BAND
+    expect([lo, hi]).toEqual([9008, 9999])
+    expect(hi - lo + 1).toBe(992)
+    for (const id of [9008, 9200, 9201, 9999]) {
+      expect(isReclaimableWallId(id)).toBe(true)
+      expect(isCommittableWallId(id)).toBe(true)
+    }
+  })
+
+  it('stops the empty band where the legacy art resumes', () => {
+    expect(isReclaimableWallId(9007)).toBe(false)
+    expect(isReclaimableWallId(10000)).toBe(false)
   })
 
   it('is sorted and does not overlap itself', () => {
