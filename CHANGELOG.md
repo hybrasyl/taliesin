@@ -93,6 +93,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **Renaming a map offers to update everything that names it, not only warps.** A map is referred
+  to by name, and the reference is resolved when it is used, so a rename breaks every one of them.
+  Taliesin offered to repoint warps and said nothing about the rest, which stayed broken and unseen.
+  It now finds them all: the spawn points and the territory of a nation, the death map and the start
+  maps of a server config, and the travel points of a world map. The window groups them by the kind
+  of file they are in. Text that a player reads is still left alone, such as a sign that mentions
+  the old name, or the label on a world map point.
+
 - **A wall tile can take any id the client draws.** Taliesin refused a new tile below 10013. That
   limit is not real: it belongs to a different piece of work, and no part of the client or the
   server knows whether you meant to add a tile or to replace one. The rules now are the two that

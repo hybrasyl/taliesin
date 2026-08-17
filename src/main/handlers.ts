@@ -22,7 +22,12 @@ import {
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
 import { resolveClientFile } from './fsCase'
-import { countWarpsTo, rewriteWarpTargets } from './warpTargets'
+import {
+  countReferencesTo,
+  rewriteReferences,
+  MAP_REFERENCE_SECTIONS,
+  type SectionRules
+} from './mapReferences'
 import {
   resolveCompanion,
   launchCompanion as companionLaunch,
@@ -405,49 +410,78 @@ export async function listSection(
   return { dir: dir.replace(/\\/g, '/'), active, archived }
 }
 
-/** One map XML that points at the name being scanned for. */
+/** One XML file that names the map being scanned for. */
 export interface WarpReferrer {
-  /** Path relative to the maps section, as `listSection` returns them. */
+  /** Path relative to its own section, as `listSection` returns them. */
   file: string
-  /** How many of its warps point at the name. */
+  /** How many references in it name the map. */
   count: number
+  /** Which section it lives in — `maps`, `nations`, `serverconfigs`, … */
+  section: string
 }
 
 /**
- * Read every active map XML and count the warps pointing at `mapName`.
+ * Read every active XML that can name a map, and count the references to it.
  *
  * Done on demand, in main, rather than out of the index: `hybindex-ts` does not
- * record warps at all — `mapDetails` stops at `{ id, name, filename, x, y }` —
- * so answering this from the index would mean a package change that cannot
- * reach Taliesin until the hybindex upgrade lands, to serve one consumer. A
- * scan of ~1045 files is real work, but it is one explicit user action at the
- * moment a rename is being confirmed, not a background cost (HTOO-347).
+ * record any of these — `mapDetails` stops at `{ id, name, filename, x, y }` —
+ * so answering from the index would mean a package change that cannot reach
+ * Taliesin until the hybindex upgrade lands, to serve one consumer. A scan of
+ * ~1045 map files plus a handful of others is real work, but it is one explicit
+ * user action at the moment a rename is being confirmed (HTOO-347).
  *
  * It reads in main rather than handing 1045 files to the renderer one IPC call
  * at a time.
  *
- * Archived maps under `.ignore/` are not scanned. They are out of service, so
- * their warps resolve against nothing either way; the trade is that unarchiving
- * one later can surface a warp this pass did not fix.
+ * **Every section in `MAP_REFERENCE_SECTIONS`, not just maps.** Warps were the
+ * first of these and for a while the only one handled, which left a rename
+ * quietly breaking a nation's spawn points, a server config's death map and
+ * start maps, and a world map's travel points — none of which the dialog
+ * mentioned, because nothing had looked.
+ *
+ * A section that does not exist in this world is skipped, not an error: a world
+ * with no `nations/` directory has no nation to break.
+ *
+ * Archived files under `.ignore/` are not scanned. They are out of service, so
+ * their references resolve against nothing either way; the trade is that
+ * unarchiving one later can surface a reference this pass did not fix.
  */
+async function eachReferenceSection(
+  ctx: HandlerContext,
+  libraryPath: string,
+  visit: (rules: SectionRules, dir: string, rel: string, xml: string) => Promise<void> | void
+): Promise<void> {
+  for (const rules of MAP_REFERENCE_SECTIONS) {
+    let dir: string
+    let active: string[]
+    try {
+      ;({ dir, active } = await listSection(ctx, libraryPath, rules.section))
+    } catch {
+      continue // section absent from this world
+    }
+    for (const rel of active) {
+      let xml: string
+      try {
+        xml = await fs.readFile(join(dir, rel), 'utf8')
+      } catch {
+        continue // unreadable file: not a referrer we can report on
+      }
+      await visit(rules, dir, rel, xml)
+    }
+  }
+}
+
 export async function scanWarpReferrers(
   ctx: HandlerContext,
   libraryPath: string,
   rawMapName: unknown
 ): Promise<WarpReferrer[]> {
   const mapName = parseOrLog(ctx, 'maps:scanWarpReferrers', mapNameSchema, rawMapName)
-  const { dir, active } = await listSection(ctx, libraryPath, 'maps')
   const referrers: WarpReferrer[] = []
-  for (const rel of active) {
-    let xml: string
-    try {
-      xml = await fs.readFile(join(dir, rel), 'utf8')
-    } catch {
-      continue // unreadable file: not a referrer we can report on
-    }
-    const count = countWarpsTo(xml, mapName)
-    if (count > 0) referrers.push({ file: rel, count })
-  }
+  await eachReferenceSection(ctx, libraryPath, (rules, _dir, rel, xml) => {
+    const count = countReferencesTo(xml, mapName, rules.rules)
+    if (count > 0) referrers.push({ file: rel, count, section: rules.section })
+  })
   return referrers
 }
 
@@ -471,21 +505,18 @@ export async function updateWarpTargets(
   // one is touched rather than halfway through.
   const oldName = parseOrLog(ctx, 'maps:updateWarpTargets', mapNameSchema, rawOldName)
   const newName = parseOrLog(ctx, 'maps:updateWarpTargets', mapNameSchema, rawNewName)
-  const { dir, active } = await listSection(ctx, libraryPath, 'maps')
   const updated: WarpReferrer[] = []
   const failed: string[] = []
-  for (const rel of active) {
-    const path = join(dir, rel)
+  await eachReferenceSection(ctx, libraryPath, async (rules, dir, rel, xml) => {
+    const result = rewriteReferences(xml, oldName, newName, rules.rules)
+    if (result.changed === 0) return
     try {
-      const xml = await fs.readFile(path, 'utf8')
-      const result = rewriteWarpTargets(xml, oldName, newName)
-      if (result.changed === 0) continue
-      await fs.writeFile(path, result.xml, 'utf8')
-      updated.push({ file: rel, count: result.changed })
+      await fs.writeFile(join(dir, rel), result.xml, 'utf8')
+      updated.push({ file: rel, count: result.changed, section: rules.section })
     } catch {
       failed.push(rel)
     }
-  }
+  })
   return { updated, failed }
 }
 
