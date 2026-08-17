@@ -224,6 +224,7 @@ declare global {
     packDelete: (filePath: string) => Promise<void>
     packAddAsset: (packDir: string, sourcePath: string, targetFilename: string) => Promise<void>
     packRemoveAsset: (packDir: string, filename: string) => Promise<void>
+    packRenameAsset: (packDir: string, oldFilename: string, newFilename: string) => Promise<void>
     packCompile: (
       packDir: string,
       manifest: unknown,

@@ -141,6 +141,10 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
     reason: 'pack dir + source via assertInsideAnyRoot, target filename via assertInside'
   },
   'pack:removeAsset': { category: 'path-only', reason: 'pack dir + filename via assertInside' },
+  'pack:renameAsset': {
+    category: 'path-only',
+    reason: 'pack dir + two filenames, both via assertInside; refuses to overwrite'
+  },
   'palette:scan': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'palette:load': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'palette:delete': { category: 'path-only', reason: 'assertInsideAnyRoot' },

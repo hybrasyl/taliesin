@@ -114,6 +114,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "pack:readEntry",
         "pack:reload",
         "pack:removeAsset",
+        "pack:renameAsset",
         "pack:resolveAsset",
         "pack:save",
         "pack:scan",

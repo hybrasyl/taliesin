@@ -269,6 +269,8 @@ const api = {
     ipcRenderer.invoke('pack:addAsset', packDir, sourcePath, targetFilename),
   packRemoveAsset: (packDir: string, filename: string): Promise<void> =>
     ipcRenderer.invoke('pack:removeAsset', packDir, filename),
+  packRenameAsset: (packDir: string, oldFilename: string, newFilename: string): Promise<void> =>
+    ipcRenderer.invoke('pack:renameAsset', packDir, oldFilename, newFilename),
   packCompile: (
     packDir: string,
     manifest: unknown,
