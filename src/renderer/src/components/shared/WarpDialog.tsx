@@ -25,6 +25,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import GridOnIcon from '@mui/icons-material/GridOn'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
+import TilePositionFields from './TilePositionFields'
 import MapRenderCanvas from '../mapeditor/MapRenderCanvas'
 import type { MapMarker } from '../mapeditor/MapRenderCanvas'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
@@ -59,24 +60,26 @@ export interface WarpDialogProps {
   pointDisplayName?: string
   onPointDisplayNameChange?: (name: string) => void
   /**
-   * When provided, the point's own position on the field becomes editable
-   * (HTOO-412). `tileX`/`tileY` carry it; this is the way back.
+   * When provided, the warp's own position becomes editable (HTOO-412 for a
+   * world map point, HTOO-441 for a map warp). `tileX`/`tileY` carry it; this
+   * is the way back.
    *
    * Distinct from Arrival X/Y, which is where the player lands on the
-   * destination map. The labels below say so, because the two were easy to
-   * confuse when only one pair was on screen.
+   * destination map. `positionNoun` says which is which, because the two were
+   * easy to confuse when only one pair was on screen.
    */
-  onPointPositionChange?: (x: number, y: number) => void
+  onPositionChange?: (x: number, y: number) => void
   /** Upper bounds for the position fields, inclusive. */
-  pointMaxX?: number
-  pointMaxY?: number
-}
-
-/** Keep a typed coordinate inside the field. */
-export function clampCoord(raw: string, max: number): number | null {
-  const n = parseInt(raw, 10)
-  if (isNaN(n)) return null
-  return Math.min(max, Math.max(0, n))
+  maxX?: number
+  maxY?: number
+  /** What the position addresses: 'Tile' on a map, 'Field' on a world map. */
+  positionNoun?: string
+  /**
+   * Whether this dialog edits an existing warp. Not the same as `initial` being
+   * set: a duplicate arrives with every field filled in and is still a
+   * placement (HTOO-443). Defaults to `initial !== null`.
+   */
+  isEdit?: boolean
 }
 
 // ── Zoom helpers ──────────────────────────────────────────────────────────────
@@ -109,9 +112,11 @@ export default function WarpDialog({
   defaultType,
   pointDisplayName,
   onPointDisplayNameChange,
-  onPointPositionChange,
-  pointMaxX = 639,
-  pointMaxY = 479
+  onPositionChange,
+  maxX = 639,
+  maxY = 479,
+  positionNoun = 'Field',
+  isEdit
 }: WarpDialogProps) {
   const clientPath = useSettingsStore((s) => s.clientPath)
   const mapDirectory = useMapFilesDirectory()
@@ -351,7 +356,7 @@ export default function WarpDialog({
       }
     >
       <DialogTitle>
-        {initial
+        {(isEdit ?? initial !== null)
           ? isWorldMapPoint
             ? 'Edit Point'
             : 'Edit Warp'
@@ -399,34 +404,16 @@ export default function WarpDialog({
             />
           )}
 
-          {/* Position on the field (HTOO-412) */}
-          {onPointPositionChange !== undefined && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Field X"
-                size="small"
-                fullWidth
-                value={tileX}
-                onChange={(e) => {
-                  const v = clampCoord(e.target.value, pointMaxX)
-                  if (v !== null) onPointPositionChange(v, tileY)
-                }}
-                helperText={`Where the point sits, 0–${pointMaxX}`}
-                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-              />
-              <TextField
-                label="Field Y"
-                size="small"
-                fullWidth
-                value={tileY}
-                onChange={(e) => {
-                  const v = clampCoord(e.target.value, pointMaxY)
-                  if (v !== null) onPointPositionChange(tileX, v)
-                }}
-                helperText={`Where the point sits, 0–${pointMaxY}`}
-                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-              />
-            </Box>
+          {/* The warp's own position (HTOO-412, HTOO-441) */}
+          {onPositionChange !== undefined && (
+            <TilePositionFields
+              x={tileX}
+              y={tileY}
+              maxX={maxX}
+              maxY={maxY}
+              onChange={onPositionChange}
+              noun={positionNoun}
+            />
           )}
 
           {/* Warp type — hidden when lockType is set */}
@@ -583,7 +570,7 @@ export default function WarpDialog({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button variant="contained" onClick={handleConfirm} disabled={!canConfirm}>
-          {initial ? 'Save' : 'Place'}
+          {(isEdit ?? initial !== null) ? 'Save' : 'Place'}
         </Button>
       </DialogActions>
     </Dialog>
