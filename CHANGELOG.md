@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-08-18
+
 ### Added
 
 - **Shift-drag a placed node to copy it.** Drag it to move it; hold Shift as you release to leave the
