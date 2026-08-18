@@ -94,6 +94,7 @@ export function createMockApi(): MockApi {
     'packDelete',
     'packAddAsset',
     'packRemoveAsset',
+    'packRenameAsset',
     'packCompile',
     'packImport',
     'packListActive',

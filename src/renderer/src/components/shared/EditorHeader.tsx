@@ -60,14 +60,30 @@ const EditorHeader: React.FC<Props> = ({
   const recycleDisabled = fileName === computedFileName
 
   const destination = folder ? `${folder}/${fileName}` : fileName
+  const source = `${initialFolder ? `${initialFolder}/` : ''}${initialFileName}`
+
+  /**
+   * Say what the save will actually do.
+   *
+   * This used to read "Saving will create X and archive Y" for every case, and
+   * that stopped being true when the save became a move: the file is renamed
+   * in place, one file the whole time, and nothing is archived (HTOO-379). A
+   * warning that describes the wrong operation is worse than none — it invites
+   * the author to go looking for an archived copy that was never made.
+   *
+   * The three cases are genuinely different and the sentence names which one
+   * it is, so a move is not mistaken for a rename or the other way round.
+   */
   const helperText =
-    willRename || willMove
-      ? `Saving will create "${destination}" and archive "${
-          initialFolder ? `${initialFolder}/` : ''
-        }${initialFileName}"`
-      : recyclePending
-        ? `Computed name: "${computedFileName}" — click ↺ to apply (saves as new file)`
-        : undefined
+    willRename && willMove
+      ? `Saving will move and rename "${source}" to "${destination}"`
+      : willRename
+        ? `Saving will rename "${source}" to "${fileName}"`
+        : willMove
+          ? `Saving will move "${initialFileName}" to "${folder || 'the top level'}"`
+          : recyclePending
+            ? `Computed name: "${computedFileName}" — click ↺ to apply, which renames the file`
+            : undefined
 
   const recycleTooltip = recycleDisabled
     ? 'Filename is auto-computed'

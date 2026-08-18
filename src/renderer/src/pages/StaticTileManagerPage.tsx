@@ -1143,7 +1143,7 @@ const StaticTileManagerPage: React.FC = () => {
 
                   {hasWallId && isCommittableWallId(wallId) && !isReclaimableWallId(wallId) && (
                     <Typography variant="caption" color="text.disabled">
-                      Not in the reclaimable pool. The id may carry legacy art that a map places.
+                      Not in the free pool. This id may carry legacy art that a map still places.
                     </Typography>
                   )}
 

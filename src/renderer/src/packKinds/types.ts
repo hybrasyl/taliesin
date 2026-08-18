@@ -49,6 +49,10 @@ export interface PackProject {
   assetMeta?: Record<string, Record<string, unknown>>
   createdAt: string
   updatedAt: string
+  /** When the pack was last compiled. Absent until it has been. */
+  compiledAt?: string
+  /** Where it was compiled to, so the editor can say whether it is still there. */
+  compiledTo?: string
 }
 
 export interface SlotIdentity {

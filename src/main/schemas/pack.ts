@@ -54,7 +54,13 @@ export const packProjectSchema = z.object({
   ...baseFields,
   assets: z.array(packAssetSchema),
   createdAt: z.string(),
-  updatedAt: z.string()
+  updatedAt: z.string(),
+  // When the pack was last compiled, and where to. Optional: every project
+  // written before this existed has neither, and a pack that has never been
+  // compiled has neither either. Both are what lets the editor say a pack has
+  // changes the .datf does not carry.
+  compiledAt: z.string().optional(),
+  compiledTo: z.string().optional()
 })
 
 /**

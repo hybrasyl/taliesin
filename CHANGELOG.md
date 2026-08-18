@@ -35,6 +35,16 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **The pack editor reads the pack folder, not only the pack file.** Use the button beside Save to
+  re-read it. Taliesin reports a file in the folder that the pack does not name, which would not be
+  compiled into the `.datf`, and a file the pack names that is not in the folder. Add or remove them
+  with one button. Before, the pack file was the only thing the editor looked at, so a file added,
+  renamed or deleted outside Taliesin was invisible.
+- **Rename an asset in the pack editor.** For a pack whose file names are numbers, this is how a
+  tile moves to a different number. Taliesin refuses a name the pack already uses.
+- **The pack editor says when a pack has changes the `.datf` does not carry.** It also says when a
+  pack has never been compiled.
+
 - **Show the tiles that only an asset pack has.** The tile picker built its list from the client:
   foreground tiles from `ia.dat`, background tiles from the tileset. A pack tile at a number the
   client has nothing at therefore had no row. It could not be selected and could not be placed, so
@@ -144,6 +154,16 @@ record; where they disagree with this file, the git history was taken as authori
   where it opened before.
 
 ### Fixed
+
+- **The Static Tile Manager no longer warns about the tile numbers that are safest to use.** It said
+  a tile from 9008 to 9999 "may carry legacy art that a map places". Those 992 numbers are the one
+  part of the table with no legacy art at all, so there is nothing there to overwrite. They are now
+  part of the free pool, and "Use next free id" can offer them.
+- **A file with no art shows that it is missing, instead of an empty square.** A pack that names a
+  file the folder does not have drew the same dark square as a file that had not loaded yet.
+- **The filename warning says what the save will do.** It said "Saving will create X and archive Y"
+  in every case, and that has not been true since a rename became a move: the file is renamed in
+  place, and nothing is archived. It now says rename, or move, or both, and names the file.
 
 - **Compiling a pack cannot hang.** The compile waited for the archive to close and had no answer
   for a failure to write it. If the output file could not be written, nothing reported the fault and

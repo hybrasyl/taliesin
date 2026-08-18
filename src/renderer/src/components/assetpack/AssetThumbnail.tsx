@@ -5,13 +5,15 @@ interface Props {
   packDir: string
   filename: string
   size?: number
+  /** The project names this file and the pack folder does not have it. */
+  missing?: boolean
 }
 
 // Loads a PNG via the IPC readFile bridge and renders it through a Blob URL.
 // Avoids file:// (Electron's webSecurity blocks it / taints the canvas) and
 // keeps the URL lifecycle scoped to the component so we don't leak object
 // URLs as the user scrolls the asset table.
-const AssetThumbnail: React.FC<Props> = ({ packDir, filename, size = 32 }) => {
+const AssetThumbnail: React.FC<Props> = ({ packDir, filename, size = 32, missing }) => {
   const [src, setSrc] = useState<string | null>(null)
 
   useEffect(() => {
@@ -37,7 +39,31 @@ const AssetThumbnail: React.FC<Props> = ({ packDir, filename, size = 32 }) => {
   }, [packDir, filename])
 
   if (!src) {
-    return <Box sx={{ width: size, height: size, backgroundColor: '#1a1a2e' }} />
+    // A file that is not there and a file that has not loaded yet drew the same
+    // dark square, so a pack naming art it does not have looked like a slow
+    // list. The missing case says so.
+    return (
+      <Box
+        aria-label={missing ? `${filename} is missing` : undefined}
+        sx={{
+          width: size,
+          height: size,
+          backgroundColor: '#1a1a2e',
+          ...(missing && {
+            border: '1px dashed',
+            borderColor: 'error.main',
+            color: 'error.main',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 16,
+            lineHeight: 1
+          })
+        }}
+      >
+        {missing ? '?' : null}
+      </Box>
+    )
   }
   return (
     <img
