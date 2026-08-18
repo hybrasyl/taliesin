@@ -87,6 +87,18 @@ suite is simply never collected and vitest still reports success).
   That test reads `handlers.ts` and fails on an unclassified channel, so this is a decision you
   make, not one you can skip. The channel argument must be a **literal**; a variable is invisible
   to the check. The rule is whether the payload is written or executed, not whether it is a string.
+- **Three tests read source rather than behaviour**, all in `src/main/__tests__/`, all for rules that
+  are cheap to break, invisible in a diff and silent in every other gate. `ipcSchemaCoverage` (above);
+  `clientFileCaseCoverage` — no Dark Ages archive name may be joined into a path, use
+  `resolveClientFile` from `fsCase` so the casing comes from the directory (HTOO-287); and
+  `editorRenameCoverage` — every editor offers rename, and no rename branch pre-checks with
+  `window.api.exists`, because on Windows that answers case-insensitively and refuses a case-only
+  rename (HTOO-379). Each asserts its walk found something: a glob matching nothing passes for the
+  wrong reason. If you add one, prove it red by planting the fault, and make the failure name the file.
+- **A client file is opened under the casing the disk uses.** `fsCase.ts` exists in both processes —
+  `resolveClientFile(dir, name)` asks the directory. The installer writes `Legend.dat`; unpackers
+  fold. Windows hides the difference, Linux and macOS do not, and the read usually throws into a
+  `catch` that means "not present", so the feature degrades silently instead of failing.
 - **Settings** live under `%LOCALAPPDATA%\Erisco\Taliesin` (win32 resolves `LOCALAPPDATA`
   directly; a legacy `%APPDATA%` dir is migrated on first run). `settingsStore` owns a **hydration
   gate**: persistence is blocked until the first disk load completes (guards against HMR /
