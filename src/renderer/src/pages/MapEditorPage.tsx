@@ -600,21 +600,27 @@ export default function MapEditorPage() {
       const xml = serializeMapXml(data)
 
       if (isRename && selectedFile) {
-        // Refuse before anything is written, so a refused rename changes
-        // nothing on disk.
-        if (await window.api.exists(newPath)) {
-          setSnackbar({
-            message: `A map named "${fileName}" already exists here. Rename cancelled.`,
-            severity: 'error'
-          })
-          return
-        }
         // Move, then write — not write, then archive the old one. Only one file
         // exists at any instant, so an interrupted save cannot leave two active
         // maps carrying the same Id. It also makes git see a rename with
         // modification rather than an add beside an untouched original, so the
         // map's history follows it.
-        await window.api.moveFile(selectedFile.path, newPath)
+        //
+        // The collision check is inside `moveFile` and is not repeated here
+        // (HTOO-379). Asking `fs:exists` first refused a case-only rename on
+        // Windows, where that question is answered case-insensitively and a
+        // file therefore collides with its own new spelling. The move throws
+        // before it writes anything, so a refused rename still changes nothing
+        // on disk.
+        try {
+          await window.api.moveFile(selectedFile.path, newPath)
+        } catch (e) {
+          setSnackbar({
+            message: `${e instanceof Error ? e.message : 'Cannot rename this map'}. Rename cancelled.`,
+            severity: 'error'
+          })
+          return
+        }
       }
 
       await window.api.writeFile(newPath, xml)

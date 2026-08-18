@@ -8,6 +8,7 @@
  * MapAssets so they're scoped to a specific client and evicted alongside it.
  */
 
+import { resolveClientFile } from './fsCase'
 import {
   DataArchive,
   HpfFile,
@@ -182,12 +183,18 @@ export async function loadMapAssets(
   const cached = lruGet(assetCache, key)
   if (cached) return cached
 
+  // Resolved through the directory rather than joined as a lowercase literal
+  // (HTOO-449). Every other client-file boundary in the app already does this;
+  // these two were missed, and they are the two the isometric renderer cannot
+  // start without — so on a case-sensitive filesystem holding a tree that
+  // spells either archive with a capital, nothing isometric draws at all.
+  // Windows folds case on lookup, which is why it was invisible here.
   onProgress?.('Loading seo.dat…')
-  const seoBuf = await window.api.readFile(`${key}/seo.dat`)
+  const seoBuf = await window.api.readFile(await resolveClientFile(key, 'seo.dat'))
   const seoArchive = DataArchive.fromBuffer(new Uint8Array(seoBuf))
 
   onProgress?.('Loading ia.dat…')
-  const iaBuf = await window.api.readFile(`${key}/ia.dat`)
+  const iaBuf = await window.api.readFile(await resolveClientFile(key, 'ia.dat'))
   const iaArchive = DataArchive.fromBuffer(new Uint8Array(iaBuf))
 
   onProgress?.('Loading palettes…')

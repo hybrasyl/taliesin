@@ -1674,7 +1674,18 @@ function MapPlacementTab({
           showGrid={showGrid}
           onTileClick={handleTileClick}
           onMarkerClick={handleMarkersClick}
-          onMarkerMove={(marker, tx, ty) => moveNode(marker.kind, marker.index, tx, ty)}
+          onMarkerMove={(marker, tx, ty, mods) => {
+            // Shift-drag copies rather than moves (HTOO-448) — the same meaning
+            // shift has on a click here and on a selection drag in the Map
+            // Maker. It goes through `placeCopy`, so a copied NPC gets the name
+            // rule and not a silent duplicate.
+            if (!mods.shift) {
+              moveNode(marker.kind, marker.index, tx, ty)
+              return
+            }
+            const node = nodeAt(data, marker.kind, marker.index)
+            if (node) placeCopy(node, tx, ty)
+          }}
           onHoverTile={setHoverCoord}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
         />
