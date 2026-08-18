@@ -238,6 +238,35 @@ describe('Placement tab — moving a placed node', () => {
     expect(await screen.findByText('(9,12) [door.py]')).toBeTruthy()
   })
 
+  it('shift-drag copies instead of moving', async () => {
+    const { overlay } = await renderPanel({ reactors: [{ x: 6, y: 6, script: 'door.py' }] })
+
+    fireEvent.mouseDown(overlay, { ...at(6, 6), button: 0 })
+    fireEvent.mouseMove(overlay, { ...at(9, 12), shiftKey: true })
+    fireEvent.mouseUp(overlay, { ...at(9, 12), shiftKey: true })
+
+    // Both, not one moved.
+    expect(await screen.findByText('(9,12) [door.py]')).toBeTruthy()
+    expect(screen.getByText('(6,6) [door.py]')).toBeTruthy()
+  })
+
+  it('shift-drag of an NPC still clears the name', async () => {
+    // The one kind that cannot be duplicated silently, whichever gesture asks.
+    const { overlay } = await renderPanel({
+      npcs: [{ name: 'Riona', x: 2, y: 2, direction: 'North', displayName: 'The Barmaid' }]
+    })
+
+    fireEvent.mouseDown(overlay, { ...at(2, 2), button: 0 })
+    fireEvent.mouseMove(overlay, { ...at(5, 5), shiftKey: true })
+    fireEvent.mouseUp(overlay, { ...at(5, 5), shiftKey: true })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(comboboxIn(dialog, 'NPC Name').value).toBe('')
+    expect((within(dialog).getByLabelText('Display Name') as HTMLInputElement).value).toBe(
+      'The Barmaid'
+    )
+  })
+
   it('a typed coordinate moves the node on Save', async () => {
     const user = userEvent.setup()
     await renderPanel({ reactors: [{ x: 6, y: 6, script: 'door.py' }] })

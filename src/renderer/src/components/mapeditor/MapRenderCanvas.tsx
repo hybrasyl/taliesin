@@ -78,8 +78,13 @@ export interface MapRenderCanvasProps {
   /**
    * Commit a dragged marker at its new tile. Providing this turns dragging on
    * (HTOO-445); the canvas never moves anything itself.
+   *
+   * `mods.shift` means the author asked for a copy rather than a move
+   * (HTOO-448). The canvas does not know the difference — it reports which
+   * gesture was made and the caller decides what it means, as it does for a
+   * shift-click on an empty tile.
    */
-  onMarkerMove?: (marker: MapMarker, tx: number, ty: number) => void
+  onMarkerMove?: (marker: MapMarker, tx: number, ty: number, mods: ClickModifiers) => void
   onHoverTile?: (tile: { tx: number; ty: number } | null) => void
   sx?: SxProps
 }
@@ -229,9 +234,12 @@ export default function MapRenderCanvas({
    * from it; `drag` is state because the overlay draws the ghost from it.
    */
   const press = useRef<{ marker: MapMarker; from: { tx: number; ty: number } } | null>(null)
-  const [drag, setDrag] = useState<{ marker: MapMarker; to: { tx: number; ty: number } } | null>(
-    null
-  )
+  const [drag, setDrag] = useState<{
+    marker: MapMarker
+    to: { tx: number; ty: number }
+    /** Shift held: the drop copies instead of moving. Drives the cursor. */
+    copy: boolean
+  } | null>(null)
   /** Set on a release that committed a move, so the click it precedes is dropped. */
   const swallowClick = useRef(false)
 
@@ -564,23 +572,31 @@ export default function MapRenderCanvas({
       const travelled =
         Math.abs(tile.tx - p.from.tx) + Math.abs(tile.ty - p.from.ty) >= DRAG_TILE_THRESHOLD
       if (!travelled && !drag) return
-      setDrag({ marker: p.marker, to: tile })
+      setDrag({ marker: p.marker, to: tile, copy: e.shiftKey })
     },
     [eventToTile, drag]
   )
 
-  const handleMouseUp = useCallback(() => {
-    const p = press.current
-    press.current = null
-    if (!p || !drag) return
-    setDrag(null)
-    const moved = drag.to.tx !== p.from.tx || drag.to.ty !== p.from.ty
-    if (!moved) return
-    // The click that follows this release would toggle the selection off, which
-    // reads as the move having failed.
-    swallowClick.current = true
-    onMarkerMove?.(p.marker, drag.to.tx, drag.to.ty)
-  }, [drag, onMarkerMove])
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const p = press.current
+      press.current = null
+      if (!p || !drag) return
+      setDrag(null)
+      const moved = drag.to.tx !== p.from.tx || drag.to.ty !== p.from.ty
+      // A shift-drop on the tile it started from is not a copy. It would put a
+      // second node on an occupied tile, which for a warp is a lost warp.
+      if (!moved) return
+      // The click that follows this release would toggle the selection off,
+      // which reads as the move having failed.
+      swallowClick.current = true
+      // Read at release, not from the drag state: the author can press or let go
+      // of shift after the drag starts, and what they were holding when they
+      // dropped is the answer.
+      onMarkerMove?.(p.marker, drag.to.tx, drag.to.ty, { shift: e.shiftKey })
+    },
+    [drag, onMarkerMove]
+  )
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -601,8 +617,11 @@ export default function MapRenderCanvas({
     [eventToTile, hitsAt, onMarkerClick, onTileClick]
   )
 
+  // A copy and a move must not look the same while the pointer is down.
   const cursor = drag
-    ? 'grabbing'
+    ? drag.copy
+      ? 'copy'
+      : 'grabbing'
     : placeMode
       ? 'crosshair'
       : markers.length > 0 || onMarkerClick

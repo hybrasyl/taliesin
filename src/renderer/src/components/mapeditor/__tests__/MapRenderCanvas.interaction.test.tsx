@@ -122,7 +122,7 @@ describe('MapRenderCanvas — dragging a node', () => {
     fireEvent.mouseMove(overlay, at(11, 13))
     fireEvent.mouseUp(overlay, at(11, 13))
 
-    expect(onMarkerMove).toHaveBeenCalledWith(WARP, 11, 13)
+    expect(onMarkerMove).toHaveBeenCalledWith(WARP, 11, 13, { shift: false })
   })
 
   it('drops the click that follows a committed drag', async () => {
@@ -182,6 +182,41 @@ describe('MapRenderCanvas — dragging a node', () => {
     fireEvent.mouseDown(overlay, { ...at(3, 4), button: 0 })
     fireEvent.mouseMove(overlay, at(6, 6))
     fireEvent.mouseUp(overlay, at(6, 6))
+
+    expect(onMarkerMove).not.toHaveBeenCalled()
+  })
+
+  it('reports a shift-drop as a copy rather than a move', async () => {
+    // The canvas does not know what a copy is. It reports the gesture and the
+    // caller decides (HTOO-448).
+    const { overlay, onMarkerMove } = await renderCanvas([WARP])
+
+    fireEvent.mouseDown(overlay, { ...at(8, 8), button: 0 })
+    fireEvent.mouseMove(overlay, { ...at(11, 13), shiftKey: true })
+    fireEvent.mouseUp(overlay, { ...at(11, 13), shiftKey: true })
+
+    expect(onMarkerMove).toHaveBeenCalledWith(WARP, 11, 13, { shift: true })
+  })
+
+  it('takes the shift held at release, not the one held at the start', async () => {
+    // A person can reach for shift after the drag is under way, or let go of it.
+    const { overlay, onMarkerMove } = await renderCanvas([WARP])
+
+    fireEvent.mouseDown(overlay, { ...at(8, 8), button: 0 })
+    fireEvent.mouseMove(overlay, at(11, 13))
+    fireEvent.mouseUp(overlay, { ...at(11, 13), shiftKey: true })
+
+    expect(onMarkerMove).toHaveBeenCalledWith(WARP, 11, 13, { shift: true })
+  })
+
+  it('does not copy on a shift-drop back onto the starting tile', async () => {
+    // That would put a second node on an occupied tile — for a warp, a lost warp.
+    const { overlay, onMarkerMove } = await renderCanvas([WARP])
+
+    fireEvent.mouseDown(overlay, { ...at(8, 8), button: 0 })
+    fireEvent.mouseMove(overlay, { ...at(10, 10), shiftKey: true })
+    fireEvent.mouseMove(overlay, { ...at(8, 8), shiftKey: true })
+    fireEvent.mouseUp(overlay, { ...at(8, 8), shiftKey: true })
 
     expect(onMarkerMove).not.toHaveBeenCalled()
   })

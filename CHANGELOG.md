@@ -35,6 +35,9 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Shift-drag a placed node to copy it.** Drag it to move it; hold Shift as you release to leave the
+  original where it is and put a copy at the new tile. The cursor shows which one will happen. A
+  copied NPC still opens the dialog with the name cleared.
 - **Type the coordinates of a placed node.** The map editor showed the position of a warp, an NPC,
   a sign or a reactor in the dialog title and gave no way to change it. To move a node one tile you
   deleted it and placed it again, and lost everything typed into it. The dialogs now have a Tile X
@@ -174,6 +177,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Rename a map file by changing only its capitals.** Taliesin refused it: it asked the operating
+  system whether the new name was in use, and on Windows that question ignores capitals, so the file
+  collided with its own new name. Taliesin now compares the two names against the file on disk, so a
+  change of capitals is a rename of one file and a different file at the same name is still refused.
+- **Two client archives are found under the name the disk uses.** `seo.dat` and `ia.dat` were opened
+  by a name Taliesin chose. Every other client file is found by asking the folder. On Windows the
+  difference is invisible. On Linux and macOS a client folder that spells either archive with a
+  capital stopped every isometric view from drawing.
 - **Taliesin warns when two warps share a tile.** The server keeps one warp for each tile: the last
   warp in the file replaces the others, and it reports nothing. Reactors are different — a tile
   holds as many as you place and all of them run — so they are not warned about.

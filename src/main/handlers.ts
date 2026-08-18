@@ -6,7 +6,7 @@
  * to its channel via the supplied `ipcMain` and `BrowserWindow` references.
  */
 import type { IpcMain, BrowserWindow as BrowserWindowType } from 'electron'
-import { join, dirname } from 'path'
+import { join, dirname, basename } from 'path'
 import { promises as fs } from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -539,10 +539,28 @@ export async function copyFile(ctx: HandlerContext, src: string, dst: string): P
  * around it — it is the only way to cross the boundary at all.
  *
  * Both paths are checked against the allowed roots, as `copyFile` does.
+ *
+ * **The destination check belongs here, not in the caller** (HTOO-379). The
+ * editors used to ask `fs:exists` first and refuse a destination that answered
+ * yes. On Windows that answer is case-insensitive, so renaming `abel.xml` to
+ * `Abel.xml` was refused as a collision with itself — the one rename a person
+ * most often wants and the one that was impossible. Two callers asked, so the
+ * rule had two homes and one of them could drift.
+ *
+ * Identity is decided by `realpath`, which reports a path's true name: on a
+ * case-insensitive filesystem both spellings resolve to the one entry on disk,
+ * so a case-only rename is a move of a file onto itself and is allowed. A
+ * genuinely different file at the destination resolves to a different real
+ * path and is refused, which is the behaviour the check existed for.
  */
 export async function moveFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
   const safeSrc = assertInsideAnyRoot(allRoots(ctx), src)
   const safeDst = assertInsideAnyRoot(allRoots(ctx), dst)
+
+  if (safeSrc !== safeDst && (await occupiedByAnother(safeSrc, safeDst))) {
+    throw new Error(`"${basename(safeDst)}" already exists in that folder`)
+  }
+
   await fs.mkdir(dirname(safeDst), { recursive: true })
   try {
     await fs.rename(safeSrc, safeDst)
@@ -550,6 +568,31 @@ export async function moveFile(ctx: HandlerContext, src: string, dst: string): P
     if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
     await fs.copyFile(safeSrc, safeDst)
     await fs.unlink(safeSrc)
+  }
+}
+
+/**
+ * Is something already at `dst`, and is it a different file from `src`?
+ *
+ * `false` when nothing is there, and `false` when what is there is `src` under
+ * another spelling of its own name.
+ */
+async function occupiedByAnother(src: string, dst: string): Promise<boolean> {
+  let real: string
+  try {
+    real = await fs.realpath(dst)
+  } catch {
+    // Nothing at the destination. ENOENT is the expected answer here; any other
+    // failure means we cannot read the destination, and refusing a move over a
+    // path we cannot inspect is not an improvement on attempting it.
+    return false
+  }
+  try {
+    return real !== (await fs.realpath(src))
+  } catch {
+    // The source does not resolve, so the rename below will fail on its own
+    // terms and say so more precisely than this check could.
+    return false
   }
 }
 

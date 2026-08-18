@@ -540,15 +540,16 @@ export default function WorldMapPage() {
       const xml = serializeWorldMapXml(data)
 
       if (isRename && selectedFile) {
-        // Refuse before anything is written — see MapEditorPage.handleSave.
-        if (await window.api.exists(newPath)) {
+        // The collision check lives in `moveFile` — see MapEditorPage.handleSave.
+        try {
+          await window.api.moveFile(selectedFile.path, newPath)
+        } catch (e) {
           setSnackbar({
-            message: `A world map named "${fileName}" already exists here. Rename cancelled.`,
+            message: `${e instanceof Error ? e.message : 'Cannot rename this world map'}. Rename cancelled.`,
             severity: 'error'
           })
           return
         }
-        await window.api.moveFile(selectedFile.path, newPath)
       }
 
       await window.api.writeFile(newPath, xml)
