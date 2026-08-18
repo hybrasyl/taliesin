@@ -22,6 +22,7 @@ import {
   FormGroup,
   IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -52,9 +53,28 @@ import EditorHeader from '../shared/EditorHeader'
 import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import { ItemsGroup } from '../shared/ItemsGroup'
+import TilePositionFields from '../shared/TilePositionFields'
+import {
+  appendNodeCopy,
+  armedModeFor,
+  clipboardLabel,
+  findDuplicateWarpTiles,
+  isWarpKind,
+  markerLabel,
+  markersFor,
+  moveNodeIn,
+  nodeAt,
+  type ArmedMode,
+  type NodeRecord
+} from '../../utils/mapNodes'
 import DimensionPickerDialog from '../catalog/DimensionPickerDialog'
 import SubzoneReferenceDialog from './SubzoneReferenceDialog'
-import MapRenderCanvas, { MARKER_COLOR, type MapMarker, type MarkerKind } from './MapRenderCanvas'
+import MapRenderCanvas, {
+  MARKER_COLOR,
+  type ClickModifiers,
+  type MapMarker,
+  type MarkerKind
+} from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { normalizeFolder } from '../../utils/fileTree'
@@ -112,9 +132,32 @@ interface NpcDialogProps {
   npcNames: string[]
   onConfirm: (npc: MapNpc) => void
   onCancel: () => void
+  /** Inclusive upper bounds for the position fields. */
+  maxX: number
+  maxY: number
+  /** The page owns the position; a cancelled edit must not move the node. */
+  onPositionChange: (x: number, y: number) => void
+  /**
+   * Whether this dialog edits an existing node. Not the same as `initial` being
+   * set: a duplicate arrives with every field filled in and is still a
+   * placement (HTOO-443).
+   */
+  isEdit?: boolean
 }
 
-function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel }: NpcDialogProps) {
+function NpcDialog({
+  open,
+  tileX,
+  tileY,
+  initial,
+  npcNames,
+  onConfirm,
+  onCancel,
+  maxX,
+  maxY,
+  onPositionChange,
+  isEdit
+}: NpcDialogProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '')
   const [direction, setDirection] = useState<CardinalDirection>(initial?.direction ?? 'South')
@@ -130,7 +173,7 @@ function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel 
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
-        {initial ? 'Edit NPC' : 'Place NPC'}
+        {isEdit ? 'Edit NPC' : 'Place NPC'}
         <Typography
           variant="caption"
           sx={{
@@ -143,6 +186,13 @@ function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel 
       </DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TilePositionFields
+            x={tileX}
+            y={tileY}
+            maxX={maxX}
+            maxY={maxY}
+            onChange={onPositionChange}
+          />
           <Autocomplete
             options={npcNames}
             freeSolo
@@ -197,7 +247,7 @@ function NpcDialog({ open, tileX, tileY, initial, npcNames, onConfirm, onCancel 
           }
           disabled={!name.trim()}
         >
-          {initial ? 'Save' : 'Place'}
+          {isEdit ? 'Save' : 'Place'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -213,9 +263,31 @@ interface SignDialogProps {
   initial: MapSign | null
   onConfirm: (sign: MapSign) => void
   onCancel: () => void
+  /** Inclusive upper bounds for the position fields. */
+  maxX: number
+  maxY: number
+  /** The page owns the position; a cancelled edit must not move the node. */
+  onPositionChange: (x: number, y: number) => void
+  /**
+   * Whether this dialog edits an existing node. Not the same as `initial` being
+   * set: a duplicate arrives with every field filled in and is still a
+   * placement (HTOO-443).
+   */
+  isEdit?: boolean
 }
 
-function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDialogProps) {
+function SignDialog({
+  open,
+  tileX,
+  tileY,
+  initial,
+  onConfirm,
+  onCancel,
+  maxX,
+  maxY,
+  onPositionChange,
+  isEdit
+}: SignDialogProps) {
   const [type, setType] = useState(initial?.type ?? 'Sign')
   const [boardKey, setBoardKey] = useState(initial?.boardKey ?? '')
   const [name, setName] = useState(initial?.name ?? '')
@@ -250,7 +322,7 @@ function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDi
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
-        {initial ? 'Edit Sign' : 'Place Sign'}
+        {isEdit ? 'Edit Sign' : 'Place Sign'}
         <Typography
           variant="caption"
           sx={{
@@ -263,6 +335,13 @@ function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDi
       </DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TilePositionFields
+            x={tileX}
+            y={tileY}
+            maxX={maxX}
+            maxY={maxY}
+            onChange={onPositionChange}
+          />
           <FormControl size="small" fullWidth>
             <InputLabel>Sign Type</InputLabel>
             <Select label="Sign Type" value={type} onChange={(e) => setType(e.target.value)}>
@@ -351,7 +430,7 @@ function SignDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: SignDi
             })
           }
         >
-          {initial ? 'Save' : 'Place'}
+          {isEdit ? 'Save' : 'Place'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -367,9 +446,31 @@ interface ReactorDialogProps {
   initial: MapReactor | null
   onConfirm: (reactor: MapReactor) => void
   onCancel: () => void
+  /** Inclusive upper bounds for the position fields. */
+  maxX: number
+  maxY: number
+  /** The page owns the position; a cancelled edit must not move the node. */
+  onPositionChange: (x: number, y: number) => void
+  /**
+   * Whether this dialog edits an existing node. Not the same as `initial` being
+   * set: a duplicate arrives with every field filled in and is still a
+   * placement (HTOO-443).
+   */
+  isEdit?: boolean
 }
 
-function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: ReactorDialogProps) {
+function ReactorDialog({
+  open,
+  tileX,
+  tileY,
+  initial,
+  onConfirm,
+  onCancel,
+  maxX,
+  maxY,
+  onPositionChange,
+  isEdit
+}: ReactorDialogProps) {
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [script, setScript] = useState(initial?.script ?? '')
@@ -385,7 +486,7 @@ function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: Rea
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>
-        {initial ? 'Edit Reactor' : 'Place Reactor'}
+        {isEdit ? 'Edit Reactor' : 'Place Reactor'}
         <Typography
           variant="caption"
           sx={{
@@ -398,6 +499,13 @@ function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: Rea
       </DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TilePositionFields
+            x={tileX}
+            y={tileY}
+            maxX={maxX}
+            maxY={maxY}
+            onChange={onPositionChange}
+          />
           <TextField
             label="Display Name"
             size="small"
@@ -436,7 +544,7 @@ function ReactorDialog({ open, tileX, tileY, initial, onConfirm, onCancel }: Rea
           }
           disabled={!script.trim()}
         >
-          {initial ? 'Save' : 'Place'}
+          {isEdit ? 'Save' : 'Place'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -1023,28 +1131,18 @@ const PLACE_MODES: { mode: Exclude<PlaceMode, 'none'>; label: string; key: strin
 ]
 type SelMarker = { kind: MarkerKind; index: number } | null
 
-/**
- * Whether a marker kind indexes into `data.warps`.
- *
- * Map warps and world warps are one collection with two `targetType` values,
- * drawn as two marker kinds. Everything that resolves a marker back to its
- * record goes through this, so the two never drift apart.
- */
-function isWarpKind(kind: MarkerKind): boolean {
-  return kind === 'warp' || kind === 'worldwarp'
-}
-
 type DialogState =
-  | { kind: 'npc'; tileX: number; tileY: number; editIndex?: number }
+  | { kind: 'npc'; tileX: number; tileY: number; editIndex?: number; prefill?: MapNpc }
   | {
       kind: 'warp'
       tileX: number
       tileY: number
       editIndex?: number
       defaultType?: 'map' | 'worldmap'
+      prefill?: MapWarp
     }
-  | { kind: 'sign'; tileX: number; tileY: number; editIndex?: number }
-  | { kind: 'reactor'; tileX: number; tileY: number; editIndex?: number }
+  | { kind: 'sign'; tileX: number; tileY: number; editIndex?: number; prefill?: MapSign }
+  | { kind: 'reactor'; tileX: number; tileY: number; editIndex?: number; prefill?: MapReactor }
   | null
 
 const ZOOM_LEVELS = [0.25, 0.4, 0.6, 0.85, 1.2, 1.8]
@@ -1073,29 +1171,28 @@ function MapPlacementTab({
   const [showPassability, setShowPassability] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
   const [hoverCoord, setHoverCoord] = useState<{ tx: number; ty: number } | null>(null)
+  /** The menu shown when a click lands on a tile holding more than one node. */
+  const [stackMenu, setStackMenu] = useState<{
+    hits: MapMarker[]
+    anchor: { x: number; y: number }
+  } | null>(null)
+  /**
+   * The last node confirmed in each armed mode (HTOO-443). A ref, not state:
+   * nothing renders from it, and it must not survive into another map.
+   */
+  const lastPlaced = useRef<Partial<Record<ArmedMode, NodeRecord>>>({})
+  /** The copy buffer (HTOO-444). State, because the toolbar says what is in it. */
+  const [clipboard, setClipboard] = useState<NodeRecord | null>(null)
 
   const zoom = ZOOM_LEVELS[zoomIdx]
 
   // Build flat marker list for MapRenderCanvas. Memoized so the array identity is
   // stable across renders — it's a dep of the canvas's tile-iterating overlay effect.
-  const markers: MapMarker[] = useMemo(
-    () => [
-      // `index` stays the index into `data.warps` for both kinds — the two
-      // marker kinds are a drawing distinction, not a second collection.
-      ...data.warps.map(
-        (w, i): MapMarker => ({
-          kind: w.targetType === 'worldmap' ? 'worldwarp' : 'warp',
-          index: i,
-          x: w.x,
-          y: w.y
-        })
-      ),
-      ...data.npcs.map((n, i): MapMarker => ({ kind: 'npc', index: i, x: n.x, y: n.y })),
-      ...data.signs.map((s, i): MapMarker => ({ kind: 'sign', index: i, x: s.x, y: s.y })),
-      ...data.reactors.map((r, i): MapMarker => ({ kind: 'reactor', index: i, x: r.x, y: r.y }))
-    ],
-    [data.warps, data.npcs, data.signs, data.reactors]
-  )
+  // Memoised so the array identity is stable across renders — it is a dep of
+  // the canvas's tile-iterating overlay effect.
+  const markers: MapMarker[] = useMemo(() => markersFor(data), [data])
+
+  const duplicateWarpTiles = useMemo(() => findDuplicateWarpTiles(data.warps), [data.warps])
 
   /** Arm a mode, or disarm it if it is already armed. Chips and keys share it. */
   const toggleMode = useCallback((mode: Exclude<PlaceMode, 'none'>) => {
@@ -1119,6 +1216,22 @@ function MapPlacementTab({
       // letter. See utils/keyboard.ts — shared with the Map Maker's handler.
       if (isTypingTarget(e.target)) return
       if (dialogState) return
+      // Copy and paste are the two chords this tab answers to (HTOO-444). They
+      // are read before the modifier guard below, which exists to keep the
+      // single-letter mode keys from firing on a browser or OS shortcut.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        const chord = e.key.toLowerCase()
+        if (chord === 'c') {
+          e.preventDefault()
+          keyActions.current.copySelection()
+          return
+        }
+        if (chord === 'v') {
+          e.preventDefault()
+          keyActions.current.pasteClipboard()
+          return
+        }
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === 'Escape') {
         setPlaceMode('none')
@@ -1140,8 +1253,19 @@ function MapPlacementTab({
    * the NPC chip ten times (HTOO-338). The mode is turned off deliberately —
    * click the armed chip again, press Escape, or press its key.
    */
-  const handleTileClick = (tx: number, ty: number) => {
+  const handleTileClick = (tx: number, ty: number, mods: ClickModifiers) => {
     if (placeMode === 'none') return
+    // Shift repeats the last node placed in this mode, with its details, and
+    // does not open the dialog (HTOO-443). Shift already means copy on the Map
+    // Maker canvas, where it copies a dragged selection instead of moving it.
+    if (mods.shift) {
+      const last = lastPlaced.current[placeMode]
+      if (last) {
+        placeCopy(last, tx, ty)
+        return
+      }
+      // Nothing to repeat yet, so this is an ordinary placement.
+    }
     if (placeMode === 'warp-map') {
       setDialogState({ kind: 'warp', tileX: tx, tileY: ty, defaultType: 'map' })
       return
@@ -1188,6 +1312,49 @@ function MapPlacementTab({
     if (sameRecord) setSelected(null)
   }
 
+  const maxX = Math.max(0, data.x - 1)
+  const maxY = Math.max(0, data.y - 1)
+
+  /** Move one node to a tile, and keep it selected. */
+  const moveNode = (kind: MarkerKind, index: number, x: number, y: number) => {
+    onChange((prev) => moveNodeIn(prev, kind, index, x, y))
+    setSelected({ kind, index })
+  }
+
+  /**
+   * Place a copy of an existing node at a tile.
+   *
+   * Shared by shift-click (HTOO-443) and paste (HTOO-444). Three of the four
+   * kinds are placed without a dialog, which is the whole point: a row of warps
+   * into one building is one destination typed once.
+   *
+   * NPCs are the exception, and it is not a matter of taste. The server
+   * registers a placed NPC by name, globally:
+   *
+   *     World.WorldState.Set(merchant.Name, merchant);
+   *
+   * Two NPCs sharing a name overwrite each other in world state, on this map or
+   * on any other. So a copied NPC arrives with every other field filled in and
+   * its name cleared, and the dialog opens for the author to give it one.
+   */
+  const placeCopy = (node: NodeRecord, tx: number, ty: number) => {
+    if (node.kind === 'npc') {
+      setDialogState({
+        kind: 'npc',
+        tileX: tx,
+        tileY: ty,
+        prefill: { ...node.record, name: '', x: tx, y: ty }
+      })
+      return
+    }
+    lastPlaced.current[armedModeFor(node)] = node
+    onChange((prev) => {
+      const { data: next, selected: sel } = appendNodeCopy(prev, node, tx, ty)
+      setSelected(sel)
+      return next
+    })
+  }
+
   const confirmNpc = (npc: MapNpc) => {
     const ds = dialogState
     if (!ds || ds.kind !== 'npc') return
@@ -1198,6 +1365,7 @@ function MapPlacementTab({
       }))
       setSelected({ kind: 'npc', index: ds.editIndex })
     } else {
+      lastPlaced.current.npc = { kind: 'npc', record: npc }
       onChange((prev) => {
         const next = { ...prev, npcs: [...prev.npcs, npc] }
         setSelected({ kind: 'npc', index: next.npcs.length - 1 })
@@ -1217,9 +1385,16 @@ function MapPlacementTab({
       }))
       setSelected({ kind: 'warp', index: ds.editIndex })
     } else {
+      lastPlaced.current[armedModeFor({ kind: 'warp', record: warp })] = {
+        kind: 'warp',
+        record: warp
+      }
       onChange((prev) => {
         const next = { ...prev, warps: [...prev.warps, warp] }
-        setSelected({ kind: 'warp', index: next.warps.length - 1 })
+        setSelected({
+          kind: warp.targetType === 'worldmap' ? 'worldwarp' : 'warp',
+          index: next.warps.length - 1
+        })
         return next
       })
     }
@@ -1236,6 +1411,7 @@ function MapPlacementTab({
       }))
       setSelected({ kind: 'sign', index: ds.editIndex })
     } else {
+      lastPlaced.current.sign = { kind: 'sign', record: sign }
       onChange((prev) => {
         const next = { ...prev, signs: [...prev.signs, sign] }
         setSelected({ kind: 'sign', index: next.signs.length - 1 })
@@ -1255,6 +1431,7 @@ function MapPlacementTab({
       }))
       setSelected({ kind: 'reactor', index: ds.editIndex })
     } else {
+      lastPlaced.current.reactor = { kind: 'reactor', record: reactor }
       onChange((prev) => {
         const next = { ...prev, reactors: [...prev.reactors, reactor] }
         setSelected({ kind: 'reactor', index: next.reactors.length - 1 })
@@ -1262,6 +1439,47 @@ function MapPlacementTab({
       })
     }
     setDialogState(null)
+  }
+
+  /** Copy the selected node into the paste buffer (HTOO-444). */
+  const copySelection = () => {
+    if (!selected) return
+    const node = nodeAt(data, selected.kind, selected.index)
+    if (node) setClipboard(node)
+  }
+
+  /**
+   * Paste at the hovered tile.
+   *
+   * With the pointer off the canvas there is no hovered tile, so the copy lands
+   * one tile right of its source instead. Pasting a node exactly on top of its
+   * original would look like nothing happened.
+   */
+  const pasteClipboard = () => {
+    if (!clipboard) return
+    const at = hoverCoord ?? {
+      tx: Math.min(maxX, clipboard.record.x + 1),
+      ty: clipboard.record.y
+    }
+    placeCopy(clipboard, at.tx, at.ty)
+  }
+
+  // The key handler below is registered once and reads through this, rather
+  // than re-subscribing on every edit to `data`. Same idiom as the canvas's
+  // `onHoverTileRef`.
+  const keyActions = useRef({ copySelection, pasteClipboard })
+  keyActions.current = { copySelection, pasteClipboard }
+
+  /** One marker on the tile selects it; more than one asks which (HTOO-442). */
+  const handleMarkersClick = (hits: MapMarker[], anchor: { x: number; y: number }) => {
+    if (hits.length === 1) {
+      const hit = hits[0]!
+      setSelected((s) =>
+        s?.kind === hit.kind && s.index === hit.index ? null : { kind: hit.kind, index: hit.index }
+      )
+      return
+    }
+    setStackMenu({ hits, anchor })
   }
 
   return (
@@ -1379,7 +1597,34 @@ function MapPlacementTab({
             />
           </Tooltip>
         ))}
-        <Box sx={{ ml: 'auto' }}>
+        {/* None of what follows is visible from the toolbar, and a shortcut
+            nobody can find is a shortcut nobody has. */}
+        <Tooltip
+          title={
+            <Box component="span" sx={{ display: 'block', whiteSpace: 'pre-line' }}>
+              {[
+                'Click a marker to select it.',
+                'Drag a marker to move it. Esc abandons the drag.',
+                'Click a stacked tile to choose which node you mean.',
+                'Shift-click in a placement mode to repeat the last node placed in it.',
+                'Ctrl+C copies the selected node. Ctrl+V pastes it at the pointer.'
+              ].join('\n')}
+            </Box>
+          }
+        >
+          <HelpOutlineOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+        </Tooltip>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {clipboard && (
+            <Tooltip title="Ctrl+V pastes at the tile under the pointer">
+              <Chip
+                label={`Copied: ${clipboardLabel(clipboard)}`}
+                size="small"
+                variant="outlined"
+                onDelete={() => setClipboard(null)}
+              />
+            </Tooltip>
+          )}
           <Typography
             variant="caption"
             sx={{
@@ -1395,6 +1640,23 @@ function MapPlacementTab({
         </Box>
       </Box>
       <Divider />
+      {/*
+        A second warp on a tile is a lost warp, not a preference. The server
+        loads warps into a dictionary keyed by coordinate and overwrites, with
+        no error and no log line, so the only sign of it is the map not
+        behaving. Reactors are not warned about: they stack, and all of them
+        run (HTOO-442).
+      */}
+      {duplicateWarpTiles.length > 0 && (
+        <Alert severity="warning" variant="outlined" sx={{ py: 0, flexShrink: 0 }}>
+          {duplicateWarpTiles.length === 1
+            ? `Two or more warps share tile (${duplicateWarpTiles[0]}).`
+            : `Two or more warps share each of these tiles: ${duplicateWarpTiles
+                .map((t) => `(${t})`)
+                .join(', ')}.`}{' '}
+          The server keeps one warp per tile and the last one in the file wins.
+        </Alert>
+      )}
       {/* Main area: canvas + items panel */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 1 }}>
         {/* Rendered map canvas */}
@@ -1411,9 +1673,8 @@ function MapPlacementTab({
           showPassability={showPassability}
           showGrid={showGrid}
           onTileClick={handleTileClick}
-          onMarkerClick={(kind, index) =>
-            setSelected((s) => (s?.kind === kind && s.index === index ? null : { kind, index }))
-          }
+          onMarkerClick={handleMarkersClick}
+          onMarkerMove={(marker, tx, ty) => moveNode(marker.kind, marker.index, tx, ty)}
           onHoverTile={setHoverCoord}
           sx={{ flex: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
         />
@@ -1564,6 +1825,37 @@ function MapPlacementTab({
           </Box>
         </Box>
       </Box>
+      {/* Which of the stacked nodes did the author mean? (HTOO-442) */}
+      <Menu
+        open={stackMenu !== null}
+        onClose={() => setStackMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          stackMenu ? { top: stackMenu.anchor.y, left: stackMenu.anchor.x } : undefined
+        }
+      >
+        {(stackMenu?.hits ?? []).map((hit) => (
+          <MenuItem
+            key={`${hit.kind}-${hit.index}`}
+            onClick={() => {
+              setSelected({ kind: hit.kind, index: hit.index })
+              setStackMenu(null)
+            }}
+          >
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: MARKER_COLOR[hit.kind],
+                mr: 1,
+                flexShrink: 0
+              }}
+            />
+            {markerLabel(data, hit)}
+          </MenuItem>
+        ))}
+      </Menu>
       {/* Dialogs */}
       {dialogState?.kind === 'npc' && (
         <NpcDialog
@@ -1571,7 +1863,15 @@ function MapPlacementTab({
           tileX={dialogState.tileX}
           tileY={dialogState.tileY}
           initial={
-            dialogState.editIndex !== undefined ? (data.npcs[dialogState.editIndex] ?? null) : null
+            dialogState.editIndex !== undefined
+              ? (data.npcs[dialogState.editIndex] ?? null)
+              : (dialogState.prefill ?? null)
+          }
+          isEdit={dialogState.editIndex !== undefined}
+          maxX={maxX}
+          maxY={maxY}
+          onPositionChange={(x, y) =>
+            setDialogState((d) => (d?.kind === 'npc' ? { ...d, tileX: x, tileY: y } : d))
           }
           npcNames={npcNames}
           onConfirm={confirmNpc}
@@ -1584,7 +1884,16 @@ function MapPlacementTab({
           tileX={dialogState.tileX}
           tileY={dialogState.tileY}
           initial={
-            dialogState.editIndex !== undefined ? (data.warps[dialogState.editIndex] ?? null) : null
+            dialogState.editIndex !== undefined
+              ? (data.warps[dialogState.editIndex] ?? null)
+              : (dialogState.prefill ?? null)
+          }
+          isEdit={dialogState.editIndex !== undefined}
+          maxX={maxX}
+          maxY={maxY}
+          positionNoun="Tile"
+          onPositionChange={(x, y) =>
+            setDialogState((d) => (d?.kind === 'warp' ? { ...d, tileX: x, tileY: y } : d))
           }
           defaultType={dialogState.defaultType}
           mapNames={mapNames}
@@ -1599,7 +1908,15 @@ function MapPlacementTab({
           tileX={dialogState.tileX}
           tileY={dialogState.tileY}
           initial={
-            dialogState.editIndex !== undefined ? (data.signs[dialogState.editIndex] ?? null) : null
+            dialogState.editIndex !== undefined
+              ? (data.signs[dialogState.editIndex] ?? null)
+              : (dialogState.prefill ?? null)
+          }
+          isEdit={dialogState.editIndex !== undefined}
+          maxX={maxX}
+          maxY={maxY}
+          onPositionChange={(x, y) =>
+            setDialogState((d) => (d?.kind === 'sign' ? { ...d, tileX: x, tileY: y } : d))
           }
           onConfirm={confirmSign}
           onCancel={() => setDialogState(null)}
@@ -1613,7 +1930,13 @@ function MapPlacementTab({
           initial={
             dialogState.editIndex !== undefined
               ? (data.reactors[dialogState.editIndex] ?? null)
-              : null
+              : (dialogState.prefill ?? null)
+          }
+          isEdit={dialogState.editIndex !== undefined}
+          maxX={maxX}
+          maxY={maxY}
+          onPositionChange={(x, y) =>
+            setDialogState((d) => (d?.kind === 'reactor' ? { ...d, tileX: x, tileY: y } : d))
           }
           onConfirm={confirmReactor}
           onCancel={() => setDialogState(null)}

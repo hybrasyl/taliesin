@@ -35,6 +35,25 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Type the coordinates of a placed node.** The map editor showed the position of a warp, an NPC,
+  a sign or a reactor in the dialog title and gave no way to change it. To move a node one tile you
+  deleted it and placed it again, and lost everything typed into it. The dialogs now have a Tile X
+  and a Tile Y field. A cancelled edit leaves the node where it was.
+- **Drag a placed node on the map to move it.** Press on a marker, move to the tile you want, and
+  release. The marker you drag is drawn at the new tile while the original stays in place, so you
+  can compare the two. Escape abandons the drag. A drag from a tile holding more than one node does
+  nothing, because there is no way to say which node you took hold of.
+- **Repeat the last node you placed.** Shift-click in a placement mode places another node with the
+  details of the last one placed in that mode: the same destination map and arrival position, the
+  same world map, the same reactor script, the same sign message. It does not open the dialog.
+- **Copy and paste a placed node.** Ctrl+C copies the selected node. Ctrl+V places a copy on the
+  tile under the pointer. With the pointer off the map, the copy lands one tile right of its
+  source.
+- **Choose which node you mean on a tile that holds more than one.** A click used to select the
+  first node on the tile and there was no way to reach the rest, so a second reactor on a tile could
+  only be reached from the list. A tile with more than one node now carries a count, and a click on
+  it offers each node by name.
+
 - **The pack editor reads the pack folder, not only the pack file.** Use the button beside Save to
   re-read it. Taliesin reports a file in the folder that the pack does not name, which would not be
   compiled into the `.datf`, and a file the pack names that is not in the folder. Add or remove them
@@ -155,6 +174,13 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Taliesin warns when two warps share a tile.** The server keeps one warp for each tile: the last
+  warp in the file replaces the others, and it reports nothing. Reactors are different — a tile
+  holds as many as you place and all of them run — so they are not warned about.
+- **A copied NPC arrives without a name.** The server records a placed NPC by name for the whole
+  world, so two NPCs with one name replace each other, on this map or on another. A copied NPC
+  keeps its display name, its facing and its position, and opens the dialog for you to give it a
+  new name.
 - **The Static Tile Manager no longer warns about the tile numbers that are safest to use.** It said
   a tile from 9008 to 9999 "may carry legacy art that a map places". Those 992 numbers are the one
   part of the table with no legacy art at all, so there is nothing there to overwrite. They are now

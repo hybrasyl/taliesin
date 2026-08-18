@@ -625,7 +625,7 @@ export default function WorldMapEditorPanel({
           onPointDisplayNameChange={(name) =>
             setDialogState((s) => (s ? { ...s, displayName: name } : s))
           }
-          onPointPositionChange={(x, y) =>
+          onPositionChange={(x, y) =>
             setDialogState((s) => (s ? { ...s, canvasX: x, canvasY: y } : s))
           }
           onConfirm={handleConfirmPoint}

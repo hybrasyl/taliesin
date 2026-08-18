@@ -64,11 +64,33 @@ export interface MapRenderCanvasProps {
   showPassability?: boolean
   /** When true, draws tile grid lines over the map. */
   showGrid?: boolean
-  onTileClick?: (tx: number, ty: number) => void
-  onMarkerClick?: (kind: MarkerKind, index: number) => void
+  onTileClick?: (tx: number, ty: number, mods: ClickModifiers) => void
+  /**
+   * Every marker on the clicked tile, not the first one.
+   *
+   * The hit test used to be `markers.find(...)`, which returns one marker per
+   * tile. Reactors stack on the server — `Dictionary<(byte X, byte Y),
+   * Dictionary<Guid, Reactor>>` — so a second reactor on a tile drew under the
+   * first and could never be clicked (HTOO-442). The caller decides what to do
+   * with more than one; `anchor` is where to put a menu if it wants one.
+   */
+  onMarkerClick?: (hits: MapMarker[], anchor: { x: number; y: number }) => void
+  /**
+   * Commit a dragged marker at its new tile. Providing this turns dragging on
+   * (HTOO-445); the canvas never moves anything itself.
+   */
+  onMarkerMove?: (marker: MapMarker, tx: number, ty: number) => void
   onHoverTile?: (tile: { tx: number; ty: number } | null) => void
   sx?: SxProps
 }
+
+/** Which modifier keys were held. Shift duplicates the last placed node. */
+export interface ClickModifiers {
+  shift: boolean
+}
+
+/** How far the pointer travels before a press becomes a drag, in tiles. */
+const DRAG_TILE_THRESHOLD = 1
 
 // ── Internal coord state (set after base render, read by overlay + hit-test) ──
 
@@ -182,6 +204,7 @@ export default function MapRenderCanvas({
   showGrid = false,
   onTileClick,
   onMarkerClick,
+  onMarkerMove,
   onHoverTile,
   sx
 }: MapRenderCanvasProps) {
@@ -196,6 +219,21 @@ export default function MapRenderCanvas({
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hoverTile, setHoverTile] = useState<{ tx: number; ty: number } | null>(null)
+
+  /**
+   * The drag state machine (HTOO-445), the same shape the Map Maker canvas runs
+   * for tile selections: a press records what was grabbed and where, movement
+   * past a tile turns it into a drag, and release commits.
+   *
+   * `press` is a ref because it changes on every mouse move and nothing draws
+   * from it; `drag` is state because the overlay draws the ghost from it.
+   */
+  const press = useRef<{ marker: MapMarker; from: { tx: number; ty: number } } | null>(null)
+  const [drag, setDrag] = useState<{ marker: MapMarker; to: { tx: number; ty: number } } | null>(
+    null
+  )
+  /** Set on a release that committed a move, so the click it precedes is dropped. */
+  const swallowClick = useRef(false)
 
   // ── Base render ─────────────────────────────────────────────────────────────
 
@@ -321,6 +359,22 @@ export default function MapRenderCanvas({
     }
   }, [mapId, mapWidth, mapHeight, mapDirectory, clientPath, zoom])
 
+  /** Escape abandons a drag and leaves the marker where it was. */
+  useEffect(() => {
+    if (!drag) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      // Stop the page's own Escape handler from also disarming placement mode:
+      // one Escape should undo one thing.
+      e.stopPropagation()
+      press.current = null
+      swallowClick.current = true
+      setDrag(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [drag])
+
   // ── Overlay draw ────────────────────────────────────────────────────────────
   // Runs whenever base is re-rendered OR markers/selection/hover changes.
 
@@ -386,17 +440,27 @@ export default function MapRenderCanvas({
     // Markers
     const r = cs.mode === 'iso' ? Math.max(5, 9 * cs.scale) : Math.max(2, cs.pixPerTile * 0.38)
 
+    /**
+     * How many markers share each tile.
+     *
+     * A stacked tile drew exactly like a single one, so the author had no way
+     * to know a second node was under the first (HTOO-442). The count goes in a
+     * badge, so it is visible before the click rather than after it.
+     */
+    const perTile = new Map<string, number>()
     for (const m of markers) {
-      const { x, y } = tileCentre(m.x, m.y, cs)
-      const style = MARKER[m.kind]
-      const isSel = selectedMarker?.kind === m.kind && selectedMarker.index === m.index
+      const key = `${m.x},${m.y}`
+      perTile.set(key, (perTile.get(key) ?? 0) + 1)
+    }
 
+    const drawMarker = (m: MapMarker, x: number, y: number, sel: boolean): void => {
+      const style = MARKER[m.kind]
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.fillStyle = isSel ? style.stroke : style.fill
+      ctx.fillStyle = sel ? style.stroke : style.fill
       ctx.fill()
-      ctx.strokeStyle = isSel ? 'white' : style.stroke
-      ctx.lineWidth = isSel ? 2 : 1
+      ctx.strokeStyle = sel ? 'white' : style.stroke
+      ctx.lineWidth = sel ? 2 : 1
       ctx.stroke()
 
       if (r >= 5) {
@@ -407,7 +471,51 @@ export default function MapRenderCanvas({
         ctx.fillText(style.label, x, y)
       }
     }
-  }, [renderTick, markers, selectedMarker, hoverTile, showPassability, showGrid])
+
+    for (const m of markers) {
+      const { x, y } = tileCentre(m.x, m.y, cs)
+      const isSel = selectedMarker?.kind === m.kind && selectedMarker.index === m.index
+      drawMarker(m, x, y, isSel)
+    }
+
+    // Stack badges, drawn after every marker so no marker covers one.
+    if (r >= 5) {
+      for (const [key, count] of perTile) {
+        if (count < 2) continue
+        const [txs, tys] = key.split(',')
+        const { x, y } = tileCentre(Number(txs), Number(tys), cs)
+        const bx = x + r * 0.85
+        const by = y - r * 0.85
+        const br = Math.max(4, r * 0.6)
+        ctx.beginPath()
+        ctx.arc(bx, by, br, 0, Math.PI * 2)
+        ctx.fillStyle = '#212121'
+        ctx.fill()
+        ctx.strokeStyle = 'white'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        ctx.fillStyle = 'white'
+        ctx.font = `bold ${Math.max(7, Math.round(br * 1.2))}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(count), bx, by)
+      }
+    }
+
+    // The dragged marker at the tile it would land on. The original stays put
+    // until the drop commits, so the move is a comparison and not a leap.
+    if (drag) {
+      const { x, y } = tileCentre(drag.to.tx, drag.to.ty, cs)
+      ctx.save()
+      ctx.globalAlpha = 0.55
+      pathTile(ctx, x, y, cs)
+      ctx.strokeStyle = 'white'
+      ctx.lineWidth = 1
+      ctx.stroke()
+      drawMarker(drag.marker, x, y, true)
+      ctx.restore()
+    }
+  }, [renderTick, markers, selectedMarker, hoverTile, showPassability, showGrid, drag])
 
   // ── Event helpers ───────────────────────────────────────────────────────────
 
@@ -424,35 +532,82 @@ export default function MapRenderCanvas({
   const onHoverTileRef = useRef(onHoverTile)
   onHoverTileRef.current = onHoverTile
 
+  /** Every marker on a tile, topmost kind first is not meaningful — order is stable. */
+  const hitsAt = useCallback(
+    (tx: number, ty: number) => markers.filter((m) => m.x === tx && m.y === ty),
+    [markers]
+  )
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Left button only, and only when the caller accepts a move.
+      if (e.button !== 0 || !onMarkerMove) return
+      const tile = eventToTile(e)
+      if (!tile) return
+      const hits = hitsAt(tile.tx, tile.ty)
+      // A stacked tile is ambiguous: which of them did the author grab? Leave
+      // it to the click, which opens a menu, rather than guessing.
+      if (hits.length !== 1) return
+      press.current = { marker: hits[0]!, from: tile }
+    },
+    [eventToTile, hitsAt, onMarkerMove]
+  )
+
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const tile = eventToTile(e)
       setHoverTile(tile)
       onHoverTileRef.current?.(tile)
+
+      const p = press.current
+      if (!p || !tile) return
+      const travelled =
+        Math.abs(tile.tx - p.from.tx) + Math.abs(tile.ty - p.from.ty) >= DRAG_TILE_THRESHOLD
+      if (!travelled && !drag) return
+      setDrag({ marker: p.marker, to: tile })
     },
-    [eventToTile]
+    [eventToTile, drag]
   )
+
+  const handleMouseUp = useCallback(() => {
+    const p = press.current
+    press.current = null
+    if (!p || !drag) return
+    setDrag(null)
+    const moved = drag.to.tx !== p.from.tx || drag.to.ty !== p.from.ty
+    if (!moved) return
+    // The click that follows this release would toggle the selection off, which
+    // reads as the move having failed.
+    swallowClick.current = true
+    onMarkerMove?.(p.marker, drag.to.tx, drag.to.ty)
+  }, [drag, onMarkerMove])
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (swallowClick.current) {
+        swallowClick.current = false
+        return
+      }
       const tile = eventToTile(e)
       if (!tile) return
       // Marker hit wins over place
-      const hit = markers.find((m) => m.x === tile.tx && m.y === tile.ty)
-      if (hit && onMarkerClick) {
-        onMarkerClick(hit.kind, hit.index)
+      const hits = hitsAt(tile.tx, tile.ty)
+      if (hits.length > 0 && onMarkerClick) {
+        onMarkerClick(hits, { x: e.clientX, y: e.clientY })
         return
       }
-      if (onTileClick) onTileClick(tile.tx, tile.ty)
+      if (onTileClick) onTileClick(tile.tx, tile.ty, { shift: e.shiftKey })
     },
-    [eventToTile, markers, onMarkerClick, onTileClick]
+    [eventToTile, hitsAt, onMarkerClick, onTileClick]
   )
 
-  const cursor = placeMode
-    ? 'crosshair'
-    : markers.length > 0 || onMarkerClick
-      ? 'pointer'
-      : 'default'
+  const cursor = drag
+    ? 'grabbing'
+    : placeMode
+      ? 'crosshair'
+      : markers.length > 0 || onMarkerClick
+        ? 'pointer'
+        : 'default'
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -500,10 +655,17 @@ export default function MapRenderCanvas({
         <canvas
           ref={overlayRef}
           style={{ position: 'absolute', top: 0, left: 0, display: 'block', cursor }}
+          onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
           onMouseLeave={() => {
             setHoverTile(null)
             onHoverTileRef.current?.(null)
+            // Leaving the canvas mid-drag abandons it. Committing to the last
+            // tile inside the border would move the node somewhere the author
+            // never pointed at.
+            press.current = null
+            setDrag(null)
           }}
           onClick={handleClick}
         />
