@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-08-30
+
 ### Fixed
 
 - **The map editor no longer stutters on large maps.** Four causes, one fix each. The animation
