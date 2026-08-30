@@ -13,13 +13,15 @@ import {
   Alert,
   IconButton,
   Tooltip,
-  LinearProgress
+  LinearProgress,
+  Slider
 } from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd'
 import SaveIcon from '@mui/icons-material/Save'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ViewInArIcon from '@mui/icons-material/ViewInAr'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useSettingsStore } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useTransientStatus } from '../hooks/useTransientStatus'
@@ -29,7 +31,13 @@ import { EmptyStateSettings } from '../components/shared/EmptyStateSettings'
 import { WorkingDirToolbar } from '../components/shared/WorkingDirToolbar'
 import { loadPixelBufferFromPath, pixelBufferToPngBytes } from '../utils/imageLoader'
 import { PixelBuffer } from '../utils/duotone'
-import { convertCell, TileLayer, TileScale, WallFace } from '../utils/tileConvert'
+import { convertCell, Interpolation, TileLayer, TileScale, WallFace } from '../utils/tileConvert'
+import {
+  Adjustments,
+  DEFAULT_ADJUSTMENTS,
+  applyAdjustments,
+  isIdentityAdjustments
+} from '../utils/imageAdjust'
 import { detectOrientation, Orientation } from '../utils/orientationDetect'
 import { sliceGrid } from '../utils/gridSlice'
 import {
@@ -37,6 +45,8 @@ import {
   padBelow,
   sliceColumns,
   splitWallHeight,
+  transparentRowsBelow,
+  trimBelow,
   wallColumnsFor,
   WALL_FACE_WIDTH
 } from '../utils/tileShape'
@@ -121,6 +131,19 @@ function paintBuffer(
   }
 }
 
+/**
+ * A small (i) carrying a control's explanation as a tooltip.
+ *
+ * The sidebar used to spell every rule out as helperText and captions, and the
+ * page read as a manual. Static explanations live behind these; only live
+ * feedback (computed counts, conditional warnings) stays visible.
+ */
+const InfoTip: React.FC<{ title: React.ReactNode }> = ({ title }) => (
+  <Tooltip title={title} placement="right">
+    <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled', flexShrink: 0 }} />
+  </Tooltip>
+)
+
 const WALKABILITY_COLOR: Record<Walkability, 'success' | 'error' | 'default'> = {
   passable: 'success',
   blocking: 'error',
@@ -152,6 +175,8 @@ const StaticTileManagerPage: React.FC = () => {
   const [mirrorSource, setMirrorSource] = useState(false)
   /** Blank rows at the base of the tile. They raise the art off the ground. */
   const [blankRowsBelow, setBlankRowsBelow] = useState(0)
+  /** Remove the transparent padding an export leaves under the art. */
+  const [trimBase, setTrimBase] = useState(false)
 
   // ── Conversion params ───────────────────────────────────────────────────────
   const [layer, setLayer] = useState<TileLayer>('floor')
@@ -159,6 +184,24 @@ const StaticTileManagerPage: React.FC = () => {
   // Most sources are drawn in the projection they are for, so normalize-only is
   // the common case. Auto stays available for a source drawn square.
   const [orientationChoice, setOrientationChoice] = useState<OrientationChoice>('isometric')
+  /**
+   * Source sampling filter. Linear by default: the old area average softened
+   * everything (GIMP's None and Linear both beat it side by side), and nearest
+   * stays on the menu for pixel art that must not blend at all.
+   */
+  const [interpolation, setInterpolation] = useState<Interpolation>('linear')
+  /**
+   * Colour adjustments, applied to the source before conversion — previews,
+   * commits and both batch paths all see the same pixels. Deliberately NOT
+   * reset on import: they are tuned to a source set (match a palette, deepen
+   * shadows), and a batch is many imports of the same set.
+   */
+  const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJUSTMENTS)
+  /**
+   * Where a batch wall tile's height comes from: each file's own height, or
+   * the wall-height field for every file (a uniform run of faces).
+   */
+  const [batchHeightMode, setBatchHeightMode] = useState<'source' | 'fixed'>('source')
 
   // ── Target pack ─────────────────────────────────────────────────────────────
   const [packs, setPacks] = useState<PackSummary[]>([])
@@ -264,21 +307,33 @@ const StaticTileManagerPage: React.FC = () => {
       setWallColumns(1)
       setMirrorSource(false)
       setBlankRowsBelow(0)
+      setTrimBase(false)
       showStatus(`Loaded ${buf.width}×${buf.height} source`)
     } catch (e) {
       showStatus(`Load failed: ${e instanceof Error ? e.message : 'unknown error'}`)
     }
   }, [showStatus])
 
-  // ── Derived: sliced cells + selected preview cell ───────────────────────────
+  // ── Derived: adjusted source + sliced cells + selected preview cell ─────────
+  /** The source with colour adjustments applied. Identity returns it as-is. */
+  const adjustedSource = useMemo(
+    () => (sourceImage ? applyAdjustments(sourceImage, adjustments) : null),
+    [sourceImage, adjustments]
+  )
+
   const cells = useMemo<PixelBuffer[]>(() => {
-    if (!sourceImage) return []
+    if (!adjustedSource) return []
     if (inputMode === 'grid') {
       if (cellW <= 0 || cellH <= 0) return []
       try {
-        return sliceGrid(sourceImage, { cellW, cellH, marginX, marginY, spacingX, spacingY }).map(
-          (c) => c.buffer
-        )
+        return sliceGrid(adjustedSource, {
+          cellW,
+          cellH,
+          marginX,
+          marginY,
+          spacingX,
+          spacingY
+        }).map((c) => c.buffer)
       } catch {
         return []
       }
@@ -289,12 +344,17 @@ const StaticTileManagerPage: React.FC = () => {
     //
     // The mirror is applied to the whole source, so a run's columns reverse with
     // it — a house's south wall becomes its east wall, rather than the same
-    // columns each flipped in place. Blank rows are NOT applied here: they are a
-    // property of the converted tile, not of the source (see `converted`).
-    const shaped = mirrorSource ? mirrorX(sourceImage) : sourceImage
-    return layer === 'wall' ? sliceColumns(shaped, wallColumns) : [shaped]
+    // columns each flipped in place. The trim is also whole-source, and BEFORE
+    // the slice: a run's columns must share one baseline, so only rows that are
+    // transparent across every column may go. Blank rows are NOT applied here:
+    // they are a property of the converted tile, not of the source (see
+    // `converted`).
+    const shaped = mirrorSource ? mirrorX(adjustedSource) : adjustedSource
+    if (layer !== 'wall') return [shaped]
+    const based = trimBase ? trimBelow(shaped) : shaped
+    return sliceColumns(based, wallColumns)
   }, [
-    sourceImage,
+    adjustedSource,
     inputMode,
     cellW,
     cellH,
@@ -304,7 +364,8 @@ const StaticTileManagerPage: React.FC = () => {
     spacingY,
     layer,
     wallColumns,
-    mirrorSource
+    mirrorSource,
+    trimBase
   ])
 
   const previewCell = cells.length > 0 ? cells[Math.min(cellIndex, cells.length - 1)] : null
@@ -350,7 +411,7 @@ const StaticTileManagerPage: React.FC = () => {
   const converted = useMemo<PixelBuffer | null>(() => {
     if (!previewCell) return null
     if (layer !== 'wall') {
-      return convertCell(previewCell, { layer, scale }, effectiveOrientation)
+      return convertCell(previewCell, { layer, scale, interpolation }, effectiveOrientation)
     }
     // Convert into the art's share, then leave the rest of the tile empty. The
     // rows cannot be padded onto the source: convertWall maps the whole source
@@ -358,11 +419,11 @@ const StaticTileManagerPage: React.FC = () => {
     // padBelow works in output pixels, so the row count scales with the tile.
     const face = convertCell(
       previewCell,
-      { layer, scale, wallHeight: wallSplit.art, wallFace },
+      { layer, scale, wallHeight: wallSplit.art, wallFace, interpolation },
       effectiveOrientation
     )
     return wallSplit.blank > 0 ? padBelow(face, wallSplit.blank * scale) : face
-  }, [previewCell, layer, scale, wallSplit, wallFace, effectiveOrientation])
+  }, [previewCell, layer, scale, wallSplit, wallFace, effectiveOrientation, interpolation])
 
   // Paint previews
   useEffect(() => {
@@ -439,6 +500,17 @@ const StaticTileManagerPage: React.FC = () => {
    * across, not a run of 21 tiles. Only the author knows which.
    */
   const sourceFaceCount = sourceImage ? wallColumnsFor(sourceImage.width) : 1
+
+  /**
+   * The transparent padding under the source's art, in source pixels.
+   *
+   * Measured on the whole source (the mirror does not move rows), and offered as
+   * the trim's label so the author knows what the toggle removes before it does.
+   */
+  const sourceBasePadding = useMemo(
+    () => (sourceImage ? Math.min(transparentRowsBelow(sourceImage), sourceImage.height - 1) : 0),
+    [sourceImage]
+  )
 
   const wallWalk: Walkability = wallWalkability(assets?.sotp ?? null, hasWallId ? wallId : -1)
 
@@ -545,7 +617,7 @@ const StaticTileManagerPage: React.FC = () => {
       for (const cell of cells) {
         const orient =
           orientationChoice === 'auto' ? detectOrientation(cell).orientation : orientationChoice
-        const opts = { layer: 'floor' as const, scale }
+        const opts = { layer: 'floor' as const, scale, interpolation }
         const conv = convertCell(cell, opts, orient)
         // `firstId` is the id in the box. Without it the batch counted from 1
         // and ignored the number the author had just typed, which is how a run
@@ -594,14 +666,18 @@ const StaticTileManagerPage: React.FC = () => {
     sourcePath,
     showStatus,
     assets,
-    floorStartId
+    floorStartId,
+    interpolation
   ])
 
   // Multi-file batch import: pick many PNGs and commit each as its own tile for
   // the current layer. Floors mint sequential floor ids; walls mint sequential
-  // ids via nextWallId (respecting the passability pref) with per-file height =
-  // source height. Ineligible (animated/cycled) target ids are reported, not
-  // dropped. Runs independent of the single-source preview / grid slicing.
+  // ids via nextWallId (respecting the passability pref). Every conversion
+  // setting the single-tile flow has applies per file: orientation,
+  // interpolation, colour adjustments, and for walls the angled face, the
+  // trim, the blank rows, and the height (per-file source height or the fixed
+  // field, per batchHeightMode). Ineligible (animated/cycled) target ids are
+  // reported, not dropped. Runs independent of the single-source preview.
   const batchImport = useCallback(async () => {
     if (!packDir || !project || !selectedPack) return
     const paths = await window.api.openFiles(
@@ -623,7 +699,8 @@ const StaticTileManagerPage: React.FC = () => {
       let exhausted = false
       for (const p of paths) {
         try {
-          const buf = await loadPixelBufferFromPath(p)
+          const raw = await loadPixelBufferFromPath(p)
+          const buf = applyAdjustments(raw, adjustments)
           const orient =
             orientationChoice === 'auto' ? detectOrientation(buf).orientation : orientationChoice
           let id: number
@@ -659,8 +736,24 @@ const StaticTileManagerPage: React.FC = () => {
             })
             filename = `floor${String(id).padStart(5, '0')}.png`
           }
-          const opts = { layer, scale, wallHeight: layer === 'wall' ? buf.height : undefined }
-          const conv = convertCell(buf, opts, orient)
+          let conv: PixelBuffer
+          if (layer === 'wall') {
+            // Same pipeline as the single-tile flow: trim the export padding,
+            // split the total height into art + blank rows, convert the art's
+            // share with the chosen face, then pad the base back on.
+            const shaped = trimBase ? trimBelow(buf) : buf
+            const total =
+              batchHeightMode === 'fixed' ? wallHeightField : shaped.height + blankRowsBelow
+            const split = splitWallHeight(total, blankRowsBelow)
+            conv = convertCell(
+              shaped,
+              { layer, scale, wallHeight: split.art, wallFace, interpolation },
+              orient
+            )
+            if (split.blank > 0) conv = padBelow(conv, split.blank * scale)
+          } else {
+            conv = convertCell(buf, { layer, scale, interpolation }, orient)
+          }
           const elig = checkTileEligibility(assets, layer, id)
           if (!elig.eligible && elig.reason) {
             ineligible.push(`${id} (${describeIneligibility(elig.reason)})`)
@@ -712,7 +805,14 @@ const StaticTileManagerPage: React.FC = () => {
     showStatus,
     floorStartId,
     hasWallId,
-    wallId
+    wallId,
+    adjustments,
+    interpolation,
+    trimBase,
+    blankRowsBelow,
+    batchHeightMode,
+    wallHeightField,
+    wallFace
   ])
 
   if (!packDir) {
@@ -756,7 +856,9 @@ const StaticTileManagerPage: React.FC = () => {
               Import image…
             </Button>
 
-            <Tooltip title={`Pick many PNGs; commit each as its own ${layer} tile`}>
+            <Tooltip
+              title={`Pick many PNGs; commit each as its own ${layer} tile using the conversion settings on this page`}
+            >
               <span>
                 <Button
                   variant="outlined"
@@ -769,6 +871,56 @@ const StaticTileManagerPage: React.FC = () => {
                 </Button>
               </span>
             </Tooltip>
+
+            {layer === 'wall' && (
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', flex: 1 }}>
+                    Batch wall options
+                  </Typography>
+                  <InfoTip title="A batch converts each file with the settings on this page: angled face, orientation, interpolation and colour adjustments. Source height uses each file's own height plus the blank rows; Fixed uses the wall-height field for every file." />
+                </Stack>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  fullWidth
+                  value={batchHeightMode}
+                  onChange={(_, v) => v && setBatchHeightMode(v)}
+                >
+                  <ToggleButton value="source">Source height</ToggleButton>
+                  <ToggleButton value="fixed">Fixed ({wallHeightField}px)</ToggleButton>
+                </ToggleButtonGroup>
+                {/* Trim and blank rows are the SAME settings the loose stack
+                    shows — rendered here only while that stack isn't, so the
+                    sidebar never carries the control twice. */}
+                {!(inputMode === 'loose' && sourceImage) && (
+                  <>
+                    <Tooltip title="Remove the fully transparent rows under each file's art, so the tile stands on the ground">
+                      <ToggleButton
+                        size="small"
+                        fullWidth
+                        value="trim"
+                        selected={trimBase}
+                        onChange={() => setTrimBase((v) => !v)}
+                      >
+                        Trim transparent base (per file)
+                      </ToggleButton>
+                    </Tooltip>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <TextField
+                        size="small"
+                        label="Blank rows below"
+                        type="number"
+                        sx={{ flex: 1 }}
+                        value={blankRowsBelow}
+                        onChange={(e) => changeBlankRows(Number(e.target.value))}
+                      />
+                      <InfoTip title="Empty rows at the base raise the art off the ground" />
+                    </Stack>
+                  </>
+                )}
+              </Stack>
+            )}
 
             {batchProgress && (
               <Box>
@@ -785,9 +937,12 @@ const StaticTileManagerPage: React.FC = () => {
             )}
 
             <Box>
-              <Typography variant="overline" color="text.secondary">
-                Input mode
-              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Typography variant="overline" color="text.secondary" sx={{ flex: 1 }}>
+                  Input mode
+                </Typography>
+                <InfoTip title="Loose: one image, optionally cut into wall columns. Grid sheet: slice a sprite sheet by cell size. Wang: slice ground autotiles into diamond floors plus a mask sidecar." />
+              </Stack>
               <ToggleButtonGroup
                 size="small"
                 exclusive
@@ -803,25 +958,33 @@ const StaticTileManagerPage: React.FC = () => {
 
             {inputMode === 'loose' && sourceImage && (
               <Stack spacing={1}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Shape the source before it becomes tiles
-                </Typography>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', flex: 1 }}>
+                    Shape source
+                  </Typography>
+                  <InfoTip title="Shaping applies to the whole source before it is cut into tiles, so a run's columns share one baseline." />
+                </Stack>
                 {layer === 'wall' && (
-                  <TextField
-                    size="small"
-                    label="Tiles wide"
-                    type="number"
-                    value={wallColumns}
-                    onChange={(e) => {
-                      setWallColumns(Math.max(1, Number(e.target.value) || 1))
-                      setCellIndex(0)
-                    }}
-                    helperText={
-                      wallColumns > 1
-                        ? `Cut into ${wallColumns} tiles of ${WALL_FACE_WIDTH}px`
-                        : 'One tile — the whole image is fitted to one face'
-                    }
-                  />
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      size="small"
+                      label="Tiles wide"
+                      type="number"
+                      sx={{ flex: 1 }}
+                      value={wallColumns}
+                      onChange={(e) => {
+                        setWallColumns(Math.max(1, Number(e.target.value) || 1))
+                        setCellIndex(0)
+                      }}
+                    />
+                    <InfoTip
+                      title={
+                        wallColumns > 1
+                          ? `Cut into ${wallColumns} tiles of ${WALL_FACE_WIDTH}px`
+                          : 'One tile — the whole image is fitted to one 28px face'
+                      }
+                    />
+                  </Stack>
                 )}
                 {layer === 'wall' && sourceFaceCount > 1 && sourceFaceCount !== wallColumns && (
                   <Chip
@@ -835,18 +998,45 @@ const StaticTileManagerPage: React.FC = () => {
                   />
                 )}
                 {layer === 'wall' && (
-                  <TextField
-                    size="small"
-                    label="Blank rows below"
-                    type="number"
-                    value={blankRowsBelow}
-                    onChange={(e) => changeBlankRows(Number(e.target.value))}
-                    helperText={
-                      blankRowsBelow > 0
-                        ? `Art ${wallSplit.art}px, ${wallSplit.blank}px empty base — tile ${wallHeightField}px`
-                        : 'Empty rows at the base raise the art off the ground'
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      size="small"
+                      label="Blank rows below"
+                      type="number"
+                      sx={{ flex: 1 }}
+                      value={blankRowsBelow}
+                      onChange={(e) => changeBlankRows(Number(e.target.value))}
+                    />
+                    <InfoTip
+                      title={
+                        blankRowsBelow > 0
+                          ? `Art ${wallSplit.art}px, ${wallSplit.blank}px empty base — tile ${wallHeightField}px`
+                          : 'Empty rows at the base raise the art off the ground'
+                      }
+                    />
+                  </Stack>
+                )}
+                {layer === 'wall' && (
+                  <Tooltip
+                    title={
+                      sourceBasePadding === 0
+                        ? 'No fully transparent rows at the base of the source'
+                        : 'Remove the transparent padding under the art, so the tile stands on the ground'
                     }
-                  />
+                  >
+                    <span>
+                      <ToggleButton
+                        size="small"
+                        fullWidth
+                        value="trim"
+                        selected={trimBase}
+                        disabled={sourceBasePadding === 0}
+                        onChange={() => setTrimBase((v) => !v)}
+                      >
+                        Trim transparent base ({sourceBasePadding}px)
+                      </ToggleButton>
+                    </span>
+                  </Tooltip>
                 )}
                 <ToggleButton
                   size="small"
@@ -910,9 +1100,12 @@ const StaticTileManagerPage: React.FC = () => {
 
             {inputMode !== 'wang' && (
               <Box>
-                <Typography variant="overline" color="text.secondary">
-                  Layer
-                </Typography>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ flex: 1 }}>
+                    Layer
+                  </Typography>
+                  <InfoTip title="Floors are 56×27 diamonds — corners masked transparent, source alpha kept. Walls are 28 wide at any height, drawn standing on the tile's bottom edge." />
+                </Stack>
                 <ToggleButtonGroup
                   size="small"
                   exclusive
@@ -974,15 +1167,72 @@ const StaticTileManagerPage: React.FC = () => {
               </Box>
             )}
 
-            {inputMode !== 'wang' && layer === 'floor' && (
-              <Typography variant="caption" color="text.disabled">
-                Floors are 56×27 diamonds — corners masked transparent, source alpha kept.
-              </Typography>
+            {inputMode !== 'wang' && (
+              <Box>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ flex: 1 }}>
+                    Interpolation
+                  </Typography>
+                  <InfoTip title="How the conversion samples the source. Nearest keeps pixels crisp and steps edges hard. Linear blends smoothly. Area average is the old default, and the softest." />
+                </Stack>
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  value={interpolation}
+                  onChange={(e) => setInterpolation(e.target.value as Interpolation)}
+                >
+                  <MenuItem value="nearest">Nearest</MenuItem>
+                  <MenuItem value="linear">Linear</MenuItem>
+                  <MenuItem value="area">Area average</MenuItem>
+                </TextField>
+              </Box>
             )}
-            {inputMode === 'wang' && (
-              <Typography variant="caption" color="text.disabled">
-                Wang mode slices ground autotiles into diamond floors + a mask sidecar.
-              </Typography>
+
+            {inputMode !== 'wang' && (
+              <Box>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ flex: 1 }}>
+                    Colour adjust
+                  </Typography>
+                  {!isIdentityAdjustments(adjustments) && (
+                    <Button size="small" onClick={() => setAdjustments(DEFAULT_ADJUSTMENTS)}>
+                      Reset
+                    </Button>
+                  )}
+                  <InfoTip title="Applied to the source before conversion — previews, commits and batch alike. Black point remaps that input level to 0. Alpha never changes, so the tile does not move." />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  Brightness {adjustments.brightness}
+                </Typography>
+                <Slider
+                  size="small"
+                  min={-100}
+                  max={100}
+                  value={adjustments.brightness}
+                  onChange={(_, v) => setAdjustments((a) => ({ ...a, brightness: v as number }))}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Contrast {adjustments.contrast}
+                </Typography>
+                <Slider
+                  size="small"
+                  min={-100}
+                  max={100}
+                  value={adjustments.contrast}
+                  onChange={(_, v) => setAdjustments((a) => ({ ...a, contrast: v as number }))}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Black point {adjustments.blackPoint}
+                </Typography>
+                <Slider
+                  size="small"
+                  min={0}
+                  max={128}
+                  value={adjustments.blackPoint}
+                  onChange={(_, v) => setAdjustments((a) => ({ ...a, blackPoint: v as number }))}
+                />
+              </Box>
             )}
           </Stack>
         </Box>
@@ -1088,15 +1338,17 @@ const StaticTileManagerPage: React.FC = () => {
               </TextField>
 
               {layer === 'floor' ? (
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Floor tile id"
-                  type="number"
-                  value={floorId}
-                  onChange={(e) => setFloorId(Number(e.target.value))}
-                  helperText="Floors are unconstrained server-side (1–65535)."
-                />
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <TextField
+                    size="small"
+                    label="Floor tile id"
+                    type="number"
+                    sx={{ flex: 1 }}
+                    value={floorId}
+                    onChange={(e) => setFloorId(Number(e.target.value))}
+                  />
+                  <InfoTip title="Floors are unconstrained server-side (1–65535)" />
+                </Stack>
               ) : (
                 <>
                   <ToggleButtonGroup
@@ -1111,35 +1363,43 @@ const StaticTileManagerPage: React.FC = () => {
                   </ToggleButtonGroup>
 
                   {wallMode === 'mint' && (
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
-                      label="Walkability preference"
-                      value={passabilityPref}
-                      onChange={(e) => setPassabilityPref(e.target.value as PassabilityPref)}
-                      helperText={
-                        assets?.sotp
-                          ? 'Picks the next free id whose legacy sotp byte matches.'
-                          : 'No sotp.dat loaded — range-only allocation.'
-                      }
-                    >
-                      <MenuItem value="any">Any</MenuItem>
-                      <MenuItem value="blocking">Blocking</MenuItem>
-                      <MenuItem value="passable">Passable</MenuItem>
-                    </TextField>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <TextField
+                        select
+                        size="small"
+                        label="Walkability preference"
+                        sx={{ flex: 1 }}
+                        value={passabilityPref}
+                        onChange={(e) => setPassabilityPref(e.target.value as PassabilityPref)}
+                      >
+                        <MenuItem value="any">Any</MenuItem>
+                        <MenuItem value="blocking">Blocking</MenuItem>
+                        <MenuItem value="passable">Passable</MenuItem>
+                      </TextField>
+                      <InfoTip
+                        title={
+                          assets?.sotp
+                            ? 'Picks the next free id whose legacy sotp byte matches'
+                            : 'No sotp.dat loaded — range-only allocation'
+                        }
+                      />
+                    </Stack>
                   )}
 
-                  <TextField
-                    size="small"
-                    fullWidth
-                    label="Wall tile id"
-                    type="number"
-                    value={wallIdText}
-                    onChange={(e) => setWallIdText(e.target.value)}
-                    error={hasWallId && !isCommittableWallId(wallId)}
-                    helperText={`1–${WALL_ID_MAX}. Sentinels 0–12 and 10000–10012 never draw.`}
-                  />
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      size="small"
+                      label="Wall tile id"
+                      type="number"
+                      sx={{ flex: 1 }}
+                      value={wallIdText}
+                      onChange={(e) => setWallIdText(e.target.value)}
+                      error={hasWallId && !isCommittableWallId(wallId)}
+                    />
+                    <InfoTip
+                      title={`1–${WALL_ID_MAX}. Sentinels 0–12 and 10000–10012 never draw; an id above ${WALL_ID_MAX} crashes map load.`}
+                    />
+                  </Stack>
 
                   {hasWallId && isCommittableWallId(wallId) && !isReclaimableWallId(wallId) && (
                     <Typography variant="caption" color="text.disabled">
@@ -1162,15 +1422,17 @@ const StaticTileManagerPage: React.FC = () => {
                     <Chip size="small" label={wallWalk} color={WALKABILITY_COLOR[wallWalk]} />
                   </Stack>
 
-                  <TextField
-                    size="small"
-                    fullWidth
-                    label="Wall height (1×, px)"
-                    type="number"
-                    value={wallHeightField}
-                    onChange={(e) => setWallHeightField(Math.max(1, Number(e.target.value) || 1))}
-                    helperText="The whole tile, art and blank rows. Legacy walls are multiples of 14."
-                  />
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      size="small"
+                      label="Wall height (1×, px)"
+                      type="number"
+                      sx={{ flex: 1 }}
+                      value={wallHeightField}
+                      onChange={(e) => setWallHeightField(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                    <InfoTip title="The whole tile, art and blank rows. Legacy walls are multiples of 14 — off-multiple heights float or gap against the row behind." />
+                  </Stack>
 
                   {/* Heights worth knowing, as labels. Nothing here writes the
                       field: the height is the author's, and it stays typed. */}
@@ -1193,18 +1455,20 @@ const StaticTileManagerPage: React.FC = () => {
                     )}
                   </Stack>
 
-                  <TextField
-                    select
-                    size="small"
-                    fullWidth
-                    label="Angled face"
-                    value={wallFace}
-                    onChange={(e) => setWallFace(e.target.value as WallFace)}
-                    helperText="The tile's intrinsic angle, not its map placement."
-                  >
-                    <MenuItem value="left">Left (roofline rises →)</MenuItem>
-                    <MenuItem value="right">Right (roofline falls →)</MenuItem>
-                  </TextField>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      select
+                      size="small"
+                      label="Angled face"
+                      sx={{ flex: 1 }}
+                      value={wallFace}
+                      onChange={(e) => setWallFace(e.target.value as WallFace)}
+                    >
+                      <MenuItem value="left">Left (roofline rises →)</MenuItem>
+                      <MenuItem value="right">Right (roofline falls →)</MenuItem>
+                    </TextField>
+                    <InfoTip title="The tile's intrinsic angle, not its map placement — a left-angled tile can sit in the right map slot" />
+                  </Stack>
                 </>
               )}
 

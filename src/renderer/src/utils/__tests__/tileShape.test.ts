@@ -4,6 +4,8 @@ import {
   sliceColumns,
   mirrorX,
   padBelow,
+  transparentRowsBelow,
+  trimBelow,
   isLegacyWallHeight,
   nextLegacyWallHeight,
   splitWallHeight,
@@ -134,6 +136,52 @@ describe('padBelow', () => {
 
   it('keeps the width', () => {
     expect(padBelow(ramp(28, 10), 14).width).toBe(28)
+  })
+})
+
+describe('transparentRowsBelow', () => {
+  it('counts the fully transparent rows at the base', () => {
+    expect(transparentRowsBelow(padBelow(ramp(4, 3), 5))).toBe(5)
+  })
+
+  it('counts zero when the bottom row carries paint', () => {
+    expect(transparentRowsBelow(ramp(4, 3))).toBe(0)
+  })
+
+  it('stops at a row with a single painted pixel', () => {
+    const buf = padBelow(ramp(4, 2), 4)
+    // one pixel of paint in the second padding row keeps that row and the rows
+    // above it
+    buf.data[(3 * 4 + 2) * 4 + 3] = 255
+    expect(transparentRowsBelow(buf)).toBe(2)
+  })
+
+  it('counts every row of a fully transparent image', () => {
+    const empty: PixelBuffer = { data: new Uint8ClampedArray(4 * 3 * 4), width: 4, height: 3 }
+    expect(transparentRowsBelow(empty)).toBe(3)
+  })
+})
+
+describe('trimBelow', () => {
+  it('removes exactly the transparent padding, leaving the art on its base', () => {
+    const src = ramp(4, 3)
+    const out = trimBelow(padBelow(src, 5))
+    expect(out.height).toBe(3)
+    expect(out.data).toEqual(src.data)
+  })
+
+  it('returns the source unchanged when there is nothing to trim', () => {
+    const src = ramp(4, 3)
+    expect(trimBelow(src)).toBe(src)
+  })
+
+  it('keeps one row of a fully transparent image', () => {
+    const empty: PixelBuffer = { data: new Uint8ClampedArray(4 * 3 * 4), width: 4, height: 3 }
+    expect(trimBelow(empty).height).toBe(1)
+  })
+
+  it('keeps the width', () => {
+    expect(trimBelow(padBelow(ramp(28, 10), 14)).width).toBe(28)
   })
 })
 

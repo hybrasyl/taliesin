@@ -251,3 +251,76 @@ describe('blank rows below a wall', () => {
     expect(baseGap(out)).toBe(RAISE * scale)
   })
 })
+
+describe('interpolation modes', () => {
+  /** A 2×2 source: left column black, right column white. */
+  function halfAndHalf(): PixelBuffer {
+    const data = new Uint8ClampedArray(2 * 2 * 4)
+    for (const i of [0, 8]) data.set([0, 0, 0, 255], i) // (0,0) and (0,1)
+    for (const i of [4, 12]) data.set([255, 255, 255, 255], i) // (1,0) and (1,1)
+    return { data, width: 2, height: 2 }
+  }
+
+  it('nearest emits only source colours — no blending anywhere', () => {
+    const out = resampleTile(halfAndHalf(), {
+      layer: 'wall',
+      wallHeight: 28,
+      interpolation: 'nearest'
+    })
+    for (let i = 0; i < out.data.length; i += 4) {
+      expect([0, 255]).toContain(out.data[i])
+      expect(out.data[i]).toBe(out.data[i + 1]) // stays grey-neutral
+    }
+  })
+
+  it('linear blends across the colour boundary', () => {
+    const out = resampleTile(halfAndHalf(), {
+      layer: 'wall',
+      wallHeight: 28,
+      interpolation: 'linear'
+    })
+    let blended = 0
+    for (let i = 0; i < out.data.length; i += 4) {
+      if (out.data[i] > 16 && out.data[i] < 240) blended++
+    }
+    expect(blended).toBeGreaterThan(0)
+  })
+
+  it('nearest reproduces a solid source exactly, floors included', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 123, 45, 67), {
+      layer: 'floor',
+      interpolation: 'nearest'
+    })
+    const [r, g, b, a] = px(out, GROUND_TILE_WIDTH / 2, Math.floor(GROUND_TILE_HEIGHT / 2))
+    expect([r, g, b, a]).toEqual([123, 45, 67, 255])
+  })
+
+  it('nearest steps the floor diamond edge hard — alpha is 0 or 255 only', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 10, 20, 30), {
+      layer: 'floor',
+      interpolation: 'nearest'
+    })
+    for (let i = 3; i < out.data.length; i += 4) {
+      expect([0, 255]).toContain(out.data[i])
+    }
+  })
+
+  it('area (the default) still antialiases the diamond edge', () => {
+    const out = convertOrthoTile(solidSource(16, 16, 10, 20, 30), { layer: 'floor' })
+    let partial = 0
+    for (let i = 3; i < out.data.length; i += 4) {
+      if (out.data[i] > 0 && out.data[i] < 255) partial++
+    }
+    expect(partial).toBeGreaterThan(0)
+  })
+
+  it('linear wall output keeps the exact tile dimensions', () => {
+    const out = convertOrthoTile(solidSource(30, 60, 5, 5, 5), {
+      layer: 'wall',
+      wallHeight: 56,
+      interpolation: 'linear'
+    })
+    expect(out.width).toBe(ISO_HTILE_W)
+    expect(out.height).toBe(56)
+  })
+})
