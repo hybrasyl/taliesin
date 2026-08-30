@@ -33,6 +33,51 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **The map editor no longer stutters on large maps.** Four causes, one fix each. The animation
+  loop repainted the whole map at 60 fps whenever the client had animation tables, even when the
+  map had no animated tile; it now runs only when the map holds one, and repaints only those
+  tiles' regions. A brush stroke repainted the whole map; it now repaints only the changed region.
+  The render awaited each tile's bitmap; it now prefetches once and draws synchronously. The hover
+  overlay restroked the full grid on every mouse move; the grid now lives on the base canvas.
+- **The tile picker shows previews for pack-only floor tiles.** The picker loaded floor previews
+  for the legacy id range only. A pack floor above that range rendered in the map editors and in
+  the client, but the picker drew a blank placeholder for it. The picker now also loads the ids
+  the installed pack covers.
+- **Pack-only tiles show in the Map Maker tile picker by default.** The picker hid tiles that only
+  an installed pack provides behind an off-by-default toggle. An author committed a tile, opened
+  the picker, and read its absence as a broken export. The picker now includes pack-only tiles by
+  default. The toggle remains to show the pure legacy set, and it now carries a count badge.
+
+### Added
+
+- **Trim transparent base (Static Tile Manager).** A wall source often has transparent padding
+  under the art. The padding survives conversion, and the art floats above the ground. A toggle in
+  the Loose shaping controls now removes the padding. The label shows how many rows go. The trim
+  applies to the whole source before the slice, so a run's columns keep one baseline.
+- **Closing the window asks about unsaved maps.** Both map editors lost unsaved work when the
+  window closed, from the title bar or from the OS. The window now asks first: Save writes every
+  dirty map and then closes, Discard closes, Cancel keeps the window. A cancelled Save As keeps the
+  window too. The other editors that use the unsaved-changes guard answer the same question. A
+  clean close does not ask, and does not flash the default window background.
+- **The XML map editor stays open across navigation.** Leaving the page unmounted it, so a trip
+  to another page and back meant reopening the map. The page now stays mounted for the session,
+  hidden while another page shows, and comes back exactly as left: the map, the edits, the tab and
+  the zoom. Navigation no longer prompts about unsaved changes on this page, because nothing is
+  lost; opening a different map still prompts. Nothing is written to disk.
+- **Batch import applies the conversion settings (Static Tile Manager).** The batch path converted
+  each file with defaults: left face, source height, no trim, no raise. It now applies the angled
+  face, the orientation, the interpolation, the colour adjustments, the trim, and the blank rows,
+  the same as a single commit. A new toggle selects the wall height per batch: each file's own
+  height, or the wall-height field for every file.
+- **Interpolation choice (Static Tile Manager).** The conversion sampled the source with one soft
+  area average. A new control selects the filter: Nearest keeps pixels crisp and steps the edges
+  hard, Linear blends smoothly, Area average remains available. The default is Linear.
+- **Colour adjustments (Static Tile Manager).** Three sliders adjust the source before conversion:
+  brightness, contrast, and black point. The adjustment applies to previews, commits, and both
+  batch paths. Alpha does not change, so the tile does not move.
+
 ## [2.12.0] - 2026-08-18
 
 ### Added
