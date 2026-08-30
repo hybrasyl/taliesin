@@ -98,6 +98,7 @@ import {
   type MapSpawnGroup,
   type MapWarp
 } from '../../data/mapData'
+import { useUiStore } from '../../store/uiStore'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -1212,6 +1213,10 @@ function MapPlacementTab({
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // The page stays mounted while hidden (PageRenderer keeps the XML map
+      // editor alive across navigation), so a window listener must not answer
+      // keys pressed on whichever page is actually visible.
+      if (useUiStore.getState().currentPage !== 'mapeditor') return
       // This tab's dialogs are full of text fields, and every mode key is a
       // letter. See utils/keyboard.ts — shared with the Map Maker's handler.
       if (isTypingTarget(e.target)) return

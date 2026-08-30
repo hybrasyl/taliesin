@@ -21,6 +21,21 @@ export interface DirtyEditor {
   onSave: () => Promise<void>
 }
 
+/**
+ * An editor's answer to "may the app close?".
+ *
+ * Distinct from `dirtyEditor`, which is one slot for the one page being
+ * navigated away from. Several editors can hold unsaved work at once — a Map
+ * Maker tab and a kept-alive XML map — and closing the window has to ask
+ * about all of them, so this is a registry keyed by editor. `isDirty` is read
+ * at close time rather than stored, so a registration never goes stale.
+ */
+export interface CloseGuard {
+  label: string
+  isDirty: () => boolean
+  onSave: () => Promise<void>
+}
+
 interface UiState {
   /** Active top-level page (no react-router — a view-name switch). */
   currentPage: Page
@@ -41,6 +56,8 @@ interface UiState {
   activeColorizeSource: string | null
   /** Whether the Report Issue dialog is open (transient; never persisted). */
   reportIssueOpen: boolean
+  /** Editors that can hold unsaved work, consulted before the window closes. */
+  closeGuards: Record<string, CloseGuard>
 
   /** Navigate, or park the destination in `pendingPage` if an editor is dirty. */
   setCurrentPage: (page: Page) => void
@@ -52,6 +69,8 @@ interface UiState {
   setActivePaletteId: (id: string | null) => void
   setActiveColorizeSource: (src: string | null) => void
   setReportIssueOpen: (open: boolean) => void
+  registerCloseGuard: (id: string, guard: CloseGuard) => void
+  unregisterCloseGuard: (id: string) => void
 }
 
 /** Ephemeral, session-only UI state (never persisted to disk). */
@@ -62,6 +81,7 @@ export const useUiStore = create<UiState>((set) => ({
   activePaletteId: null,
   activeColorizeSource: null,
   reportIssueOpen: false,
+  closeGuards: {},
 
   // The guard lives in the setter rather than in a separate `requestPage` the
   // callers have to remember: pages are unmounted on navigation, so an
@@ -88,5 +108,14 @@ export const useUiStore = create<UiState>((set) => ({
   setDirtyEditor: (dirtyEditor) => set({ dirtyEditor }),
   setActivePaletteId: (activePaletteId) => set({ activePaletteId }),
   setActiveColorizeSource: (activeColorizeSource) => set({ activeColorizeSource }),
-  setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen })
+  setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen }),
+  registerCloseGuard: (id, guard) =>
+    set((s) => ({ closeGuards: { ...s.closeGuards, [id]: guard } })),
+  unregisterCloseGuard: (id) =>
+    set((s) => {
+      if (!(id in s.closeGuards)) return s
+      const next = { ...s.closeGuards }
+      delete next[id]
+      return { closeGuards: next }
+    })
 }))

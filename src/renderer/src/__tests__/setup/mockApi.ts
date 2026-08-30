@@ -17,6 +17,9 @@ export function createMockApi(): MockApi {
     'minimizeWindow',
     'maximizeWindow',
     'closeWindow',
+    'onCloseRequested',
+    'confirmClose',
+    'setUnsaved',
     // App
     'getAppVersion',
     'getChangelog',

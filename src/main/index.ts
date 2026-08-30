@@ -116,6 +116,16 @@ settingsManager.load().then((s) => {
 let mainWindow: BrowserWindow | null = null
 let splash: SplashController | null = null
 let mainWindowRevealed = false
+/** Set per window in createWindow; called by the `app:confirmClose` handler. */
+let closeConfirmedFor: (target: BrowserWindow) => void = () => {}
+/**
+ * Whether the renderer currently holds unsaved work (`app:unsaved`). Kept here
+ * so a clean close never leaves the synchronous path: the window is hidden
+ * inside the first `close` event, before the OS can paint the default
+ * background — the white flash the hide exists to prevent. Only a dirty close
+ * pays the round trip, and then the window is visible anyway, under a dialog.
+ */
+let rendererHasUnsaved = false
 
 // The splash owns the swap, not this function: `dismiss` shows the splash if it
 // never got the chance, holds it for the remainder of a minimum-visible floor,
@@ -209,7 +219,43 @@ function createWindow(): void {
   // before the teardown, and the close itself proceeds as normal after this
   // returns. Covers every close path (title-bar button, Alt+F4, app quit),
   // because they all raise `close`.
-  win.on('close', () => {
+  // Unsaved-changes guard. The first `close` of a live, revealed renderer is
+  // turned into a question: the event is cancelled and the renderer is asked
+  // (`app:closeRequested`). It answers with `app:confirmClose` once nothing is
+  // dirty, or the user has saved or discarded; that sets `closeApproved` and
+  // closes again, and the second `close` falls through to the hide below.
+  //
+  // The guard fails OPEN. A renderer that is gone, hung, or not yet revealed
+  // cannot answer, and a close that waits on an answer that never comes is a
+  // window the user cannot get rid of — so those cases skip the question.
+  let closeApproved = false
+  win.webContents.on('render-process-gone', () => {
+    closeApproved = true
+  })
+  win.webContents.on('unresponsive', () => {
+    closeApproved = true
+  })
+  closeConfirmedFor = (target) => {
+    if (target !== win || win.isDestroyed()) return
+    closeApproved = true
+    // Hide here, synchronously, rather than only in the `close` below: between
+    // this IPC handler and that event the compositor can paint a frame of the
+    // default background, which is exactly the flash the hide prevents.
+    win.hide()
+    win.close()
+  }
+
+  win.on('close', (e) => {
+    if (
+      rendererHasUnsaved &&
+      !closeApproved &&
+      mainWindowRevealed &&
+      !win.webContents.isDestroyed()
+    ) {
+      e.preventDefault()
+      win.webContents.send('app:closeRequested')
+      return
+    }
     win.hide()
   })
 
@@ -270,6 +316,14 @@ function createWindow(): void {
 // Reveal the main window (and dismiss the splash) once the renderer reports it
 // has hydrated its settings — see the `app:ready` IPC handler in handlers.ts.
 ctx.onAppReady = revealMainWindow
+
+// The renderer's answer to the close question — see `close` in createWindow.
+ctx.onCloseConfirmed = () => {
+  if (mainWindow) closeConfirmedFor(mainWindow)
+}
+ctx.onUnsavedChanged = (dirty) => {
+  rendererHasUnsaved = dirty
+}
 
 // Reveal settings.json in the OS file manager (Settings → About). `shell` and
 // the settings path live here, so the handler in handlers.ts delegates back.

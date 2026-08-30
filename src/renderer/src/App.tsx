@@ -1,7 +1,10 @@
-import React, { useEffect, useCallback, useRef } from 'react'
+import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { useSettingsStore, type ThemeName } from './store/settingsStore'
-import { useUiStore } from './store/uiStore'
+import { useUiStore, type CloseGuard } from './store/uiStore'
+import { hasDirtyTabs, saveDirtyTabs } from './utils/mapMakerSave'
+import { useMapMakerStore } from './store/mapMakerStore'
+import { reportUnsaved } from './utils/unsavedReport'
 import { clearAllCaches } from './utils/mapRenderer'
 import { clearFieldCache } from './utils/worldMapRenderer'
 import {
@@ -123,6 +126,74 @@ export default function App(): React.ReactElement {
 
   const handleNavCancel = useCallback(() => cancelPendingPage(), [cancelPendingPage])
 
+  // ── App-close guard ────────────────────────────────────────────────────────
+  //
+  // Main cancels the first close and asks (`onCloseRequested`); the answer is
+  // `confirmClose`. Every editor that can hold unsaved work registers a
+  // CloseGuard in the store — the useUnsavedGuard hook does it for the XML
+  // map editor and the others, and the Map Maker's tabs are registered here
+  // because they live in a store rather than a page.
+
+  useEffect(() => {
+    const { registerCloseGuard, unregisterCloseGuard } = useUiStore.getState()
+    registerCloseGuard('mapmaker', {
+      label: 'Map Maker',
+      isDirty: hasDirtyTabs,
+      onSave: saveDirtyTabs
+    })
+    // Map Maker dirtiness lives in its store, not in a hook: report on every
+    // store change (cheap — the report only sends on a transition).
+    const unsubscribe = useMapMakerStore.subscribe(reportUnsaved)
+    return () => {
+      unsubscribe()
+      unregisterCloseGuard('mapmaker')
+    }
+  }, [])
+
+  /** The guards that were dirty when main asked; null while not asking. */
+  const [closePrompt, setClosePrompt] = useState<CloseGuard[] | null>(null)
+
+  useEffect(() => {
+    // Optional-chained: the test mock returns no unsubscribe.
+    const off = window.api.onCloseRequested?.(() => {
+      const dirty = Object.values(useUiStore.getState().closeGuards).filter((g) => g.isDirty())
+      // Main only asks when the last report said dirty; if that has since
+      // cleared, answer at once.
+      if (dirty.length === 0) {
+        window.api.confirmClose()
+        return
+      }
+      setClosePrompt(dirty)
+    })
+    return () => off?.()
+  }, [])
+
+  const handleCloseSave = useCallback(async () => {
+    if (!closePrompt) return
+    for (const guard of closePrompt) {
+      try {
+        await guard.onSave()
+      } catch {
+        // A failed save leaves the dialog up: closing anyway is the one
+        // outcome the user did not ask for.
+        return
+      }
+    }
+    setClosePrompt(null)
+    // A save can be declined without failing — a cancelled Save As dialog —
+    // and that editor is still dirty. Then the window stays; the user asked
+    // to save, not to lose the work.
+    if (closePrompt.some((g) => g.isDirty())) return
+    window.api.confirmClose()
+  }, [closePrompt])
+
+  const handleCloseDiscard = useCallback(() => {
+    setClosePrompt(null)
+    window.api.confirmClose()
+  }, [])
+
+  const handleCloseCancel = useCallback(() => setClosePrompt(null), [])
+
   return (
     <ThemeProvider theme={themes[theme] ?? hybrasylTheme}>
       <CssBaseline />
@@ -135,6 +206,13 @@ export default function App(): React.ReactElement {
         onSave={handleNavSave}
         onDiscard={handleNavDiscard}
         onCancel={handleNavCancel}
+      />
+      <UnsavedChangesDialog
+        open={closePrompt !== null}
+        label={closePrompt?.map((g) => g.label).join(', ')}
+        onSave={handleCloseSave}
+        onDiscard={handleCloseDiscard}
+        onCancel={handleCloseCancel}
       />
       <ReportIssueDialog open={reportIssueOpen} onClose={() => setReportIssueOpen(false)} />
       {/* Renders nothing unless a newer release exists, so it costs a mounted

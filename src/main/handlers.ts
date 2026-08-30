@@ -95,6 +95,14 @@ export interface HandlerContext {
    */
   onAppReady?: () => void
   /**
+   * The renderer has answered a close request: nothing is dirty, or the user
+   * chose Save (and it succeeded) or Discard. index.ts owns the window and
+   * the approval flag, so the handler delegates back.
+   */
+  onCloseConfirmed?: () => void
+  /** The renderer's running report of whether any editor holds unsaved work. */
+  onUnsavedChanged?: (dirty: boolean) => void
+  /**
    * Opens the OS file manager with settings.json highlighted. Wired up in
    * index.ts, which owns the electron `shell` reference and settings path.
    */
@@ -1756,6 +1764,18 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // dismiss the splash. Handled in index.ts, which owns the window refs.
   ipcMain.on('app:ready', () => {
     ctx.onAppReady?.()
+  })
+
+  // The renderer's answer to `app:closeRequested` (see index.ts `close`).
+  ipcMain.on('app:confirmClose', () => {
+    ctx.onCloseConfirmed?.()
+  })
+
+  // The renderer's running dirty report, so a clean close never has to ask.
+  // The payload is a flag that is neither written nor executed; `=== true`
+  // is the whole of its validation.
+  ipcMain.on('app:unsaved', (_e, dirty: unknown) => {
+    ctx.onUnsavedChanged?.(dirty === true)
   })
 
   // Settings / app

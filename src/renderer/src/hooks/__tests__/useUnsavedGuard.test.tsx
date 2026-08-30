@@ -4,12 +4,14 @@ import { useUnsavedGuard } from '../useUnsavedGuard'
 import { useUiStore } from '../../store/uiStore'
 import { StoreWrapper, resetStores } from '../../__tests__/setup/storeWrapper'
 import { installMockApi } from '../../__tests__/setup/mockApi'
+import { resetUnsavedReport } from '../../utils/unsavedReport'
 
 const wrapper = StoreWrapper
 
 beforeEach(() => {
   installMockApi()
   resetStores()
+  resetUnsavedReport()
 })
 
 describe('useUnsavedGuard', () => {
@@ -220,5 +222,54 @@ describe('useUnsavedGuard', () => {
       await result.current.handleDialogSave()
     })
     await waitFor(() => expect(capturedLabel).toBe('WorldMap'))
+  })
+})
+
+describe('useUnsavedGuard — app-close guard', () => {
+  it('registers a close guard that reads the live dirty state', () => {
+    const { result, unmount } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    const guards = () => Object.values(useUiStore.getState().closeGuards)
+    expect(guards()).toHaveLength(1)
+    expect(guards()[0].label).toBe('Map')
+    expect(guards()[0].isDirty()).toBe(false)
+    act(() => result.current.markDirty())
+    expect(guards()[0].isDirty()).toBe(true)
+    act(() => result.current.markClean())
+    expect(guards()[0].isDirty()).toBe(false)
+    unmount()
+    expect(guards()).toHaveLength(0)
+  })
+
+  it('reports dirty transitions to main', () => {
+    const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    const api = window.api as unknown as { setUnsaved: { mock: { calls: unknown[][] } } }
+    const lastCall = () => api.setUnsaved.mock.calls.at(-1)?.[0]
+    act(() => result.current.markDirty())
+    expect(lastCall()).toBe(true)
+    act(() => result.current.markClean())
+    expect(lastCall()).toBe(false)
+  })
+
+  it('saves through saveRef when the close guard is asked to save', async () => {
+    const { result } = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    let saved = 0
+    result.current.saveRef.current = async () => {
+      saved++
+    }
+    const guard = Object.values(useUiStore.getState().closeGuards)[0]
+    await guard.onSave()
+    expect(saved).toBe(1)
+  })
+
+  it('registers the close guard but not the navigation guard when navigation is off', () => {
+    const off = renderHook(() => useUnsavedGuard('Map', { navigationGuard: false }), { wrapper })
+    expect(Object.values(useUiStore.getState().closeGuards)).toHaveLength(1)
+    act(() => off.result.current.markDirty())
+    expect(useUiStore.getState().dirtyEditor).toBeNull()
+    off.unmount()
+
+    const on = renderHook(() => useUnsavedGuard('Map'), { wrapper })
+    act(() => on.result.current.markDirty())
+    expect(useUiStore.getState().dirtyEditor?.label).toBe('Map')
   })
 })

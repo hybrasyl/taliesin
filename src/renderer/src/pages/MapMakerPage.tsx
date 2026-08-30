@@ -85,6 +85,7 @@ import {
 import { floodFill } from '../utils/mapEditorTools'
 import { sanitizePrefabName, trimPrefab, type Prefab } from '../utils/prefabTypes'
 import { createTab, tabLabel, useMapMakerStore } from '../store/mapMakerStore'
+import { saveTab } from '../utils/mapMakerSave'
 
 const MAX_UNDO = 100
 
@@ -148,16 +149,7 @@ const MapMakerPage: React.FC = () => {
     if (!closingTabId) return
     const tab = tabs.find((t) => t.id === closingTabId)
     if (!tab?.mapFile) return
-
-    let savePath = tab.filePath
-    if (!savePath) {
-      savePath = await window.api.saveFile(
-        [{ name: 'DA Map Files', extensions: ['map'] }],
-        mapFilesDir()
-      )
-      if (!savePath) return // user cancelled save dialog
-    }
-    await window.api.writeBytes(savePath, tab.mapFile.toUint8Array())
+    if (!(await saveTab(tab))) return // user cancelled save dialog
     removeTab(closingTabId)
     setClosingTabId(null)
   }, [closingTabId, tabs, removeTab])
@@ -256,19 +248,10 @@ const MapMakerPage: React.FC = () => {
   )
 
   const handleSave = useCallback(async () => {
-    if (!activeTabId || !mapFile) return
-    let savePath = filePath
-    if (!savePath) {
-      savePath = await window.api.saveFile(
-        [{ name: 'DA Map Files', extensions: ['map'] }],
-        mapFilesDir()
-      )
-      if (!savePath) return
-    }
-    await window.api.writeBytes(savePath, mapFile.toUint8Array())
-    updateTab(activeTabId, { filePath: savePath, dirty: false })
-    showStatus('Saved')
-  }, [activeTabId, mapFile, filePath, updateTab, showStatus])
+    const tab = tabs.find((t) => t.id === activeTabId)
+    if (!tab?.mapFile) return
+    if (await saveTab(tab)) showStatus('Saved')
+  }, [tabs, activeTabId, showStatus])
 
   const handleSaveAs = useCallback(async () => {
     if (!activeTabId || !mapFile) return
