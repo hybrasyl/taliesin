@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useId } from 'react'
 import { useUiStore, type DirtyEditor } from '../store/uiStore'
+import { reportUnsaved } from '../utils/unsavedReport'
 
 interface UseUnsavedGuardReturn {
   markDirty: () => void
@@ -24,8 +25,30 @@ interface UseUnsavedGuardReturn {
  *   const handleNew    = ()     => guard(() => openNewForm())
  *   markClean() // call after save / archive / unarchive
  */
-export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
-  const setDirtyEditor = useUiStore((s) => s.setDirtyEditor)
+export interface UnsavedGuardOptions {
+  /**
+   * Register the dirty state globally so navigation away prompts. Default
+   * true. A page that is kept mounted across navigation (the XML map editor)
+   * passes false: its edits survive the trip, so the prompt would only offer
+   * to discard state that is not going anywhere. The within-page guard
+   * (switching maps, New) is unaffected.
+   */
+  navigationGuard?: boolean
+}
+
+export function useUnsavedGuard(
+  label: string,
+  options: UnsavedGuardOptions = {}
+): UseUnsavedGuardReturn {
+  const navigationGuard = options.navigationGuard ?? true
+  const closeGuardId = useId()
+  const setDirtyEditorRaw = useUiStore((s) => s.setDirtyEditor)
+  const setDirtyEditor = useCallback(
+    (editor: DirtyEditor | null) => {
+      if (navigationGuard) setDirtyEditorRaw(editor)
+    },
+    [navigationGuard, setDirtyEditorRaw]
+  )
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const pendingActionRef = useRef<(() => void) | null>(null)
@@ -44,6 +67,7 @@ export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
     }
     registeredRef.current = entry
     setDirtyEditor(entry)
+    reportUnsaved()
   }, [label, setDirtyEditor])
 
   /**
@@ -63,10 +87,34 @@ export function useUnsavedGuard(label: string): UseUnsavedGuardReturn {
     [setDirtyEditor]
   )
 
+  /**
+   * Answer for this editor when the window closes. Registered for the hook's
+   * whole life, whatever `navigationGuard` says: the navigation prompt is
+   * about a page going away, the close guard is about work going away, and
+   * a kept-alive page has only the second problem. Reads the refs at close
+   * time, so it is never stale and never needs re-registering.
+   */
+  useEffect(() => {
+    const { registerCloseGuard, unregisterCloseGuard } = useUiStore.getState()
+    registerCloseGuard(closeGuardId, {
+      label,
+      isDirty: () => isDirtyRef.current,
+      onSave: async () => {
+        await saveRef.current?.()
+      }
+    })
+    return () => {
+      unregisterCloseGuard(closeGuardId)
+      // An editor that unmounts dirty (Discard) takes its work with it.
+      reportUnsaved()
+    }
+  }, [closeGuardId, label])
+
   const markClean = useCallback(() => {
     isDirtyRef.current = false
     registeredRef.current = null
     setDirtyEditor(null)
+    reportUnsaved()
   }, [setDirtyEditor])
 
   const guard = useCallback((action: () => void) => {

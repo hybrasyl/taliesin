@@ -64,6 +64,21 @@ const api = {
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
+  /**
+   * Main asks before the window closes (`app:closeRequested`); the renderer
+   * answers with `confirmClose` once nothing is dirty or the user has decided.
+   * Returns the unsubscribe.
+   */
+  onCloseRequested: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('app:closeRequested', handler)
+    return () => {
+      ipcRenderer.removeListener('app:closeRequested', handler)
+    }
+  },
+  confirmClose: () => ipcRenderer.send('app:confirmClose'),
+  /** Running report: does any editor hold unsaved work? Main asks before a close only when true. */
+  setUnsaved: (dirty: boolean) => ipcRenderer.send('app:unsaved', dirty),
 
   // App
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),

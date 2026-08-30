@@ -31,6 +31,12 @@ npm run build:win:portable   # the portable exe only
 
 Gate before committing: `npm run typecheck && npm run lint:check && npm run test:coverage && npm run build`.
 
+npm 12+ blocks install scripts unless `package.json` `allowScripts` names the package **at its
+exact version**. Electron's postinstall is what downloads the Electron binary, so a blocked script
+means `npm run dev`, `e2e` and `build:win` fail with no `node_modules/electron/dist`. After a bump
+of `electron`, `electron-winstaller` or `esbuild`, run `npm install-scripts ls` and
+`npm install-scripts approve <pkg>` to update the pins, then `npm ci` again.
+
 ## Stack
 
 electron-vite · React 19 (classic JSX runtime — `import React`; return `React.ReactElement`) ·

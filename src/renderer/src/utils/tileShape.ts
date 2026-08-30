@@ -13,6 +13,8 @@
  * - **Blank rows below** move the art up the tile. A wall sits on its bottom
  *   edge, so rows left empty underneath raise what the player sees. These rows
  *   belong to the CONVERTED tile, not the source — see `splitWallHeight`.
+ * - **Trim** removes the transparent padding an export leaves under the art, so
+ *   the tile stands on the ground instead of floating by the padding's share.
  *
  * All three are pure `PixelBuffer` operations, and none of them stores anything:
  * the result is the art. `static_tiles` carries no per-tile metadata and does not
@@ -105,6 +107,41 @@ export function padBelow(src: PixelBuffer, rows: number): PixelBuffer {
   const keep = Math.min(src.height, h)
   data.set(src.data.subarray(0, keep * src.width * 4), 0)
   return { data, width: src.width, height: h }
+}
+
+/**
+ * How many fully transparent rows sit at the base of the image.
+ *
+ * Art often arrives with padding under it — an export box taller than the
+ * drawing. The projection maps the whole source down the face, so that padding
+ * survives conversion as empty rows at the base of the tile, and the art floats
+ * off the ground by their share of the height. This measures the padding so
+ * `trimBelow` can remove it. A fully transparent image measures as all of its
+ * rows.
+ */
+export function transparentRowsBelow(src: PixelBuffer): number {
+  for (let y = src.height - 1; y >= 0; y--) {
+    const row = y * src.width * 4
+    for (let x = 0; x < src.width; x++) {
+      if (src.data[row + x * 4 + 3] > 0) return src.height - 1 - y
+    }
+  }
+  return src.height
+}
+
+/**
+ * Remove the fully transparent rows at the base, so the art sits on its bottom
+ * edge.
+ *
+ * This is the opposite decision from **Blank rows below**: trim when the space
+ * under the art is an accident of the export, keep (or add) rows when the raise
+ * is meant. Apply it to the SOURCE, before slicing — a run's columns must share
+ * one baseline, so only rows transparent across the whole source may go. At
+ * least one row always stays.
+ */
+export function trimBelow(src: PixelBuffer): PixelBuffer {
+  const rows = Math.min(transparentRowsBelow(src), src.height - 1)
+  return rows > 0 ? padBelow(src, -rows) : src
 }
 
 /**

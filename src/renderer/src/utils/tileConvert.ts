@@ -49,12 +49,26 @@ export type TileScale = 1 | 2
  */
 export type WallFace = 'left' | 'right'
 
+/**
+ * How a destination pixel samples the source.
+ *
+ * - `nearest` — one point sample, no averaging. Pixels stay crisp and the
+ *   diamond/slant edges step hard, which is what legacy DA art looks like.
+ *   (GIMP calls this "None".)
+ * - `linear`  — bilinear samples, supersampled. Smooth without the mush.
+ * - `area`    — nearest samples averaged over the supersample grid (a box
+ *   filter). The old default; softest of the three.
+ */
+export type Interpolation = 'nearest' | 'linear' | 'area'
+
 export interface ConvertOptions {
   layer: TileLayer
   /** Output scale; default 1. */
   scale?: TileScale
   /** Sub-samples per axis per destination pixel; default 4 (→ 16 samples/px). */
   supersample?: number
+  /** Source sampling filter; default 'area' (the historical behaviour). */
+  interpolation?: Interpolation
   /**
    * Wall output height in 1× pixels (the whole tile, multiple of 14 to match a
    * legacy replacement). Defaults to the source height. Ignored for floors.
@@ -89,6 +103,66 @@ function sampleSource(src: PixelBuffer, u: number, v: number): Rgba {
 }
 
 /**
+ * Bilinear source sample at normalized UV.
+ *
+ * The four neighbours blend premultiplied — colour weighted by alpha — so a
+ * transparent pixel contributes no colour and edges against transparency don't
+ * darken. The result is un-premultiplied back to straight RGBA, matching what
+ * `sampleSource` returns.
+ */
+function sampleLinear(src: PixelBuffer, u: number, v: number): Rgba {
+  // Continuous source coordinates with pixel centres at x+0.5.
+  const fx = clamp01(u) * src.width - 0.5
+  const fy = clamp01(v) * src.height - 0.5
+  let x0 = Math.floor(fx)
+  let y0 = Math.floor(fy)
+  const tx = fx - x0
+  const ty = fy - y0
+  if (x0 < 0) x0 = 0
+  if (y0 < 0) y0 = 0
+  const x1 = Math.min(x0 + 1, src.width - 1)
+  const y1 = Math.min(y0 + 1, src.height - 1)
+
+  let r = 0
+  let g = 0
+  let b = 0
+  let a = 0
+  const corners: Array<[number, number, number]> = [
+    [x0, y0, (1 - tx) * (1 - ty)],
+    [x1, y0, tx * (1 - ty)],
+    [x0, y1, (1 - tx) * ty],
+    [x1, y1, tx * ty]
+  ]
+  for (const [cx, cy, wgt] of corners) {
+    const i = (cy * src.width + cx) * 4
+    const sa = src.data[i + 3]
+    r += src.data[i] * sa * wgt
+    g += src.data[i + 1] * sa * wgt
+    b += src.data[i + 2] * sa * wgt
+    a += sa * wgt
+  }
+  if (a <= 0) return [0, 0, 0, 0]
+  return [r / a, g / a, b / a, a]
+}
+
+/**
+ * Resolve the sampler and effective supersample count for a filter choice.
+ *
+ * `nearest` forces one sample per destination pixel — averaging point samples
+ * is what made the old output soft, and crispness IS the point of nearest.
+ * The geometry masks (diamond edge, wall slant) then step hard instead of
+ * antialiasing, which matches the legacy art they sit beside.
+ */
+function samplingFor(
+  interpolation: Interpolation,
+  ss: number
+): { sample: (src: PixelBuffer, u: number, v: number) => Rgba; ss: number } {
+  if (interpolation === 'nearest') return { sample: sampleSource, ss: 1 }
+  if (interpolation === 'linear') return { sample: sampleLinear, ss }
+  return { sample: sampleSource, ss }
+}
+
+/**
  * Project an orthogonal (square/axis-aligned) source tile onto the DA isometric
  * geometry for the requested layer and scale.
  *
@@ -107,9 +181,10 @@ export function convertOrthoTile(src: PixelBuffer, opts: ConvertOptions): PixelB
     throw new Error(`convertOrthoTile: scale must be 1 or 2, got ${scale}`)
   }
   const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
+  const interp = opts.interpolation ?? 'area'
   return opts.layer === 'wall'
-    ? convertWall(src, scale, ss, opts.wallHeight ?? src.height, opts.wallFace ?? 'left')
-    : convertFloor(src, scale, ss)
+    ? convertWall(src, scale, ss, opts.wallHeight ?? src.height, opts.wallFace ?? 'left', interp)
+    : convertFloor(src, scale, ss, interp)
 }
 
 /**
@@ -143,7 +218,10 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
   if (scale !== 1 && scale !== 2) {
     throw new Error(`resampleTile: scale must be 1 or 2, got ${scale}`)
   }
-  const ss = Math.max(1, Math.floor(opts.supersample ?? 4))
+  const { sample, ss } = samplingFor(
+    opts.interpolation ?? 'area',
+    Math.max(1, Math.floor(opts.supersample ?? 4))
+  )
   const isFloor = opts.layer !== 'wall'
   const outW = (isFloor ? GROUND_TILE_WIDTH : ISO_HTILE_W) * scale
   const outH =
@@ -164,7 +242,7 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
           // Floors are diamonds: drop sub-samples outside the inscribed diamond
           // (per-sample so the diamond edge antialiases).
           if (isFloor && Math.abs(u - 0.5) * 2 + Math.abs(v - 0.5) * 2 > 1) continue
-          const [sr, sg, sb, sa] = sampleSource(src, u, v)
+          const [sr, sg, sb, sa] = sample(src, u, v)
           // premultiplied so partial-alpha sources average without fringing
           r += sr * sa
           g += sg * sa
@@ -198,7 +276,13 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
  * kept inside (floors can be translucent — water, etc.) and the diamond edge
  * antialiases via supersampling.
  */
-function convertFloor(src: PixelBuffer, scale: TileScale, ss: number): PixelBuffer {
+function convertFloor(
+  src: PixelBuffer,
+  scale: TileScale,
+  rawSs: number,
+  interpolation: Interpolation
+): PixelBuffer {
+  const { sample, ss } = samplingFor(interpolation, rawSs)
   const outW = GROUND_TILE_WIDTH * scale
   const outH = GROUND_TILE_HEIGHT * scale
   const halfW = outW / 2
@@ -223,7 +307,7 @@ function convertFloor(src: PixelBuffer, scale: TileScale, ss: number): PixelBuff
           // Corners (u or v outside [0,1]) stay transparent; inside keeps the
           // source's own alpha. Premultiplied so the edge AAs cleanly.
           if (u >= 0 && u < 1 && v >= 0 && v < 1) {
-            const [sr, sg, sb, sa] = sampleSource(src, u, v)
+            const [sr, sg, sb, sa] = sample(src, u, v)
             r += sr * sa
             g += sg * sa
             b += sb * sa
@@ -267,10 +351,12 @@ function convertFloor(src: PixelBuffer, scale: TileScale, ss: number): PixelBuff
 function convertWall(
   src: PixelBuffer,
   scale: TileScale,
-  ss: number,
+  rawSs: number,
   wallHeight: number,
-  face: WallFace
+  face: WallFace,
+  interpolation: Interpolation
 ): PixelBuffer {
+  const { sample, ss } = samplingFor(interpolation, rawSs)
   const outW = ISO_HTILE_W * scale
   const outH = Math.max(1, Math.round(wallHeight)) * scale
   const slant = ISO_VTILE_STEP * scale
@@ -292,7 +378,7 @@ function convertWall(
           const fy = dy + (sj + 0.5) / ss
           const v = (fy - yTop) / contentH
           if (u >= 0 && u < 1 && v >= 0 && v < 1) {
-            const [sr, sg, sb, sa] = sampleSource(src, u, v)
+            const [sr, sg, sb, sa] = sample(src, u, v)
             // Premultiplied accumulation: weight colour by alpha so the face edge
             // antialiases against transparency without darkening or brightening.
             r += sr * sa

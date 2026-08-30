@@ -5,6 +5,7 @@ import { fireEvent } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import MapEditorPanel from '../MapEditorPanel'
 import { resetStores } from '../../../__tests__/setup/storeWrapper'
+import { useUiStore } from '../../../store/uiStore'
 import { DEFAULT_MAP, type MapData, type MapWarp } from '../../../data/mapData'
 
 /**
@@ -81,8 +82,12 @@ async function renderPanel(patch: Partial<MapData> = {}) {
 }
 
 beforeEach(() => {
+  // The panel's window key listener answers only while the map editor is the
+  // visible page (it is kept mounted across navigation), so the store must say
+  // so for the copy/paste chords below to reach it.
   resetStores()
   vi.clearAllMocks()
+  useUiStore.setState({ currentPage: 'mapeditor' })
 })
 
 describe('Placement tab — two warps on one tile', () => {

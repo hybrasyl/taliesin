@@ -85,5 +85,10 @@
     "vitest-canvas-mock": "^1.1.4",
     "xml2js": "^0.6.2",
     "zustand": "^5.0.14"
+  },
+  "allowScripts": {
+    "electron@41.10.4": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.25.12": true
   }
 }

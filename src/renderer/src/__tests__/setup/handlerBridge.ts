@@ -220,6 +220,9 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     minimizeWindow: () => undefined,
     maximizeWindow: () => undefined,
     closeWindow: () => undefined,
+    onCloseRequested: () => () => undefined,
+    confirmClose: () => undefined,
+    setUnsaved: () => undefined,
 
     // App
     getAppVersion: () => handlers.getAppVersion(handlerCtx),

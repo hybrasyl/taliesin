@@ -180,99 +180,252 @@ const MapEditorCanvas: React.FC<Props> = ({
   const originY = ISO_FOREGROUND_PAD
   const { w: canvasW, h: canvasH } = isoCanvasSize(W, H, scale)
 
-  // ── Full isometric render ──────────────────────────────────────────────────
+  // ── Isometric render with dirty-region accumulation ────────────────────────
+  //
+  // A 400×400 map is 160k tiles on a ~22000×11000 canvas. Repainting all of
+  // it for every brush stroke — and on every animation frame — is what
+  // stuttered. Editing marks the changed tiles' screen region dirty, and the
+  // next frame repaints only the sprites intersecting that region, clipped to
+  // it. A full repaint happens on load, zoom, layer toggles, and undo/redo.
 
-  const doFullRender = useCallback(async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  interface DirtyRect {
+    x0: number
+    y0: number
+    x1: number
+    y1: number
+  }
+  const dirtyRef = useRef<'full' | DirtyRect | null>(null)
 
-    canvas.width = canvasW
-    canvas.height = canvasH
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, canvasW, canvasH)
-
-    const assets = assetsRef.current
-    if (!assets) {
-      drawEmptyGrid(ctx, W, H, originX, originY, scale)
+  const markDirty = useCallback((rect: 'full' | DirtyRect) => {
+    const cur = dirtyRef.current
+    if (rect === 'full' || cur === 'full') {
+      dirtyRef.current = 'full'
       return
     }
-
-    if (scale !== 1) {
-      ctx.save()
-      ctx.scale(scale, scale)
-    }
-
-    const { tiles } = mapFile
-
-    const elapsed = elapsedRef.current
-    const gndAni = showAnimation ? assets.groundAnimationTable : null
-    const stcAni = showAnimation ? assets.stcAnimationTable : null
-
-    if (showBg) {
-      for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const bg = tiles[y * W + x]!.background
-          if (bg <= 0) continue
-          const animBg = getAnimatedTileId(gndAni, bg, elapsed)
-          const bm = await getGroundBitmap(animBg, assets)
-          if (bm) {
-            ctx.drawImage(bm, originX + (x - y) * HTILE_W - HTILE_W, originY + (x + y) * HALF_H)
-          }
+    dirtyRef.current = cur
+      ? {
+          x0: Math.min(cur.x0, rect.x0),
+          y0: Math.min(cur.y0, rect.y0),
+          x1: Math.max(cur.x1, rect.x1),
+          y1: Math.max(cur.y1, rect.y1)
         }
+      : rect
+  }, [])
+
+  /**
+   * The unscaled screen region a change to tile (tx, ty) can affect: the
+   * ground diamond plus the tallest wall a tile can carry. FOREGROUND_PAD is
+   * that bound by construction — it is the headroom the canvas itself reserves
+   * for overhanging walls.
+   */
+  const markDirtyTile = useCallback(
+    (tx: number, ty: number) => {
+      const x0 = originX + (tx - ty) * HTILE_W - HTILE_W
+      const yBottom = originY + (tx + ty) * HALF_H + 2 * HALF_H
+      markDirty({ x0, y0: yBottom - ISO_FOREGROUND_PAD, x1: x0 + 2 * HTILE_W, y1: yBottom })
+    },
+    [originX, originY, markDirty]
+  )
+
+  const doRender = useCallback(
+    async (region: 'full' | DirtyRect) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')!
+
+      // A size mismatch means the canvas was never sized for this zoom/map —
+      // a partial paint onto it would land wrong, so force a full pass.
+      const full = region === 'full' || canvas.width !== canvasW || canvas.height !== canvasH
+      if (full) {
+        canvas.width = canvasW
+        canvas.height = canvasH
+        ctx.fillStyle = '#000'
+        ctx.fillRect(0, 0, canvasW, canvasH)
       }
-    }
 
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const tile = tiles[y * W + x]!
-        const fgBaseX = originX + (x - y) * HTILE_W
-        const fgBaseY = originY + (x + y) * HALF_H
-
-        if (showLfg && tile.leftForeground > 0) {
-          const animLf = getAnimatedTileId(stcAni, tile.leftForeground, elapsed)
-          const bm = await getStcBitmap(animLf, assets)
-          if (bm) ctx.drawImage(bm, fgBaseX - HTILE_W, fgBaseY - bm.height + HTILE_W)
-        }
-        if (showRfg && tile.rightForeground > 0) {
-          const animRf = getAnimatedTileId(stcAni, tile.rightForeground, elapsed)
-          const bm = await getStcBitmap(animRf, assets)
-          if (bm) ctx.drawImage(bm, fgBaseX, fgBaseY - bm.height + HTILE_W)
-        }
+      const assets = assetsRef.current
+      if (!assets) {
+        if (full) drawEmptyGrid(ctx, W, H, originX, originY, scale)
+        return
       }
-    }
 
-    if (scale !== 1) ctx.restore()
+      /** Clip in unscaled world pixels; null = repaint everything. */
+      const clip = full ? null : (region as DirtyRect)
 
-    if (showPassability && assets.sotp) {
-      const sotp = assets.sotp
+      const { tiles } = mapFile
+      const elapsed = elapsedRef.current
+      const gndAni = showAnimation ? assets.groundAnimationTable : null
+      const stcAni = showAnimation ? assets.stcAnimationTable : null
+
+      // Sprite-vs-clip intersection tests, in unscaled world pixels.
+      const cellVisible = (x: number, y: number): boolean => {
+        if (!clip) return true
+        const left = originX + (x - y) * HTILE_W - HTILE_W
+        const top = originY + (x + y) * HALF_H
+        return (
+          left < clip.x1 &&
+          left + GROUND_TILE_WIDTH > clip.x0 &&
+          top < clip.y1 &&
+          top + GROUND_TILE_HEIGHT > clip.y0
+        )
+      }
+      const fgVisible = (x: number, y: number, w: number, h: number, right: boolean): boolean => {
+        if (!clip) return true
+        const base = originX + (x - y) * HTILE_W
+        const left = right ? base : base - HTILE_W
+        const bottom = originY + (x + y) * HALF_H + 2 * HALF_H
+        return left < clip.x1 && left + w > clip.x0 && bottom - h < clip.y1 && bottom > clip.y0
+      }
+
+      // Prefetch every bitmap the affected region needs, then draw with
+      // synchronous cache reads. The old per-tile `await` cost hundreds of
+      // thousands of microtask hops per frame even on pure cache hits.
+      const bgIds = new Set<number>()
+      const fgIds = new Set<number>()
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const tile = tiles[y * W + x]!
-          if (tile.leftForeground <= 0 && tile.rightForeground <= 0) continue
-          if (isTilePassable(tile.leftForeground, tile.rightForeground, sotp)) continue
-          const { x: cx, y: cy } = tileToScreen(x, y, originX, originY, scale)
-          drawDiamond(ctx, cx, cy, scale)
-          ctx.fillStyle = 'rgba(220,50,50,0.38)'
-          ctx.fill()
+          if (showBg && tile.background > 0 && cellVisible(x, y)) {
+            bgIds.add(getAnimatedTileId(gndAni, tile.background, elapsed))
+          }
+          // Heights are unknown before load, so test the tallest-wall band.
+          if (
+            showLfg &&
+            tile.leftForeground > 0 &&
+            fgVisible(x, y, HTILE_W, ISO_FOREGROUND_PAD, false)
+          ) {
+            fgIds.add(getAnimatedTileId(stcAni, tile.leftForeground, elapsed))
+          }
+          if (
+            showRfg &&
+            tile.rightForeground > 0 &&
+            fgVisible(x, y, HTILE_W, ISO_FOREGROUND_PAD, true)
+          ) {
+            fgIds.add(getAnimatedTileId(stcAni, tile.rightForeground, elapsed))
+          }
         }
       }
-    }
-  }, [
-    mapFile,
-    scale,
-    W,
-    H,
-    canvasW,
-    canvasH,
-    originX,
-    originY,
-    showBg,
-    showLfg,
-    showRfg,
-    showPassability,
-    showAnimation
-  ])
+      await Promise.all([
+        ...[...bgIds].map((id) => getGroundBitmap(id, assets)),
+        ...[...fgIds].map((id) => getStcBitmap(id, assets))
+      ])
+
+      ctx.save()
+      ctx.scale(scale, scale)
+      if (clip) {
+        ctx.beginPath()
+        ctx.rect(clip.x0, clip.y0, clip.x1 - clip.x0, clip.y1 - clip.y0)
+        ctx.clip()
+        ctx.fillStyle = '#000'
+        ctx.fillRect(clip.x0, clip.y0, clip.x1 - clip.x0, clip.y1 - clip.y0)
+      }
+
+      const bgCache = assets.groundBitmapCache
+      const fgCache = assets.stcBitmapCache
+
+      if (showBg) {
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const bg = tiles[y * W + x]!.background
+            if (bg <= 0 || !cellVisible(x, y)) continue
+            const bm = bgCache.get(getAnimatedTileId(gndAni, bg, elapsed))
+            if (bm) {
+              ctx.drawImage(bm, originX + (x - y) * HTILE_W - HTILE_W, originY + (x + y) * HALF_H)
+            }
+          }
+        }
+      }
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const tile = tiles[y * W + x]!
+          const fgBaseX = originX + (x - y) * HTILE_W
+          const fgBaseY = originY + (x + y) * HALF_H
+
+          if (showLfg && tile.leftForeground > 0) {
+            const bm = fgCache.get(getAnimatedTileId(stcAni, tile.leftForeground, elapsed))
+            if (bm && fgVisible(x, y, bm.width, bm.height, false)) {
+              ctx.drawImage(bm, fgBaseX - HTILE_W, fgBaseY - bm.height + HTILE_W)
+            }
+          }
+          if (showRfg && tile.rightForeground > 0) {
+            const bm = fgCache.get(getAnimatedTileId(stcAni, tile.rightForeground, elapsed))
+            if (bm && fgVisible(x, y, bm.width, bm.height, true)) {
+              ctx.drawImage(bm, fgBaseX, fgBaseY - bm.height + HTILE_W)
+            }
+          }
+        }
+      }
+      ctx.restore()
+
+      // Passability and the grid draw in screen (scaled) pixels, so the clip
+      // is re-applied scaled. Both must be clipped: repainting a translucent
+      // diamond outside the black-filled region would double-darken it.
+      if ((showPassability && assets.sotp) || showGrid) {
+        ctx.save()
+        if (clip) {
+          ctx.beginPath()
+          ctx.rect(
+            clip.x0 * scale,
+            clip.y0 * scale,
+            (clip.x1 - clip.x0) * scale,
+            (clip.y1 - clip.y0) * scale
+          )
+          ctx.clip()
+        }
+        if (showPassability && assets.sotp) {
+          const sotp = assets.sotp
+          ctx.fillStyle = 'rgba(220,50,50,0.38)'
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const tile = tiles[y * W + x]!
+              if (tile.leftForeground <= 0 && tile.rightForeground <= 0) continue
+              if (!cellVisible(x, y)) continue
+              if (isTilePassable(tile.leftForeground, tile.rightForeground, sotp)) continue
+              const { x: cx, y: cy } = tileToScreen(x, y, originX, originY, scale)
+              drawDiamond(ctx, cx, cy, scale)
+              ctx.fill()
+            }
+          }
+        }
+        // The grid lives on the base canvas rather than the interaction
+        // overlay: the overlay repaints on every mousemove, and restroking
+        // W×H diamonds per mouse event is most of what made hovering stutter.
+        if (showGrid) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+          ctx.lineWidth = 0.5
+          for (let ty = 0; ty < H; ty++) {
+            for (let tx = 0; tx < W; tx++) {
+              if (!cellVisible(tx, ty)) continue
+              const { x: cx, y: cy } = tileToScreen(tx, ty, originX, originY, scale)
+              drawDiamond(ctx, cx, cy, scale)
+              ctx.stroke()
+            }
+          }
+        }
+        ctx.restore()
+      }
+    },
+    [
+      mapFile,
+      scale,
+      W,
+      H,
+      canvasW,
+      canvasH,
+      originX,
+      originY,
+      showBg,
+      showLfg,
+      showRfg,
+      showPassability,
+      showAnimation,
+      showGrid
+    ]
+  )
+
+  /** Bumped when assets finish loading, so effects keyed on them re-run. */
+  const [assetsVersion, setAssetsVersion] = useState(0)
 
   // Initial render + asset loading
   useEffect(() => {
@@ -287,10 +440,11 @@ const MapEditorCanvas: React.FC<Props> = ({
           })
           if (cancelled) return
           assetsRef.current = assets
+          setAssetsVersion((v) => v + 1)
         }
         if (!cancelled) {
           setStatusMsg('Rendering...')
-          await doFullRender()
+          await doRender('full')
         }
       } finally {
         if (!cancelled) {
@@ -303,16 +457,24 @@ const MapEditorCanvas: React.FC<Props> = ({
     return () => {
       cancelled = true
     }
-  }, [clientPath, doFullRender])
+  }, [clientPath, doRender])
 
+  /**
+   * Repaint whatever region has been marked dirty (everything, when nothing
+   * was marked). Callers that know their change's extent call `markDirtyTile`
+   * first; everyone else keeps full-repaint semantics.
+   */
   const queueRender = useCallback(() => {
+    if (!dirtyRef.current) dirtyRef.current = 'full'
     if (renderPending.current) return
     renderPending.current = true
     requestAnimationFrame(async () => {
       renderPending.current = false
-      await doFullRender()
+      const dirty = dirtyRef.current ?? 'full'
+      dirtyRef.current = null
+      await doRender(dirty)
     })
-  }, [doFullRender])
+  }, [doRender])
 
   // Re-render when renderVersion changes (undo/redo, external mutations)
   useEffect(() => {
@@ -320,18 +482,47 @@ const MapEditorCanvas: React.FC<Props> = ({
   }, [renderVersion, queueRender])
 
   // ── Animation loop ─────────────────────────────────────────────────────────
+  //
+  // Runs only when the map actually holds an animated tile — the tables alone
+  // say what COULD animate, and most maps animate nothing. Ticks repaint the
+  // animated tiles' regions at the legacy cadence (intervals are hundreds of
+  // ms) instead of full-repainting at 60fps, which stuttered a 400×400 map.
 
   useEffect(() => {
     const assets = assetsRef.current
-    const hasAnimations =
-      showAnimation && assets && (assets.groundAnimationTable || assets.stcAnimationTable)
-    if (!hasAnimations) return
+    if (!showAnimation || !assets) return
+    const gndAni = assets.groundAnimationTable
+    const stcAni = assets.stcAnimationTable
+    if (!gndAni && !stcAni) return
+
+    const animated: TileCoord[] = []
+    const { tiles } = mapFile
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const t = tiles[y * W + x]!
+        if (
+          (gndAni && t.background > 0 && gndAni.tryGetEntry(t.background)) ||
+          (stcAni &&
+            ((t.leftForeground > 0 && stcAni.tryGetEntry(t.leftForeground)) ||
+              (t.rightForeground > 0 && stcAni.tryGetEntry(t.rightForeground))))
+        ) {
+          animated.push({ tx: x, ty: y })
+        }
+      }
+    }
+    if (animated.length === 0) return
 
     let lastTime = performance.now()
+    let acc = 0
     const tick = (now: number) => {
       elapsedRef.current += now - lastTime
+      acc += now - lastTime
       lastTime = now
-      queueRender()
+      if (acc >= 150) {
+        acc = 0
+        for (const { tx, ty } of animated) markDirtyTile(tx, ty)
+        queueRender()
+      }
       animFrameRef.current = requestAnimationFrame(tick)
     }
     animFrameRef.current = requestAnimationFrame(tick)
@@ -339,7 +530,7 @@ const MapEditorCanvas: React.FC<Props> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     }
-  }, [showAnimation, queueRender])
+  }, [showAnimation, mapFile, W, H, renderVersion, assetsVersion, markDirtyTile, queueRender])
 
   // ── Ghost tile bitmap ──────────────────────────────────────────────────────
 
@@ -404,20 +595,9 @@ const MapEditorCanvas: React.FC<Props> = ({
     const ctx = overlay.getContext('2d')!
     ctx.clearRect(0, 0, canvasW, canvasH)
 
-    // Grid
-    if (showGrid) {
-      ctx.save()
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-      ctx.lineWidth = 0.5
-      for (let ty = 0; ty < H; ty++) {
-        for (let tx = 0; tx < W; tx++) {
-          const { x: cx, y: cy } = tileToScreen(tx, ty, originX, originY, scale)
-          drawDiamond(ctx, cx, cy, scale)
-          ctx.stroke()
-        }
-      }
-      ctx.restore()
-    }
+    // The grid is NOT drawn here. This overlay repaints on every mousemove,
+    // and stroking W×H diamonds per mouse event stuttered large maps — the
+    // grid lives on the base canvas (doRender), which repaints only on edits.
 
     // Selection rectangle
     if (selection) {
@@ -583,7 +763,6 @@ const MapEditorCanvas: React.FC<Props> = ({
     originX,
     originY,
     scale,
-    showGrid,
     W,
     H,
     ghostBitmap,
@@ -623,19 +802,26 @@ const MapEditorCanvas: React.FC<Props> = ({
 
   // ── Tool application ───────────────────────────────────────────────────────
 
+  // A long drag visits many tiles; the linear "already painted?" scan was
+  // O(n²) over the stroke, so membership lives in a Set beside the batch.
+  const batchKeysRef = useRef(new Set<string>())
+
   const applyDrawOrErase = useCallback(
     (tx: number, ty: number) => {
       const tile = mapFile.getTile(tx, ty)
       const oldValue = tile[activeLayer]
       const newValue = tool === 'erase' ? 0 : selectedTileId
       if (oldValue === newValue) return
-      if (batchRef.current.some((c) => c.x === tx && c.y === ty && c.layer === activeLayer)) return
+      const key = `${tx},${ty},${activeLayer}`
+      if (batchKeysRef.current.has(key)) return
 
       mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
       batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
+      batchKeysRef.current.add(key)
+      markDirtyTile(tx, ty)
       queueRender()
     },
-    [mapFile, tool, activeLayer, selectedTileId, queueRender]
+    [mapFile, tool, activeLayer, selectedTileId, markDirtyTile, queueRender]
   )
 
   const applyRandomFill = useCallback(
@@ -644,14 +830,17 @@ const MapEditorCanvas: React.FC<Props> = ({
       const tile = mapFile.getTile(tx, ty)
       const oldValue = tile[activeLayer]
       if (oldValue !== 0) return // only fill empty
-      if (batchRef.current.some((c) => c.x === tx && c.y === ty && c.layer === activeLayer)) return
+      const key = `${tx},${ty},${activeLayer}`
+      if (batchKeysRef.current.has(key)) return
 
       const newValue = selectedTileIds[Math.floor(Math.random() * selectedTileIds.length)]
       mapFile.setTile(tx, ty, { ...tile, [activeLayer]: newValue })
       batchRef.current.push({ x: tx, y: ty, layer: activeLayer, oldValue, newValue })
+      batchKeysRef.current.add(key)
+      markDirtyTile(tx, ty)
       queueRender()
     },
-    [mapFile, activeLayer, selectedTileIds, queueRender]
+    [mapFile, activeLayer, selectedTileIds, markDirtyTile, queueRender]
   )
 
   /**
@@ -670,9 +859,10 @@ const MapEditorCanvas: React.FC<Props> = ({
       if (changes.length === 0) return
       applyChanges(mapFile, changes)
       onTileChange(changes)
+      for (const c of changes) markDirtyTile(c.x, c.y)
       queueRender()
     },
-    [mapFile, selection, activeLayer, selectedTileIds, onTileChange, queueRender]
+    [mapFile, selection, activeLayer, selectedTileIds, onTileChange, markDirtyTile, queueRender]
   )
 
   const applyFill = useCallback(
@@ -681,9 +871,10 @@ const MapEditorCanvas: React.FC<Props> = ({
       if (changes.length === 0) return
       applyChanges(mapFile, changes)
       onTileChange(changes)
+      for (const c of changes) markDirtyTile(c.x, c.y)
       queueRender()
     },
-    [mapFile, activeLayer, selectedTileId, onTileChange, queueRender]
+    [mapFile, activeLayer, selectedTileId, onTileChange, markDirtyTile, queueRender]
   )
 
   const commitLineOrShape = useCallback(
@@ -700,9 +891,10 @@ const MapEditorCanvas: React.FC<Props> = ({
       if (changes.length === 0) return
       applyChanges(mapFile, changes)
       onTileChange(changes)
+      for (const c of changes) markDirtyTile(c.x, c.y)
       queueRender()
     },
-    [mapFile, activeLayer, selectedTileId, W, H, onTileChange, queueRender]
+    [mapFile, activeLayer, selectedTileId, W, H, onTileChange, markDirtyTile, queueRender]
   )
 
   // ── Is tile inside selection? ──────────────────────────────────────────────
@@ -814,6 +1006,7 @@ const MapEditorCanvas: React.FC<Props> = ({
       // Draw / erase / randomFill
       paintingRef.current = true
       batchRef.current = []
+      batchKeysRef.current.clear()
       if (effectiveTool === 'randomFill') {
         applyRandomFill(tile.tx, tile.ty)
       } else {
@@ -933,6 +1126,7 @@ const MapEditorCanvas: React.FC<Props> = ({
       if (paintingRef.current && batchRef.current.length > 0) {
         onTileChange(batchRef.current)
         batchRef.current = []
+        batchKeysRef.current.clear()
       }
       paintingRef.current = false
     },
@@ -957,6 +1151,7 @@ const MapEditorCanvas: React.FC<Props> = ({
     if (paintingRef.current && batchRef.current.length > 0) {
       onTileChange(batchRef.current)
       batchRef.current = []
+      batchKeysRef.current.clear()
     }
     paintingRef.current = false
   }, [onHoverTile, onTileChange])

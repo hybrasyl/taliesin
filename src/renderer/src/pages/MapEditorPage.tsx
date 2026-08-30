@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -21,6 +21,8 @@ import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import { FilterField } from '../components/shared/FilterField'
 import { useSettingsStore, useMapFilesDirectory } from '../store/settingsStore'
+import { useUiStore } from '../store/uiStore'
+import { reportUnsaved } from '../utils/unsavedReport'
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -437,7 +439,11 @@ export default function MapEditorPage() {
     handleDialogSave,
     handleDialogDiscard,
     handleDialogCancel
-  } = useUnsavedGuard('Map')
+  } = useUnsavedGuard('Map', {
+    // The page is kept mounted across navigation (PageRenderer), so a dirty
+    // map stays exactly as left; only switching maps within the page prompts.
+    navigationGuard: false
+  })
 
   const { index: worldIndex, refresh: refreshWorldIndex } = useWorldIndex()
   const mapNames = worldIndex?.maps ?? []
@@ -744,6 +750,30 @@ export default function MapEditorPage() {
       setRenamePrompt(null)
     }
   }
+
+  /**
+   * While the rename prompt is up, the map is not yet on disk but the panel
+   * has already marked itself clean — the save "succeeded" from its side. The
+   * app-close guard would let the window go with the map unwritten. This
+   * registers a guard for exactly that window; saving from it declines the
+   * referrer offer and writes the map unchanged, the same as answering "no".
+   */
+  const resolveRenameRef = useRef(resolveRenamePrompt)
+  resolveRenameRef.current = resolveRenamePrompt
+  useEffect(() => {
+    if (!renamePrompt) return
+    const { registerCloseGuard, unregisterCloseGuard } = useUiStore.getState()
+    registerCloseGuard('map-rename-prompt', {
+      label: 'Map',
+      isDirty: () => true,
+      onSave: () => resolveRenameRef.current(false)
+    })
+    reportUnsaved()
+    return () => {
+      unregisterCloseGuard('map-rename-prompt')
+      reportUnsaved()
+    }
+  }, [renamePrompt])
 
   const handleArchive = async () => {
     if (!selectedFile || !ignoreDir || !mapsDir) return

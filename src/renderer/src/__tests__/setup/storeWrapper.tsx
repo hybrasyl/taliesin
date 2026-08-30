@@ -18,7 +18,8 @@ const DEFAULT_UI = {
   currentPage: 'dashboard' as const,
   dirtyEditor: null,
   activePaletteId: null,
-  activeColorizeSource: null
+  activeColorizeSource: null,
+  closeGuards: {}
 }
 
 /** Reset the stores to their initial state. Call in `beforeEach`. */

@@ -127,6 +127,9 @@ declare global {
     minimizeWindow: () => void
     maximizeWindow: () => void
     closeWindow: () => void
+    onCloseRequested: (cb: () => void) => () => void
+    confirmClose: () => void
+    setUnsaved: (dirty: boolean) => void
     getAppVersion: () => Promise<string>
     /** The bundled CHANGELOG.md for the "What's new" dialog; null if not shipped. */
     getChangelog: () => Promise<string | null>
