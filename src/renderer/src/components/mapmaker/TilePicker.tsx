@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import {
+  Badge,
   Box,
   Typography,
   ToggleButton,
@@ -123,10 +124,16 @@ const TilePicker: React.FC<Props> = ({
    * count. A pack tile at an id the legacy set never had — and 9008-9999 is a
    * block of 992 such ids — therefore had no row at all. It could not be seen
    * and could not be placed, so it could never reach a map, whatever the pack
-   * said. Off by default: the legacy set is what a map is usually built from,
-   * and 992 empty-looking numbers in the list is not a help.
+   * said.
+   *
+   * On by default. The merge only ever adds ids a pack actually covers — a
+   * handful of rows, each with real art — never the 992 empty numbers. Off
+   * used to be the default on that mistaken fear, and it hid every pack-only
+   * tile behind one unlabeled icon: an author committed a tile, opened this
+   * picker, and read its absence as a broken export (2026-08-19). The toggle
+   * stays for viewing the pure legacy set.
    */
-  const [includePack, setIncludePack] = useState(false)
+  const [includePack, setIncludePack] = useState(true)
   const [packFloorIds, setPackFloorIds] = useState<number[]>([])
   const [packWallIds, setPackWallIds] = useState<number[]>([])
 
@@ -179,6 +186,17 @@ const TilePicker: React.FC<Props> = ({
         if (cancelled) return
         const bm = await getGroundBitmap(i, assets)
         if (bm) map.set(i, bm)
+      }
+      // Pack-only floor ids live above groundTileCount, so the legacy walk
+      // never asks for them and their cells drew the blank placeholder while
+      // the map itself rendered the art (getGroundBitmap resolves the pack
+      // either way). The coverage snapshot on `assets` has no load-order race,
+      // unlike the packFloorIds state.
+      for (const id of assets.floorCoverage) {
+        if (cancelled) return
+        if (id <= assets.groundTileCount) continue
+        const bm = await getGroundBitmap(id, assets)
+        if (bm) map.set(id, bm)
       }
       if (!cancelled) setBgBitmaps(map)
     }
@@ -355,7 +373,13 @@ const TilePicker: React.FC<Props> = ({
               aria-label={includePack ? 'Exclude Hybrasyl Assets' : 'Include Hybrasyl Assets'}
               aria-pressed={includePack}
             >
-              <UpgradeIcon fontSize="small" />
+              <Badge
+                badgeContent={packOnlyIds.length}
+                color={includePack ? 'primary' : 'default'}
+                max={999}
+              >
+                <UpgradeIcon fontSize="small" />
+              </Badge>
             </IconButton>
           </span>
         </Tooltip>
