@@ -10,7 +10,8 @@ import { GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, ISO_HTILE_W, ISO_VTILE_STEP } fr
 // Geometry is the DA ground/wall ground-truth (see docs/plans/static-tile-manager.md
 // "Background: authoritative DA tile geometry") and is taken from mapRenderer.ts as
 // the single source of truth:
-//   - Floor  : 56 × 27 diamond, FULLY OPAQUE, filename floor{id:D5}.png.
+//   - Floor  : 56 × 27 diamond, transparent corners, source alpha kept
+//              inside, filename floor{id:D5}.png.
 //   - Wall   : 28 wide × variable height, transparent outside the face.
 //   - Base unit: ISO_HTILE_W (28) horizontal, ISO_VTILE_STEP (14) vertical step.
 //
@@ -92,9 +93,9 @@ function sampleSource(src: PixelBuffer, u: number, v: number): Rgba {
  * Project an orthogonal (square/axis-aligned) source tile onto the DA isometric
  * geometry for the requested layer and scale.
  *
- * Floor  → a fully opaque {56×27}·scale diamond footprint; the corner triangles
- *          are filled per `corner` (wrap by default) and output alpha is forced
- *          to 255 (floors never carry transparency).
+ * Floor  → a {56×27}·scale diamond footprint; the four corner triangles are
+ *          masked transparent and the source's own alpha is kept inside
+ *          (opaque for normal tiles, translucent where the art is — water etc.).
  * Wall   → a {28 wide}·scale vertical face parallelogram of the given height;
  *          the two out-of-face corner triangles are left transparent so the tile
  *          composites over whatever is behind it.

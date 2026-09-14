@@ -58,9 +58,10 @@ Key facts that drive the conversion math:
 
 - **A DA ground tile is already an isometric diamond**, pre-rendered inside a 56×27
   bounding box. "Converting to isometric" therefore means projecting a square source tile
-  onto that 56-wide / 27-tall diamond — with the out-of-diamond corner triangles filled from
+  onto that 56-wide / 27-tall diamond. ~~With the out-of-diamond corner triangles filled from
   neighboring content, **not** masked transparent (floors are fully opaque; see the
-  conversion section).
+  conversion section).~~ **Retracted in 40d3dbf**: the corners ARE masked transparent and the
+  source's own alpha is kept inside — see the ⚠️ Correction below.
 - **Wall tiles are half the width of a ground tile** (28 vs 56) and have variable height;
   they are the vertical faces of the iso projection, not diamonds.
 - Screen projection (from the renderer): half-tile width `HTILE_W = 28`, vertical step
@@ -117,8 +118,9 @@ Key facts that drive the conversion math:
 >
 > Taliesin's own pack-kind description
 > ([staticTiles.ts:29](../../src/renderer/src/packKinds/staticTiles.ts#L29)) previously said
-> floor tiles are 28×28 — corrected to 56×27/opaque in the working tree (it was a label only;
-> `validate` accepts any size, so no functional bug).
+> floor tiles are 28×28 — corrected to 56×27 in the working tree (it was a label only;
+> `validate` accepts any size, so no functional bug). The "/opaque" this line carried is the
+> premise 40d3dbf retracted; the 56×27 is unaffected.
 
 ## Server-side constraints (Hybrasyl)
 
@@ -393,11 +395,12 @@ the renderer utils and is unit-tested against fixtures.
 
 Order of operations matters: **iso-convert first, then slice** (per the original idea) — the
 wang adjacency is defined on the orthogonal grid, so we project the whole sheet (or each cell)
-into iso space and *then* pull out the individual DA tiles, preserving edge continuity. This
-ordering is also what makes the **opaque corners** correct for wang tiles: each sliced 56×27
-footprint overlaps its neighbors' diamonds, and slicing from the projected *sheet* (with overlap)
-fills the corner triangles from the actual adjacent cell that the wang mask says belongs there —
-slicing cells first and projecting each in isolation would leave the corners guessing.
+into iso space and *then* pull out the individual DA tiles, preserving edge continuity.
+
+**(The corner-overlap argument that stood here is retracted in 40d3dbf — the opaque-corner premise
+died.)** Floors are diamonds with transparent corners, so each cell converts independently;
+`wangSlicer.ts` slices first and leaves per-cell conversion to the caller, and says so in its own
+header.
 
 1. **Parse the wang set**: user picks the wang scheme (2-edge / 2-corner / 47-blob) and cell
    size; the slicer knows the canonical cell→adjacency-mask layout for each scheme.
@@ -503,7 +506,9 @@ All conversion/slicing is renderer-side on `ImageData`/`ImageBitmap`; only the f
 
 Resolved during scoping (kept for the record):
 
-- ~~Target floor geometry: 56×27 vs 28×28~~ → **56×27 opaque**, confirmed against Brigid.
+- ~~Target floor geometry: 56×27 vs 28×28~~ → **56×27**, confirmed against Brigid. (The
+  "opaque" that stood here was the premise 40d3dbf retracted; the question was geometry,
+  and the answer to it is unchanged.)
 - ~~Wall = one PNG or separate left/right faces~~ → **keyed by ID, not side.** `wall{id}.png`
   is looked up by the raw `LeftForeground` / `RightForeground` *value*; whichever foreground
   ID a tile carries maps to its own PNG. No separate left/right art per ID.
@@ -554,9 +559,11 @@ Still open:
 
 ## Test plan
 
-- Unit: `convertOrthoTile` against fixtures — floor: square in → **fully opaque 56×27** out
-  (every pixel alpha 255), known-pixel spot checks; wall: transparency preserved outside the
-  face. Wrap-mode corner fill: corner-triangle pixels equal the opposite edge's source content.
+- Unit: `convertOrthoTile` against fixtures — floor: square in → **56×27** out, known-pixel
+  spot checks; wall: transparency preserved outside the face. ~~Every pixel alpha 255. Wrap-mode
+  corner fill: corner-triangle pixels equal the opposite edge's source content.~~ **Retracted in
+  40d3dbf**, which deleted `CornerMode` outright: corners are masked transparent, so there is no
+  wrap mode to assert and the alpha-255 expectation is the dead premise.
   Idempotency when input is already iso. Fixtures follow the `solidSource()` `PixelBuffer`
   pattern from [duotone.test.ts](../../src/renderer/src/utils/__tests__/duotone.test.ts)
   (node-env vitest under `utils/__tests__/`).
