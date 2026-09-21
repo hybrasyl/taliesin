@@ -163,12 +163,41 @@ function samplingFor(
 }
 
 /**
+ * Centre row of the floor diamond, matching DALib's `Graphics.RenderTile`.
+ */
+const FLOOR_CENTER_ROW = (GROUND_TILE_HEIGHT - 1) / 2 // 13
+
+/**
+ * Columns a floor row occupies. This MUST agree with the client pixel-for-pixel:
+ * DALib renders row r as [margin, TILE_WIDTH - margin) with margin =
+ * |centerRow - r| * 2, and the (28,14) tile lattice tessellates that shape
+ * EXACTLY - every screen pixel is covered by exactly one tile, with no overlap.
+ *
+ * Two consequences, both of which this helper exists to enforce:
+ *
+ *  - The inscribed-diamond test (|u-.5|*2 + |v-.5|*2 <= 1) is a DIFFERENT shape.
+ *    It yields 756 px against DALib's 784, so 28 px per tile that the client
+ *    does draw are left transparent, punching holes along every tile seam.
+ *  - A floor edge pixel must be fully opaque. Because coverage is exactly-once,
+ *    a partially transparent edge pixel has no neighbour underneath to complete
+ *    it and composites straight onto the background, drawing a dark line along
+ *    every tile edge. Antialiasing is right for a sprite over a scene and wrong
+ *    for an exactly-tiling lattice.
+ *
+ * At 2x each 1x pixel becomes a 2x2 block, so row index and margin both scale.
+ */
+function floorRowSpan(row: number, scale: TileScale): { start: number; end: number } {
+  const margin = Math.abs(FLOOR_CENTER_ROW - Math.floor(row / scale)) * 2 * scale
+  return { start: margin, end: GROUND_TILE_WIDTH * scale - margin }
+}
+
+/**
  * Project an orthogonal (square/axis-aligned) source tile onto the DA isometric
  * geometry for the requested layer and scale.
  *
  * Floor  → a fully opaque {56×27}·scale diamond footprint; the corner triangles
- *          are filled per `corner` (wrap by default) and output alpha is forced
- *          to 255 (floors never carry transparency).
+ *          outside the diamond stay transparent (the client never draws them)
+ *          and alpha inside is forced to 255 (floors never carry transparency).
  * Wall   → a {28 wide}·scale vertical face parallelogram of the given height;
  *          the two out-of-face corner triangles are left transparent so the tile
  *          composites over whatever is behind it.
@@ -230,24 +259,33 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
   const inv = 1 / (ss * ss)
 
   for (let dy = 0; dy < outH; dy++) {
-    for (let dx = 0; dx < outW; dx++) {
+    // Floors are masked to DALib's exact diamond and drawn opaque; walls keep
+    // their antialiased edge, which is correct because they composite over
+    // whatever is behind them (see floorRowSpan).
+    const span = isFloor ? floorRowSpan(dy, scale) : { start: 0, end: outW }
+    for (let dx = span.start; dx < span.end; dx++) {
       let r = 0
       let g = 0
       let b = 0
       let a = 0
+      let pr = 0
+      let pg = 0
+      let pb = 0
+      let n = 0
       for (let sj = 0; sj < ss; sj++) {
         const v = (dy + (sj + 0.5) / ss) / outH
         for (let si = 0; si < ss; si++) {
           const u = (dx + (si + 0.5) / ss) / outW
-          // Floors are diamonds: drop sub-samples outside the inscribed diamond
-          // (per-sample so the diamond edge antialiases).
-          if (isFloor && Math.abs(u - 0.5) * 2 + Math.abs(v - 0.5) * 2 > 1) continue
           const [sr, sg, sb, sa] = sample(src, u, v)
           // premultiplied so partial-alpha sources average without fringing
           r += sr * sa
           g += sg * sa
           b += sb * sa
           a += sa
+          pr += sr
+          pg += sg
+          pb += sb
+          n++
         }
       }
       const o = (dy * outW + dx) * 4
@@ -255,7 +293,14 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
         data[o] = r / a // un-premultiply
         data[o + 1] = g / a
         data[o + 2] = b / a
-        data[o + 3] = a * inv
+        data[o + 3] = isFloor ? 255 : a * inv
+      } else if (isFloor) {
+        // Wholly transparent source under an opaque floor pixel: keep the mean
+        // colour rather than punching a hole the client would draw as black.
+        data[o] = pr / n
+        data[o + 1] = pg / n
+        data[o + 2] = pb / n
+        data[o + 3] = 255
       }
     }
   }
@@ -288,31 +333,40 @@ function convertFloor(
   const halfW = outW / 2
   const halfH = outH / 2
   const data = new Uint8ClampedArray(outW * outH * 4)
-  const inv = 1 / (ss * ss)
 
   for (let dy = 0; dy < outH; dy++) {
-    for (let dx = 0; dx < outW; dx++) {
+    // Only the diamond is drawn, and it is drawn opaque. Corners are skipped
+    // entirely so they stay transparent (see floorRowSpan).
+    const { start, end } = floorRowSpan(dy, scale)
+    for (let dx = start; dx < end; dx++) {
       let r = 0
       let g = 0
       let b = 0
       let a = 0
+      // Unweighted running sum, used only if no sub-sample carried any alpha.
+      let pr = 0
+      let pg = 0
+      let pb = 0
+      let n = 0
       for (let sj = 0; sj < ss; sj++) {
         const fy = dy + (sj + 0.5) / ss
         const Y = fy / halfH
         for (let si = 0; si < ss; si++) {
           const fx = dx + (si + 0.5) / ss
           const X = fx / halfW - 1
-          const u = (Y + X) / 2
-          const v = (Y - X) / 2
-          // Corners (u or v outside [0,1]) stay transparent; inside keeps the
-          // source's own alpha. Premultiplied so the edge AAs cleanly.
-          if (u >= 0 && u < 1 && v >= 0 && v < 1) {
-            const [sr, sg, sb, sa] = sample(src, u, v)
-            r += sr * sa
-            g += sg * sa
-            b += sb * sa
-            a += sa
-          }
+          // The diamond interior maps exactly onto u,v in [0,1]. Sub-pixel
+          // overshoot at the edge is clamped rather than dropped, so every
+          // pixel the client draws gets a real colour.
+          const [sr, sg, sb, sa] = sample(src, clamp01((Y + X) / 2), clamp01((Y - X) / 2))
+          // Premultiplied so a transparent source texel contributes no colour.
+          r += sr * sa
+          g += sg * sa
+          b += sb * sa
+          a += sa
+          pr += sr
+          pg += sg
+          pb += sb
+          n++
         }
       }
       const o = (dy * outW + dx) * 4
@@ -320,8 +374,12 @@ function convertFloor(
         data[o] = r / a // un-premultiply
         data[o + 1] = g / a
         data[o + 2] = b / a
-        data[o + 3] = a * inv // AA'd diamond edge; corners → 0
+      } else {
+        data[o] = pr / n
+        data[o + 1] = pg / n
+        data[o + 2] = pb / n
       }
+      data[o + 3] = 255 // floors are opaque inside the diamond, never AA'd
     }
   }
   return { data, width: outW, height: outH }

@@ -70,10 +70,14 @@ describe('convertOrthoTile — floor is a diamond (matches legacy)', () => {
     expect([r, g, b]).toEqual([123, 45, 67])
   })
 
-  it('keeps the source alpha inside the diamond (translucent floors)', () => {
+  it('forces opaque inside the diamond, ignoring source alpha', () => {
+    // A DA ground tile is palette indices with no alpha channel: DALib builds
+    // every palette entry with the 3-byte `new SKColor(r,g,b)` ctor, so it is
+    // always opaque. A translucent floor is not representable in the target
+    // format, and emitting one draws gridlines (see floorRowSpan).
     const out = convertOrthoTile(solidSource(16, 16, 123, 45, 67, 128), { layer: 'floor' })
     const [r, g, b, a] = px(out, GROUND_TILE_WIDTH / 2, Math.floor(GROUND_TILE_HEIGHT / 2))
-    expect(a).toBe(128)
+    expect(a).toBe(255)
     expect([r, g, b]).toEqual([123, 45, 67]) // colour un-premultiplied cleanly
   })
 })
@@ -305,13 +309,16 @@ describe('interpolation modes', () => {
     }
   })
 
-  it('area (the default) still antialiases the diamond edge', () => {
+  it('area steps the floor diamond edge hard too — alpha is never partial', () => {
+    // The diamond edge must NOT antialias. The (28,14) lattice tessellates
+    // exactly, so a partly transparent edge pixel has no neighbour beneath it
+    // and composites onto the background, drawing a line at every tile seam.
+    // `area` still smooths COLOUR (covered by the blending test above); it just
+    // may not smooth alpha.
     const out = convertOrthoTile(solidSource(16, 16, 10, 20, 30), { layer: 'floor' })
-    let partial = 0
     for (let i = 3; i < out.data.length; i += 4) {
-      if (out.data[i] > 0 && out.data[i] < 255) partial++
+      expect([0, 255]).toContain(out.data[i])
     }
-    expect(partial).toBeGreaterThan(0)
   })
 
   it('linear wall output keeps the exact tile dimensions', () => {
@@ -322,5 +329,102 @@ describe('interpolation modes', () => {
     })
     expect(out.width).toBe(ISO_HTILE_W)
     expect(out.height).toBe(56)
+  })
+})
+
+// ── Floor alpha / mask must match DALib exactly ───────────────────────────────
+//
+// Regression cover for the gridline bug: floor output used an antialiased
+// inscribed diamond, which (a) left 28 px per tile transparent that the client
+// draws, and (b) gave edge pixels partial alpha. Because the (28,14) lattice
+// tessellates exactly, a partly transparent edge pixel has no neighbour beneath
+// it and composites onto the background, drawing a dark line at every seam.
+
+/** DALib Graphics.RenderTile: row r spans [margin, W-margin), margin=|13-r|*2. */
+function dalibSpan(row: number, scale: 1 | 2): { start: number; end: number } {
+  const margin = Math.abs((GROUND_TILE_HEIGHT - 1) / 2 - Math.floor(row / scale)) * 2 * scale
+  return { start: margin, end: GROUND_TILE_WIDTH * scale - margin }
+}
+
+function alphaReport(buf: PixelBuffer, scale: 1 | 2) {
+  let inDiamondNotOpaque = 0
+  let outsideNotClear = 0
+  let partial = 0
+  let opaque = 0
+  for (let y = 0; y < buf.height; y++) {
+    const { start, end } = dalibSpan(y, scale)
+    for (let x = 0; x < buf.width; x++) {
+      const a = px(buf, x, y)[3]
+      if (a > 0 && a < 255) partial++
+      if (a === 255) opaque++
+      const inside = x >= start && x < end
+      if (inside && a !== 255) inDiamondNotOpaque++
+      if (!inside && a !== 0) outsideNotClear++
+    }
+  }
+  return { inDiamondNotOpaque, outsideNotClear, partial, opaque }
+}
+
+describe('floor alpha matches the DALib diamond', () => {
+  for (const scale of [1, 2] as const) {
+    it(`convertOrthoTile: binary alpha on the exact diamond at scale ${scale}`, () => {
+      const out = convertOrthoTile(solidSource(32, 32, 90, 120, 60), { layer: 'floor', scale })
+      const r = alphaReport(out, scale)
+      expect(r.partial).toBe(0)
+      expect(r.inDiamondNotOpaque).toBe(0)
+      expect(r.outsideNotClear).toBe(0)
+      expect(r.opaque).toBe(784 * scale * scale)
+    })
+
+    it(`resampleTile: binary alpha on the exact diamond at scale ${scale}`, () => {
+      const out = resampleTile(solidSource(56, 27, 90, 120, 60), { layer: 'floor', scale })
+      const r = alphaReport(out, scale)
+      expect(r.partial).toBe(0)
+      expect(r.inDiamondNotOpaque).toBe(0)
+      expect(r.outsideNotClear).toBe(0)
+      expect(r.opaque).toBe(784 * scale * scale)
+    })
+  }
+
+  it('every drawn pixel carries real colour, never a black hole', () => {
+    const out = convertOrthoTile(solidSource(32, 32, 90, 120, 60), { layer: 'floor' })
+    for (let y = 0; y < out.height; y++) {
+      const { start, end } = dalibSpan(y, 1)
+      for (let x = start; x < end; x++) {
+        const [r, g, b, a] = px(out, x, y)
+        expect(a).toBe(255)
+        expect(r + g + b).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('an already-iso source with transparent corners still fills the diamond', () => {
+    // Mimics an authored diamond: opaque inside DALib's span, clear outside.
+    const src = solidSource(GROUND_TILE_WIDTH, GROUND_TILE_HEIGHT, 200, 40, 40, 0)
+    for (let y = 0; y < GROUND_TILE_HEIGHT; y++) {
+      const { start, end } = dalibSpan(y, 1)
+      for (let x = start; x < end; x++) src.data[(y * GROUND_TILE_WIDTH + x) * 4 + 3] = 255
+    }
+    const out = resampleTile(src, { layer: 'floor' })
+    const r = alphaReport(out, 1)
+    expect(r.partial).toBe(0)
+    expect(r.inDiamondNotOpaque).toBe(0)
+    expect(r.opaque).toBe(784)
+  })
+
+  it('walls keep their antialiased slant (floors-only change)', () => {
+    // convertOrthoTile adds the iso slant, so the out-of-face corners are
+    // transparent and the slant edge antialiases. That is correct for walls:
+    // they composite over whatever is behind them, unlike floors.
+    const out = convertOrthoTile(solidSource(28, 28, 10, 200, 10), {
+      layer: 'wall',
+      wallHeight: 28
+    })
+    expect(out.width).toBe(ISO_HTILE_W)
+    let partial = 0
+    for (let i = 3; i < out.data.length; i += 4) {
+      if (out.data[i] > 0 && out.data[i] < 255) partial++
+    }
+    expect(partial).toBeGreaterThan(0)
   })
 })
