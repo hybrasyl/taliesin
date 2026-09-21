@@ -22,7 +22,8 @@ polish items the user approved (2026-07-05). Parent plan:
 ## Current state (branch `feat/static-tile-manager`, pushed, 12 commits)
 
 - **Converter** [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts): floors → 56×27
-  **diamonds** (transparent corners, source alpha preserved); walls → 28×N **left/right-angled**
+  **diamonds** (transparent corners, ~~source alpha preserved~~ interior always opaque as of
+  `f68bde8`, 2026-09 — see the second correction box in the main plan); walls → 28×N **left/right-angled**
   faces (height carved-inside so replacements match legacy). Ground-truth-locked against the
   extracted corpora. `resampleTile` for already-iso sources. scale {1,2}, only 1× exercised.
 - **Logic cores** (all pure + fixture-tested): `wallIdAllocator.ts`, `orientationDetect.ts`,
