@@ -58,9 +58,10 @@ Key facts that drive the conversion math:
 
 - **A DA ground tile is already an isometric diamond**, pre-rendered inside a 56×27
   bounding box. "Converting to isometric" therefore means projecting a square source tile
-  onto that 56-wide / 27-tall diamond — with the out-of-diamond corner triangles filled from
+  onto that 56-wide / 27-tall diamond. ~~With the out-of-diamond corner triangles filled from
   neighboring content, **not** masked transparent (floors are fully opaque; see the
-  conversion section).
+  conversion section).~~ **Retracted in 40d3dbf**: the corners ARE masked transparent. The
+  diamond interior is opaque — see the two ⚠️ Correction boxes below.
 - **Wall tiles are half the width of a ground tile** (28 vs 56) and have variable height;
   they are the vertical faces of the iso projection, not diamonds.
 - Screen projection (from the renderer): half-tile width `HTILE_W = 28`, vertical step
@@ -97,6 +98,23 @@ Transparent : palette[...]`) decodes legacy ground tiles with **index-0 corners
 >   > option** — the target worlds have no orthogonal maps, only edge-to-edge diamonds.
 >   > Implemented in [tileConvert.ts](../../src/renderer/src/utils/tileConvert.ts) `convertFloor`.
 >
+>   > ⚠️ **Second correction — the diamond interior is ALWAYS opaque, and the diamond edge is
+>   > hard (2026-09, `f68bde8`, PR #81).** The box above is right about the shape and wrong
+>   > about the alpha. It read DALib's `RenderTile` as it stood on 2026-07-04, where index 0
+>   > was the sprite transparency key; DALib corrected that on 2026-07-23 (`523b149`) against
+>   > the client binary. Ground truth now, from four independent sources: a `.pal` is 256 × 3
+>   > bytes RGB with no alpha channel (DALib `Palette.cs`, dalib-ts `Palette.ts` — every entry
+>   > is built with alpha 255); DALib `RenderTile` and dalib-ts `renderTile` both draw row `r`
+>   > as `[margin, 56 − margin)` with `margin = |13 − r| × 2` — 784 pixels, every one opaque,
+>   > index 0 included — and mask only the padding outside; and the client RE note
+>   > `darkages-741-re/docs/file-formats/map-tile-banks.md` says the same of the executable.
+>   > A floor **cannot** be translucent: the format has no way to express it. The "corner
+>   > alpha ≈ 7/255" and "translucent where the art is" readings above came from an extractor
+>   > that applied the sprite rule. So `convertFloor` now uses DALib's exact row spans
+>   > (`floorRowSpan`), forces alpha 255 inside them, and does not antialias the alpha edge —
+>   > the (28,14) lattice tessellates exactly, so a partial-alpha edge pixel has no neighbour
+>   > beneath it and shows the background as a dark seam. Colour still supersamples.
+>
 > - **Wall:** `28` wide × **variable height**, transparent background; height must **match the
 >   legacy HPF height** for the ID _when replacing a legacy wall_ (too tall floats above the
 >   floor, too short leaves a gap); brand-new pack-only IDs carry no height constraint — the
@@ -118,8 +136,9 @@ Transparent : palette[...]`) decodes legacy ground tiles with **index-0 corners
 >
 > Taliesin's own pack-kind description
 > ([staticTiles.ts:29](../../src/renderer/src/packKinds/staticTiles.ts#L29)) previously said
-> floor tiles are 28×28 — corrected to 56×27/opaque in the working tree (it was a label only;
-> `validate` accepts any size, so no functional bug).
+> floor tiles are 28×28 — corrected to 56×27 in the working tree (it was a label only;
+> `validate` accepts any size, so no functional bug). The "/opaque" this line carried meant the
+> opaque square, which 40d3dbf retracted; the 56×27 is unaffected.
 
 ## Server-side constraints (Hybrasyl)
 
@@ -360,6 +379,9 @@ Applied per tile cell when the source is orthogonal.
    supersample. There is **no opaque-square floor option and no corner wrap/clamp fill** — the
    target worlds have no orthogonal maps, only edge-to-edge diamonds. The original "floors are
    fully opaque, corners carry neighbour content" premise was wrong.
+   **Corrected again in `f68bde8` (2026-09):** "keeps the source's own alpha inside" and
+   "antialiases the diamond edge" are retracted. The interior is always opaque and the alpha
+   edge is hard — see the second correction box under "Output geometry".
 4. **Wall variant**: for wall art the target is the 28-wide vertical face, not a diamond —
    project to the left/right face parallelograms, keep the variable height, and leave the
    non-wall area transparent so it composites over tiles below/behind.
@@ -395,11 +417,12 @@ the renderer utils and is unit-tested against fixtures.
 
 Order of operations matters: **iso-convert first, then slice** (per the original idea) — the
 wang adjacency is defined on the orthogonal grid, so we project the whole sheet (or each cell)
-into iso space and _then_ pull out the individual DA tiles, preserving edge continuity. This
-ordering is also what makes the **opaque corners** correct for wang tiles: each sliced 56×27
-footprint overlaps its neighbors' diamonds, and slicing from the projected _sheet_ (with overlap)
-fills the corner triangles from the actual adjacent cell that the wang mask says belongs there —
-slicing cells first and projecting each in isolation would leave the corners guessing.
+into iso space and _then_ pull out the individual DA tiles, preserving edge continuity.
+
+**(The corner-overlap argument that stood here is retracted in 40d3dbf — the opaque-corner premise
+died.)** Floors are diamonds with transparent corners, so each cell converts independently;
+`wangSlicer.ts` slices first and leaves per-cell conversion to the caller, and says so in its own
+header.
 
 1. **Parse the wang set**: user picks the wang scheme (2-edge / 2-corner / 47-blob) and cell
    size; the slicer knows the canonical cell→adjacency-mask layout for each scheme.
@@ -505,7 +528,9 @@ All conversion/slicing is renderer-side on `ImageData`/`ImageBitmap`; only the f
 
 Resolved during scoping (kept for the record):
 
-- ~~Target floor geometry: 56×27 vs 28×28~~ → **56×27 opaque**, confirmed against Brigid.
+- ~~Target floor geometry: 56×27 vs 28×28~~ → **56×27**, confirmed against Brigid. (The
+  "opaque" that stood here meant the opaque square, which 40d3dbf retracted; the question was
+  geometry, and the answer to it is unchanged. The diamond interior is opaque — `f68bde8`.)
 - ~~Wall = one PNG or separate left/right faces~~ → **keyed by ID, not side.** `wall{id}.png`
   is looked up by the raw `LeftForeground` / `RightForeground` _value_; whichever foreground
   ID a tile carries maps to its own PNG. No separate left/right art per ID.
@@ -551,14 +576,17 @@ Still open:
   diamonds with transparent corners, not opaque-with-neighbor-content.** Confirmed against
   DALib `RenderTile` (index-0 → transparent), Taliesin's renderer, Brigid's `TabMapRenderer`
   diamond stencil, and 38,660 extracted ground tiles. Output is **always** a diamond (masked
-  corners, source alpha preserved) — no opaque-square option, since the target worlds have no
-  orthogonal maps. See the correction box under "Output geometry" and conversion step 3.
+  corners, ~~source alpha preserved~~ **interior always opaque — `f68bde8`, 2026-09**) — no
+  opaque-square option, since the target worlds have no orthogonal maps. See the two correction
+  boxes under "Output geometry" and conversion step 3.
 
 ## Test plan
 
-- Unit: `convertOrthoTile` against fixtures — floor: square in → **fully opaque 56×27** out
-  (every pixel alpha 255), known-pixel spot checks; wall: transparency preserved outside the
-  face. Wrap-mode corner fill: corner-triangle pixels equal the opposite edge's source content.
+- Unit: `convertOrthoTile` against fixtures — floor: square in → **56×27 diamond** out (every
+  pixel inside the diamond alpha 255, every corner pixel alpha 0 — `f68bde8`), known-pixel spot
+  checks; wall: transparency preserved outside the face. ~~Wrap-mode corner fill: corner-triangle
+  pixels equal the opposite edge's source content.~~ **Retracted in 40d3dbf**, which deleted
+  `CornerMode` outright: corners are masked transparent, so there is no wrap mode to assert.
   Idempotency when input is already iso. Fixtures follow the `solidSource()` `PixelBuffer`
   pattern from [duotone.test.ts](../../src/renderer/src/utils/__tests__/duotone.test.ts)
   (node-env vitest under `utils/__tests__/`).
