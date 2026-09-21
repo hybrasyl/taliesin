@@ -35,6 +35,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **Floor tiles no longer show a dark line along every seam.** The converter masked floors to an
+  inscribed diamond that is smaller than the diamond the client draws, and it faded the edge
+  pixels to partial alpha. Both left gaps between neighbouring tiles. The converter now uses the
+  client's exact diamond and makes every pixel inside it opaque.
 - **The splash card no longer arrives on a white rectangle.** The splash window kept Electron's
   default opaque native background behind its transparent art. Taliesin now sets that background
   to fully transparent, so the card shows only its rounded shape.
