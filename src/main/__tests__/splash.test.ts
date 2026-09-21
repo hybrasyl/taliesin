@@ -13,8 +13,11 @@ class FakeWindow {
     setWindowOpenHandler: vi.fn(),
     on: vi.fn()
   }
+  /** The constructor options, so a test can pin a window setting. */
+  readonly options: Record<string, unknown>
 
-  constructor() {
+  constructor(options: Record<string, unknown> = {}) {
+    this.options = options
     instances.push(this)
   }
 
@@ -216,6 +219,16 @@ describe('backstop 4 — the reveal can destroy a splash that was never shown', 
 })
 
 describe('window configuration', () => {
+  it('has a fully transparent native background', () => {
+    // `transparent: true` alone leaves the NATIVE background at Electron's
+    // default opaque white, and that is what the compositor paints for a frame
+    // at either end of the window's life — a white rectangle behind the card's
+    // rounded corners. The renderer's `background: transparent` cannot reach
+    // it; only this option does (HTOO-456).
+    const { win } = makeSplash()
+    expect(win.options).toMatchObject({ backgroundColor: '#00000000' })
+  })
+
   it('hardens the splash: no child windows, no navigation, nothing opened externally', () => {
     const { win } = makeSplash()
     expect(win.webContents.setWindowOpenHandler).toHaveBeenCalled()

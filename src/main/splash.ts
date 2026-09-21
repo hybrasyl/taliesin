@@ -81,6 +81,14 @@ export function createSplashWindow(): SplashController {
     center: true,
     skipTaskbar: true,
     show: false,
+    // Fully transparent, explicitly. `transparent: true` governs what the
+    // renderer paints over; it does not change the NATIVE background, which
+    // stays Electron's default opaque white and is what the compositor shows
+    // for a frame at either end of the window's life. The renderer's own
+    // `background: transparent` cannot reach it. Without this the splash card
+    // arrives with a white rectangle behind its rounded corners (HTOO-456).
+    // Same root cause as the close hide in index.ts.
+    backgroundColor: '#00000000',
     // The splash has no IPC needs; keep it isolated with no preload. With no
     // preload there is nothing for the sandbox to break, so it is free here --
     // and it is deliberately NOT registered as a trusted window, because a
