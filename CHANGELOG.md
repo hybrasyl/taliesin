@@ -33,6 +33,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Fixed
+
+- **The splash card no longer arrives on a white rectangle.** The splash window kept Electron's
+  default opaque native background behind its transparent art. Taliesin now sets that background
+  to fully transparent, so the card shows only its rounded shape.
+
 ## [2.13.0] - 2026-08-30
 
 ### Fixed
