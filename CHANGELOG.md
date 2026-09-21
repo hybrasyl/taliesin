@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.13.1] - 2026-09-20
+
 ### Fixed
 
 - **Floor tiles no longer show a dark line along every seam.** The converter masked floors to an
