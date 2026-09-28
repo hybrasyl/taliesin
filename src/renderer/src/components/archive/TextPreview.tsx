@@ -9,11 +9,12 @@ import { formatBytes } from '../../utils/format'
 export const MAX_TEXT_PREVIEW_BYTES = 256 * 1024
 
 // Real .tbl dye tables begin with a small "colors per entry" count (~6). Other
-// .tbl files (palette/cycling tables, or binary blobs) are NOT dye tables: when
-// their first line decodes to a huge number, ColorTable.parseText allocates that
-// many color objects PER entry with no cap and without stopping at EOF — a 40 KB
-// file can exhaust the heap (OOM). Only hand the buffer to the parser when the
-// header looks like a real dye table.
+// .tbl files (palette/cycling tables, or binary blobs) are NOT dye tables. Before
+// dalib-ts 2.2.0, ColorTable.parseText allocated that count PER entry with no cap
+// and without stopping at EOF, so a 40 KB file could exhaust the heap (OOM).
+// dalib-ts now caps the count at 64 and stops at EOF itself; this check stays as
+// a cheaper, stricter pre-filter (the whole first line must be digits, where
+// parseInt accepts a numeric prefix).
 const MAX_COLORS_PER_ENTRY = 64
 
 export function tryParseColorTable(buf: Uint8Array): ColorTable | null {
