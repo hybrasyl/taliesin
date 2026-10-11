@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from 'fs'
+import { inflateSync } from 'zlib'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 
@@ -65,5 +66,95 @@ describe('committed Linux icon artifacts', () => {
       height: 1024,
       colorType: RGBA
     })
+  })
+})
+
+// The macOS icon sits on Apple's grid: an 824x824 body centred on a 1024x1024
+// canvas, 100px of transparency on every side (HTOO-550). A full-bleed icon gets
+// a light plate behind it in the Dock, which reads as a white border, and the
+// header carries nothing that would catch it. So this one decodes the 1024
+// chunk of build/icon.icns: zlib inflates the pixel data, and the per-row PNG
+// filters are undone below. The pixel checks the other tests leave to the
+// generator are cheap enough here for one image.
+
+/** The PNG of one chunk type in an ICNS container. */
+function icnsChunk(file, type) {
+  const buf = readFileSync(file)
+  for (let offset = 8; offset + 8 <= buf.length; ) {
+    const length = buf.readUInt32BE(offset + 4)
+    if (buf.subarray(offset, offset + 4).toString('ascii') === type) {
+      return buf.subarray(offset + 8, offset + length)
+    }
+    offset += length
+  }
+  throw new Error(`${file} has no ${type} chunk`)
+}
+
+/** Decode an 8-bit RGBA, non-interlaced PNG to its alpha at (x, y). */
+function alphaReader(png) {
+  const { width, height, colorType } = {
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20),
+    colorType: png.readUInt8(25)
+  }
+  expect([colorType, png.readUInt8(24), png.readUInt8(28)]).toEqual([RGBA, 8, 0])
+  const idat = []
+  for (let offset = 8; offset < png.length; ) {
+    const length = png.readUInt32BE(offset)
+    if (png.subarray(offset + 4, offset + 8).toString('ascii') === 'IDAT') {
+      idat.push(png.subarray(offset + 8, offset + 8 + length))
+    }
+    offset += length + 12
+  }
+  const raw = inflateSync(Buffer.concat(idat))
+  const stride = width * 4
+  const pixels = Buffer.alloc(stride * height)
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)]
+    for (let i = 0; i < stride; i++) {
+      const x = raw[y * (stride + 1) + 1 + i]
+      const a = i >= 4 ? pixels[y * stride + i - 4] : 0
+      const b = y > 0 ? pixels[(y - 1) * stride + i] : 0
+      const c = i >= 4 && y > 0 ? pixels[(y - 1) * stride + i - 4] : 0
+      const p = a + b - c
+      const pa = Math.abs(p - a)
+      const pb = Math.abs(p - b)
+      const pc = Math.abs(p - c)
+      const paeth = pa <= pb && pa <= pc ? a : pb <= pc ? b : c
+      const predictor = [0, a, b, (a + b) >> 1, paeth][filter]
+      pixels[y * stride + i] = (x + predictor) & 0xff
+    }
+  }
+  return { width, height, alphaAt: (px, py) => pixels[py * stride + px * 4 + 3] }
+}
+
+describe('the macOS icon (build/icon.icns)', () => {
+  const { width, height, alphaAt } = alphaReader(icnsChunk(join(BUILD, 'icon.icns'), 'ic10'))
+
+  it('is 1024x1024', () => {
+    expect([width, height]).toEqual([1024, 1024])
+  })
+
+  it('puts the body on the grid, with 100px of transparency on every side', () => {
+    // Transparent: the corner, and the inset on each side, just outside the body.
+    for (const [x, y] of [
+      [0, 0],
+      [512, 95],
+      [512, 928],
+      [95, 512],
+      [928, 512]
+    ]) {
+      expect(alphaAt(x, y), `alpha at ${x},${y}`).toBe(0)
+    }
+    // Opaque: the middle, and just inside each edge of the body.
+    for (const [x, y] of [
+      [512, 512],
+      [512, 105],
+      [512, 918],
+      [105, 512],
+      [918, 512]
+    ]) {
+      expect(alphaAt(x, y), `alpha at ${x},${y}`).toBe(255)
+    }
   })
 })

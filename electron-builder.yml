@@ -94,8 +94,8 @@ portable:
 mac:
   category: public.app-category.developer-tools
   # macOS gets its OWN artwork, not the shared `icon` above. Its icon is a
-  # full-bleed rounded square and the OS does not mask it, so the corners have to
-  # be transparent in the file itself. Generated from the document repo's
+  # rounded square on Apple's 824-in-1024 grid, and the OS does not mask it, so
+  # the corners have to be transparent in the file itself. Generated from the document repo's
   # mac-specific master by `node scripts/make-mac-icon.mjs`, which also
   # reconstructs the alpha channel that master is exported without -- see that
   # script's header. build/icon-mac.png beside this is the 1024px RGBA result.

@@ -43,6 +43,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **The macOS app icon has no white border.** The icon filled its whole canvas, so the Dock put it on a light plate. It now sits on Apple's icon grid, the same size as the icons next to it.
 - **⌘Q with unsaved work quits Taliesin on macOS.** Before, Save or Discard closed the window and left the app running with no window.
 - **Shortcuts use ⌘ on macOS.** The Map Maker read Ctrl only, so ⌘Z, ⌘S, ⌘C, ⌘X, ⌘V and ⌘W did nothing on a Mac, and the Control chords that edit text were taken. The map XML editor, the UI Forge and the tile picker now leave Control chords to the text fields on macOS. ⇧⌘Z is redo.
 - **Ctrl+Shift+S runs Save As in the Map Maker.** The shortcut never fired, on any platform.
