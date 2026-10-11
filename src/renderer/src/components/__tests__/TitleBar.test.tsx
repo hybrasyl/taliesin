@@ -1,8 +1,9 @@
 import React from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import { ThemeProvider, getLuminance } from '@mui/material/styles'
+import { ThemeProvider } from '@mui/material/styles'
 import TitleBar from '../TitleBar'
+import { isDarkText } from '../chromeEngrave'
 import { themesByName } from '../../themes'
 import { useSettingsStore, PLAIN_CHROME_THEMES, type ThemeName } from '../../store/settingsStore'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
@@ -49,11 +50,18 @@ describe('TitleBar', () => {
       </ThemeProvider>
     )
     const shadow = getComputedStyle(screen.getByTestId('app-title')).textShadow
-    if (getLuminance(theme.palette.secondary.contrastText) < 0.18) {
+    const glyph = screen
+      .getByRole('button', { name: 'Minimize' })
+      .querySelector('svg') as SVGElement
+    const stroke = getComputedStyle(glyph).stroke
+    if (isDarkText(theme.palette.secondary.contrastText)) {
+      // The window glyphs lose the #000 stroke too.
+      expect(stroke).not.toMatch(/#000|rgb\(0, 0, 0\)$/)
       expect(shadow).toMatch(/rgba\(255, ?248, ?232/)
       expect(shadow).not.toMatch(/#000|rgb\(0, 0, 0\)/)
     } else {
       expect(shadow).toMatch(/#000|rgb\(0, 0, 0\)/)
+      expect(stroke).toMatch(/#000|rgb\(0, 0, 0\)$/)
     }
     cleanup()
   })
@@ -62,7 +70,7 @@ describe('TitleBar', () => {
     // The loop above branches on the palette; this pins the two known cases, so
     // a palette change cannot quietly move every theme into one branch.
     const dark = (n: ThemeName): boolean =>
-      getLuminance(themesByName[n].palette.secondary.contrastText) < 0.18
+      isDarkText(themesByName[n].palette.secondary.contrastText)
     expect(dark('danaan')).toBe(true)
     expect(dark('hybrasyl')).toBe(false)
   })

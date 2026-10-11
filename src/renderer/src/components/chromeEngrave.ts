@@ -1,4 +1,5 @@
 import { getLuminance, useTheme } from '@mui/material/styles'
+import { useSettingsStore, PLAIN_CHROME_THEMES } from '../store/settingsStore'
 
 /**
  * The engraved chrome: for a decorated theme whose bars carry dark text.
@@ -15,12 +16,23 @@ export const ENGRAVE = '1px 1px 0 rgba(255,248,232,0.75)'
 /** True when `color` is dark text, which the keyline would smear. */
 export const isDarkText = (color: string): boolean => getLuminance(color) < 0.18
 
-/** True when the bars' text, `secondary.contrastText`, is dark in this theme. */
+/**
+ * True when the bars are engraved: a decorated theme (not plain chrome) whose
+ * bar text, `secondary.contrastText`, is dark. One rule for both bars.
+ */
 export function useEngraved(): boolean {
-  return isDarkText(useTheme().palette.secondary.contrastText)
+  const themeName = useSettingsStore((s) => s.theme)
+  const barText = useTheme().palette.secondary.contrastText
+  return !PLAIN_CHROME_THEMES.includes(themeName) && isDarkText(barText)
 }
 
-/** An engraved icon: no dark stroke, and the cream edge in place of the depth. */
-export const ENGRAVED_ICON_SX = {
-  '& svg': { fontSize: '1.4em', filter: `drop-shadow(${ENGRAVE})` }
-} as const
+/**
+ * The engraved form of a chrome button style: its icon keeps its own size and
+ * loses the dark stroke, and the cream edge replaces the depth shadow.
+ */
+export function engraveIcons<T extends { '& svg': object }>(sx: T): T {
+  return {
+    ...sx,
+    '& svg': { ...sx['& svg'], stroke: 'none', filter: `drop-shadow(${ENGRAVE})` }
+  }
+}

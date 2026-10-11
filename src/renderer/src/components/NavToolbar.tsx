@@ -22,7 +22,7 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
-import { ENGRAVE, ENGRAVED_ICON_SX, useEngraved } from './chromeEngrave'
+import { ENGRAVE, engraveIcons, useEngraved } from './chromeEngrave'
 
 const iconSx = {
   '& svg': {
@@ -55,8 +55,8 @@ const activeBtnSx = {
 } as const
 
 // Dark bar text is engraved, not outlined by the dark stroke: see chromeEngrave.ts.
-const engravedBtnSx = { ...btnSx, ...ENGRAVED_ICON_SX } as const
-const engravedActiveBtnSx = { ...activeBtnSx, ...ENGRAVED_ICON_SX } as const
+const engravedBtnSx = engraveIcons(btnSx)
+const engravedActiveBtnSx = engraveIcons(activeBtnSx)
 
 /**
  * One button per page. Each carries `nav-<page>`, because
@@ -75,7 +75,7 @@ const NavButton: React.FC<{ page: Page; title: string; icon: React.ReactElement 
       <IconButton
         data-testid={`nav-${page}`}
         sx={
-          engraved ? (active ? engravedActiveBtnSx : engravedBtnSx) : active ? activeBtnSx : btnSx
+          active ? (engraved ? engravedActiveBtnSx : activeBtnSx) : engraved ? engravedBtnSx : btnSx
         }
         onClick={() => setCurrentPage(page)}
       >
