@@ -1,8 +1,8 @@
 # Mac and Linux release checks
 
-This page is for an agent that runs on the Mac or the Linux box at the end of a Taliesin release. The Windows checks are done on the Windows dev box during the work; this page covers what only macOS or Linux can show.
+This page is for an agent that runs on the Mac or the Linux box at the end of a Taliesin release. Most Windows checks are done on the Windows dev box during the work, and README "Releasing" lists the packaged-build checks done at release time. This page covers what only macOS or Linux can show.
 
-Each check names the tracker card it reports to. The tracker is in the document repo (`tracker/issues/HTOO/`). Use the oghma tracker rules: one commit per card, push at once, quote every value you type.
+Each check names the tracker card it reports to. The tracker is in the document repo (`tracker/issues/HTOO/`). Follow the writing conventions in that repo's `AGENTS.md`: commit straight to `main`, one commit per card, message `tracker: HTOO-<n> comment`, stage only paths under `tracker/`, set `updated` to the real time, and push at once.
 
 ## Before you start
 
@@ -14,8 +14,10 @@ Each check names the tracker card it reports to. The tracker is in the document 
    ```
 
 2. Make sure that the Electron binary is present. `npm ci` runs `install-electron` through `postinstall`. If `node_modules/electron/dist` is missing, run `npx install-electron`.
-3. Make sure that `ELECTRON_RUN_AS_NODE` is not set. Some agent shells set it, and then Electron runs as plain Node. Run `unset ELECTRON_RUN_AS_NODE` in each shell that builds or runs e2e.
-4. Use Node 24 (`.nvmrc`).
+3. `npm install-scripts ls` must print `No packages with unreviewed install scripts.` On macOS this is where a missing `fsevents` approval shows (it is installed only on macOS). Report anything it lists; do not approve it yourself.
+4. Make sure that `ELECTRON_RUN_AS_NODE` is not set. Some agent shells set it, and then Electron runs as plain Node. Run `unset ELECTRON_RUN_AS_NODE` in each shell that builds or runs e2e.
+5. Use Node 24 (`.nvmrc`).
+6. Quit any running Taliesin. A3 hashes the real settings folder, and a running copy changes files there.
 
 ## How to report
 
@@ -34,24 +36,9 @@ npm run typecheck && npm run lint:check && npm run test:coverage && npm run buil
 
 Every step must pass. Report the test count.
 
-### A2. e2e on Electron 44 (both OS) — HTOO-553
+### A2 and A3. e2e on Electron 44, and the real settings stay the same (both OS) — HTOO-553, HTOO-543
 
-```bash
-unset ELECTRON_RUN_AS_NODE
-npm run e2e
-```
-
-Expected:
-
-- **macOS:** every spec passes, `app-menu.spec.js` included. That spec runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
-- **Linux:** every spec passes except the macOS-only ones, which skip.
-- On Windows the result is 12 passed and 5 skipped.
-
-e2e opens and closes its own windows. It needs a desktop session (on Linux, a display), but no clicks.
-
-### A3. e2e does not touch the real settings (both OS) — HTOO-543
-
-The e2e helper redirects `LOCALAPPDATA` and `HYBINDEX_CACHE_DIR` to a temp folder. This check proves that the real files stay the same.
+A2 runs the e2e suite (HTOO-553). A3 proves that it does not touch the real settings or the world index cache (HTOO-543): the e2e helper redirects `LOCALAPPDATA` and `HYBINDEX_CACHE_DIR` to a temp folder. One e2e run serves both, and it rebuilds the app first, so do not run it twice.
 
 The real locations:
 
@@ -61,29 +48,62 @@ The real locations:
 | Linux | `~/.config/Erisco/Taliesin/`                     | `~/.config/Erisco/hybindex/` |
 
 ```bash
-# before
-find "<settings dir>" ~/.config/Erisco/hybindex -type f -exec sha256sum {} + | sort > /tmp/before.txt
+unset ELECTRON_RUN_AS_NODE
+S="<settings dir from the table>"
+H=~/.config/Erisco/hybindex
+T=$(mktemp -d)
+ls -d "$S" "$H"     # say in the report which ones exist
+find "$S" "$H" -type f -exec sha256sum {} + 2>/dev/null | sort > "$T/before.txt"
 npm run e2e
-# after
-find "<settings dir>" ~/.config/Erisco/hybindex -type f -exec sha256sum {} + | sort > /tmp/after.txt
-cmp /tmp/before.txt /tmp/after.txt && echo UNCHANGED
+find "$S" "$H" -type f -exec sha256sum {} + 2>/dev/null | sort > "$T/after.txt"
+cmp "$T/before.txt" "$T/after.txt" && echo UNCHANGED
+ls -d "$S" "$H"     # a folder that did not exist before must not exist now
 ```
 
-On macOS use `shasum -a 256` in place of `sha256sum`. If a folder does not exist, say so in the report: then the check proves only that e2e did not create it. It must not exist after the run either.
+If `sha256sum` is missing, use `shasum -a 256`.
 
-### A4. The fuses on a packaged build (macOS) — HTOO-381
+Expected for A2:
 
-Build an unsigned universal app, without notarization:
+- **macOS:** 17 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
+- **Linux:** 12 passed and 5 skipped. The skips are `app-menu.spec.js`.
+- On Windows the result is also 12 passed and 5 skipped.
+
+A different total means that a spec was added or was not collected. Say so in the report.
+
+e2e opens and closes its own windows. It needs a desktop session but no clicks. On a Linux box with no display, use `xvfb-run -a npm run e2e`.
+
+Expected for A3: `UNCHANGED`, and no new folder.
+
+### A4. The fuses on a packaged build (both OS) — HTOO-381
+
+On macOS, build an unsigned universal app, without notarization:
 
 ```bash
 npm run build
-npx electron-builder --mac --dir -c.mac.notarize=false
+npx electron-builder --mac --dir --universal -c.mac.notarize=false
 node scripts/verify-fuses.mjs dist/mac-universal/Taliesin.app
 ```
 
-Expected: `Electron fuses OK`, with **two** wires (the x64 and the arm64 slice), and each wire shows `EnableEmbeddedAsarIntegrityValidation=ENABLE`. If the build writes another folder (for example `dist/mac-arm64/`), use that path and say so.
+`--universal` is required. `--dir` replaces the configured targets, and without an arch flag it builds only the host's architecture (`dist/mac-arm64/` on Apple Silicon), which has one wire.
 
-On Linux, do the same with `npx electron-builder --linux --dir` and `dist/linux-unpacked/taliesin`. Linux ignores the asar integrity fuse, but the reader checks the other four.
+Expected: `Electron fuses OK on dist/mac-universal/Taliesin.app (2 wires)`. There is one wire for each slice (x64 and arm64), and each wire shows all five fuses as the yml sets them, including `EnableEmbeddedAsarIntegrityValidation=ENABLE`. If the Mac has no Developer ID certificate, electron-builder prints `skipped macOS application code signing`. That is expected.
+
+On Linux, run `npx electron-builder --linux --dir`, then `node scripts/verify-fuses.mjs dist/linux-unpacked/taliesin`. Expected: one wire. The reader checks all five fuses on Linux too: electron-builder sets the asar integrity fuse there, and Linux does not enforce it.
+
+### A5. The packaged app gets past the asar check (macOS) — HTOO-381
+
+With the asar integrity fuse on, a damaged package exits with no window and no message. The only signs of the failure are a non-zero exit and `ASAR Integrity Violation` on stderr, so start the binary from the terminal. Point it at a temp folder so that it does not write the real settings:
+
+```bash
+T=$(mktemp -d)
+LOCALAPPDATA="$T" HYBINDEX_CACHE_DIR="$T/hybindex" \
+  dist/mac-universal/Taliesin.app/Contents/MacOS/Taliesin 2>"$T/stderr.txt" &
+P=$!; for i in $(seq 1 10); do kill -0 $P 2>/dev/null || break; sleep 1; done
+kill -0 $P 2>/dev/null && { echo "RUNNING after 10s"; kill $P; } || { wait $P; echo "EXITED $?"; }
+grep -i integrity "$T/stderr.txt"
+```
+
+Expected: `RUNNING after 10s`, and no integrity line. B1 then checks what the window shows.
 
 ## Part B: checks a person does
 
@@ -91,7 +111,7 @@ Use the packaged app from A4 for B1 and B2. Use `npm run dev` or the packaged ap
 
 ### B1. The packaged app starts (macOS) — HTOO-381
 
-With the asar integrity fuse on, a damaged package exits with no window and no message. Open `dist/mac-universal/Taliesin.app`. **Expected:** the splash, then the main window.
+Open `dist/mac-universal/Taliesin.app`. **Expected:** the splash, then the main window.
 
 ### B2. The Dock and Finder icon (macOS) — HTOO-550
 
@@ -123,6 +143,8 @@ Linux file names are case-sensitive. The official installer writes `Legend.dat`,
 
 ## For this release (2.14.0)
 
-All of A1 to A4 and B1 to B4 apply. The Windows checks are complete: the portable exe closes with no flash (HTOO-466), and the theme checks for HTOO-355 and the engraved danaan and grinneal chrome are done.
+Rewrite this section for each release: what applies, and what is already done.
+
+All of A1 to A5 and B1 to B4 apply. The Windows checks are complete: the portable exe closes with no flash (HTOO-466), and the theme checks for HTOO-355 and the engraved danaan and grinneal chrome are done.
 
 When the release is published, Sabrael runs `npm run publish:version -- v2.14.0` on the Windows box. That closes Taliesin's row on HTOO-382; it is not a Mac or Linux step.
