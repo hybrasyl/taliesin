@@ -55,10 +55,10 @@ The e2e helper redirects `LOCALAPPDATA` and `HYBINDEX_CACHE_DIR` to a temp folde
 
 The real locations:
 
-| OS | Settings | World index cache |
-| --- | --- | --- |
+| OS    | Settings                                         | World index cache            |
+| ----- | ------------------------------------------------ | ---------------------------- |
 | macOS | `~/Library/Application Support/Erisco/Taliesin/` | `~/.config/Erisco/hybindex/` |
-| Linux | `~/.config/Erisco/Taliesin/` | `~/.config/Erisco/hybindex/` |
+| Linux | `~/.config/Erisco/Taliesin/`                     | `~/.config/Erisco/hybindex/` |
 
 ```bash
 # before
