@@ -77,7 +77,6 @@ function migrateSettingsFromRoaming(): void {
   if (process.platform !== 'win32') return
   try {
     const oldDir = join(app.getPath('appData'), 'Erisco', 'Taliesin')
-    if (oldDir === settingsPath) return // same location (non-Windows) — nothing to do
     const newPrimary = join(settingsPath, 'settings.json')
     if (existsSync(newPrimary)) return // already migrated or fresh local settings exist
     const oldPrimary = join(oldDir, 'settings.json')
