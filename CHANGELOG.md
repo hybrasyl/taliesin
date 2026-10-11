@@ -59,6 +59,7 @@ record; where they disagree with this file, the git history was taken as authori
 ### Security
 
 - **A damaged audio file can no longer stop Taliesin.** Taliesin reads the tags of the audio files you import with music-metadata. Version 11.16 fixes five faults where a crafted MP4, APE, ID3, Matroska or DSF file could hang or crash the app.
+- **Taliesin does not start from a damaged package.** On Windows and macOS, Taliesin now checks its packaged code against a hash recorded at build time as it reads it. If that code was changed after the build, Taliesin does not start.
 - **`npm audit` reports 0 findings.** The release clears the 23 findings that 2.13.1 had. Two of them were in the app: music-metadata (above) and brace-expansion, which the pack archiver uses.
 
 ## [2.13.1] - 2026-09-20
