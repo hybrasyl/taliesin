@@ -302,6 +302,9 @@ const {
 
 vi.mock('electron', () => electronMock)
 vi.mock('fs', () => fsMock)
+// An Electron built-in with no package behind it, so vitest cannot resolve it.
+// index.ts hands it to the portable sweep, which does nothing off a portable exe.
+vi.mock('original-fs', () => ({ default: { promises: {} } }))
 vi.mock('@eriscorp/hybindex-ts', () => hybindex)
 vi.mock('../settingsManager', () => ({
   createSettingsManager: () => settingsManager

@@ -54,6 +54,7 @@ record; where they disagree with this file, the git history was taken as authori
 - **The splash spinner is round on Linux.** When the font fell back from Segoe UI, the spinner drew as an oval.
 - **Closing the portable exe no longer flashes a blank window.** The splash image that the portable exe showed while it unpacked caused the flash, so it is gone. While the portable exe unpacks, you now see a busy cursor and no image. The installed build does not change.
 - **A second launch of the portable exe no longer shows a "Taliesin cannot be closed" box.** Each launch now unpacks to its own folder, so the second launch brings the open window forward.
+- **The portable exe removes the unpack folders it left in your temp folder.** When the portable exe was stopped before it could clean up, about 800 MB stayed in `%TEMP%`. Thirty seconds after start, the portable exe removes such folders when they are older than 10 minutes and not in use.
 
 ### Security
 
