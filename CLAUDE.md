@@ -31,11 +31,7 @@ npm run build:win:portable   # the portable exe only
 
 Gate before committing: `npm run typecheck && npm run lint:check && npm run test:coverage && npm run build`.
 
-npm 12+ blocks install scripts unless `package.json` `allowScripts` names the package **at its
-exact version**. Electron's postinstall is what downloads the Electron binary, so a blocked script
-means `npm run dev`, `e2e` and `build:win` fail with no `node_modules/electron/dist`. After a bump
-of `electron`, `electron-winstaller` or `esbuild`, run `npm install-scripts ls` and
-`npm install-scripts approve <pkg>` to update the pins, then `npm ci` again.
+npm 12+ runs a dependency's install script only when `package.json` `allowScripts` approves it. Approve **by name**, not `pkg@version`: a pinned approval stops matching at the next bump (HTOO-542). Since Electron 42 the `electron` package has no install script, so the project's own `postinstall` runs `install-electron` to download the binary (`electron-vite dev` does not download it on first use). If `node_modules/electron/dist` is missing, `npm run dev`, `e2e` and `build:win` fail: run `npx install-electron`. After a dependency change, `npm install-scripts ls` must report nothing unreviewed.
 
 ## Stack
 
@@ -134,8 +130,9 @@ No edits to the editor/dialog/IPC layers are needed.
 
 `npm run dev` launches a real Electron window and **cannot run headless/sandboxed** — verify via
 `npm run test:coverage`, `npm run typecheck`, and `npm run build`; hand GUI click-throughs to the
-user, who runs the dev server themselves. `npm run e2e` (Playwright + Electron) also needs a GUI,
-so hand it to the user too — CI runs it in a Windows-only `e2e` job.
+user, who runs the dev server themselves.
+
+Run `npm run e2e` (Playwright + Electron) yourself as part of the work, on the Windows dev box: it launches and closes its own windows, and needs no click from the user. Unset `ELECTRON_RUN_AS_NODE` first (the agent shell sets it). Hand only the Linux and Mac runs to the user, in the end-of-release pass. CI runs e2e in a Windows-only `e2e` job.
 
 ## Releasing
 

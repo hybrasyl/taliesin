@@ -23,7 +23,7 @@ function composeBody(description: string, diagnostics: string): string {
 
 interface Feedback {
   message: string
-  severity: 'success' | 'error' | 'info'
+  severity: 'success' | 'error' | 'info' | 'warning'
 }
 
 interface ReportIssueDialogProps {
@@ -60,6 +60,15 @@ function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps): React.Rea
         title: title.trim() || 'Issue report',
         body: composeBody(description, diagnostics)
       })
+      if (result && !result.copied) {
+        setFeedback({
+          message: result.truncated
+            ? 'Issue opened in your browser, but the report is cut short and Taliesin could not copy it to your clipboard. Use Copy to clipboard, then paste it in.'
+            : 'Issue opened in your browser. Taliesin could not copy the report to your clipboard.',
+          severity: 'warning'
+        })
+        return
+      }
       setFeedback({
         message: result?.truncated
           ? 'Issue opened in your browser — the full report was copied to your clipboard (paste it in if truncated).'

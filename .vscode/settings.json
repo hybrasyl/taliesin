@@ -1,4 +1,18 @@
 {
+  // Bump the TS server heap from the 4GB default — the language service
+  // OOM-crashed on file analysis in the house Electron apps (HTOO-553, from
+  // elatha). 8GB holds even after a few hours of editing.
+  "js/ts.tsserver.maxMemory": 8192,
+  // Use the project-pinned tsc so VSCode hover/diagnostics match the
+  // tsc --build that runs in `npm run typecheck` and CI.
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  // Disable VSCode's package-JSON auto-import provider — it creates a Win32
+  // file watcher for every package.json under node_modules, thousands of
+  // kernel handles, and it crashed the TS server independent of heap size.
+  // Tradeoff: IntelliSense won't auto-suggest imports for packages that aren't
+  // already imported somewhere — type the import once, autocomplete works
+  // thereafter.
+  "typescript.preferences.includePackageJsonAutoImports": "off",
   "actionButtons": {
     "commands": [
       {

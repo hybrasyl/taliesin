@@ -87,6 +87,12 @@ export interface HandlerContext {
   appGetVersion: () => string
   /** Path roots derived from current settings (active library, pack dir, etc.). */
   settingsRoots: Set<string>
+  /**
+   * The client folder from the last settings loaded or saved. The picker reads
+   * it here: a settings.json read can recover from the backup and write it back,
+   * which must not race the renderer's own save.
+   */
+  clientPath?: string | null
   /** Paths blessed this session via OS dialog selections (one-shot user consent). */
   blessedRoots: Set<string>
   /**
@@ -134,6 +140,7 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
  */
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
+  ctx.clientPath = settings.clientPath ?? null
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
   // Installed .datf packs live here; whitelist it so pack-adjacent reads (e.g.
   // audio preview of an installed pack) pass the path-safety check.
@@ -346,11 +353,11 @@ export async function buildReport(ctx: HandlerContext): Promise<string> {
 export function reportOpenIssue(
   ctx: HandlerContext,
   payload: unknown
-): { ok: true; truncated: boolean } {
+): Promise<{ ok: true; truncated: boolean; copied: boolean }> {
   return openIssue(parseOrLog(ctx, 'diagnostics:openIssue', openIssueSchema, payload))
 }
 
-export function reportCopy(ctx: HandlerContext, payload: unknown): { ok: true } {
+export function reportCopy(ctx: HandlerContext, payload: unknown): Promise<{ ok: true }> {
   return copyReport(parseOrLog(ctx, 'diagnostics:copyReport', copyReportSchema, payload))
 }
 
@@ -1822,7 +1829,9 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A
-  // handlers without a separate "set active" round-trip.
+  // handlers without a separate "set active" round-trip. `dialog` comes in
+  // wrapped by withPickerStart (index.ts), which picks the folder each dialog
+  // opens at (HTOO-553).
   // Both dialog arguments are optional and validated together, so a rejection
   // names the dialog that was asked for. Electron throws from inside
   // showOpenDialog on a malformed filter list, which reaches the user as a

@@ -45,7 +45,11 @@
           inset 0 0 0 1px rgba(240, 230, 204, 0.04);
         color: #f0e6cc;
       }
+      /* flex-shrink: 0 on the logo and the spinner (HTOO-553): when the font falls
+         back from Segoe UI the column overflows, and flex takes the overflow out of
+         the spinner, which then draws as an oval. */
       .logo {
+        flex-shrink: 0;
         width: 88px;
         height: 88px;
         object-fit: contain;
@@ -64,6 +68,7 @@
         margin-top: -8px;
       }
       .spinner {
+        flex-shrink: 0;
         width: 22px;
         height: 22px;
         margin-top: 4px;

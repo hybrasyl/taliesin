@@ -14,14 +14,14 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "npm run build && playwright test",
     "e2e:only": "playwright test",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc --build --force",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
     "start": "electron-vite preview -- --trace-warnings",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:win:portable": "npm run build && electron-builder --win portable",
@@ -34,7 +34,7 @@
     "@eriscorp/dalib-ts": "^3.1.1",
     "@eriscorp/hybindex-ts": "^1.1.0",
     "archiver": "^7.0.1",
-    "music-metadata": "^11.12.3",
+    "music-metadata": "^11.16.1",
     "unzipper": "^0.12.3",
     "zod": "^4.3.6"
   },
@@ -64,9 +64,9 @@
     "@types/react-dom": "^19.2.3",
     "@types/xml2js": "^0.4.14",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vitest/coverage-v8": "^4.1.5",
-    "electron": "^41.1.0",
-    "electron-builder": "^26.8.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.17.0",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
@@ -80,14 +80,18 @@
     "simplex-noise": "^4.0.3",
     "typescript": "^5.7.0",
     "vite": "^6.4.1",
-    "vitest": "^4.1.2",
+    "vitest": "^4.1.11",
     "vitest-canvas-mock": "^1.1.4",
     "xml2js": "^0.6.2",
     "zustand": "^5.0.14"
   },
+  "//allowScripts": "npm 12 runs a dependency's install script only when this approves it (HTOO-542). By name, never pkg@version: a pinned approval stops matching at the next bump. esbuild downloads its platform binary. electron-winstaller is denied: its script only selects a 7-Zip binary for Squirrel.Windows installers, and electron-builder.yml ships NSIS and portable only. electron is absent: since Electron 42 it has no install script, and postinstall runs install-electron.",
   "allowScripts": {
-    "electron@41.10.4": true,
-    "electron-winstaller@5.4.0": true,
-    "esbuild@0.25.12": true
+    "esbuild": true,
+    "electron-winstaller": false
+  },
+  "//overrides": "global-agent@3 -> ^4.1.3 (HTOO-570, as creidhne): app-builder-lib 26.x pins @electron/get@3, which pulls global-agent@3 -> roarr -> sprintf-js, and no sprintf-js release fixes GHSA-hp3w-g68c-fv3c. global-agent 4 drops roarr and keeps the `bootstrap` export @electron/get calls. Build-time only. Remove when electron-builder 27 (on @electron/get@5) is stable.",
+  "overrides": {
+    "global-agent@3": "^4.1.3"
   }
 }

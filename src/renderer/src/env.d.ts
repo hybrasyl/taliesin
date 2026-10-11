@@ -145,7 +145,7 @@ declare global {
     openIssue: (payload: {
       title: string
       body: string
-    }) => Promise<{ ok: true; truncated: boolean }>
+    }) => Promise<{ ok: true; truncated: boolean; copied: boolean }>
     copyReport: (payload: { body: string }) => Promise<{ ok: true }>
     revealLogs: () => Promise<void>
     loadSettings: () => Promise<Record<string, unknown>>

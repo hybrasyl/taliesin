@@ -102,7 +102,7 @@ const api = {
   openIssue: (payload: {
     title: string
     body: string
-  }): Promise<{ ok: true; truncated: boolean }> =>
+  }): Promise<{ ok: true; truncated: boolean; copied: boolean }> =>
     ipcRenderer.invoke('diagnostics:openIssue', payload),
   copyReport: (payload: { body: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke('diagnostics:copyReport', payload),

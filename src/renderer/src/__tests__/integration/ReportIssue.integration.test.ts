@@ -166,7 +166,7 @@ describe('diagnostics — opening the issue', () => {
 
   it('opens a prefilled issue on the public intake repo with the app label', async () => {
     const res = await window.api.openIssue({ title: 'Crash on open', body })
-    expect(res).toEqual({ ok: true, truncated: false })
+    expect(res).toEqual({ ok: true, truncated: false, copied: true })
 
     expect(electron.shell.openExternal).toHaveBeenCalledTimes(1)
     const url = new URL(electron.shell.openExternal.mock.calls[0][0] as string)

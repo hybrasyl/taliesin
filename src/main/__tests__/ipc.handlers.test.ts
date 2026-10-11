@@ -506,6 +506,17 @@ describe('dialog handlers', () => {
     dialogReplies.saveFile = '/u/out.txt'
     expect(await invoke('dialog:saveFile')).toBe('/u/out.txt')
   })
+
+  // Electron 43+ opens a dialog with no defaultPath in Downloads (HTOO-553).
+  it('opens the next picker in the folder picked last', async () => {
+    dirs.set('/u/picked', new Set())
+    dialogReplies.openDirectory = '/u/picked'
+    await invoke('dialog:openDirectory')
+    dialogReplies.openFile = []
+    await invoke('dialog:openFile')
+    const calls = electronMock.dialog.showOpenDialog.mock.calls
+    expect(calls[calls.length - 1][0]).toMatchObject({ defaultPath: '/u/picked' })
+  })
 })
 
 describe('fs handlers', () => {

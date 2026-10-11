@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
+import { withPickerStart } from './pickerStart'
 import { loadPacks } from './assetPacks'
 import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
@@ -376,4 +377,14 @@ app.on('window-all-closed', () => {
 // so the sender check applies by construction rather than by each handler
 // remembering to ask for it. The corollary: a handler registered on the raw
 // `ipcMain` silently opts OUT of the check. Keep this the only call site.
-registerHandlers({ ipcMain: guardIpc(ipcMain), BrowserWindow, dialog }, ctx)
+registerHandlers(
+  {
+    ipcMain: guardIpc(ipcMain),
+    BrowserWindow,
+    dialog: withPickerStart(dialog, {
+      clientPath: () => ctx.clientPath,
+      fallbacks: () => [app.getPath('documents'), app.getPath('home')]
+    })
+  },
+  ctx
+)

@@ -5,7 +5,7 @@ import { simplifyPlatform } from './osName'
 import { buildDiagnosticsBlock } from './diagnosticsBlock'
 import { buildIssueUrl, truncateBodyForUrl } from './issueUrl'
 import { scrubText } from './scrub'
-import { getRecentErrors, getLogsDir } from './sessionLog'
+import { captureError, getRecentErrors, getLogsDir } from './sessionLog'
 import { isSafeExternalUrl } from '../../shared/externalUrl'
 
 // Backing logic for the diagnostics:* IPC handlers. Pure-helper composition +
@@ -40,16 +40,28 @@ export function buildDiagnostics({ version }: { version?: string } = {}): string
 /**
  * Open a prefilled GitHub issue on the shared public intake repo. Always copies the
  * full body to the clipboard first, so a URL-length-truncated body can be pasted.
+ * Since Electron 44 the main-process clipboard returns a Promise (HTOO-553): the
+ * browser opens only after the write completes, or the page that says "paste the
+ * report" can open before there is a report to paste. A failed write does not stop
+ * the report: the page still opens with the body in its URL, and `copied: false`
+ * tells the dialog to say so.
  *
  * Only the stable per-app label is applied via the URL — GitHub applies a `labels=`
  * value only when that label already exists on the repo, so unbounded version labels
  * would silently no-op. The version already rides along in the diagnostics body.
  */
-export function openIssue({ title, body }: { title: string; body: string }): {
+export async function openIssue({ title, body }: { title: string; body: string }): Promise<{
   ok: true
   truncated: boolean
-} {
-  clipboard.writeText(body)
+  copied: boolean
+}> {
+  let copied = true
+  try {
+    await clipboard.writeText(body)
+  } catch (err) {
+    copied = false
+    captureError({ source: 'openIssue', message: `clipboard write failed: ${String(err)}` })
+  }
   const labels = [appIdentity.appLabel]
   const { url, truncated } = truncateBodyForUrl(
     { owner: appIdentity.intakeOwner, repo: appIdentity.intakeRepo, title, body, labels },
@@ -62,12 +74,12 @@ export function openIssue({ title, body }: { title: string; body: string }): {
   // nearly true. The body is already on the clipboard, so a refusal degrades to
   // "paste it yourself" rather than losing the report.
   if (isSafeExternalUrl(url)) void shell.openExternal(url)
-  return { ok: true, truncated }
+  return { ok: true, truncated, copied }
 }
 
 /** Always-works fallback: put the full report on the clipboard. */
-export function copyReport({ body }: { body: string }): { ok: true } {
-  clipboard.writeText(body)
+export async function copyReport({ body }: { body: string }): Promise<{ ok: true }> {
+  await clipboard.writeText(body)
   return { ok: true }
 }
 

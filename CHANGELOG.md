@@ -33,6 +33,21 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Changed
+
+- **Taliesin runs on Electron 44.** Electron 41 is end-of-life and gets no more Chromium or Node security fixes. Taliesin now needs macOS 13 or later, and a 64-bit system.
+
+### Fixed
+
+- **File and folder pickers open in a useful folder.** Electron 43 and later opens a picker with no start folder in Downloads. A picker now opens in the folder you picked last, then in the client folder, then in Documents. A save picker puts its suggested file name in that folder.
+- **Report an Issue opens the browser only after the report is on the clipboard.** Before, the issue page could open before the copy completed, and a paste then gave nothing. If Taliesin cannot copy the report, it still opens the page, and it tells you that the copy failed.
+- **The splash spinner is round on Linux.** When the font fell back from Segoe UI, the spinner drew as an oval.
+
+### Security
+
+- **A damaged audio file can no longer stop Taliesin.** Taliesin reads the tags of the audio files you import with music-metadata. Version 11.16 fixes five faults where a crafted MP4, APE, ID3, Matroska or DSF file could hang or crash the app.
+- **`npm audit` reports 0 findings.** The release clears the 23 findings that 2.13.1 had. Two of them were in the app: music-metadata (above) and brace-expansion, which the pack archiver uses.
+
 ## [2.13.1] - 2026-09-20
 
 ### Fixed
