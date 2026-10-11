@@ -53,11 +53,7 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
 
 - **`USERDATA_SUBPATH`** in `helpers.js` matches `src/main/index.ts`'s userData dir
   (`['Erisco', 'Taliesin']`).
-- The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` and
-  `app-title` (TitleBar), `nav-<page>` on every page button (NavToolbar), `page-<page>`
-  (PageRenderer), `error-boundary-fallback` (ErrorBoundary), `settings-page` (SettingsPage) and
-  `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a
-  sweep — a testid with no spec behind it is an untested claim about what matters.
+- The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` and `app-title` (TitleBar), `nav-<page>` on every page button (NavToolbar), `page-<page>` (PageRenderer), `error-boundary-fallback` (ErrorBoundary), `settings-page` (SettingsPage) and `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a sweep — a testid with no spec behind it is an untested claim about what matters.
 - **Prefer a role or label selector where one exists**; reach for a testid when it does not. If a
   control has no accessible name to select by, that is usually worth fixing rather than working
   around — `pack-filesystem.spec.js` turned up a `Select` with no `labelId`, which screen readers

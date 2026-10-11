@@ -16,7 +16,10 @@ import { launchApp, getMainWindow, repoRoot } from './helpers.js'
 // is not, and no page error was thrown. A failure names the page.
 //
 // The list is read from PAGES in uiStore.ts, so a new page is covered with no
-// edit here. A page with no nav button fails on its click.
+// edit here. A page with no nav button fails on its click. Each page runs for
+// SETTLE_MS before it is checked, so a fault in a render that its first IPC
+// replies start is charged to it. Errors thrown during boot, before the listener
+// is attached, are app-boot.spec.js's concern.
 //
 // The profile is empty, so most pages render their "nothing set" state. A fault
 // at a component's top or in its hooks runs on that path and fails here. A
@@ -33,6 +36,10 @@ function readPages() {
 }
 
 const PAGES = readPages()
+
+/** How long each page runs before it is checked. An empty profile answers its
+ *  IPC in well under this. */
+const SETTLE_MS = 250
 
 test.describe('Nav pages', () => {
   let electronApp
@@ -53,6 +60,9 @@ test.describe('Nav pages', () => {
       await test.step(page, async () => {
         await win.getByTestId(`nav-${page}`).click({ timeout: 5_000 })
         await expect(win.getByTestId(`page-${page}`), `${page}: page marker`).toBeAttached()
+        // Let the page's first IPC replies land, so a fault in the render they
+        // start is charged to this page and not the next one.
+        await win.waitForTimeout(SETTLE_MS)
         await expect(
           win.getByTestId('error-boundary-fallback'),
           `${page}: error boundary`
