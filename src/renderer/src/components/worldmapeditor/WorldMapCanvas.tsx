@@ -40,6 +40,7 @@ import {
 } from '../../utils/worldMapRenderer'
 import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
+import { createWheelStepper, isPinch } from '../../utils/wheel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -497,11 +498,32 @@ export default function WorldMapCanvas({
     setZoom(next)
   }, [])
 
+  const pinchStepRef = useRef(createWheelStepper())
   const handleWheel = useCallback(
     (e: React.WheelEvent<HTMLCanvasElement>) => {
       const canvas = overlayRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
+      // macOS (HTOO-569): a trackpad pinch (Ctrl + wheel) zooms, a step per ~40 px
+      // of pinch, and a two-finger scroll pans, the way a Mac map does. A mouse
+      // wheel there pans too, because the two cannot be told apart. Windows and
+      // Linux keep the wheel as zoom.
+      if (window.api?.platform === 'darwin') {
+        if (isPinch(e, 'darwin')) {
+          const step = pinchStepRef.current(e.deltaY)
+          if (step !== 0) {
+            zoomAbout(
+              nextZoom(zoomRef.current, step < 0 ? 1 : -1),
+              e.clientX - rect.left,
+              e.clientY - rect.top
+            )
+          }
+          return
+        }
+        const p = panRef.current
+        setPan({ x: p.x - e.deltaX, y: p.y - e.deltaY })
+        return
+      }
       zoomAbout(
         nextZoom(zoomRef.current, e.deltaY < 0 ? 1 : -1),
         e.clientX - rect.left,

@@ -33,12 +33,20 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **Taliesin looks and works like a Mac app on macOS.** The window keeps the native stoplight buttons, in an empty title bar. An application menu replaces Electron's default one: About, Settings (⌘,), File (Save, Launch Creidhne), Edit, View (Full Screen), Go (every page, ⌘1 to ⌘9 on the first nine), Window and Help (Report an Issue, What's New). The menu has no Reload, which dropped unsaved edits. A menu item does nothing while a dialog is open. Windows and Linux do not change.
+
 ### Changed
 
 - **Taliesin runs on Electron 44.** Electron 41 is end-of-life and gets no more Chromium or Node security fixes. Taliesin now needs macOS 13 or later, and a 64-bit system.
 
 ### Fixed
 
+- **⌘Q with unsaved work quits Taliesin on macOS.** Before, Save or Discard closed the window and left the app running with no window.
+- **Shortcuts use ⌘ on macOS.** The Map Maker read Ctrl only, so ⌘Z, ⌘S, ⌘C, ⌘X, ⌘V and ⌘W did nothing on a Mac, and the Control chords that edit text were taken. The map XML editor, the UI Forge and the tile picker now leave Control chords to the text fields on macOS. ⇧⌘Z is redo.
+- **Ctrl+Shift+S runs Save As in the Map Maker.** The shortcut never fired, on any platform.
+- **A trackpad pinch zooms the Map Maker and the World Map Editor on macOS.** Before, a pinch scrolled the Map Maker sideways, and a two-finger scroll zoomed the world map. On macOS a two-finger scroll now pans the world map. Windows and Linux do not change.
 - **File and folder pickers open in a useful folder.** Electron 43 and later opens a picker with no start folder in Downloads. A picker now opens in the folder you picked last, then in the client folder, then in Documents. A save picker puts its suggested file name in that folder.
 - **Report an Issue opens the browser only after the report is on the clipboard.** Before, the issue page could open before the copy completed, and a paste then gave nothing. If Taliesin cannot copy the report, it still opens the page, and it tells you that the copy failed.
 - **The splash spinner is round on Linux.** When the font fell back from Segoe UI, the spinner drew as an oval.

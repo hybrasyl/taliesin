@@ -49,6 +49,7 @@ import {
   type ShapeMode
 } from '../../utils/mapEditorTools'
 import type { TileLayer } from './TilePicker'
+import { createWheelStepper, isPinch } from '../../utils/wheel'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1188,7 +1189,20 @@ const MapEditorCanvas: React.FC<Props> = ({
   // React's synthetic onWheel is passive in modern browsers, which silently
   // ignores preventDefault() and lets the browser handle Ctrl+Wheel as zoom.
   const wheelHandlerRef = useRef<((e: WheelEvent) => void) | undefined>(undefined)
+  const pinchStepRef = useRef(createWheelStepper())
   wheelHandlerRef.current = (e: WheelEvent) => {
+    // A trackpad pinch on macOS is Ctrl + wheel, so it zooms there, a step per
+    // ~40 px of pinch (HTOO-569). Elsewhere Ctrl + wheel keeps panning along x,
+    // the Windows convention. A two-finger scroll is a plain wheel, which the
+    // scroll container already turns into a pan on both axes.
+    if (isPinch(e, window.api?.platform)) {
+      e.preventDefault()
+      const step = pinchStepRef.current(e.deltaY)
+      if (step === 0) return
+      const newZoom = Math.max(0.25, Math.min(2, zoom - step * 0.25))
+      if (newZoom !== zoom) onZoomChange(newZoom)
+      return
+    }
     if (e.shiftKey) {
       e.preventDefault()
       const delta = e.deltaY > 0 ? -0.25 : 0.25
