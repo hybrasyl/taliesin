@@ -1206,7 +1206,9 @@ const MapEditorCanvas: React.FC<Props> = ({
     }
     if (e.shiftKey) {
       e.preventDefault()
-      stepZoom(e.deltaY <= 0)
+      // Chromium turns Shift + a mouse wheel into a horizontal scroll on macOS
+      // (deltaY 0), so read whichever axis moved.
+      stepZoom((e.deltaY || e.deltaX) <= 0)
     } else if (e.ctrlKey) {
       e.preventDefault()
       const container = scrollRef.current

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useUiStore, isPage } from '../store/uiStore'
 import { useMenuStore } from '../store/menuStore'
+import { useMapMakerStore } from '../store/mapMakerStore'
 import { useCompanionStatus } from './useCompanionStatus'
 import { isMac } from '../utils/platform'
 
@@ -48,7 +49,10 @@ export function runMenuCommand(
     case 'save':
       // The same save the unsaved-changes dialog runs. A failed save shows its own
       // error in the editor, so there is nothing to add here.
-      void Promise.resolve(ui.dirtyEditor?.onSave()).catch(() => {})
+      if (ui.dirtyEditor) void Promise.resolve(ui.dirtyEditor.onSave()).catch(() => {})
+      // The Map Maker's tabs are not a dirtyEditor; its page saves the active tab,
+      // as ⌘S does there.
+      else if (ui.currentPage === 'mapmaker') useMenuStore.getState().request('save')
       return
     case 'launchCompanion':
       void actions.launchCompanion()
@@ -72,15 +76,21 @@ export function currentMenuState({ companionFound }: { companionFound: boolean }
   const s = useUiStore.getState()
   return {
     page: s.currentPage,
-    canSave: !!s.dirtyEditor,
+    canSave: !!s.dirtyEditor || (s.currentPage === 'mapmaker' && activeMapMakerTabDirty()),
     canLaunchCompanion: companionFound
   }
 }
 
+function activeMapMakerTabDirty(): boolean {
+  const { tabs, activeTabId } = useMapMakerStore.getState()
+  return tabs.some((t) => t.id === activeTabId && t.dirty)
+}
+
 /**
  * Wire the menu once settings have hydrated: run its commands, and report its
- * state when it changes (sent only when it differs). macOS only. Elsewhere there
- * is no menu to drive, and the companion is not asked about a second time.
+ * state on every store change (main drops a report that changes nothing).
+ * macOS only. Elsewhere there is no menu to drive, and the companion is not
+ * asked about a second time.
  */
 export function useAppMenu(enabled: boolean): void {
   const active = enabled && isMac()
@@ -93,20 +103,32 @@ export function useAppMenu(enabled: boolean): void {
     if (!active) return
     const actions: MenuActions = {
       launchCompanion: async () => {
-        await window.api.launchCompanion()
-        // A launch is the moment a target can turn out to have gone missing.
-        refreshCompanion()
+        // As the nav bar's anvil: the result is not shown here. A launch is the
+        // moment a target can turn out to have gone missing, so ask again
+        // whatever happened.
+        try {
+          await window.api.launchCompanion()
+        } catch {
+          /* the re-ask below shows it as not found */
+        } finally {
+          refreshCompanion()
+        }
       }
     }
     return window.api.menu.onCommand((msg) => runMenuCommand(msg, actions))
   }, [active, refreshCompanion])
 
-  // The state report: on every store change, and when the companion answer
-  // changes. Main drops a report that changes nothing.
+  // The state report: on every change to either store, and when the companion
+  // answer changes.
   useEffect(() => {
     if (!active) return
     const report = (): void => window.api.menu.setState(currentMenuState({ companionFound }))
     report()
-    return useUiStore.subscribe(report)
+    const offUi = useUiStore.subscribe(report)
+    const offMapMaker = useMapMakerStore.subscribe(report)
+    return () => {
+      offUi()
+      offMapMaker()
+    }
   }, [active, companionFound])
 }

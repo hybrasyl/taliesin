@@ -3,6 +3,7 @@ import { filenameFromPath } from '../utils/format'
 import { mapFilesDir } from '../utils/pickerDefaults'
 import { historyChord, isModKey, isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
+import { useMenuRequest } from '../hooks/useMenuRequest'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import {
   Box,
@@ -252,6 +253,8 @@ const MapMakerPage: React.FC = () => {
     if (!tab?.mapFile) return
     if (await saveTab(tab)) showStatus('Saved')
   }, [tabs, activeTabId, showStatus])
+  // The macOS menu's File → Save (HTOO-569), the same save as ⌘S here.
+  useMenuRequest('save', () => void handleSave())
 
   const handleSaveAs = useCallback(async () => {
     if (!activeTabId || !mapFile) return

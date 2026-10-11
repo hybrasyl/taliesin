@@ -24,10 +24,19 @@ export function isPinch(
  * step per event would zoom through every level in one gesture, so the deltas
  * add up to `threshold` first. Returns the direction of a step (1: the delta is
  * positive, a pinch in or a wheel down), or 0 when there is no step yet.
+ *
+ * What is left over is dropped when the direction turns, or after `idleMs`
+ * without an event, so each new gesture starts from zero.
  */
-export function createWheelStepper(threshold = 40): (deltaY: number) => -1 | 0 | 1 {
+export function createWheelStepper(
+  threshold = 40,
+  idleMs = 250
+): (deltaY: number, now?: number) => -1 | 0 | 1 {
   let sum = 0
-  return (deltaY) => {
+  let last = -Infinity
+  return (deltaY, now = performance.now()) => {
+    if (now - last > idleMs || Math.sign(deltaY) !== Math.sign(sum)) sum = 0
+    last = now
     sum += deltaY
     if (Math.abs(sum) < threshold) return 0
     const direction = sum > 0 ? 1 : -1

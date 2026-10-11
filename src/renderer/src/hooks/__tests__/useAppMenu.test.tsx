@@ -5,6 +5,7 @@ import { runMenuCommand, isModalOpen, useAppMenu } from '../useAppMenu'
 import { useMenuRequest } from '../useMenuRequest'
 import { useUiStore } from '../../store/uiStore'
 import { useMenuStore } from '../../store/menuStore'
+import { useMapMakerStore } from '../../store/mapMakerStore'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
 
 // The renderer half of the macOS application menu (HTOO-569). Ported from creidhne.
@@ -60,6 +61,17 @@ describe('runMenuCommand', () => {
     useUiStore.setState({ dirtyEditor: { label: 'Map', onSave } })
     runMenuCommand({ command: 'save' }, actions)
     expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('Save in the Map Maker leaves a request for its page, which saves the active tab', () => {
+    useUiStore.setState({ currentPage: 'mapmaker' })
+    runMenuCommand({ command: 'save' }, actions)
+    expect(useMenuStore.getState().pending.save).toBe(true)
+  })
+
+  it('Save elsewhere with nothing dirty leaves no request behind', () => {
+    runMenuCommand({ command: 'save' }, actions)
+    expect(useMenuStore.getState().pending.save).toBeUndefined()
   })
 
   it('Report an Issue opens the dialog, and Launch Creidhne launches it', () => {
@@ -120,6 +132,21 @@ describe('useAppMenu', () => {
 
     act(() => useUiStore.getState().setCurrentPage('archive'))
     expect(api.menu.setState).toHaveBeenLastCalledWith(expect.objectContaining({ page: 'archive' }))
+  })
+
+  it('enables Save for a dirty Map Maker tab, which is not a dirtyEditor', () => {
+    api.platform = 'darwin'
+    useUiStore.setState({ currentPage: 'mapmaker' })
+    renderHook(() => useAppMenu(true))
+    expect(api.menu.setState).toHaveBeenLastCalledWith(expect.objectContaining({ canSave: false }))
+    act(() =>
+      useMapMakerStore.setState({
+        tabs: [{ id: 't1', dirty: true } as never],
+        activeTabId: 't1'
+      })
+    )
+    expect(api.menu.setState).toHaveBeenLastCalledWith(expect.objectContaining({ canSave: true }))
+    act(() => useMapMakerStore.setState({ tabs: [], activeTabId: null }))
   })
 
   it('runs a command the menu sends', () => {

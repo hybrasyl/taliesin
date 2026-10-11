@@ -153,6 +153,11 @@ let menuState: MenuState = INITIAL_MENU_STATE
 function sendMenuCommand(msg: { command: string }): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(MENU_COMMAND_CHANNEL, msg)
+  } else {
+    // macOS after ⌘W: the app runs with no window. A menu command opens one,
+    // as a click on the Dock icon does, rather than doing nothing.
+    reopenMainWindow()
+    return
   }
   // Rebuild from the last report. A checkbox item ticks itself when it is
   // clicked, and a Go command can be held by the unsaved-changes dialog, so the
@@ -323,6 +328,10 @@ function createWindow(): void {
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
+    // The menu outlives the window on macOS. Grey it back to the boot state, so
+    // Save does not stay enabled for an editor that is gone.
+    menuState = INITIAL_MENU_STATE
+    applyAppMenu()
     // Backstop 3: the main window can die before the reveal. Without this the
     // splash is alwaysOnTop + skipTaskbar, so it strands as a floating window
     // the user cannot focus, close, or find in the taskbar.
@@ -424,20 +433,23 @@ app.whenReady().then(() => {
   // the window visible so the app can never be left permanently invisible.
   setTimeout(revealMainWindow, 15000)
 
-  // macOS: a click on the Dock icon after ⌘W closed the window. The new window
-  // goes through the same hidden-until-ready reveal as the first one.
+  // macOS: a click on the Dock icon after ⌘W closed the window.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindowRevealed = false
-      rendererHasUnsaved = false
-      menuState = INITIAL_MENU_STATE
-      applyAppMenu()
-      splash = createSplashWindow()
-      createWindow()
-      setTimeout(revealMainWindow, 15000)
-    }
+    if (BrowserWindow.getAllWindows().length === 0) reopenMainWindow()
   })
 })
+
+/**
+ * macOS: a new main window after ⌘W closed the last one. It goes through the
+ * same hidden-until-ready reveal as the first one.
+ */
+function reopenMainWindow(): void {
+  mainWindowRevealed = false
+  rendererHasUnsaved = false
+  splash = createSplashWindow()
+  createWindow()
+  setTimeout(revealMainWindow, 15000)
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
