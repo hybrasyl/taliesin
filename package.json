@@ -89,7 +89,8 @@
   "//allowScripts": "npm 12 runs a dependency's install script only when this approves it (HTOO-542). By name, never pkg@version: a pinned approval stops matching at the next bump. esbuild downloads its platform binary. electron-winstaller is denied: its script only selects a 7-Zip binary for Squirrel.Windows installers, and electron-builder.yml ships NSIS and portable only. electron is absent: since Electron 42 it has no install script, and postinstall runs install-electron.",
   "allowScripts": {
     "esbuild": true,
-    "electron-winstaller": false
+    "electron-winstaller": false,
+    "fsevents": true
   },
   "//overrides": "global-agent@3 -> ^4.1.3 (HTOO-570, as creidhne): app-builder-lib 26.x pins @electron/get@3, which pulls global-agent@3 -> roarr -> sprintf-js, and no sprintf-js release fixes GHSA-hp3w-g68c-fv3c. global-agent 4 drops roarr and keeps the `bootstrap` export @electron/get calls. Build-time only. Remove when electron-builder 27 (on @electron/get@5) is stable.",
   "overrides": {
