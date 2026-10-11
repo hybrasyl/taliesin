@@ -1,20 +1,28 @@
 import { create } from 'zustand'
 
-export type Page =
-  | 'dashboard'
-  | 'catalog'
-  | 'mapeditor'
-  | 'worldmap'
-  | 'archive'
-  | 'mapmaker'
-  | 'prefabs'
-  | 'assetpacks'
-  | 'statictiles'
-  | 'uiforge'
-  | 'palettes'
-  | 'music'
-  | 'sfx'
-  | 'settings'
+/** Every top-level page. The macOS menu's Go commands are checked against it. */
+export const PAGES = [
+  'dashboard',
+  'catalog',
+  'mapeditor',
+  'worldmap',
+  'archive',
+  'mapmaker',
+  'prefabs',
+  'assetpacks',
+  'statictiles',
+  'uiforge',
+  'palettes',
+  'music',
+  'sfx',
+  'settings'
+] as const
+
+export type Page = (typeof PAGES)[number]
+
+export function isPage(value: string): value is Page {
+  return (PAGES as readonly string[]).includes(value)
+}
 
 export interface DirtyEditor {
   label: string

@@ -35,8 +35,10 @@ import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
-import { useSettingsStore, flushSettings, type MapDirectory } from '../store/settingsStore'
+import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
+import { useMenuRequest } from '../hooks/useMenuRequest'
+import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
@@ -301,29 +303,10 @@ function launchMessage(result: CompanionLaunchResult): string {
 function CompanionCard() {
   const companionPath = useSettingsStore((s) => s.companionPath)
   const setCompanionPath = useSettingsStore((s) => s.setCompanionPath)
-  const [status, setStatus] = useState<CompanionStatus | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-
   // Re-resolved whenever the override changes: clearing it must fall back to
   // discovery visibly rather than leaving the card describing the old answer.
-  useEffect(() => {
-    let cancelled = false
-    // Flush first. Main answers from settings on disk, and the store's write is
-    // debounced 200 ms, so asking straight after a pick asked about the previous
-    // value — which is why a freshly-chosen Creidhne read "Not found".
-    void (async () => {
-      try {
-        await flushSettings()
-        const s = await window.api.companionStatus()
-        if (!cancelled) setStatus(s)
-      } catch {
-        if (!cancelled) setStatus(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [companionPath])
+  const { status } = useCompanionStatus()
+  const [message, setMessage] = useState<string | null>(null)
 
   const resolved = status?.resolved ?? null
 
@@ -400,6 +383,8 @@ function CompanionCard() {
 function AboutCard({ onOpen }: { onOpen: () => void }) {
   const [version, setVersion] = useState('')
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+  // The macOS menu's Help → What's New (HTOO-569) comes to Settings and opens it here.
+  useMenuRequest('whatsNew', () => setWhatsNewOpen(true))
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Matches the Installed Asset Packs link.
@@ -1158,6 +1143,8 @@ function AssetPacksCard() {
 
 const SettingsPage: React.FC = () => {
   const [aboutOpen, setAboutOpen] = useState(false)
+  // The macOS menu's "About Taliesin" (HTOO-569) comes to Settings and opens it here.
+  useMenuRequest('about', () => setAboutOpen(true))
 
   return (
     <Box data-testid="settings-page" sx={{ height: '100%', overflow: 'auto', p: 3 }}>

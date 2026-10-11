@@ -49,6 +49,7 @@ import {
   type ShapeMode
 } from '../../utils/mapEditorTools'
 import type { TileLayer } from './TilePicker'
+import { createWheelStepper, isPinch } from '../../utils/wheel'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1188,12 +1189,26 @@ const MapEditorCanvas: React.FC<Props> = ({
   // React's synthetic onWheel is passive in modern browsers, which silently
   // ignores preventDefault() and lets the browser handle Ctrl+Wheel as zoom.
   const wheelHandlerRef = useRef<((e: WheelEvent) => void) | undefined>(undefined)
+  const pinchStepRef = useRef(createWheelStepper())
   wheelHandlerRef.current = (e: WheelEvent) => {
+    // One zoom step, in or out, inside the Map Maker's range.
+    const stepZoom = (zoomIn: boolean): void => {
+      const newZoom = Math.max(0.25, Math.min(2, zoom + (zoomIn ? 0.25 : -0.25)))
+      if (newZoom !== zoom) onZoomChange(newZoom)
+    }
+    // A pinch zooms on macOS (see utils/wheel.ts, HTOO-569). A two-finger scroll
+    // is a plain wheel, which the scroll container already pans.
+    if (isPinch(e)) {
+      e.preventDefault()
+      const step = pinchStepRef.current(e.deltaY)
+      if (step !== 0) stepZoom(step < 0)
+      return
+    }
     if (e.shiftKey) {
       e.preventDefault()
-      const delta = e.deltaY > 0 ? -0.25 : 0.25
-      const newZoom = Math.max(0.25, Math.min(2, zoom + delta))
-      if (newZoom !== zoom) onZoomChange(newZoom)
+      // Chromium turns Shift + a mouse wheel into a horizontal scroll on macOS
+      // (deltaY 0), so read whichever axis moved.
+      stepZoom((e.deltaY || e.deltaX) <= 0)
     } else if (e.ctrlKey) {
       e.preventDefault()
       const container = scrollRef.current

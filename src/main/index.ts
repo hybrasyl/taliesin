@@ -1,10 +1,13 @@
-import { app, shell, session, BrowserWindow, ipcMain, dialog, screen } from 'electron'
+import { app, shell, session, BrowserWindow, ipcMain, dialog, screen, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { withPickerStart } from './pickerStart'
+import { buildMenuTemplate, INITIAL_MENU_STATE, MENU_COMMAND_CHANNEL } from './appMenu'
+import type { MenuState } from './schemas/menu'
+import { appIdentity } from './report/appIdentity'
 import { loadPacks } from './assetPacks'
 import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
@@ -137,6 +140,47 @@ let closeConfirmedFor: (target: BrowserWindow) => void = () => {}
  */
 let rendererHasUnsaved = false
 
+// Set by ⌘Q / app.quit(): `before-quit` comes before the windows' `close`
+// events, so the close guard can tell a quit from a plain close (HTOO-569).
+let quitRequested = false
+app.on('before-quit', () => {
+  quitRequested = true
+})
+
+// ── The macOS application menu (HTOO-569, src/main/appMenu.ts) ──────────────
+let menuState: MenuState = INITIAL_MENU_STATE
+
+function sendMenuCommand(msg: { command: string }): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(MENU_COMMAND_CHANNEL, msg)
+  } else {
+    // macOS after ⌘W: the app runs with no window. A menu command opens one,
+    // as a click on the Dock icon does, rather than doing nothing.
+    reopenMainWindow()
+    return
+  }
+  // Rebuild from the last report. A checkbox item ticks itself when it is
+  // clicked, and a Go command can be held by the unsaved-changes dialog, so the
+  // page does not change and no new report comes to correct the tick.
+  setImmediate(applyAppMenu)
+}
+
+function applyAppMenu(): void {
+  if (process.platform !== 'darwin') return
+  const template = buildMenuTemplate(menuState, {
+    appName: appIdentity.productName,
+    isDev: is.dev,
+    send: sendMenuCommand
+  })
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+ctx.onMenuState = (state) => {
+  if (JSON.stringify(state) === JSON.stringify(menuState)) return
+  menuState = state
+  applyAppMenu()
+}
+
 // The splash owns the swap, not this function: `dismiss` shows the splash if it
 // never got the chance, holds it for the remainder of a minimum-visible floor,
 // then destroys it and calls back here. Revealing from the callback means the
@@ -201,7 +245,12 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    frame: false,
+    // macOS keeps the native stoplights, inset into Taliesin's own title bar,
+    // which TitleBar leaves empty there. `y: 10` centres them in its 36 px bar.
+    // Windows and Linux stay frameless with the renderer's buttons (HTOO-569).
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 10 } }
+      : { frame: false }),
     // 256px PNG is the largest size any consumer of this option asks for; the
     // 1024px master would be decoded in full for nothing. PNG, not WebP -- this
     // one goes through nativeImage rather than Chromium.
@@ -239,6 +288,10 @@ function createWindow(): void {
   // cannot answer, and a close that waits on an answer that never comes is a
   // window the user cannot get rid of — so those cases skip the question.
   let closeApproved = false
+  // Whether the question in flight was caused by ⌘Q. The guard's cancel also
+  // cancels the quit, so an approval has to start it again; otherwise macOS
+  // closes the window and leaves Taliesin running with no window (HTOO-569).
+  let quitPending = false
   win.webContents.on('render-process-gone', () => {
     closeApproved = true
   })
@@ -252,7 +305,8 @@ function createWindow(): void {
     // this IPC handler and that event the compositor can paint a frame of the
     // default background, which is exactly the flash the hide prevents.
     win.hide()
-    win.close()
+    if (quitPending) app.quit()
+    else win.close()
   }
 
   win.on('close', (e) => {
@@ -263,6 +317,9 @@ function createWindow(): void {
       !win.webContents.isDestroyed()
     ) {
       e.preventDefault()
+      // Every question overwrites it, so a cancelled ⌘Q leaves nothing behind.
+      quitPending = quitRequested
+      quitRequested = false
       win.webContents.send('app:closeRequested')
       return
     }
@@ -271,6 +328,10 @@ function createWindow(): void {
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
+    // The menu outlives the window on macOS. Grey it back to the boot state, so
+    // Save does not stay enabled for an editor that is gone.
+    menuState = INITIAL_MENU_STATE
+    applyAppMenu()
     // Backstop 3: the main window can die before the reveal. Without this the
     // splash is alwaysOnTop + skipTaskbar, so it strands as a floating window
     // the user cannot focus, close, or find in the taskbar.
@@ -359,6 +420,10 @@ app.whenReady().then(() => {
     RENDERER_DEV_URL ? DEV_RENDERER_CSP : RENDERER_CSP
   )
 
+  // Before the window, so the first frame on macOS has Taliesin's menu and not
+  // Electron's default (whose Reload drops unsaved edits).
+  applyAppMenu()
+
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
   splash = createSplashWindow()
@@ -368,15 +433,23 @@ app.whenReady().then(() => {
   // the window visible so the app can never be left permanently invisible.
   setTimeout(revealMainWindow, 15000)
 
+  // macOS: a click on the Dock icon after ⌘W closed the window.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindowRevealed = false
-      splash = createSplashWindow()
-      createWindow()
-      setTimeout(revealMainWindow, 15000)
-    }
+    if (BrowserWindow.getAllWindows().length === 0) reopenMainWindow()
   })
 })
+
+/**
+ * macOS: a new main window after ⌘W closed the last one. It goes through the
+ * same hidden-until-ready reveal as the first one.
+ */
+function reopenMainWindow(): void {
+  mainWindowRevealed = false
+  rendererHasUnsaved = false
+  splash = createSplashWindow()
+  createWindow()
+  setTimeout(revealMainWindow, 15000)
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

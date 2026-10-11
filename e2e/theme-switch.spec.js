@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, getMainWindow } from './helpers.js'
+import { launchApp, getMainWindow, isMac } from './helpers.js'
 
 // Smoke test for all six themes. A theme is a MUI theme object built through
 // responsiveFontSizes(); a bad token -- a missing palette entry, a malformed
@@ -57,11 +57,14 @@ test.describe('All six themes render', () => {
       // bar's keyline/depth text-shadow, the four stylized ones paint it. This
       // is the branch's only observable effect in a production build -- see the
       // note on `app-title` in TitleBar.tsx.
-      const shadow = await page.evaluate(
-        () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
-      )
-      if (plain) expect(shadow, `${name} should use plain chrome`).toBe('none')
-      else expect(shadow, `${name} should use gamified chrome`).not.toBe('none')
+      // macOS has no title text (HTOO-569), so the check is for Windows and Linux.
+      if (!isMac) {
+        const shadow = await page.evaluate(
+          () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
+        )
+        if (plain) expect(shadow, `${name} should use plain chrome`).toBe('none')
+        else expect(shadow, `${name} should use gamified chrome`).not.toBe('none')
+      }
 
       // CssBaseline paints palette.background.default onto body.
       backgrounds.add(await page.evaluate(() => getComputedStyle(document.body).backgroundColor))

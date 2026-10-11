@@ -78,7 +78,7 @@ import MapRenderCanvas, {
 import MusicPickerDialog from './MusicPickerDialog'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { normalizeFolder } from '../../utils/fileTree'
-import { isTypingTarget } from '../../utils/keyboard'
+import { isModKey, isTypingTarget } from '../../utils/keyboard'
 import {
   ALL_BOARD_TYPES,
   ALL_DIRECTIONS,
@@ -1224,7 +1224,8 @@ function MapPlacementTab({
       // Copy and paste are the two chords this tab answers to (HTOO-444). They
       // are read before the modifier guard below, which exists to keep the
       // single-letter mode keys from firing on a browser or OS shortcut.
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+      // ⌘ on macOS, Ctrl elsewhere (HTOO-569).
+      if (isModKey(e) && !e.altKey && !e.shiftKey) {
         const chord = e.key.toLowerCase()
         if (chord === 'c') {
           e.preventDefault()

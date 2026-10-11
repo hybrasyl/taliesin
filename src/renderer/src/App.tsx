@@ -4,6 +4,8 @@ import { useSettingsStore, type ThemeName } from './store/settingsStore'
 import { useUiStore, type CloseGuard } from './store/uiStore'
 import { hasDirtyTabs, saveDirtyTabs } from './utils/mapMakerSave'
 import { useMapMakerStore } from './store/mapMakerStore'
+import { useMenuStore } from './store/menuStore'
+import { useAppMenu } from './hooks/useAppMenu'
 import { reportUnsaved } from './utils/unsavedReport'
 import { clearAllCaches } from './utils/mapRenderer'
 import { clearFieldCache } from './utils/worldMapRenderer'
@@ -76,6 +78,8 @@ export default function App(): React.ReactElement {
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
 
   const settingsLoaded = useRef(false)
+  // The same moment as `settingsLoaded`, as state: the macOS menu starts then.
+  const [hydrated, setHydrated] = useState(false)
 
   // Sync scrollbar CSS custom properties with active theme
   useEffect(() => {
@@ -95,6 +99,7 @@ export default function App(): React.ReactElement {
       .hydrate()
       .finally(() => {
         settingsLoaded.current = true
+        setHydrated(true)
         // Settings are now in the store — tell main to reveal the window and
         // dismiss the startup splash (first visible frame is already populated).
         window.api.appReady()
@@ -124,7 +129,16 @@ export default function App(): React.ReactElement {
     commitPendingPage()
   }, [dirtyEditor, commitPendingPage])
 
-  const handleNavCancel = useCallback(() => cancelPendingPage(), [cancelPendingPage])
+  const handleNavCancel = useCallback(() => {
+    cancelPendingPage()
+    // A menu request (About, What's New) waits for Settings. The user refused
+    // the page, so the request goes too; see menuStore.clear.
+    useMenuStore.getState().clear()
+  }, [cancelPendingPage])
+
+  // The macOS application menu (no-op elsewhere, HTOO-569). It navigates through
+  // the same guarded setCurrentPage as the nav bar.
+  useAppMenu(hydrated)
 
   // ── App-close guard ────────────────────────────────────────────────────────
   //

@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
 import { mapFilesDir } from '../utils/pickerDefaults'
-import { isTypingTarget } from '../utils/keyboard'
+import { historyChord, isModKey, isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
+import { useMenuRequest } from '../hooks/useMenuRequest'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import {
   Box,
@@ -252,6 +253,8 @@ const MapMakerPage: React.FC = () => {
     if (!tab?.mapFile) return
     if (await saveTab(tab)) showStatus('Saved')
   }, [tabs, activeTabId, showStatus])
+  // The macOS menu's File → Save (HTOO-569), the same save as ⌘S here.
+  useMenuRequest('save', () => void handleSave())
 
   const handleSaveAs = useCallback(async () => {
     if (!activeTabId || !mapFile) return
@@ -796,39 +799,41 @@ const MapMakerPage: React.FC = () => {
       // and a bare `case 's'` would swallow the letter. See utils/keyboard.ts.
       if (isTypingTarget(e.target)) return
       if (anyDialogOpen) return
-      if (e.ctrlKey && e.key === 'z') {
+      const history = historyChord(e)
+      if (history) {
         e.preventDefault()
-        handleUndo()
+        if (history === 'redo') handleRedo()
+        else handleUndo()
         return
       }
-      if (e.ctrlKey && e.key === 'y') {
-        e.preventDefault()
-        handleRedo()
-        return
-      }
-      if (e.ctrlKey && e.key === 's') {
+      // ⌘ on macOS, Ctrl elsewhere (HTOO-569). Lower-cased because Shift makes
+      // `e.key` 'S' for Ctrl+Shift+S, which is why Save As never fired.
+      const mod = isModKey(e)
+      const key = e.key.toLowerCase()
+      if (mod && key === 's') {
         e.preventDefault()
         if (e.shiftKey) handleSaveAs()
         else handleSave()
         return
       }
-      if (e.ctrlKey && e.key === 'c') {
+      if (mod && key === 'c') {
         e.preventDefault()
         copySelection()
         return
       }
-      if (e.ctrlKey && e.key === 'x') {
+      if (mod && key === 'x') {
         e.preventDefault()
         cutSelection()
         return
       }
-      if (e.ctrlKey && e.key === 'v') {
+      if (mod && key === 'v') {
         e.preventDefault()
         if (clipboard && activeTabId) updateTab(activeTabId, { pasteMode: true })
         return
       }
-      // Ctrl+W: close active tab
-      if (e.ctrlKey && e.key === 'w') {
+      // ⌘W / Ctrl+W: close the active tab. The page gets the key before the
+      // macOS menu, whose ⌘W would close the window.
+      if (mod && key === 'w') {
         e.preventDefault()
         if (activeTabId) handleCloseTab(activeTabId)
         return

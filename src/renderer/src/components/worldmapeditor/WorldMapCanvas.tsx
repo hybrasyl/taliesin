@@ -40,6 +40,8 @@ import {
 } from '../../utils/worldMapRenderer'
 import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
+import { createWheelStepper, isPinch } from '../../utils/wheel'
+import { isMac } from '../../utils/platform'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -497,11 +499,36 @@ export default function WorldMapCanvas({
     setZoom(next)
   }, [])
 
+  const pinchStepRef = useRef(createWheelStepper())
   const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLCanvasElement>) => {
+    (e: WheelEvent) => {
       const canvas = overlayRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
+      // macOS (HTOO-569, utils/wheel.ts): a pinch zooms and a two-finger scroll
+      // pans, the way a Mac map does; a mouse wheel there pans too, because the
+      // two cannot be told apart. Windows and Linux keep the wheel as zoom.
+      if (isPinch(e)) {
+        // Chromium's own Ctrl + wheel handling is not wanted under the map.
+        e.preventDefault()
+        const step = pinchStepRef.current(e.deltaY)
+        if (step !== 0) {
+          zoomAbout(
+            nextZoom(zoomRef.current, step < 0 ? 1 : -1),
+            e.clientX - rect.left,
+            e.clientY - rect.top
+          )
+        }
+        return
+      }
+      if (isMac()) {
+        // panRef is written here, not only on render: two events can arrive
+        // before a render, and zoomAbout reads the ref.
+        const p = panRef.current
+        panRef.current = { x: p.x - e.deltaX, y: p.y - e.deltaY }
+        setPan(panRef.current)
+        return
+      }
       zoomAbout(
         nextZoom(zoomRef.current, e.deltaY < 0 ? 1 : -1),
         e.clientX - rect.left,
@@ -510,6 +537,14 @@ export default function WorldMapCanvas({
     },
     [zoomAbout]
   )
+
+  // Non-passive, so a pinch can preventDefault: React's onWheel is passive.
+  useEffect(() => {
+    const el = overlayRef.current
+    if (!el) return
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   const fitView = useCallback(() => {
     setZoom(1)
@@ -740,7 +775,6 @@ export default function WorldMapCanvas({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onClick={handleClick}
-          onWheel={handleWheel}
         />
       </Box>
     </Box>
