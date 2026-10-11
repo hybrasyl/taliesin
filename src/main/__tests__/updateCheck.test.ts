@@ -1,93 +1,92 @@
+// house module: update-check v1 — change it in the template, then port
 import { describe, it, expect, vi } from 'vitest'
-import { isNewerVersion, checkForUpdate } from '../updateCheck'
+import { checkForUpdate } from '../updateCheck'
+import { MANIFEST_URL } from '../../shared/updateVersion'
 
-/**
- * HTOO-65. `fetch` is injected, so every branch here runs without a network —
- * which matters more than usual: the interesting cases are all failures, and not
- * one of them is reachable from a test that has to reach GitHub.
- */
-function jsonResponse(body: unknown, ok = true): Response {
-  return { ok, json: async () => body } as Response
+// `fetch` is injected, so every branch runs without a network. The interesting
+// cases are the failures, and a test that must reach GitHub reaches none of them.
+// The manifest rules themselves are in shared/__tests__/updateVersion.test.ts.
+
+const PREFIX = 'https://github.com/eriscorp/oghma/releases/'
+const OPTS = { currentVersion: '1.6.0', updateKey: 'oghma', releaseUrlPrefix: PREFIX }
+const MANIFEST = {
+  schema: 1,
+  apps: { oghma: { version: '1.7.0', url: `${PREFIX}tag/v1.7.0`, released: 'x' } }
 }
 
-describe('isNewerVersion', () => {
-  it('compares numerically, not as strings', () => {
-    // The case a string compare gets backwards, and the one this repo will
-    // actually meet: 2.10.0 follows 2.9.0.
-    expect(isNewerVersion('2.9.0', '2.10.0')).toBe(true)
-    expect(isNewerVersion('2.10.0', '2.9.0')).toBe(false)
-  })
-
-  it('ignores a v prefix on either side', () => {
-    expect(isNewerVersion('2.9.0', 'v2.9.1')).toBe(true)
-    expect(isNewerVersion('v2.9.1', '2.9.1')).toBe(false)
-  })
-
-  it('is false for the same version', () => {
-    // The common case by far: nothing is shown, so this must not be "true when
-    // in doubt".
-    expect(isNewerVersion('2.9.0', '2.9.0')).toBe(false)
-  })
-
-  it('ignores a pre-release suffix rather than mis-parsing it', () => {
-    expect(isNewerVersion('2.9.0', '2.9.1-beta.1')).toBe(true)
-    expect(isNewerVersion('2.9.1', '2.9.1-beta.1')).toBe(false)
-  })
-
-  it('treats a missing component as zero', () => {
-    expect(isNewerVersion('2.9', '2.9.1')).toBe(true)
-    expect(isNewerVersion('2.9.0', '2.9')).toBe(false)
-  })
-})
+function respond(body: unknown, ok = true): typeof fetch {
+  return vi.fn(async () => ({ ok, json: async () => body }) as Response)
+}
 
 describe('checkForUpdate', () => {
-  it('reports a newer stable release, without the v prefix', async () => {
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({ tag_name: 'v2.10.0', html_url: 'https://example.invalid/r/2.10.0' })
-    )
-    await expect(checkForUpdate('2.9.0', fetchImpl as unknown as typeof fetch)).resolves.toEqual({
-      version: '2.10.0',
-      url: 'https://example.invalid/r/2.10.0'
+  it('reads the house manifest, unauthenticated', async () => {
+    const fetchImpl = respond(MANIFEST)
+    await checkForUpdate({ ...OPTS, fetchImpl })
+    const [url, init] = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe(MANIFEST_URL)
+    expect(init.headers).not.toHaveProperty('Authorization')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('reports a newer version', async () => {
+    const r = await checkForUpdate({ ...OPTS, fetchImpl: respond(MANIFEST) })
+    expect(r).toEqual({ ok: true, update: { version: '1.7.0', url: `${PREFIX}tag/v1.7.0` } })
+  })
+
+  it('reports up to date', async () => {
+    const r = await checkForUpdate({
+      ...OPTS,
+      currentVersion: '1.7.0',
+      fetchImpl: respond(MANIFEST)
+    })
+    expect(r).toEqual({ ok: true, update: null })
+  })
+
+  it('names an HTTP failure', async () => {
+    expect(await checkForUpdate({ ...OPTS, fetchImpl: respond({}, false) })).toEqual({
+      ok: false,
+      reason: 'http'
     })
   })
 
-  it('says nothing when the running version is current', async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse({ tag_name: 'v2.9.0' }))
-    await expect(checkForUpdate('2.9.0', fetchImpl as unknown as typeof fetch)).resolves.toBeNull()
-  })
-
-  it('ignores a draft or a prerelease', async () => {
-    // `/releases/latest` already excludes both, so this is belt and braces
-    // against the endpoint or the release process changing under us.
-    const draft = vi.fn(async () => jsonResponse({ tag_name: 'v3.0.0', draft: true }))
-    const pre = vi.fn(async () => jsonResponse({ tag_name: 'v3.0.0', prerelease: true }))
-    await expect(checkForUpdate('2.9.0', draft as unknown as typeof fetch)).resolves.toBeNull()
-    await expect(checkForUpdate('2.9.0', pre as unknown as typeof fetch)).resolves.toBeNull()
-  })
-
-  it('swallows a non-OK response, a rejected request and malformed JSON alike', async () => {
-    // Rate-limited, offline, and a shape we do not recognise. All three are the
-    // same thing to the user — nothing appears — and none may reach startup as
-    // an error.
-    const rateLimited = vi.fn(async () => jsonResponse({}, false))
-    const offline = vi.fn(async () => {
-      throw new Error('ENOTFOUND')
-    })
-    const nonsense = vi.fn(
-      async () => ({ ok: true, json: async () => 'not an object' }) as Response
+  it('names a body that is not JSON as malformed', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          json: async () => {
+            throw new SyntaxError('Unexpected token <')
+          }
+        }) as unknown as Response
     )
-    for (const impl of [rateLimited, offline, nonsense]) {
-      await expect(checkForUpdate('2.9.0', impl as unknown as typeof fetch)).resolves.toBeNull()
-    }
+    expect(await checkForUpdate({ ...OPTS, fetchImpl })).toEqual({ ok: false, reason: 'malformed' })
   })
 
-  it('asks GitHub for this repo, with a User-Agent', async () => {
-    // The API refuses a request with no User-Agent, which would make the check
-    // silently never work — and silence is this feature's only failure mode.
-    const fetchImpl = vi.fn(async () => jsonResponse({ tag_name: 'v2.9.0' }))
-    await checkForUpdate('2.9.0', fetchImpl as unknown as typeof fetch)
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.github.com/repos/hybrasyl/taliesin/releases/latest')
-    expect((init.headers as Record<string, string>)['User-Agent']).toBe('taliesin')
+  it('names a network error as offline', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError('fetch failed')
+    })
+    expect(await checkForUpdate({ ...OPTS, fetchImpl })).toEqual({ ok: false, reason: 'offline' })
+  })
+
+  it('aborts a hung request and names it a timeout', async () => {
+    // A fetch that settles only when its signal aborts, as a real one does.
+    const fetchImpl = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          )
+        })
+    ) as unknown as typeof fetch
+    expect(await checkForUpdate({ ...OPTS, fetchImpl, timeoutMs: 20 })).toEqual({
+      ok: false,
+      reason: 'timeout'
+    })
+  })
+
+  it('names an app with no entry, rather than calling it up to date', async () => {
+    const r = await checkForUpdate({ ...OPTS, updateKey: 'balor', fetchImpl: respond(MANIFEST) })
+    expect(r).toEqual({ ok: false, reason: 'no-entry' })
   })
 })

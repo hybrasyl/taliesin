@@ -172,7 +172,7 @@ declare global {
     companionStatus: () => Promise<CompanionStatus>
     companionPickerFilters: () => Promise<{ name: string; extensions: string[] }[]>
     /** A newer published release, or null when current / offline / rate-limited. */
-    checkForUpdate: () => Promise<{ version: string; url: string } | null>
+    checkForUpdate: () => Promise<import('../../shared/updateVersion').UpdateCheckResult>
     openFile: (
       filters?: { name: string; extensions: string[] }[],
       defaultPath?: string

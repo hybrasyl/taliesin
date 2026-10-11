@@ -10,6 +10,7 @@
   "scripts": {
     "validate": "npm run lint:check && npm run typecheck && npm test",
     "validate:linux": "node scripts/validate-linux.mjs",
+    "publish:version": "node scripts/publish-version.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "e2e": "npm run build && playwright test",

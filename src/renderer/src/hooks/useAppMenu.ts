@@ -38,6 +38,8 @@ export function runMenuCommand(
   }
   switch (command) {
     case 'settings':
+    case 'checkForUpdates':
+      // The Check for updates button is on the Settings About card.
       ui.setCurrentPage('settings')
       return
     case 'about':

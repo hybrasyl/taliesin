@@ -1,4 +1,4 @@
-import { app, shell, session, BrowserWindow, ipcMain, dialog, screen, Menu } from 'electron'
+import { app, shell, session, BrowserWindow, ipcMain, dialog, screen, Menu, net } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import originalFs from 'original-fs'
@@ -8,7 +8,7 @@ import { registerHandlers, applySettingsRoots, type HandlerContext } from './han
 import { withPickerStart } from './pickerStart'
 import { buildMenuTemplate, INITIAL_MENU_STATE, MENU_COMMAND_CHANNEL } from './appMenu'
 import type { MenuState } from './schemas/menu'
-import { appIdentity } from './report/appIdentity'
+import { appIdentity } from '../shared/appIdentity'
 import { loadPacks } from './assetPacks'
 import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
@@ -114,6 +114,9 @@ export const ctx: HandlerContext = {
   settingsPath,
   settingsManager,
   appGetVersion: () => app.getVersion(),
+  // `net.fetch`, not the global one: Electron's `net` uses the system proxy
+  // and the OS certificate store for the update check's one request.
+  fetchImpl: (url, init) => net.fetch(url, init),
   settingsRoots: new Set<string>(),
   blessedRoots: new Set<string>()
 }

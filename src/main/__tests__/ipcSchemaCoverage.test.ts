@@ -85,7 +85,7 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
   },
   'app:companionStatus': { category: 'no-payload', reason: 'reports the resolved companion' },
   'app:companionPickerFilters': { category: 'no-payload', reason: 'returns static filters' },
-  'app:checkForUpdate': { category: 'no-payload', reason: 'queries the release feed' },
+  'app:checkForUpdate': { category: 'no-payload', reason: 'reads the house version manifest' },
   'diagnostics:build': { category: 'no-payload', reason: 'assembles the report in main' },
   'diagnostics:revealLogs': { category: 'no-payload', reason: 'opens the log directory' },
   'dialog:openDirectory': {

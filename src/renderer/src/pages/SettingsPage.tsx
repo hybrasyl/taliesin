@@ -42,6 +42,7 @@ import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
+import UpdateCheckButton from '../components/UpdateCheckButton'
 import WhatsNewDialog from '../components/WhatsNewDialog'
 import logoUrl from '../assets/taliesin.webp'
 import { reloadPacks } from '../utils/packCaches'
@@ -438,6 +439,11 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
           </Box>
         </Box>
       </Stack>
+      {version && (
+        <Box sx={{ mb: 2 }}>
+          <UpdateCheckButton currentVersion={version} />
+        </Box>
+      )}
       <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5 }}>
         <Button variant="outlined" startIcon={<InfoOutlinedIcon />} onClick={onOpen}>
           About Taliesin…

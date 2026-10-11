@@ -36,10 +36,12 @@ record; where they disagree with this file, the git history was taken as authori
 ### Added
 
 - **Taliesin looks and works like a Mac app on macOS.** The window keeps the native stoplight buttons, in an empty title bar. An application menu replaces Electron's default one: About, Settings (⌘,), File (Save, Launch Creidhne), Edit, View (Full Screen), Go (every page, ⌘1 to ⌘9 on the first nine), Window and Help (Report an Issue, What's New). The menu has no Reload, which dropped unsaved edits. A menu item does nothing while a dialog is open. Windows and Linux do not change.
+- **Check for updates, in Settings.** The About card has a Check for updates button, which says whether Taliesin is up to date or names the newer version with a link to it. On macOS, Taliesin → Check for Updates… goes there.
 
 ### Changed
 
 - **Taliesin runs on Electron 44.** Electron 41 is end-of-life and gets no more Chromium or Node security fixes. Taliesin now needs macOS 13 or later, and a 64-bit system.
+- **The update notice reads a version list, not GitHub's release feed.** Taliesin now learns of a new release from the house version list, which the release writes. The notice appears 10 seconds after start rather than at once, and a click elsewhere no longer closes it. Closing it hides that version until a newer one comes out.
 
 ### Fixed
 

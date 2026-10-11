@@ -5,7 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 // erased before the bundle exists, so the built preload still emits exactly one
 // `require`, which `e2e/preload-sandbox.spec.js` pins.
 import type { CompanionLaunchResult, CompanionStatus } from '../main/companion'
-import type { UpdateInfo } from '../main/updateCheck'
+import type { UpdateCheckResult } from '../shared/updateVersion'
 import type { WarpReferrer } from '../main/handlers'
 import type { MenuState } from '../main/schemas/menu'
 
@@ -139,9 +139,9 @@ const api = {
   companionPickerFilters: (): Promise<{ name: string; extensions: string[] }[]> =>
     ipcRenderer.invoke('app:companionPickerFilters'),
 
-  // Update notification (HTOO-65). Null when current, offline, or anything else
-  // went wrong -- the check is best-effort by design.
-  checkForUpdate: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('app:checkForUpdate'),
+  // Update check (HTOO-65, update-check module v1). Never rejects: "up to date"
+  // and "could not tell" come back as different values.
+  checkForUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('app:checkForUpdate'),
 
   // Dialogs
   openFile: (filters?: Electron.FileFilter[], defaultPath?: string): Promise<string | null> =>
