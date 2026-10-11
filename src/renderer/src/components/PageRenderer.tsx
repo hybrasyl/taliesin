@@ -30,6 +30,11 @@ import SettingsPage from '../pages/SettingsPage'
  * `display: none` when hidden keeps the subtree alive but out of the flow and
  * out of hit-testing. The editor's own window key listener checks the current
  * page, so a hidden editor does not answer keys meant for the visible one.
+ *
+ * Every page sits in a `page-<page>` marker, also `display: contents`.
+ * e2e/nav-pages.spec.js opens each page and waits for its marker (HTOO-393). The
+ * marker is here, not in each page, so it covers every render path of a page
+ * and a new page gets one with no edit.
  */
 const PageRenderer: React.FC = () => {
   const currentPage = useUiStore((s) => s.currentPage)
@@ -40,7 +45,7 @@ const PageRenderer: React.FC = () => {
 
   const mapEditorVisible = currentPage === 'mapeditor'
   const keptAlive = mapEditorMounted && (
-    <Box sx={{ display: mapEditorVisible ? 'contents' : 'none' }}>
+    <Box data-testid="page-mapeditor" sx={{ display: mapEditorVisible ? 'contents' : 'none' }}>
       <MapEditorPage />
     </Box>
   )
@@ -48,7 +53,11 @@ const PageRenderer: React.FC = () => {
   return (
     <>
       {keptAlive}
-      {!mapEditorVisible && <CurrentPage page={currentPage} />}
+      {!mapEditorVisible && (
+        <Box data-testid={`page-${currentPage}`} sx={{ display: 'contents' }}>
+          <CurrentPage page={currentPage} />
+        </Box>
+      )}
     </>
   )
 }

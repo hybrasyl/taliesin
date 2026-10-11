@@ -99,6 +99,7 @@ suite is simply never collected and vitest still reports success).
   `window.api.exists`, because on Windows that answers case-insensitively and refuses a case-only
   rename (HTOO-379). Each asserts its walk found something: a glob matching nothing passes for the
   wrong reason. If you add one, prove it red by planting the fault, and make the failure name the file.
+- **The renderer never reads a Node global.** The window runs `sandbox: true`, so `process`, `Buffer`, `require`, `__dirname` and `__filename` are undefined there, and a page that reads one throws on render. vitest runs in Node, where they exist, so no unit test sees it. Two checks do (HTOO-393): `src/renderer/src/__tests__/rendererNodeGlobals.test.ts` reads the source, and `e2e/nav-pages.spec.js` opens every page in `PAGES` in the built app. The renderer reads the platform from `window.api.platform`, which the preload sets (the document repo's `docs/architecture/macos-chrome.md`).
 - **A client file is opened under the casing the disk uses.** `fsCase.ts` exists in both processes —
   `resolveClientFile(dir, name)` asks the directory. The installer writes `Legend.dat`; unpackers
   fold. Windows hides the difference, Linux and macOS do not, and the read usually throws into a

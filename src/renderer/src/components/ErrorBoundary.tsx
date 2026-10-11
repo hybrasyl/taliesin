@@ -42,6 +42,7 @@ class ErrorBoundary extends Component<Props, State> {
 
     return (
       <Box
+        data-testid="error-boundary-fallback"
         sx={{
           height: '100vh',
           display: 'flex',
