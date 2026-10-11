@@ -83,14 +83,41 @@ nsis:
   allowToChangeInstallationDirectory: true
 portable:
   artifactName: ${name}-${version}-portable.${ext}
-  # The portable exe is an NSIS self-extracting archive that decompresses to
-  # %TEMP% before electron exists, so no in-app splash can cover it. Without
-  # this the stub runs silent and the user gets several seconds of nothing.
-  # A frozen frame of resources/splash.html at the same 420x260 as the splash
-  # BrowserWindow, so the two images read as one boot rather than two screens.
-  # Regenerate with `node scripts/make-portable-splash.mjs` after changing the
-  # splash design or the logo master. build/ is never packaged.
-  splashImage: build/portable-splash.bmp
+  # NO `splashImage`, on purpose (HTOO-466). With one, the NSIS stub runs in GUI
+  # mode: it paints the bitmap, hides its own "Setup" dialog, extracts, runs the
+  # app, and -- when the app exits -- re-shows that hidden dialog for its
+  # completion step before `AutoCloseWindow` closes it. That re-show is a blank
+  # window that flashes after the app's own window has gone, on every close of
+  # the portable exe. There is no hook to stop it: electron-builder reads
+  # `portable.nsi` verbatim for this target.
+  #
+  # Without it the stub runs `SetSilent silent` and owns no window. The cost is a
+  # busy cursor, and no image, while the stub extracts the app to %TEMP% on each
+  # launch. The in-app splash (`resources/splash.html`) covers everything from
+  # electron's first frame on. Do not add the image back to fill that gap: it is
+  # the flash's cause. The template, oghma, mabon, balor and creidhne made the
+  # same change. scripts/portable-config.test.mjs pins the absence.
+  #
+  # Extract to a directory unique to each LAUNCH, not to each BUILD (HTOO-351,
+  # fault 2). Left unset, electron-builder bakes one KSUID into the exe at build
+  # time, so every copy of a build extracts to the same $TEMP<ksuid>. A second
+  # launch then runs `RMDir /r` on the directory the RUNNING copy executes from
+  # and copies over its locked files, which ends in NSIS's own "Taliesin cannot
+  # be closed" Retry/Cancel box. With a directory per launch, the second copy
+  # reaches Electron, loses requestSingleInstanceLock and exits, and the first
+  # window comes forward.
+  #
+  # TRUE, not the documented `false`. app-builder-lib 26.17.0 resolves this as
+  #   if (typeof unpackDirName === "string" || !unpackDirName)
+  #     defines.UNPACK_DIR_NAME = unpackDirName || generateKsuid()
+  # so `false` takes the branch and still gets a build-time KSUID. Only a truthy
+  # non-string leaves UNPACK_DIR_NAME undefined, and portable.nsi then falls back
+  # to $PLUGINSDIRapp, which NSIS makes unique per process. Do not "correct"
+  # this to `false`. Creidhne measured it (HTOO-351).
+  #
+  # The cost: a killed stub's folder has a name no later launch reuses, so
+  # src/main/portableSweep.ts removes it (HTOO-494).
+  unpackDirName: true
 mac:
   category: public.app-category.developer-tools
   # macOS gets its OWN artwork, not the shared `icon` above. Its icon is a

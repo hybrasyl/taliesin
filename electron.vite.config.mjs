@@ -4,7 +4,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ command }) => ({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    // `original-fs` is an Electron built-in (the fs without the asar patch), not
+    // a package, so Rollup cannot resolve it and externalizeDepsPlugin does not
+    // list it. The portable sweep needs it; see src/main/portableSweep.ts.
+    build: { rollupOptions: { external: ['original-fs'] } }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
