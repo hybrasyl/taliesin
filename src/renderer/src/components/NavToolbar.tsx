@@ -51,16 +51,35 @@ const activeBtnSx = {
   backgroundColor: 'rgba(255,255,255,0.08)'
 } as const
 
-const NavToolbar: React.FC = () => {
-  const currentPage = useUiStore((s) => s.currentPage)
+/**
+ * One button per page. Each carries `nav-<page>`, because
+ * e2e/nav-pages.spec.js clicks every page in PAGES by that id (HTOO-393).
+ */
+const NavButton: React.FC<{ page: Page; title: string; icon: React.ReactElement }> = ({
+  page,
+  title,
+  icon
+}) => {
+  const active = useUiStore((s) => s.currentPage === page)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  return (
+    <Tooltip title={title}>
+      <IconButton
+        data-testid={`nav-${page}`}
+        sx={active ? activeBtnSx : btnSx}
+        onClick={() => setCurrentPage(page)}
+      >
+        {icon}
+      </IconButton>
+    </Tooltip>
+  )
+}
+
+const NavToolbar: React.FC = () => {
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const { found: companionFound } = useCompanionStatus()
-
-  const nav = (page: Page) => () => setCurrentPage(page)
-  const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)
 
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
@@ -78,11 +97,7 @@ const NavToolbar: React.FC = () => {
       )}
       <Box sx={{ flexGrow: 1 }} />
 
-      <Tooltip title="Dashboard">
-        <IconButton sx={sx('dashboard')} onClick={nav('dashboard')}>
-          <GiCastle />
-        </IconButton>
-      </Tooltip>
+      <NavButton page="dashboard" title="Dashboard" icon={<GiCastle />} />
 
       <Divider
         orientation="vertical"
@@ -90,21 +105,9 @@ const NavToolbar: React.FC = () => {
         sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
       />
 
-      <Tooltip title="Map Catalog">
-        <IconButton sx={sx('catalog')} onClick={nav('catalog')}>
-          <GiTreasureMap />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Map XML Editor">
-        <IconButton sx={sx('mapeditor')} onClick={nav('mapeditor')}>
-          <GiScrollQuill />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="World Map Editor">
-        <IconButton sx={sx('worldmap')} onClick={nav('worldmap')}>
-          <GiWorld />
-        </IconButton>
-      </Tooltip>
+      <NavButton page="catalog" title="Map Catalog" icon={<GiTreasureMap />} />
+      <NavButton page="mapeditor" title="Map XML Editor" icon={<GiScrollQuill />} />
+      <NavButton page="worldmap" title="World Map Editor" icon={<GiWorld />} />
 
       <Divider
         orientation="vertical"
@@ -112,51 +115,15 @@ const NavToolbar: React.FC = () => {
         sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.2)' }}
       />
 
-      <Tooltip title="Archive Browser">
-        <IconButton sx={sx('archive')} onClick={nav('archive')}>
-          <GiArchiveResearch />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Map Maker">
-        <IconButton sx={sx('mapmaker')} onClick={nav('mapmaker')}>
-          <GiBrickWall />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Prefab Catalog">
-        <IconButton sx={sx('prefabs')} onClick={nav('prefabs')}>
-          <GiPuzzle />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Asset Pack Manager">
-        <IconButton data-testid="nav-assetpacks" sx={sx('assetpacks')} onClick={nav('assetpacks')}>
-          <GiCardboardBox />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Static Tile Manager">
-        <IconButton sx={sx('statictiles')} onClick={nav('statictiles')}>
-          <GiHexes />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="UI Layout Forge">
-        <IconButton sx={sx('uiforge')} onClick={nav('uiforge')}>
-          <GiBlacksmith />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Palettes & Duotone">
-        <IconButton sx={sx('palettes')} onClick={nav('palettes')}>
-          <GiPaintBrush />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Music Manager">
-        <IconButton sx={sx('music')} onClick={nav('music')}>
-          <GiMusicalNotes />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Sound Effects">
-        <IconButton sx={sx('sfx')} onClick={nav('sfx')}>
-          <GiSoundWaves />
-        </IconButton>
-      </Tooltip>
+      <NavButton page="archive" title="Archive Browser" icon={<GiArchiveResearch />} />
+      <NavButton page="mapmaker" title="Map Maker" icon={<GiBrickWall />} />
+      <NavButton page="prefabs" title="Prefab Catalog" icon={<GiPuzzle />} />
+      <NavButton page="assetpacks" title="Asset Pack Manager" icon={<GiCardboardBox />} />
+      <NavButton page="statictiles" title="Static Tile Manager" icon={<GiHexes />} />
+      <NavButton page="uiforge" title="UI Layout Forge" icon={<GiBlacksmith />} />
+      <NavButton page="palettes" title="Palettes & Duotone" icon={<GiPaintBrush />} />
+      <NavButton page="music" title="Music Manager" icon={<GiMusicalNotes />} />
+      <NavButton page="sfx" title="Sound Effects" icon={<GiSoundWaves />} />
 
       <Box sx={{ flexGrow: 1 }} />
 
@@ -171,15 +138,7 @@ const NavToolbar: React.FC = () => {
           <GiBugNet />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Settings">
-        {/* Only the two pages an e2e spec navigates to carry a testid -- this one
-            and Asset Pack Manager below. The rest get one when a spec needs them:
-            a testid with no spec behind it is an untested claim about what
-            matters (HTOO-174). */}
-        <IconButton data-testid="nav-settings" sx={sx('settings')} onClick={nav('settings')}>
-          <GiSettingsKnobs />
-        </IconButton>
-      </Tooltip>
+      <NavButton page="settings" title="Settings" icon={<GiSettingsKnobs />} />
       <Tooltip title={companionFound ? 'Launch Creidhne' : 'Creidhne not found — see Settings'}>
         <span>
           <IconButton

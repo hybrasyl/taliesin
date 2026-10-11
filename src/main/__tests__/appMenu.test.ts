@@ -153,7 +153,7 @@ describe('the contract with the preload and the renderer', () => {
 
   it("lists exactly the nav bar's pages, in its order, except Settings", () => {
     const nav = read('renderer/src/components/NavToolbar.tsx')
-    const navPages = [...nav.matchAll(/onClick=\{nav\('(\w+)'\)\}/g)].map((m) => m[1])
+    const navPages = [...nav.matchAll(/<NavButton page="(\w+)"/g)].map((m) => m[1])
     expect(navPages.length).toBeGreaterThan(10) // guard the guard
     expect(goPageIds).toEqual(navPages.filter((p) => p !== 'settings'))
   })

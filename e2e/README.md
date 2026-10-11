@@ -41,16 +41,23 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
   writes its project file and asset directory through `pack:save` + `fs:ensureDir`, and a path
   outside every allowed root is refused. Seeding `packDir` in settings makes it an allowed root
   (`applySettingsRoots`), which is what keeps the OS directory picker out of the way.
+- **`nav-pages.spec.js`** — clicks every page in `PAGES` (`store/uiStore.ts`) and asserts its `page-<page>` marker, no error-boundary fallback and no `pageerror`. A failure names the page. A new page is covered with no edit (HTOO-393).
+- **`title-bar.spec.js`** — the title bar's layout per platform: the macOS stoplight inset, and the window controls elsewhere.
+- **`app-menu.spec.js`** — macOS only: the installed application menu, and a Go command's round trip through the renderer.
+
+### What automation cannot reach
+
+- **A page's body behind a client path or a library.** The specs run with an empty profile, so most pages render their "nothing set" state. `nav-pages.spec.js` catches a fault on every path a page takes with no settings: the component's top, its hooks, its empty state. It does not reach code that runs only when real Dark Ages files are loaded. For a Node global there, `src/renderer/src/__tests__/rendererNodeGlobals.test.ts` reads the source. For any other fault there, a person opens the page with a real client.
 
 ## Adapting / extending
 
 - **`USERDATA_SUBPATH`** in `helpers.js` matches `src/main/index.ts`'s userData dir
   (`['Erisco', 'Taliesin']`).
 - The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` and
-  `app-title` (TitleBar), `nav-settings` / `nav-assetpacks` (NavToolbar), `settings-page`
-  (SettingsPage) and `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec
-  needs it, not as a sweep — a testid with no spec behind it is an untested claim about what
-  matters.
+  `app-title` (TitleBar), `nav-<page>` on every page button (NavToolbar), `page-<page>`
+  (PageRenderer), `error-boundary-fallback` (ErrorBoundary), `settings-page` (SettingsPage) and
+  `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a
+  sweep — a testid with no spec behind it is an untested claim about what matters.
 - **Prefer a role or label selector where one exists**; reach for a testid when it does not. If a
   control has no accessible name to select by, that is usually worth fixing rather than working
   around — `pack-filesystem.spec.js` turned up a `Select` with no `labelId`, which screen readers
