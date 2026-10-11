@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
   Paper,
@@ -386,6 +386,9 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   // The macOS menu's Help → What's New (HTOO-569) comes to Settings and opens it here.
   useMenuRequest('whatsNew', () => setWhatsNewOpen(true))
+  // The macOS menu's Check for Updates… brings this card, and its button, into view.
+  const cardRef = useRef<HTMLDivElement>(null)
+  useMenuRequest('checkForUpdates', () => cardRef.current?.scrollIntoView?.({ block: 'start' }))
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Matches the Installed Asset Packs link.
@@ -397,7 +400,7 @@ function AboutCard({ onOpen }: { onOpen: () => void }) {
   }, [])
 
   return (
-    <Paper sx={cardSx}>
+    <Paper ref={cardRef} sx={cardSx}>
       <Typography variant="h6" gutterBottom sx={cardHeadingSx}>
         About
       </Typography>

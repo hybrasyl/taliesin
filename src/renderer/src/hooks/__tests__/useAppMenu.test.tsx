@@ -59,6 +59,7 @@ describe('runMenuCommand', () => {
   it('Check for Updates goes to Settings, where the button is', () => {
     runMenuCommand({ command: 'checkForUpdates' }, actions)
     expect(useUiStore.getState().currentPage).toBe('settings')
+    expect(useMenuStore.getState().pending.checkForUpdates).toBeDefined()
   })
 
   it('Save runs the dirty editor’s save', () => {

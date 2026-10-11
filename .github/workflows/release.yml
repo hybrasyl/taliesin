@@ -353,21 +353,13 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
 
-      - name: Notify Discord
-        if: success()
-        run: |
-          TAG="${{ github.ref_name }}"
-          REPO="${{ github.repository }}"
-          RELEASE_URL="https://github.com/$REPO/releases/tag/$TAG"
-          curl -sf -H "Content-Type: application/json" \
-            -d "{\"content\": \"**Taliesin $TAG** is now available!\n$RELEASE_URL\"}" \
-            "${{ secrets.DISCORD_WEBHOOK_URL }}"
       # The house version manifest (versions.json in hybrasyl/cernunnos, update-check
       # module v1) is NOT written here. That write is a commit and push by the
       # developer who releases, with their own git access: the workflow has no
       # credential for cernunnos, by decision. Running apps learn of this release only
       # after that step, so this step prints the command on the run page (a notice)
-      # and in the job summary.
+      # and in the job summary. It runs before Discord, so a failed webhook cannot
+      # skip it.
       - name: Remind to publish the version manifest
         if: success()
         run: |
@@ -382,3 +374,13 @@ jobs:
             echo
             echo "Running copies of the app do not see this release until you do."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Discord
+        if: success()
+        run: |
+          TAG="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          RELEASE_URL="https://github.com/$REPO/releases/tag/$TAG"
+          curl -sf -H "Content-Type: application/json" \
+            -d "{\"content\": \"**Taliesin $TAG** is now available!\n$RELEASE_URL\"}" \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
