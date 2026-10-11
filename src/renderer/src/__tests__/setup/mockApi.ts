@@ -7,12 +7,20 @@ import { vi, type Mock } from 'vitest'
  *
  * Channel list mirrors src/preload/index.ts. Keep in sync.
  */
+/** The members that are not channels: a value and a nested object (HTOO-569). */
+type NonChannel = 'platform' | 'menu'
+type Channel = Exclude<keyof TaliesinAPI, NonChannel>
+
 export type MockApi = {
-  [K in keyof TaliesinAPI]: Mock
+  [K in Channel]: Mock
+} & {
+  /** `'win32'` unless a test sets it, so the macOS-only paths stay off by default. */
+  platform: string
+  menu: { onCommand: Mock; setState: Mock }
 }
 
 export function createMockApi(): MockApi {
-  const channels: (keyof TaliesinAPI)[] = [
+  const channels: Channel[] = [
     // Window controls
     'minimizeWindow',
     'maximizeWindow',
@@ -26,6 +34,8 @@ export function createMockApi(): MockApi {
     'getUserDataPath',
     'appReady',
     'launchCompanion',
+    'companionStatus',
+    'companionPickerFilters',
     // Report Issue / diagnostics
     'reportRendererError',
     'buildDiagnostics',
@@ -122,6 +132,8 @@ export function createMockApi(): MockApi {
   for (const ch of channels) {
     api[ch] = vi.fn()
   }
+  api.platform = 'win32'
+  api.menu = { onCommand: vi.fn(() => () => {}), setState: vi.fn() }
   return api
 }
 

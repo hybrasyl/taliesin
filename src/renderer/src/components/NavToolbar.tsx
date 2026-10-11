@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Toolbar, IconButton, Tooltip, Divider, Box, Typography } from '@mui/material'
 import {
   GiCastle,
@@ -18,7 +18,8 @@ import {
   GiBlacksmith,
   GiBugNet
 } from 'react-icons/gi'
-import { useSettingsStore, flushSettings } from '../store/settingsStore'
+import { useSettingsStore } from '../store/settingsStore'
+import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
 
@@ -56,28 +57,7 @@ const NavToolbar: React.FC = () => {
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
-  const companionPath = useSettingsStore((s) => s.companionPath)
-  // Resolved by main, not read from settings: the button must work before anyone
-  // visits Settings, because Creidhne is usually found without being configured
-  // (HTOO-292). Re-asked when the override changes so clearing it is visible.
-  const [companionFound, setCompanionFound] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    // Flushed first for the same reason as the Settings card: main reads the
-    // override from disk, and the store's write is debounced.
-    void (async () => {
-      try {
-        await flushSettings()
-        const s = await window.api.companionStatus()
-        if (!cancelled) setCompanionFound(!!s.resolved)
-      } catch {
-        if (!cancelled) setCompanionFound(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [companionPath])
+  const { found: companionFound } = useCompanionStatus()
 
   const nav = (page: Page) => () => setCurrentPage(page)
   const sx = (page: Page) => (currentPage === page ? activeBtnSx : btnSx)

@@ -123,7 +123,21 @@ declare global {
   // ── World index (shared format with Creidhne) ─────────────────────────────────
   type WorldIndex = import('@eriscorp/hybindex-ts').WorldIndex
 
+  /** What the macOS menu greys out and marks (main's `menuStateSchema`, HTOO-569). */
+  interface MenuState {
+    page: string
+    canSave: boolean
+    canLaunchCompanion: boolean
+  }
+
   interface TaliesinAPI {
+    /** `process.platform` of the main process, e.g. `'darwin'`. */
+    platform: string
+    /** The macOS application menu (HTOO-569). Inert elsewhere: nothing sends. */
+    menu: {
+      onCommand: (cb: (msg: { command: string }) => void) => () => void
+      setState: (state: MenuState) => void
+    }
     minimizeWindow: () => void
     maximizeWindow: () => void
     closeWindow: () => void

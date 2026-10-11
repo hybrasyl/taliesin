@@ -1,10 +1,13 @@
-import { app, shell, session, BrowserWindow, ipcMain, dialog, screen } from 'electron'
+import { app, shell, session, BrowserWindow, ipcMain, dialog, screen, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
 import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
 import { withPickerStart } from './pickerStart'
+import { buildMenuTemplate, INITIAL_MENU_STATE, MENU_COMMAND_CHANNEL } from './appMenu'
+import type { MenuState } from './schemas/menu'
+import { appIdentity } from './report/appIdentity'
 import { loadPacks } from './assetPacks'
 import { createSplashWindow, type SplashController } from './splash'
 import { initSessionLog, captureError } from './report/sessionLog'
@@ -137,6 +140,53 @@ let closeConfirmedFor: (target: BrowserWindow) => void = () => {}
  */
 let rendererHasUnsaved = false
 
+// macOS ⌘Q (the menu's Quit) through the unsaved-changes guard (HTOO-569).
+// `app.quit()` closes each window, and the guard cancels a dirty window's first
+// `close` to ask the renderer. A cancelled `close` cancels the quit, and macOS
+// keeps an app running when its last window closes, so a confirmed ⌘Q used to
+// close the window and leave Taliesin running with no window. `before-quit`
+// comes before the windows' `close` events, so the guard can record which kind
+// of close it is asking about. Ported from creidhne.
+let quitRequested = false
+/** Whether the close in progress is a quit, so `window-all-closed` ends the app on macOS too. */
+let quitAfterClose = false
+app.on('before-quit', () => {
+  quitRequested = true
+})
+
+// ── The macOS application menu (HTOO-569) ──────────────────────────────────
+// A Taliesin item sends `menu:command` to the main window. The renderer reports
+// what to grey out and mark (`app:setMenuState`), and the menu is rebuilt when
+// that changes. Windows and Linux keep Electron's default menu, hidden with the
+// frame. See src/main/appMenu.ts.
+let menuState: MenuState = INITIAL_MENU_STATE
+
+function sendMenuCommand(msg: { command: string }): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(MENU_COMMAND_CHANNEL, msg)
+  }
+  // Rebuild from the last report. A checkbox item ticks itself when it is
+  // clicked, and a Go command can be held by the unsaved-changes dialog, so the
+  // page does not change and no new report comes to correct the tick.
+  setImmediate(applyAppMenu)
+}
+
+function applyAppMenu(): void {
+  if (process.platform !== 'darwin') return
+  const template = buildMenuTemplate(menuState, {
+    appName: appIdentity.productName,
+    isDev: !app.isPackaged,
+    send: sendMenuCommand
+  })
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+ctx.onMenuState = (state) => {
+  if (JSON.stringify(state) === JSON.stringify(menuState)) return
+  menuState = state
+  applyAppMenu()
+}
+
 // The splash owns the swap, not this function: `dismiss` shows the splash if it
 // never got the chance, holds it for the remainder of a minimum-visible floor,
 // then destroys it and calls back here. Revealing from the callback means the
@@ -201,7 +251,12 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    frame: false,
+    // macOS keeps the native stoplights, inset into Taliesin's own title bar,
+    // which TitleBar leaves empty there. `y: 10` centres them in its 36 px bar.
+    // Windows and Linux stay frameless with the renderer's buttons (HTOO-569).
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 10 } }
+      : { frame: false }),
     // 256px PNG is the largest size any consumer of this option asks for; the
     // 1024px master would be decoded in full for nothing. PNG, not WebP -- this
     // one goes through nativeImage rather than Chromium.
@@ -263,9 +318,18 @@ function createWindow(): void {
       !win.webContents.isDestroyed()
     ) {
       e.preventDefault()
+      // Kept for this question only: a Cancel in the renderer sends nothing, so
+      // a later close must not inherit the quit.
+      quitAfterClose = quitRequested
+      quitRequested = false
       win.webContents.send('app:closeRequested')
       return
     }
+    // The close goes ahead. It is a quit when ⌘Q caused it now, or when it is
+    // the renderer's approval of a ⌘Q it was asked about. A close after a
+    // cancelled ⌘Q is not: this guard asks only when something is dirty, so a
+    // clean close must reset the flag here or the next red-button click quits.
+    quitAfterClose = quitRequested || (closeApproved && quitAfterClose)
     win.hide()
   })
 
@@ -359,6 +423,10 @@ app.whenReady().then(() => {
     RENDERER_DEV_URL ? DEV_RENDERER_CSP : RENDERER_CSP
   )
 
+  // Before the window, so the first frame on macOS has Taliesin's menu and not
+  // Electron's default (whose Reload drops unsaved edits).
+  applyAppMenu()
+
   // Splash first so the user sees branded feedback instantly, then the (hidden)
   // main window loads behind it. The splash is torn down on `app:ready`.
   splash = createSplashWindow()
@@ -368,9 +436,15 @@ app.whenReady().then(() => {
   // the window visible so the app can never be left permanently invisible.
   setTimeout(revealMainWindow, 15000)
 
+  // macOS: a click on the Dock icon after ⌘W closed the window. The new window
+  // goes through the same hidden-until-ready reveal as the first one.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindowRevealed = false
+      rendererHasUnsaved = false
+      quitAfterClose = false
+      menuState = INITIAL_MENU_STATE
+      applyAppMenu()
       splash = createSplashWindow()
       createWindow()
       setTimeout(revealMainWindow, 15000)
@@ -379,7 +453,9 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  // On macOS the app stays running with no window, unless the close was a
+  // confirmed ⌘Q (see `quitAfterClose`).
+  if (process.platform !== 'darwin' || quitAfterClose) app.quit()
 })
 
 // Every handler registers through the guarded proxy, never the raw `ipcMain`,

@@ -73,7 +73,9 @@ import {
   dirPathListSchema,
   mapNameSchema,
   packImportOptionsSchema,
-  encodeParamsSchema
+  encodeParamsSchema,
+  menuStateSchema,
+  type MenuState
 } from './schemas'
 import { buildDiagnostics, openIssue, copyReport, revealLogs } from './report/diagnostics'
 import { captureError } from './report/sessionLog'
@@ -108,6 +110,8 @@ export interface HandlerContext {
   onCloseConfirmed?: () => void
   /** The renderer's running report of whether any editor holds unsaved work. */
   onUnsavedChanged?: (dirty: boolean) => void
+  /** What the macOS menu greys out and marks (HTOO-569). Wired up in index.ts. */
+  onMenuState?: (state: MenuState) => void
   /**
    * Opens the OS file manager with settings.json highlighted. Wired up in
    * index.ts, which owns the electron `shell` reference and settings path.
@@ -1783,6 +1787,18 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // is the whole of its validation.
   ipcMain.on('app:unsaved', (_e, dirty: unknown) => {
     ctx.onUnsavedChanged?.(dirty === true)
+  })
+
+  // The renderer's macOS menu state (nothing else sends it). Fire-and-forget, so
+  // a bad report is logged and dropped, and the menu keeps the last good one.
+  ipcMain.on('app:setMenuState', (_e, payload: unknown) => {
+    let state: MenuState
+    try {
+      state = parseOrLog(ctx, 'app:setMenuState', menuStateSchema, payload)
+    } catch {
+      return
+    }
+    ctx.onMenuState?.(state)
   })
 
   // Settings / app

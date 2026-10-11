@@ -59,6 +59,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "app:launchCompanion",
         "app:ready",
         "app:revealSettings",
+        "app:setMenuState",
         "app:unsaved",
         "bik:convert",
         "catalog:load",

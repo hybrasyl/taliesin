@@ -37,6 +37,7 @@ import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
 import { useSettingsStore, flushSettings, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
+import { useMenuRequest } from '../hooks/useMenuRequest'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
 import AboutDialog from '../components/AboutDialog'
@@ -400,6 +401,8 @@ function CompanionCard() {
 function AboutCard({ onOpen }: { onOpen: () => void }) {
   const [version, setVersion] = useState('')
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+  // The macOS menu's Help → What's New (HTOO-569) comes to Settings and opens it here.
+  useMenuRequest('whatsNew', () => setWhatsNewOpen(true))
   const setReportIssueOpen = useUiStore((s) => s.setReportIssueOpen)
   // On the hybrasyl theme the default (primary) link color reads poorly against
   // the paper; info is legible. Matches the Installed Asset Packs link.
@@ -1158,6 +1161,8 @@ function AssetPacksCard() {
 
 const SettingsPage: React.FC = () => {
   const [aboutOpen, setAboutOpen] = useState(false)
+  // The macOS menu's "About Taliesin" (HTOO-569) comes to Settings and opens it here.
+  useMenuRequest('about', () => setAboutOpen(true))
 
   return (
     <Box data-testid="settings-page" sx={{ height: '100%', overflow: 'auto', p: 3 }}>

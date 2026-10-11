@@ -216,6 +216,9 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
   }
 
   return {
+    // Windows, so the macOS-only menu and title bar stay off (HTOO-569).
+    platform: 'win32',
+    menu: { onCommand: () => () => undefined, setState: () => undefined },
     // Window controls — no-ops in the bridge (no real BrowserWindow)
     minimizeWindow: () => undefined,
     maximizeWindow: () => undefined,

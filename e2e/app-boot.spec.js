@@ -18,9 +18,12 @@ test.describe('App boots', () => {
     ;({ electronApp } = await launchApp())
     const page = await getMainWindow(electronApp)
 
-    // Title bar is present with the app name.
+    // Title bar is present, with the app name except on macOS, where the bar
+    // holds only the native stoplights (HTOO-569; e2e/title-bar.spec.js).
     await expect(page.getByTestId('title-bar')).toBeVisible()
-    await expect(page.getByTestId('title-bar')).toContainText('Taliesin')
+    if (process.platform !== 'darwin') {
+      await expect(page.getByTestId('title-bar')).toContainText('Taliesin')
+    }
 
     // The real app shell is shown (getMainWindow already waited for it).
     await expect(page.getByTestId('app-root')).toBeVisible()

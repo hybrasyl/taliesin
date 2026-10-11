@@ -52,6 +52,11 @@ test.describe('Settings persist across a relaunch', () => {
 
     await page.getByTestId('theme-option-dubhaimid').click()
     await expect(page.getByTestId('theme-option-dubhaimid')).toHaveAttribute('aria-checked', 'true')
+    // CssBaseline paints the theme's background onto body. Recorded here so the
+    // relaunch can be compared on every platform (macOS has no title text).
+    const themedBackground = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor
+    )
 
     // Poll until the write has actually reached disk. loadSettings() reads
     // settings.json back through the main process, so this waits out the 200ms
@@ -71,13 +76,20 @@ test.describe('Settings persist across a relaunch', () => {
     // On disk...
     expect(readSettings(localAppData).theme).toBe('dubhaimid')
 
-    // ...and actually applied in the hydrated UI. Dubhaimid is a plain-chrome
-    // theme, so the title bar drops its text-shadow -- proof the value reached
+    // ...and actually applied in the hydrated UI: the same background as the
+    // first launch painted after the pick -- proof the value reached
     // ThemeProvider and not just the store.
-    const shadow = await page.evaluate(
-      () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(
+      themedBackground
     )
-    expect(shadow).toBe('none')
+    // Dubhaimid is a plain-chrome theme, so the title bar drops its text-shadow.
+    // macOS has no title text (HTOO-569).
+    if (process.platform !== 'darwin') {
+      const shadow = await page.evaluate(
+        () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
+      )
+      expect(shadow).toBe('none')
+    }
 
     await page.getByTestId('nav-settings').click()
     await expect(page.getByTestId('theme-option-dubhaimid')).toHaveAttribute('aria-checked', 'true')

@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionLaunchResult, CompanionStatus } from '../main/companion'
 import type { UpdateInfo } from '../main/updateCheck'
 import type { WarpReferrer } from '../main/handlers'
+import type { MenuState } from '../main/schemas/menu'
 
 export interface DirEntry {
   name: string
@@ -60,6 +61,25 @@ export interface MusicFileMeta {
 }
 
 const api = {
+  // The renderer draws a different title bar on macOS (native stoplights, no
+  // logo, name or window buttons), and runs the application menu there
+  // (HTOO-569). A sandboxed preload has `process.platform`.
+  platform: process.platform,
+  // The macOS application menu. The listener is wrapped so the IpcRendererEvent
+  // never crosses the bridge; onCommand returns the unsubscribe. The channel
+  // names are literals, not imports: this file may import `electron` and
+  // nothing else at run time. appMenu.test.ts checks them against main's.
+  menu: {
+    onCommand: (cb: (msg: { command: string }) => void): (() => void) => {
+      const listener = (_: unknown, msg: { command: string }): void => cb(msg)
+      ipcRenderer.on('menu:command', listener)
+      return () => {
+        ipcRenderer.removeListener('menu:command', listener)
+      }
+    },
+    setState: (state: MenuState) => ipcRenderer.send('app:setMenuState', state)
+  },
+
   // Window controls
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
