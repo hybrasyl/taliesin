@@ -154,9 +154,22 @@ const hybrasylTheme = responsiveFontSizes(
             fontFamily: '"Cinzel", serif',
             fontSize: '0.65rem',
             letterSpacing: '0.1em',
-            backgroundColor: 'rgba(58,158,144,0.14)',
-            color: '#3a9e90',
-            border: '1px solid rgba(58,158,144,0.3)'
+            border: '1px solid rgba(58,158,144,0.3)',
+            // The tint is for a plain chip only. On `root` it beat MUI's own fill
+            // for every colour, so a warning or a selected chip looked plain.
+            '&.MuiChip-colorDefault': {
+              backgroundColor: 'rgba(58,158,144,0.14)',
+              color: '#3a9e90'
+            },
+            // HTOO-355: a selected chip (color="primary", filled) takes the accent
+            // and its label, as MUI's own fill does, but keeps the accent on hover:
+            // primary.dark under a dark label fails 4.5:1.
+            '&.MuiChip-filled.MuiChip-colorPrimary': {
+              backgroundColor: '#4d84d1',
+              color: '#0d182f',
+              borderColor: '#4d84d1',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#4d84d1' }
+            }
           }
         }
       },

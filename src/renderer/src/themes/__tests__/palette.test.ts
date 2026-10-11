@@ -30,21 +30,53 @@ const lin = (c: number): number => {
   return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
 }
 
-/** Relative luminance of `#rrggbb`, or of `rgba(r,g,b,a)` ignoring alpha. */
-function luminance(color: string): number {
-  const rgba = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
-  const [r, g, b] = rgba
-    ? [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])]
-    : [
-        parseInt(color.slice(1, 3), 16),
-        parseInt(color.slice(3, 5), 16),
-        parseInt(color.slice(5, 7), 16)
-      ]
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+/** `#rrggbb` or `rgb(a)(r,g,b[,a])` as channels and alpha. */
+function parse(color: string): [number, number, number, number] {
+  const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?/i)
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])]
+  return [
+    parseInt(color.slice(1, 3), 16),
+    parseInt(color.slice(3, 5), 16),
+    parseInt(color.slice(5, 7), 16),
+    1
+  ]
 }
 
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+/**
+ * Relative luminance of a colour as drawn over `under` (opaque). Three themes
+ * have a translucent paper, and what the eye sees is that paper over the page.
+ */
+function luminance(color: string, under = '#000000'): number {
+  const [r, g, b, a] = parse(color)
+  const [ur, ug, ub] = parse(under)
+  const mix = (c: number, u: number): number => c * a + u * (1 - a)
+  return 0.2126 * lin(mix(r, ur)) + 0.7152 * lin(mix(g, ug)) + 0.0722 * lin(mix(b, ub))
+}
+
+/** Each style object under `node` that sets `backgroundColor` to `main` and a
+ *  `color` (#rrggbb), with its path in the overrides. */
+function accentFills(
+  node: unknown,
+  main: string,
+  path: string[] = []
+): { path: string; backgroundColor: string; color: string }[] {
+  if (!node || typeof node !== 'object') return []
+  const o = node as Record<string, unknown>
+  const out: { path: string; backgroundColor: string; color: string }[] = []
+  if (
+    typeof o.backgroundColor === 'string' &&
+    o.backgroundColor.toLowerCase() === main.toLowerCase() &&
+    typeof o.color === 'string' &&
+    /^#[0-9a-f]{6}$/i.test(o.color)
+  )
+    out.push({ path: path.join(' > '), backgroundColor: o.backgroundColor, color: o.color })
+  for (const [k, v] of Object.entries(o)) out.push(...accentFills(v, main, [...path, k]))
+  return out
+}
+
+/** Contrast of two colours, each drawn over `under` when it is translucent. */
+function contrast(a: string, b: string, under?: string): number {
+  const [hi, lo] = [luminance(a, under), luminance(b, under)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
 }
 
@@ -59,38 +91,39 @@ describe('theme palettes', () => {
     expect(p.primary.main.toLowerCase()).not.toBe(p.background.default.toLowerCase())
   })
 
-  // Thresholds are asserted for `hybrasyl` only, and that is deliberate.
-  //
-  // Applying them to all six fails five of them on values that predate this
-  // card and are NOT the collision it is about. Measured 2026-08-09:
-  //
-  //   theme       main-vs-page   text-on-main
-  //   hybrasyl        4.66           4.66     <- this card
-  //   chadul          3.81           3.28
-  //   danaan          2.39           6.40
-  //   grinneal        3.39           2.72
-  //   mundanes        2.89           4.60
-  //   dubhaimid       4.72           3.53
-  //
-  // Recolouring five palettes is a design decision, not a side effect of a bug
-  // fix, so it belongs on its own card rather than being smuggled in here — and
-  // loosening the threshold to whatever all six happen to pass would assert
-  // nothing. The collision rule above still covers every theme, because that one
-  // is a hard invariant rather than a judgement.
-  describe('hybrasyl', () => {
-    const p = themesByName.hybrasyl.palette
+  // HTOO-355: both contrast rules, for every theme. The values were picked per
+  // theme from a preview of its controls (Mabon WP96 for four of them). A theme
+  // that fails here needs a new value, never a lower threshold.
+  describe.each(THEME_NAMES)('%s', (name) => {
+    const p = themesByName[name].palette
 
-    it('primary.main reads as a control against the page', () => {
-      // 3:1 is the WCAG floor for a UI component boundary. This is what "the
-      // selected chip is visible at all" reduces to.
+    it('primary.main reads as a control against the page and against paper', () => {
+      // 3:1 is the WCAG floor for a UI component boundary (1.4.11). This is what
+      // "the selected chip is visible at all" reduces to.
       expect(contrast(p.primary.main, p.background.default)).toBeGreaterThanOrEqual(3)
+      expect(
+        contrast(p.primary.main, p.background.paper, p.background.default)
+      ).toBeGreaterThanOrEqual(3)
     })
 
     it('contrastText is legible on primary.main', () => {
-      // 4.5:1 — chip and button labels are normal-sized text, not large text.
-      // This is the assertion that ruled out keeping the theme's cream:
-      // #f0e6cc on #4d84d1 measures 3.05:1.
+      // 4.5:1 (1.4.3): chip and button labels are normal-sized text, not large
+      // text. This rule ruled out hybrasyl's cream (#f0e6cc on #4d84d1: 3.05:1)
+      // and chadul's green (#a8d8a0 on #2e7a3a: 3.28:1).
       expect(contrast(p.primary.contrastText, p.primary.main)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('an override that fills with primary.main gives its text 4.5:1', () => {
+      // The component overrides paint the accent themselves, with their own label
+      // colour. danaan's contained button put cream on its gold (2.76:1) while
+      // the palette said otherwise.
+      const fills = accentFills(themesByName[name].components ?? {}, p.primary.main)
+      // At least the selected chip fills with the accent in every theme, so an
+      // empty list means the walk broke, not that there is nothing to check.
+      expect(fills.length).toBeGreaterThan(0)
+      for (const f of fills) {
+        expect(contrast(f.color, f.backgroundColor), f.path).toBeGreaterThanOrEqual(4.5)
+      }
     })
   })
 })

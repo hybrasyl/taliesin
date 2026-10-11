@@ -17,11 +17,13 @@ const chadulTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'dark',
+      // HTOO-355: the green accent stays (3.81:1 on the page, 3.71:1 on paper).
+      // Its label goes from #a8d8a0 (3.28:1) to a pale green-white: 4.68:1.
       primary: {
         main: '#2e7a3a',
         light: '#4ab858',
         dark: '#1a4a22',
-        contrastText: '#a8d8a0'
+        contrastText: '#e6f5e2'
       },
       secondary: {
         main: '#2e1a4a',
@@ -146,9 +148,22 @@ const chadulTheme = responsiveFontSizes(
             fontFamily: '"Cinzel", serif',
             fontSize: '0.65rem',
             letterSpacing: '0.1em',
-            backgroundColor: 'rgba(46,122,58,0.14)',
-            color: '#2e7a3a',
-            border: '1px solid rgba(46,122,58,0.3)'
+            border: '1px solid rgba(46,122,58,0.3)',
+            // The tint is for a plain chip only. On `root` it beat MUI's own fill
+            // for every colour, so a warning or a selected chip looked plain.
+            '&.MuiChip-colorDefault': {
+              backgroundColor: 'rgba(46,122,58,0.14)',
+              color: '#2e7a3a'
+            },
+            // HTOO-355: a selected chip (color="primary", filled) takes the accent
+            // and its label, as MUI's own fill does, but keeps the accent on hover:
+            // primary.dark under a dark label fails 4.5:1.
+            '&.MuiChip-filled.MuiChip-colorPrimary': {
+              backgroundColor: '#2e7a3a',
+              color: '#e6f5e2',
+              borderColor: '#2e7a3a',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#2e7a3a' }
+            }
           }
         }
       },
