@@ -26,11 +26,12 @@ const grinnealTheme = responsiveFontSizes(
         dark: '#4a5838',
         contrastText: '#27221c'
       },
+      // The bar's label: near-black, 4.72:1 on the tan bar (#1a1408 was 4.37:1).
       secondary: {
         main: '#907858',
         light: '#b89870',
         dark: '#604830',
-        contrastText: '#1a1408'
+        contrastText: '#0c0a06'
       },
       background: {
         default: '#27221c',
@@ -39,7 +40,11 @@ const grinnealTheme = responsiveFontSizes(
       text: {
         primary: '#d4c4a8',
         secondary: '#9a8a70',
-        disabled: '#5a4e3c'
+        disabled: '#5a4e3c',
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
+        button: '#d4c4a8',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#1a1408'
       },
       divider: 'rgba(122,106,80,0.25)',
       error: { main: '#ff0000' },

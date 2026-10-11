@@ -1,7 +1,11 @@
 import React from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
+import { ThemeProvider } from '@mui/material/styles'
 import TitleBar from '../TitleBar'
+import { isDarkText } from '../chromeEngrave'
+import { themesByName } from '../../themes'
+import { useSettingsStore, PLAIN_CHROME_THEMES, type ThemeName } from '../../store/settingsStore'
 import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
 
 // HTOO-569. On macOS the bar is an empty drag region that holds the native
@@ -29,5 +33,45 @@ describe('TitleBar', () => {
     expect(screen.queryByTestId('app-title')).not.toBeInTheDocument()
     expect(screen.queryByAltText('Taliesin')).not.toBeInTheDocument()
     expect(screen.queryAllByRole('button')).toHaveLength(0)
+  })
+
+  // The keyline is dark, so it outlines light title text and smears dark text.
+  // danaan's title is dark on its gold bar, and grinneal's on its tan one: those
+  // are engraved with a cream edge instead (ported from Mabon).
+  const DECORATED = (Object.keys(themesByName) as ThemeName[]).filter(
+    (n) => !PLAIN_CHROME_THEMES.includes(n)
+  )
+  it.each(DECORATED)('%s: outlines light title text, engraves dark title text', (name) => {
+    const theme = themesByName[name]
+    useSettingsStore.setState({ theme: name })
+    render(
+      <ThemeProvider theme={theme}>
+        <TitleBar />
+      </ThemeProvider>
+    )
+    const shadow = getComputedStyle(screen.getByTestId('app-title')).textShadow
+    const glyph = screen
+      .getByRole('button', { name: 'Minimize' })
+      .querySelector('svg') as SVGElement
+    const stroke = getComputedStyle(glyph).stroke
+    if (isDarkText(theme.palette.secondary.contrastText)) {
+      // The window glyphs lose the #000 stroke too.
+      expect(stroke).not.toMatch(/#000|rgb\(0, 0, 0\)$/)
+      expect(shadow).toMatch(/rgba\(255, ?248, ?232/)
+      expect(shadow).not.toMatch(/#000|rgb\(0, 0, 0\)/)
+    } else {
+      expect(shadow).toMatch(/#000|rgb\(0, 0, 0\)/)
+      expect(stroke).toMatch(/#000|rgb\(0, 0, 0\)$/)
+    }
+    cleanup()
+  })
+
+  it('engraves danaan and outlines hybrasyl', () => {
+    // The loop above branches on the palette; this pins the two known cases, so
+    // a palette change cannot quietly move every theme into one branch.
+    const dark = (n: ThemeName): boolean =>
+      isDarkText(themesByName[n].palette.secondary.contrastText)
+    expect(dark('danaan')).toBe(true)
+    expect(dark('hybrasyl')).toBe(false)
   })
 })

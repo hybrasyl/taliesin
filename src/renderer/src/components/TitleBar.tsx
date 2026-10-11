@@ -1,5 +1,6 @@
 import React from 'react'
 import { Toolbar, IconButton, Tooltip, Box, Typography } from '@mui/material'
+import { ENGRAVE, engraveIcons, useEngraved } from './chromeEngrave'
 import { GiContract, GiExpand, GiDeathSkull } from 'react-icons/gi'
 import RemoveIcon from '@mui/icons-material/Remove'
 import CropSquareIcon from '@mui/icons-material/CropSquare'
@@ -40,13 +41,17 @@ const iconSx = {
 // Gamified chrome (the four stylized themes): stroked glyphs, keyline/depth.
 const gameBtnSx = {
   WebkitAppRegion: 'no-drag',
-  color: 'text.button',
+  // The bar is secondary.main; see plainBtnSx below.
+  color: 'secondary.contrastText',
   ...iconSx,
   '&:hover': {
     backgroundColor: 'info.main',
     color: 'text.dark'
   }
 } as const
+
+// Dark title text is engraved, not outlined: see chromeEngrave.ts.
+const engravedBtnSx = engraveIcons(gameBtnSx)
 
 // Plain chrome (corporate themes): standard MUI icons, flat, no stroke/shadow.
 // The bar is the navy secondary.main, so hover uses a translucent-white wash
@@ -81,16 +86,22 @@ const TitleBar: React.FC = () => {
 
 /** The logo, the name and the window buttons: everything but macOS. */
 const TitleBarContent: React.FC = () => {
-  // Corporate themes get plain MUI window icons and a flat bar; the four
-  // stylized themes keep the gamified skull glyph + #000 keyline shadows.
+  // Corporate themes get plain MUI window icons and a flat bar. The four
+  // stylized themes keep the gamified skull glyph: outlined with the #000
+  // keyline, or engraved where their bar text is dark (danaan, grinneal).
   const themeName = useSettingsStore((s) => s.theme)
   const plain = PLAIN_CHROME_THEMES.includes(themeName)
-  const winBtnSx = plain ? plainBtnSx : gameBtnSx
+  // A decorated theme with dark title text is engraved, not outlined.
+  const engraved = useEngraved()
+  const winBtnSx = plain ? plainBtnSx : engraved ? engravedBtnSx : gameBtnSx
   const closeBtnSx = {
     ...winBtnSx,
     '&:hover': plain
       ? { backgroundColor: 'error.main', color: 'error.contrastText' }
-      : { backgroundColor: 'info.main', color: 'warning.main' }
+      : engraved
+        ? // No stroke outlines the glyph here, and yellow on cyan is about 1.1:1.
+          { backgroundColor: 'info.main', color: 'text.dark' }
+        : { backgroundColor: 'info.main', color: 'warning.main' }
   }
 
   return (
@@ -105,8 +116,9 @@ const TitleBarContent: React.FC = () => {
         }}
       />
       {/* The e2e specs read this element's computed text-shadow to tell the two
-          chrome styles apart: the plain/corporate themes set it to `none` and
-          the four stylized ones paint the keyline+depth stack. It is the only
+          chrome styles apart: the plain/corporate themes set it to `none`, and
+          the four stylized ones paint a shadow (the keyline+depth stack, or the
+          cream engrave where the bar text is dark). It is the only
           part of the PLAIN_CHROME_THEMES branch a spec can observe in a
           PRODUCTION build -- MUI strips the data-testid it puts on its own icons
           when NODE_ENV is production, so `plain ? <CloseIcon/> : <GiDeathSkull/>`
@@ -120,7 +132,9 @@ const TitleBarContent: React.FC = () => {
           // Pin against responsiveFontSizes() breakpoint media queries on the h6
           // variant, which would otherwise grow the title on window resize.
           '&&': { fontSize: '1.5rem' },
-          textShadow: plain ? 'none' : TITLE_TEXT_SHADOW
+          // The bar's own text colour, as its buttons use (HTOO-355).
+          color: 'secondary.contrastText',
+          textShadow: plain ? 'none' : engraved ? ENGRAVE : TITLE_TEXT_SHADOW
         }}
       >
         Taliesin

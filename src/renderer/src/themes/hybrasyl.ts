@@ -54,7 +54,11 @@ const hybrasylTheme = responsiveFontSizes(
       text: {
         primary: '#f0e6cc',
         secondary: '#a8b8c4',
-        disabled: '#506070'
+        disabled: '#506070',
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
+        button: '#f0e6cc',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#0c1018'
       },
       divider: 'rgba(58,158,144,0.22)',
       error: { main: '#ff0000' },

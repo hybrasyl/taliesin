@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { themesByName } from '../index'
 import type { ThemeName } from '../../store/settingsStore'
+import { contrast } from './contrast'
 
 // Derived from the registry rather than a hand-kept list, so a theme added to
 // `themesByName` is covered without anyone remembering to add it here.
@@ -25,34 +26,6 @@ const THEME_NAMES = Object.keys(themesByName) as ThemeName[]
  * HTOO-341.
  */
 
-const lin = (c: number): number => {
-  const s = c / 255
-  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
-}
-
-/** `#rrggbb` or `rgb(a)(r,g,b[,a])` as channels and alpha. */
-function parse(color: string): [number, number, number, number] {
-  const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?/i)
-  if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])]
-  return [
-    parseInt(color.slice(1, 3), 16),
-    parseInt(color.slice(3, 5), 16),
-    parseInt(color.slice(5, 7), 16),
-    1
-  ]
-}
-
-/**
- * Relative luminance of a colour as drawn over `under` (opaque). Three themes
- * have a translucent paper, and what the eye sees is that paper over the page.
- */
-function luminance(color: string, under = '#000000'): number {
-  const [r, g, b, a] = parse(color)
-  const [ur, ug, ub] = parse(under)
-  const mix = (c: number, u: number): number => c * a + u * (1 - a)
-  return 0.2126 * lin(mix(r, ur)) + 0.7152 * lin(mix(g, ug)) + 0.0722 * lin(mix(b, ub))
-}
-
 /** Each style object under `node` that sets `backgroundColor` to `main` and a
  *  `color` (#rrggbb), with its path in the overrides. */
 function accentFills(
@@ -72,12 +45,6 @@ function accentFills(
     out.push({ path: path.join(' > '), backgroundColor: o.backgroundColor, color: o.color })
   for (const [k, v] of Object.entries(o)) out.push(...accentFills(v, main, [...path, k]))
   return out
-}
-
-/** Contrast of two colours, each drawn over `under` when it is translucent. */
-function contrast(a: string, b: string, under?: string): number {
-  const [hi, lo] = [luminance(a, under), luminance(b, under)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
 }
 
 describe('theme palettes', () => {
@@ -111,6 +78,27 @@ describe('theme palettes', () => {
       // text. This rule ruled out hybrasyl's cream (#f0e6cc on #4d84d1: 3.05:1)
       // and chadul's green (#a8d8a0 on #2e7a3a: 3.28:1).
       expect(contrast(p.primary.contrastText, p.primary.main)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('text.button reads on the page and on paper', () => {
+      // Headings on the page and on the Settings cards use it. A palette without
+      // it makes every `color: 'text.button'` an invalid colour, which the
+      // browser drops (see themes/augmentation.ts).
+      const button = p.text.button
+      expect(button, 'text.button is set').toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(button, p.background.default)).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(button, p.background.paper, p.background.default)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('secondary.contrastText reads on secondary.main, the bars', () => {
+      // The title bar, the nav bar and the music player paint secondary.main, and
+      // their icons and captions take secondary.contrastText.
+      expect(contrast(p.secondary.contrastText, p.secondary.main)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('text.dark reads on info.main, the chrome hover', () => {
+      expect(p.text.dark, 'text.dark is set').toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(p.text.dark, p.info.main)).toBeGreaterThanOrEqual(4.5)
     })
 
     it('an override that fills with primary.main gives its text 4.5:1', () => {

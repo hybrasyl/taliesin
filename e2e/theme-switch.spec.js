@@ -54,7 +54,8 @@ test.describe('All six themes render', () => {
       await expect(page.getByTestId('title-bar')).toBeVisible()
 
       // The PLAIN_CHROME_THEMES branch: the two corporate themes drop the title
-      // bar's keyline/depth text-shadow, the four stylized ones paint it. This
+      // bar's text-shadow, the four stylized ones paint one (the keyline and
+      // depth, or the cream engrave where the bar text is dark). This
       // is the branch's only observable effect in a production build -- see the
       // note on `app-title` in TitleBar.tsx.
       // macOS has no title text (HTOO-569), so the check is for Windows and Linux.

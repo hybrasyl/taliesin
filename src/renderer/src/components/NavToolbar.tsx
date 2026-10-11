@@ -22,6 +22,7 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
+import { ENGRAVE, engraveIcons, useEngraved } from './chromeEngrave'
 
 const iconSx = {
   '& svg': {
@@ -31,10 +32,12 @@ const iconSx = {
   }
 }
 
+// The bar is secondary.main, so its icons and caption take that colour's own
+// contrast text. text.button is for headings on the page.
 const btnSx = {
   WebkitAppRegion: 'no-drag',
   mx: -0.5,
-  color: 'text.button',
+  color: 'secondary.contrastText',
   ...iconSx,
   '&:hover': {
     backgroundColor: 'info.main',
@@ -51,6 +54,10 @@ const activeBtnSx = {
   backgroundColor: 'rgba(255,255,255,0.08)'
 } as const
 
+// Dark bar text is engraved, not outlined by the dark stroke: see chromeEngrave.ts.
+const engravedBtnSx = engraveIcons(btnSx)
+const engravedActiveBtnSx = engraveIcons(activeBtnSx)
+
 /**
  * One button per page. Each carries `nav-<page>`, because
  * e2e/nav-pages.spec.js clicks every page in PAGES by that id (HTOO-393).
@@ -61,12 +68,15 @@ const NavButton: React.FC<{ page: Page; title: string; icon: React.ReactElement 
   icon
 }) => {
   const active = useUiStore((s) => s.currentPage === page)
+  const engraved = useEngraved()
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   return (
     <Tooltip title={title}>
       <IconButton
         data-testid={`nav-${page}`}
-        sx={active ? activeBtnSx : btnSx}
+        sx={
+          active ? (engraved ? engravedActiveBtnSx : activeBtnSx) : engraved ? engravedBtnSx : btnSx
+        }
         onClick={() => setCurrentPage(page)}
       >
         {icon}
@@ -80,13 +90,20 @@ const NavToolbar: React.FC = () => {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const { found: companionFound } = useCompanionStatus()
+  const engraved = useEngraved()
+  const barBtnSx = engraved ? engravedBtnSx : btnSx
 
   return (
     <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
       {libName ? (
         <Typography
           variant="caption"
-          sx={{ color: 'text.button', opacity: 0.7, letterSpacing: '0.03em' }}
+          sx={{
+            color: 'secondary.contrastText',
+            opacity: 0.7,
+            letterSpacing: '0.03em',
+            textShadow: engraved ? ENGRAVE : 'none'
+          }}
         >
           Current Library: <strong>{libName}</strong>
         </Typography>
@@ -134,7 +151,7 @@ const NavToolbar: React.FC = () => {
       />
 
       <Tooltip title="Report an issue">
-        <IconButton sx={btnSx} onClick={() => setReportIssueOpen(true)}>
+        <IconButton sx={barBtnSx} onClick={() => setReportIssueOpen(true)}>
           <GiBugNet />
         </IconButton>
       </Tooltip>
@@ -142,7 +159,7 @@ const NavToolbar: React.FC = () => {
       <Tooltip title={companionFound ? 'Launch Creidhne' : 'Creidhne not found — see Settings'}>
         <span>
           <IconButton
-            sx={btnSx}
+            sx={barBtnSx}
             disabled={!companionFound}
             onClick={() => void window.api.launchCompanion()}
           >
