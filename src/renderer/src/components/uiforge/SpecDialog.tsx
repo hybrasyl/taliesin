@@ -40,11 +40,10 @@ interface SpecDialogProps {
 }
 
 const TYPES: readonly UiVariableType[] = ['int', 'float', 'bool', 'string', 'sprite']
-const OPTIONS: readonly SpecOption[] = ['A', 'B', 'C']
+const OPTIONS: readonly SpecOption[] = ['A', 'B']
 const OPTION_LABEL: Record<SpecOption, string> = {
-  A: 'A — StatUpdateFlags bit on 0x08',
-  B: 'B — f32 on 0xFF ExtendedStats',
-  C: 'C — new opcode + ServerPacket'
+  A: 'A — ExtendedStats id (0x0008)',
+  B: 'B — new opcode'
 }
 
 /**

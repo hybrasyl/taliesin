@@ -32,9 +32,9 @@ import { useUnsavedGuard } from '../../hooks/useUnsavedGuard'
 import { normalizeVariablePath, type CustomVariableMap } from '../../uiforge/variableCatalog'
 import {
   buildSpecMarkdown,
+  isSpecOption,
   specRelPath,
-  type CustomVariableSpec,
-  type SpecOption
+  type CustomVariableSpec
 } from '../../uiforge/specTemplate'
 import UnsavedChangesDialog from '../UnsavedChangesDialog'
 import LayoutCanvas, { type ForgeZoom } from './LayoutCanvas'
@@ -343,7 +343,8 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
         container,
         frequency: existing?.frequency as string | undefined,
         justification: existing?.justification as string | undefined,
-        recommended: existing?.recommended as SpecOption | undefined
+        // A spec saved before HTOO-546 can hold 'C', which is gone.
+        recommended: isSpecOption(existing?.recommended) ? existing.recommended : undefined
       })
     },
     [layout?.id, panelId, variant?.name, project.assetMeta]

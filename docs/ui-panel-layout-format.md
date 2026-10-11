@@ -143,15 +143,15 @@ Canonical dotted paths, lowercase. The machine-readable registry is
 section is the human summary). Types: `string`, `int`, `float`, `bool`,
 `sprite`.
 
-| Namespace                              | Source packet        | Paths                                                                                                                                                                                                                                                  |
-| -------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `player.*`                             | 0x08 Attributes      | `name`, `level`, `ability`, `hp`, `maxhp`, `mp`, `maxmp`, `stats.str/int/wis/con/dex`, `levelpoints`, `weight`, `maxweight`, `experience`, `abilityexp`, `gold`, `blinded`, `mailstatus`, `element.offense`, `element.defense`, `combat.mr/ac/dmg/hit` |
-| `player.ext.*`                         | 0xFF ExtendedStats   | `mr`, `hit`, `dmg`, `crit`, `magiccrit`, `dodge`, `magicdodge` (all float)                                                                                                                                                                             |
-| `player.profile.*`                     | 0x39 SelfProfile     | `guild`, `class`, `nation`, `grouptext`                                                                                                                                                                                                                |
-| `inventory.slot[n].*`                  | 0x0F/0x10            | `name`, `count`, `durability`, `sprite`, `color` — n: 1–59                                                                                                                                                                                             |
-| `equipment.<slot>.*`                   | 0x37/0x38            | `name`, `sprite`, `durability` — 18 slot names per Brigid's equipment enum (e.g. `equipment.weapon.name`)                                                                                                                                              |
-| `skills.slot[n].*`, `spells.slot[n].*` | 0x2C/0x2D, 0x17/0x18 | `name`, `sprite` — n: 1–90, holes at 35/71/89                                                                                                                                                                                                          |
-| `group.*`                              | 0x63                 | `size` (int), `ingroup` (bool)                                                                                                                                                                                                                         |
+| Namespace                              | Source packet                               | Paths                                                                                                                                                                                                                                                  |
+| -------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `player.*`                             | 0x08 Attributes                             | `name`, `level`, `ability`, `hp`, `maxhp`, `mp`, `maxmp`, `stats.str/int/wis/con/dex`, `levelpoints`, `weight`, `maxweight`, `experience`, `abilityexp`, `gold`, `blinded`, `mailstatus`, `element.offense`, `element.defense`, `combat.mr/ac/dmg/hit` |
+| `player.ext.*`                         | not shipped (planned: 0x0008 ExtendedStats) | `mr`, `hit`, `dmg`, `crit`, `magiccrit`, `dodge`, `magicdodge` (all float). No server sends these yet; the Forge reports a binding to one as unshipped (HTOO-546).                                                                                     |
+| `player.profile.*`                     | 0x39 SelfProfile                            | `guild`, `class`, `nation`, `grouptext`                                                                                                                                                                                                                |
+| `inventory.slot[n].*`                  | 0x0F/0x10                                   | `name`, `count`, `durability`, `sprite`, `color` — n: 1–59                                                                                                                                                                                             |
+| `equipment.<slot>.*`                   | 0x37/0x38                                   | `name`, `sprite`, `durability` — 18 slot names per Brigid's equipment enum (e.g. `equipment.weapon.name`)                                                                                                                                              |
+| `skills.slot[n].*`, `spells.slot[n].*` | 0x2C/0x2D, 0x17/0x18                        | `name`, `sprite` — n: 1–90, holes at 35/71/89                                                                                                                                                                                                          |
+| `group.*`                              | 0x63                                        | `size` (int), `ingroup` (bool)                                                                                                                                                                                                                         |
 
 Indexed templates use a literal 1-based index in the XML
 (`bind="inventory.slot[3].count"`).
@@ -175,11 +175,9 @@ server-side (see Design specs). Consumers must treat unknown paths as unbound
 
 When a layout needs a variable the server doesn't expose, the Forge writes a
 Markdown design spec to `specs/<slug>.md` inside the pack project directory
-(status: proposed). The spec names the variable, type, update frequency, and
-the concrete hybrasyl implementation options (new `StatUpdateFlags` bit on
-0x08 / f32 appended to 0xFF ExtendedStats / new opcode + ServerPacket class)
-with exact file references. Specs are working documents handed to the server
-team; they are not pack content and are excluded from compilation.
+(status: proposed). The spec names the variable, type, update frequency, and the two delivery routes of the extension dialect: an id in the `0x0008` Attributes ExtendedStats block (`[u16 statId][f64 value]`), or a new opcode allocated in `Hybrasyl.Protocol`'s `docs/ALLOCATIONS.md`. Both come from the document repo's `docs/plans/brigid/BRIG-53-attributes-replacement-contract.md`. Specs are working documents handed to the server team; they are not pack content and are excluded from compilation.
+
+The `0xFF` ExtendedStats packet named here before never shipped (HS-1239), and the earlier options pointed at server code that is gone (HTOO-546).
 
 ## Legacy prefab import mapping
 

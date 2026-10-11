@@ -91,6 +91,15 @@ describe('validatePath', () => {
     expect(validatePath('player.hp', ['int', 'float'])).toBeNull()
   })
 
+  // HTOO-546. No server sends player.ext.*: the 0xFF packet never shipped, and
+  // its planned ExtendedStats ids are not allocated yet. A bind must say so.
+  it('reports player.ext.* as unshipped, after the type check', () => {
+    expect(validatePath('player.ext.crit', ['int', 'float'])).toBe('unshipped')
+    expect(validatePath('player.ext.crit')).toBe('unshipped')
+    expect(validatePath('player.ext.crit', ['string'])).toBe('type-mismatch')
+    expect(validatePath('player.hp')).toBeNull()
+  })
+
   it('reports type mismatch', () => {
     expect(validatePath('player.name', ['int', 'float'])).toBe('type-mismatch')
     expect(validatePath('player.mailstatus', ['int'])).toBe('type-mismatch')

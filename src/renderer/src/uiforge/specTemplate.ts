@@ -4,13 +4,28 @@ import type { UiVariableType } from './variableCatalog'
  * Design specs (authoring-side only). When a layout binds a variable the
  * hybrasyl server doesn't yet expose, the Forge writes a Markdown spec into the
  * pack project's `specs/` directory (never compiled into the `.datf`). The spec
- * names the variable, its type, update cadence, justification, and the concrete
- * server implementation options with exact file references — a working document
- * handed to the server team. See docs/ui-panel-layout-format.md § Design specs.
+ * names the variable, its type, update cadence, justification, and the two
+ * delivery routes of the extension dialect — a working document handed to the
+ * server team. See docs/ui-panel-layout-format.md § Design specs.
+ *
+ * The routes come from the document repo's
+ * docs/plans/brigid/BRIG-53-attributes-replacement-contract.md, the plan for
+ * extended stats. They replace three options (a 0x08 flag bit, the 0xFF
+ * ExtendedStats packet, a ServerPacket class) that each named code which is gone
+ * or never shipped (HTOO-546). No server file paths: those went stale first.
  */
 
-/** Which of the three implementation options the author recommends. */
-export type SpecOption = 'A' | 'B' | 'C'
+/** Which delivery route the author recommends: A, an ExtendedStats id; B, a new opcode. */
+export type SpecOption = 'A' | 'B'
+
+/** A stored recommendation from an older spec (`'C'`) is not an option any more. */
+export function isSpecOption(value: unknown): value is SpecOption {
+  return value === 'A' || value === 'B'
+}
+
+/** The plan both routes come from, named so the spec reader can find it. */
+const EXTENSION_PLAN =
+  "the document repo's `docs/plans/brigid/BRIG-53-attributes-replacement-contract.md`"
 
 /** A custom-variable declaration, persisted in the project's `assetMeta` keyed
  *  by the spec's rel path (`specs/<slug>.md`) and rendered to Markdown. */
@@ -27,9 +42,6 @@ export interface CustomVariableSpec {
   /** Author's recommended implementation option, if any. */
   recommended?: SpecOption
 }
-
-/** Root of the hybrasyl server repo — spec file references are relative to it. */
-const SERVER_ROOT = 'e:\\Dark Ages Dev\\Repos\\server\\hybrasyl'
 
 /** Slugify a binding path for use as a filename: `player.ext.critdmg` →
  *  `player-ext-critdmg`, `inventory.slot[n].count` → `inventory-slot-n-count`. */
@@ -78,9 +90,8 @@ function clientExpectation(type: UiVariableType): string {
 }
 
 const RECOMMENDED_LABEL: Record<SpecOption, string> = {
-  A: 'Option A — new StatUpdateFlags bit on 0x08',
-  B: 'Option B — append f32 to the 0xFF ExtendedStats packet',
-  C: 'Option C — new opcode + ServerPacket class'
+  A: 'Route A — an ExtendedStats id in 0x0008 Attributes',
+  B: 'Route B — a new opcode'
 }
 
 /**
@@ -110,43 +121,32 @@ export function buildSpecMarkdown(spec: CustomVariableSpec): string {
   )
   L.push('')
 
-  L.push('## Server implementation options')
-  L.push('')
-  L.push(`File paths below are relative to \`${SERVER_ROOT}\`.`)
-  L.push('')
-
-  L.push('### Option A — new StatUpdateFlags bit on 0x08')
-  L.push('')
-  L.push('Add the value to the primary stat update packet (0x08) behind a new flag.')
-  L.push('')
-  L.push('- `Internals\\Enums\\StatUpdateFlags.cs` — add a new `[Flags]` bit.')
-  L.push(`- \`Objects\\StatInfo.cs\` — add the backing property for \`${path}\`.`)
-  L.push('- `Objects\\User.cs` → `UpdateAttributes()` — write the field when the new flag is set.')
-  L.push('- `Networking\\ServerPackets\\` — serialize the field in the 0x08 packet builder.')
-  L.push('')
-
-  L.push('### Option B — append f32 to the 0xFF ExtendedStats packet')
+  L.push('## Server delivery')
   L.push('')
   L.push(
-    'Extend the existing 0xFF extended-stats block with a trailing `float`. Best fit ' +
-      'for derived/float combat stats that already travel on 0xFF.'
+    `How a new value reaches the client is decided by ${EXTENSION_PLAN} (status: proposed). ` +
+      'It replaces retail 0x08 with `0x0008` Attributes inside the negotiated extension ' +
+      'dialect. Two routes follow from it.'
   )
-  L.push('')
-  L.push(`- \`Objects\\StatInfo.cs\` — add the backing property for \`${path}\`.`)
-  L.push('- `Objects\\User.cs` → `UpdateAttributes()` — include the field in the 0xFF path.')
-  L.push('- `Networking\\ServerPackets\\` — append the `f32` to the ExtendedStats writer.')
   L.push('')
 
-  L.push('### Option C — new opcode + ServerPacket class')
+  L.push('### Route A — an ExtendedStats id')
   L.push('')
   L.push(
-    'Introduce a dedicated opcode. Warranted only when the value has its own cadence ' +
-      'or grouping that does not belong on 0x08 / 0xFF.'
+    'For a numeric value about the player. Add a member to the stat enum in ' +
+      '`Hybrasyl.Protocol`, with an explicit `= N`: an id is permanent once it ships. ' +
+      'The server sends it in the `0x0008` ExtendedStats block as `[u16 statId][f64 value]`. ' +
+      'A new stat needs no dialect version bump. Who owns the id registry is still open (HS-1239).'
   )
   L.push('')
-  L.push('- `Internals\\Enums\\` — register the new opcode.')
-  L.push('- `Networking\\ServerPackets\\` — add a new `ServerPacket` subclass.')
-  L.push('- `Objects\\User.cs` — emit the packet at the appropriate trigger.')
+
+  L.push('### Route B — a new opcode')
+  L.push('')
+  L.push(
+    'For a value with its own cadence or shape, or one that is not a number. Allocate the ' +
+      "opcode in `Hybrasyl.Protocol`'s `docs/ALLOCATIONS.md` first; the packet class " +
+      'lives in DALib.'
+  )
   L.push('')
 
   L.push('**Recommended:** ' + (recommended ? RECOMMENDED_LABEL[recommended] : '_(to be decided)_'))
@@ -155,15 +155,13 @@ export function buildSpecMarkdown(spec: CustomVariableSpec): string {
   L.push('## Wire format')
   L.push('')
   const wire =
-    type === 'float'
-      ? '`f32` (little-endian), appended to the chosen packet body.'
+    type === 'float' || type === 'int'
+      ? '`f64`, the value of an ExtendedStats record (route A); or a field of the new packet (route B).'
       : type === 'bool'
-        ? '`u8` (0 = false, non-zero = true).'
+        ? '`u8` (0 = false, non-zero = true) in a new packet (route B); route A would carry an `f64` 0 or 1.'
         : type === 'string'
-          ? 'length-prefixed string per the packet’s existing string convention.'
-          : type === 'sprite'
-            ? '`u16` sprite id.'
-            : '`u32` (or the packet’s existing integer width).'
+          ? 'a length-prefixed string in a new packet (route B). ExtendedStats carries numbers only.'
+          : '`u16` sprite id in a new packet (route B); route A would carry the id as an `f64`.'
   L.push(`- Payload: ${wire}`)
   L.push('')
 

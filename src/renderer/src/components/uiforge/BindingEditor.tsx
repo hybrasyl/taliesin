@@ -53,7 +53,8 @@ const ISSUE_TEXT: Record<string, string> = {
   unknown: 'Not in catalog — binds anyway (renders static until server exposes it)',
   'index-error': 'Index out of range or missing — use a literal 1-based index',
   'type-mismatch': 'Type not compatible with this control',
-  proposed: 'Proposed variable — design spec written, pending server support'
+  proposed: 'Proposed variable — design spec written, pending server support',
+  unshipped: 'Planned, not sent by the server yet — renders static until it ships'
 }
 
 /** A single path field: catalog-backed Autocomplete + a validation chip. */
@@ -110,7 +111,13 @@ const PathField: React.FC<{
           <Chip
             size="small"
             label={ISSUE_TEXT[issue]}
-            color={issue === 'proposed' ? 'info' : issue === 'unknown' ? 'warning' : 'error'}
+            color={
+              issue === 'proposed'
+                ? 'info'
+                : issue === 'unknown' || issue === 'unshipped'
+                  ? 'warning'
+                  : 'error'
+            }
             variant="outlined"
             sx={{ height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.25 } }}
           />
