@@ -12,6 +12,7 @@ import UpgradeIcon from '@mui/icons-material/Upgrade'
 import { FilterField } from '../shared/FilterField'
 import { coveredIdSet } from '../../utils/packOverride'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { isModKey } from '../../utils/keyboard'
 import {
   loadMapAssets,
   getGroundBitmap,
@@ -272,7 +273,8 @@ const TilePicker: React.FC<Props> = ({
   // Multi-select click handler
   const handleTileClick = useCallback(
     (tileId: number, e: React.MouseEvent) => {
-      if (e.ctrlKey || e.metaKey) {
+      // ⌘-click on macOS, where a Control-click is a right-click (HTOO-569).
+      if (isModKey(e, window.api?.platform)) {
         // Toggle individual tile
         const next = selectedTileIds.includes(tileId)
           ? selectedTileIds.filter((id) => id !== tileId)

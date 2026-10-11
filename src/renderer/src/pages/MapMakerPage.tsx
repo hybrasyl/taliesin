@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
 import { mapFilesDir } from '../utils/pickerDefaults'
-import { isTypingTarget } from '../utils/keyboard'
+import { isModKey, isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import {
@@ -796,39 +796,49 @@ const MapMakerPage: React.FC = () => {
       // and a bare `case 's'` would swallow the letter. See utils/keyboard.ts.
       if (isTypingTarget(e.target)) return
       if (anyDialogOpen) return
-      if (e.ctrlKey && e.key === 'z') {
+      // The command key is ⌘ alone on macOS, Ctrl elsewhere (HTOO-569). The key
+      // is lower-cased because Shift makes it upper case: `e.key` is 'S' for
+      // Ctrl+Shift+S, which is why Save As never fired from the keyboard.
+      const platform = window.api?.platform
+      const mod = isModKey(e, platform)
+      const key = e.key.toLowerCase()
+      if (mod && key === 'z') {
         e.preventDefault()
-        handleUndo()
+        // ⇧⌘Z is redo on macOS, and Ctrl+Shift+Z is redo elsewhere too.
+        if (e.shiftKey) handleRedo()
+        else handleUndo()
         return
       }
-      if (e.ctrlKey && e.key === 'y') {
+      // Ctrl+Y is redo on Windows and Linux only; ⌘Y is not redo on macOS.
+      if (mod && key === 'y' && platform !== 'darwin') {
         e.preventDefault()
         handleRedo()
         return
       }
-      if (e.ctrlKey && e.key === 's') {
+      if (mod && key === 's') {
         e.preventDefault()
         if (e.shiftKey) handleSaveAs()
         else handleSave()
         return
       }
-      if (e.ctrlKey && e.key === 'c') {
+      if (mod && key === 'c') {
         e.preventDefault()
         copySelection()
         return
       }
-      if (e.ctrlKey && e.key === 'x') {
+      if (mod && key === 'x') {
         e.preventDefault()
         cutSelection()
         return
       }
-      if (e.ctrlKey && e.key === 'v') {
+      if (mod && key === 'v') {
         e.preventDefault()
         if (clipboard && activeTabId) updateTab(activeTabId, { pasteMode: true })
         return
       }
-      // Ctrl+W: close active tab
-      if (e.ctrlKey && e.key === 'w') {
+      // ⌘W / Ctrl+W: close the active tab. The page gets the key before the
+      // macOS menu, whose ⌘W would close the window.
+      if (mod && key === 'w') {
         e.preventDefault()
         if (activeTabId) handleCloseTab(activeTabId)
         return

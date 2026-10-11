@@ -154,6 +154,26 @@ describe('Placement tab — copy and paste', () => {
     expect(await screen.findByText('(9,11) [door.py]')).toBeTruthy()
   })
 
+  // HTOO-569. On macOS the command key is ⌘ alone; ⌃C belongs to the text system.
+  it('on macOS, copies with ⌘C and leaves ⌃C alone', async () => {
+    // This file installs no window.api; the panel reads only `platform` from it.
+    const w = window as unknown as { api?: object }
+    const before = w.api
+    w.api = { ...before, platform: 'darwin' }
+    try {
+      const { overlay } = await renderPanel({ reactors: [{ x: 6, y: 6, script: 'door.py' }] })
+      fireEvent.click(overlay, at(6, 6))
+
+      fireEvent.keyDown(window, { key: 'c', ctrlKey: true })
+      await waitFor(() => expect(screen.queryByText('Copied: reactor')).toBeNull())
+
+      fireEvent.keyDown(window, { key: 'c', metaKey: true })
+      expect(await screen.findByText('Copied: reactor')).toBeTruthy()
+    } finally {
+      w.api = before
+    }
+  })
+
   it('carries the details, which is the whole point of a copy', async () => {
     const { overlay } = await renderPanel({
       warps: [{ ...mapWarp(3, 3, 'Abel'), description: 'The inn door' }]

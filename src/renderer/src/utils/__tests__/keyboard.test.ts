@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { isTypingTarget } from '../keyboard'
+import { isForeignChord, isModKey, isTypingTarget } from '../keyboard'
 
 // HTOO-342. The Map Maker and the map XML editor's Placement tab both bind
 // single-letter tool keys and both have text fields in reach, so both need the
@@ -54,5 +54,34 @@ describe('isTypingTarget', () => {
 
   it('ignores a non-element target rather than throwing', () => {
     expect(isTypingTarget(new EventTarget())).toBe(false)
+  })
+})
+
+// HTOO-569. On macOS the command key is ⌘ alone; a Control chord is the text
+// system's (⌃K, ⌃P) and must never run a Taliesin command.
+describe('isModKey', () => {
+  const key = (ctrlKey: boolean, metaKey: boolean) => ({ ctrlKey, metaKey })
+
+  it('is ⌘ alone on macOS', () => {
+    expect(isModKey(key(false, true), 'darwin')).toBe(true)
+    expect(isModKey(key(true, false), 'darwin')).toBe(false)
+    expect(isModKey(key(true, true), 'darwin')).toBe(false)
+    expect(isModKey(key(false, false), 'darwin')).toBe(false)
+  })
+
+  it('is Ctrl or the meta key elsewhere, as it always was', () => {
+    for (const platform of ['win32', 'linux', undefined]) {
+      expect(isModKey(key(true, false), platform)).toBe(true)
+      expect(isModKey(key(false, true), platform)).toBe(true)
+      expect(isModKey(key(false, false), platform)).toBe(false)
+    }
+  })
+})
+
+describe('isForeignChord', () => {
+  it('is any Control chord on macOS, and nothing elsewhere', () => {
+    expect(isForeignChord({ ctrlKey: true }, 'darwin')).toBe(true)
+    expect(isForeignChord({ ctrlKey: false }, 'darwin')).toBe(false)
+    expect(isForeignChord({ ctrlKey: true }, 'win32')).toBe(false)
   })
 })
