@@ -17,6 +17,11 @@ Release process (the notes are authored HERE, not edited on GitHub after the fac
 - **File and folder pickers open in a useful folder.** Electron 43 and later opens a picker with no start folder in Downloads. A picker now opens in the folder you picked last, then in the client folder, then in Documents. A save picker puts its suggested file name in that folder.
 - **Report an Issue opens the browser only after the report is on the clipboard.** Before, the issue page could open before the copy completed, and a paste then gave nothing.
 - **The splash spinner is round on Linux.** When the font fell back from Segoe UI, the spinner drew as an oval.
+
+### Security
+
+- **A damaged audio file can no longer stop Taliesin.** Taliesin reads the tags of the audio files you import with music-metadata. Version 11.16 fixes five faults where a crafted MP4, APE, ID3, Matroska or DSF file could hang or crash the app.
+- **`npm audit` reports 0 findings.** The release clears the 23 findings that 2.13.1 had. Two of them were in the app: music-metadata (above) and brace-expansion, which the pack archiver uses.
      (Added / Changed / Fixed / Removed / Deprecated / Security).
   2. To cut a release: rename ## [Unreleased] to ## [X.Y.Z] - YYYY-MM-DD, add a
      fresh empty ## [Unreleased] above it, and bump package.json to X.Y.Z
