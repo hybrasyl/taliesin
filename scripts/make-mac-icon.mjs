@@ -2,6 +2,17 @@
  * Regenerates `build/icon.icns` — the macOS app icon — from the mac-specific
  * artwork in the document repo's `docs/logos/macros/`.
  *
+ * ## Use `taliesin_fixed.png`, the RGBA master (the default)
+ *
+ * `macros/` holds two exports of the artwork. `taliesin_fixed.png` is 1254x1254
+ * RGBA, with transparent corners and every body pixel at alpha 255; it is taken
+ * as it stands. `taliesin.png` is the older RGB export, and the alpha recovery
+ * described below is for it only. That recovery is NOT exact for this artwork:
+ * the body has detail darker than the navy, and `blue / NAVY_BLUE` put about
+ * 65,000 body pixels at alpha 224-254. macOS still drew the light plate behind
+ * that icon, on the grid (HTOO-550, macOS 27). Step 4 below now fails on any
+ * body pixel short of 255.
+ *
  * macOS gets its own artwork because its icon conventions are not the Windows
  * or Linux ones: the icon is a rounded square (an Apple squircle, not a
  * circular-cornered rectangle) and the OS does NOT mask it for you. Whatever is
@@ -26,8 +37,8 @@
  * inside it — obviously wrong on a light Dock, and wrong against every other
  * app's icon.
  *
- * So the alpha channel is reconstructed here. That is exact rather than a
- * guess, because the file is precisely the icon composited over black:
+ * So the alpha channel is reconstructed here, on the assumption that the file is
+ * the icon composited over black:
  *
  *   stored_pixel = icon_colour * coverage        (coverage = the alpha we want)
  *
@@ -39,7 +50,8 @@
  *   coverage = min(1, stored_blue / NAVY_BLUE)
  *
  * The gold artwork has a much higher blue value than the navy, so it clamps to
- * fully opaque, which is correct: the gold is nowhere near the boundary.
+ * fully opaque. Artwork DARKER than the navy does not, which is why the RGBA
+ * master is the default.
  *
  * A geometric mask was tried first and rejected. Measuring the corner curve
  * against a circular arc of the same radius (193px at this size) shows the real
@@ -91,7 +103,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 
 /** The mac-specific master in the document repo. Override with argv[2]. */
-const DEFAULT_SOURCE = resolve(repoRoot, '../Comhaigne/docs/logos/macros/taliesin.png')
+const DEFAULT_SOURCE = resolve(repoRoot, '../Comhaigne/docs/logos/macros/taliesin_fixed.png')
 
 /**
  * The squircle's body colour, and the constant the alpha recovery divides by.
@@ -186,11 +198,14 @@ function main() {
     const flat = join(tmp, 'flat.png')
 
     if (hasAlpha) {
-      // Already an RGBA master, which build/icon-mac.png is. Take its channels
-      // as they stand: running the recovery below on it would read the flattened
-      // navy underneath the transparent corners and return an opaque square.
+      // Already an RGBA master: taliesin_fixed.png, or build/icon-mac.png. Take
+      // its alpha as it stands: running the recovery below on it would read the
+      // colour underneath the transparent corners. That colour is black in
+      // taliesin_fixed.png, so flatten onto the navy first, for the reason in
+      // "Why the colour is flattened onto navy first": the colour is resized
+      // apart from the alpha, and black would bleed into the curved edge.
       magick([source, '-alpha', 'extract', mask])
-      magick([source, '-alpha', 'off', flat])
+      magick([source, '-background', NAVY, '-alpha', 'remove', '-alpha', 'off', flat])
     } else {
       // 1. Coverage mask: the blue channel, stretched so the body navy reaches
       //    full white. Anything brighter than the navy clamps, which is what we
@@ -295,7 +310,24 @@ function main() {
     const checks = [
       ['body on the grid', inkBox, `${body1024}x${body1024}+${inset}+${inset}`],
       ['corner alpha', alphaAt(0, 0), '0'],
-      ['body alpha', alphaAt(512, 512), '255']
+      ['body alpha', alphaAt(512, 512), '255'],
+      // Every pixel of the square the squircle fully covers, not one sample.
+      [
+        'body min alpha',
+        magick([
+          check,
+          '-alpha',
+          'extract',
+          '-crop',
+          '704x704+160+160',
+          '-format',
+          '%[fx:round(255*minima)]',
+          'info:'
+        ])
+          .toString()
+          .trim(),
+        '255'
+      ]
     ]
     for (const [label, actual, expected] of checks) {
       console.log(`  ${label.padEnd(16)} ${expected} -> ${actual}`)

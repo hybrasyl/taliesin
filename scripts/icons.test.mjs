@@ -128,6 +128,29 @@ function alphaReader(png) {
   return { width, height, alphaAt: (px, py) => pixels[py * stride + px * 4 + 3] }
 }
 
+/** Every pixel with 0 < alpha < 255 that has no fully transparent pixel within `reach`. */
+function semiTransparentInterior(width, height, alphaAt, reach) {
+  const found = []
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const a = alphaAt(x, y)
+      if (a === 0 || a === 255) continue
+      let nearEdge = false
+      for (let dy = -reach; dy <= reach && !nearEdge; dy++) {
+        for (let dx = -reach; dx <= reach && !nearEdge; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx >= 0 && ny >= 0 && nx < width && ny < height && alphaAt(nx, ny) === 0) {
+            nearEdge = true
+          }
+        }
+      }
+      if (!nearEdge) found.push(`${x},${y}=${a}`)
+    }
+  }
+  return found
+}
+
 describe('the macOS icon (build/icon.icns)', () => {
   const { width, height, alphaAt } = alphaReader(icnsChunk(join(BUILD, 'icon.icns'), 'ic10'))
 
@@ -156,5 +179,14 @@ describe('the macOS icon (build/icon.icns)', () => {
     ]) {
       expect(alphaAt(x, y), `alpha at ${x},${y}`).toBe(255)
     }
+  })
+
+  it('has an opaque body: partial alpha only on the anti-aliased edge', () => {
+    // An icon on the grid still got the light plate when about 65,000 body
+    // pixels sat at alpha 224-254: the alpha recovered from the blue channel
+    // fell short wherever the artwork is darker than the navy (HTOO-550). The
+    // sampled points above all happened to be 255, so check every pixel.
+    const found = semiTransparentInterior(width, height, alphaAt, 3)
+    expect(found.length, `first: ${found.slice(0, 5).join(' ')}`).toBe(0)
   })
 })
