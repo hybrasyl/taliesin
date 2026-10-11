@@ -131,7 +131,7 @@ No edits to the editor/dialog/IPC layers are needed.
 `npm run test:coverage`, `npm run typecheck`, and `npm run build`; hand GUI click-throughs to the
 user, who runs the dev server themselves.
 
-Run `npm run e2e` (Playwright + Electron) yourself as part of the work, on the Windows dev box: it launches and closes its own windows, and needs no click from the user. Unset `ELECTRON_RUN_AS_NODE` first (the agent shell sets it). Hand only the Linux and Mac runs to the user, in the end-of-release pass. CI runs e2e in a Windows-only `e2e` job.
+Run `npm run e2e` (Playwright + Electron) yourself as part of the work, on the Windows dev box: it launches and closes its own windows, and needs no click from the user. Unset `ELECTRON_RUN_AS_NODE` first (the agent shell sets it). Hand only the Linux and Mac runs to the user, in the end-of-release pass. An agent on the Mac or Linux box follows `docs/release-checks-mac-linux.md`. CI runs e2e in a Windows-only `e2e` job.
 
 ## Releasing
 

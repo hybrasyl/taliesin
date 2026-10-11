@@ -267,6 +267,8 @@ Write the release notes in **`CHANGELOG.md`**, not on GitHub after the release.
 5. When `release.yml` has published, download the signed setup and portable exes and the dmg, and start each on its platform. A build that does not open has a damaged package: take the release down.
 6. When the published builds start, run `npm run publish:version -- vX.Y.Z`. It writes Taliesin's entry in the house version manifest (`versions.json` in cernunnos), which is what running copies read to offer the update. It needs a clean checkout of cernunnos at `../cernunnos` and `gh` signed in; add `--dry-run` to see the change first. The release job does not run it (it has no credential for cernunnos), so its last step prints the command (HTOO-382).
 
+Before step 4, run the Mac and Linux checks in [`docs/release-checks-mac-linux.md`](docs/release-checks-mac-linux.md).
+
 `release.yml` then builds and signs the artifacts. `scripts/changelog-extract.mjs` puts that
 version's section into the release body, and `generate_release_notes` adds the list of PRs below it.
 If the section is absent the release uses the automatic notes, so a forgotten entry never fails the
