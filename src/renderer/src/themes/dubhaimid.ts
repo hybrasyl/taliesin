@@ -22,8 +22,10 @@ const dubhaimidTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'dark',
+      // HTOO-355: a deeper blue. White on #5c8bc4 was 3.53:1; this is 3.62:1 on
+      // the page, 3.32:1 on paper, and white is 4.61:1 on it.
       primary: {
-        main: '#5c8bc4',
+        main: '#4277b7',
         light: '#82a9d6',
         dark: '#3f6a9e',
         contrastText: '#ffffff'
@@ -83,11 +85,11 @@ const dubhaimidTheme = responsiveFontSizes(
           root: {
             borderRadius: 6,
             border: '1px solid rgba(255,255,255,0.23)',
-            color: '#5c8bc4',
-            '&:hover': { backgroundColor: 'rgba(92,139,196,0.12)', borderColor: '#5c8bc4' }
+            color: '#4277b7',
+            '&:hover': { backgroundColor: 'rgba(92,139,196,0.12)', borderColor: '#4277b7' }
           },
           contained: {
-            backgroundColor: '#5c8bc4',
+            backgroundColor: '#4277b7',
             color: '#ffffff',
             boxShadow: 'none',
             '&:hover': { backgroundColor: '#3f6a9e', boxShadow: 'none' }
@@ -118,7 +120,7 @@ const dubhaimidTheme = responsiveFontSizes(
             color: '#9aa0a6',
             '&.Mui-selected': {
               backgroundColor: 'rgba(92,139,196,0.16)',
-              borderLeft: '2px solid #5c8bc4',
+              borderLeft: '2px solid #4277b7',
               color: '#82a9d6'
             },
             '&:hover': { backgroundColor: 'rgba(255,255,255,0.06)' }
@@ -154,15 +156,15 @@ const dubhaimidTheme = responsiveFontSizes(
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#5c8bc4' } } },
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#4277b7' } } },
       MuiInputLabel: {
-        styleOverrides: { root: { '&.Mui-focused': { color: '#5c8bc4' } } }
+        styleOverrides: { root: { '&.Mui-focused': { color: '#4277b7' } } }
       },
       MuiCheckbox: {
         styleOverrides: {
           root: {
             color: 'rgba(255,255,255,0.4)',
-            '&.Mui-checked': { color: '#5c8bc4' }
+            '&.Mui-checked': { color: '#4277b7' }
           }
         }
       },
@@ -177,7 +179,7 @@ const dubhaimidTheme = responsiveFontSizes(
           root: {
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.23)' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#5c8bc4' }
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4277b7' }
           }
         }
       }

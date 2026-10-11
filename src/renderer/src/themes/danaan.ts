@@ -10,15 +10,18 @@ const surface: Surface = {
   backgroundColor: 'rgba(250,242,220,0.94)',
   border: '1px solid rgba(184,146,42,0.45)',
   backdropFilter: 'blur(2px)',
-  boxShadow: '-2px -2px 0 0 #b8922a, 2px 2px 0 0 #b8922a'
+  boxShadow: '-2px -2px 0 0 #9f7e24, 2px 2px 0 0 #9f7e24'
 }
 
 const danaanTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'light',
+      // HTOO-355: an older gold. #b8922a was 2.39:1 on the parchment; this is
+      // 3.13:1 on the page, 3.43:1 on paper, and the label is 4.89:1 on it.
+      // The values are Mabon's (WP96), picked from a preview of the controls.
       primary: {
-        main: '#b8922a',
+        main: '#9f7e24',
         light: '#e8c060',
         dark: '#7a5e18',
         contrastText: '#1a1008'
@@ -104,13 +107,14 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             borderRadius: 2,
-            border: '1px solid #b8922a',
+            border: '1px solid #9f7e24',
             color: '#7a5e18',
             '&:hover': { backgroundColor: 'rgba(184,146,42,0.12)', borderColor: '#e8c060' }
           },
           contained: {
-            backgroundColor: '#b8922a',
-            color: '#fff8e8',
+            backgroundColor: '#9f7e24',
+            // HTOO-355: the palette's contrastText (4.89:1); the cream was 2.76:1.
+            color: '#1a1008',
             '&:hover': { backgroundColor: '#d4a843' }
           }
         }
@@ -144,7 +148,7 @@ const danaanTheme = responsiveFontSizes(
             borderBottom: '1px solid rgba(184,146,42,0.12)',
             '&.Mui-selected': {
               backgroundColor: 'rgba(184,146,42,0.15)',
-              borderLeft: '2px solid #b8922a',
+              borderLeft: '2px solid #9f7e24',
               color: '#7a5e18'
             },
             '&:hover': { backgroundColor: 'rgba(184,146,42,0.1)', paddingLeft: '20px' }
@@ -158,7 +162,7 @@ const danaanTheme = responsiveFontSizes(
             border: '1px solid rgba(184,146,42,0.25)',
             backgroundImage: 'none',
             transition: 'border-color 0.2s, transform 0.2s',
-            '&:hover': { borderColor: '#b8922a', transform: 'translateY(-2px)' }
+            '&:hover': { borderColor: '#9f7e24', transform: 'translateY(-2px)' }
           }
         }
       },
@@ -186,15 +190,15 @@ const danaanTheme = responsiveFontSizes(
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#b8922a' } } },
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#9f7e24' } } },
       MuiInputLabel: {
-        styleOverrides: { root: { '&.Mui-focused': { color: '#b8922a' } } }
+        styleOverrides: { root: { '&.Mui-focused': { color: '#9f7e24' } } }
       },
       MuiCheckbox: {
         styleOverrides: {
           root: {
             color: 'rgba(184,146,42,0.5)',
-            '&.Mui-checked': { color: '#b8922a' }
+            '&.Mui-checked': { color: '#9f7e24' }
           }
         }
       },
@@ -209,7 +213,7 @@ const danaanTheme = responsiveFontSizes(
           root: {
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.3)' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.6)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#b8922a' }
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#9f7e24' }
           }
         }
       }

@@ -22,8 +22,11 @@ const mundanesTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'light',
+      // HTOO-355: one step darker than Material blue. #1976d2 was 2.89:1 on the
+      // grey page; this is 3.10:1 on the page, 4.95:1 on paper, and white is
+      // 4.95:1 on it.
       primary: {
-        main: '#1976d2',
+        main: '#1871c9',
         light: '#4a97e0',
         dark: '#115293',
         contrastText: '#ffffff'
@@ -87,11 +90,11 @@ const mundanesTheme = responsiveFontSizes(
           root: {
             borderRadius: 6,
             border: '1px solid rgba(0,0,0,0.23)',
-            color: '#1976d2',
-            '&:hover': { backgroundColor: 'rgba(25,118,210,0.06)', borderColor: '#1976d2' }
+            color: '#1871c9',
+            '&:hover': { backgroundColor: 'rgba(25,118,210,0.06)', borderColor: '#1871c9' }
           },
           contained: {
-            backgroundColor: '#1976d2',
+            backgroundColor: '#1871c9',
             color: '#ffffff',
             boxShadow: 'none',
             '&:hover': { backgroundColor: '#115293', boxShadow: 'none' }
@@ -134,8 +137,8 @@ const mundanesTheme = responsiveFontSizes(
             color: '#5f6368',
             '&.Mui-selected': {
               backgroundColor: 'rgba(25,118,210,0.08)',
-              borderLeft: '2px solid #1976d2',
-              color: '#1976d2'
+              borderLeft: '2px solid #1871c9',
+              color: '#1871c9'
             },
             '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
           }
@@ -167,19 +170,19 @@ const mundanesTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             color: '#5f6368',
-            '&.Mui-selected': { color: '#1976d2' }
+            '&.Mui-selected': { color: '#1871c9' }
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#1976d2' } } },
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#1871c9' } } },
       MuiInputLabel: {
-        styleOverrides: { root: { '&.Mui-focused': { color: '#1976d2' } } }
+        styleOverrides: { root: { '&.Mui-focused': { color: '#1871c9' } } }
       },
       MuiCheckbox: {
         styleOverrides: {
           root: {
             color: 'rgba(0,0,0,0.4)',
-            '&.Mui-checked': { color: '#1976d2' }
+            '&.Mui-checked': { color: '#1871c9' }
           }
         }
       },
@@ -194,7 +197,7 @@ const mundanesTheme = responsiveFontSizes(
           root: {
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.23)' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.5)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#1976d2' }
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#1871c9' }
           }
         }
       }
