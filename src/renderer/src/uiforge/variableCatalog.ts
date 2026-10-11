@@ -23,6 +23,12 @@ export interface UiVariableDef {
   namespace: string
   /** Source packet opcode (informational, e.g. '0x08'). */
   packet: string
+  /**
+   * Planned but not sent by any server yet. Kept in the catalog for
+   * autocomplete and type checks, and reported as `unshipped` by validatePath,
+   * so a layout that binds it is warned that it will render static (HTOO-546).
+   */
+  unshipped?: true
   description: string
   /** Present only for `[n]` templates: inclusive 1-based range + optional holes. */
   index?: { min: number; max: number; holes?: readonly number[] }
@@ -106,14 +112,20 @@ function buildCatalog(): UiVariableDef[] {
   for (const [path, type, description, sample] of PLAYER) {
     defs.push({ path, type, namespace: 'player', packet: '0x08', description, sample })
   }
+  // The 0xFF ExtendedStats packet never shipped (HS-1239). These are planned
+  // as ids in the ExtendedStats block of the extension dialect's 0x0008
+  // Attributes packet, `[u16 statId][f64 value]`, whose ids are not allocated
+  // yet: the document repo's docs/plans/brigid/BRIG-53-attributes-replacement-
+  // contract.md. Until they are, nothing sends them (HTOO-546).
   for (const [path, description] of PLAYER_EXT) {
     defs.push({
       path,
       type: 'float',
       namespace: 'player.ext',
-      packet: '0xFF',
+      packet: '0x0008 ExtendedStats (planned)',
       description,
-      sample: 12.5
+      sample: 12.5,
+      unshipped: true
     })
   }
   for (const [path, description] of PLAYER_PROFILE) {
@@ -249,7 +261,7 @@ export function isNumericType(type: UiVariableType): boolean {
   return type === 'int' || type === 'float'
 }
 
-export type PathIssue = 'unknown' | 'index-error' | 'type-mismatch' | 'proposed'
+export type PathIssue = 'unknown' | 'index-error' | 'type-mismatch' | 'proposed' | 'unshipped'
 
 /** A path→type map of custom variables declared via design specs (known to the
  *  project but not the built-in catalog). Keys are template-normalized. */
@@ -260,7 +272,9 @@ export type CustomVariableMap = ReadonlyMap<string, UiVariableType>
  * the path is valid. `unknown` = not in catalog or custom vars; `index-error` =
  * bad/missing index; `type-mismatch` = resolves but to a type outside `allowed`;
  * `proposed` = not in the catalog but declared as a custom (spec'd) variable —
- * known-with-warning, still emitted (renders static until the server exposes it).
+ * known-with-warning, still emitted (renders static until the server exposes it);
+ * `unshipped` = in the catalog but planned, not sent by any server yet — the same
+ * outcome for the layout (HTOO-546).
  */
 export function validatePath(
   path: string,
@@ -277,6 +291,7 @@ export function validatePath(
   }
   if (res.indexError) return 'index-error'
   if (allowed && !allowed.includes(res.def.type)) return 'type-mismatch'
+  if (res.def.unshipped) return 'unshipped'
   return null
 }
 

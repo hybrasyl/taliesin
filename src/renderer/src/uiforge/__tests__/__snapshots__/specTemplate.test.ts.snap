@@ -14,40 +14,23 @@ Extended crit-damage percentage shown in the stats panel.
 
 This variable is referenced by a \`ui_panels\` layout binding but is not yet exposed by the hybrasyl server. Until it ships, Brigid treats the binding as unbound and the control renders static (see docs/ui-panel-layout-format.md).
 
-## Server implementation options
+## Server delivery
 
-File paths below are relative to \`e:\\Dark Ages Dev\\Repos\\server\\hybrasyl\`.
+How a new value reaches the client is decided by the document repo's \`docs/plans/brigid/BRIG-53-attributes-replacement-contract.md\` (status: proposed). It replaces retail 0x08 with \`0x0008\` Attributes inside the negotiated extension dialect. Two routes follow from it.
 
-### Option A — new StatUpdateFlags bit on 0x08
+### Route A — an ExtendedStats id
 
-Add the value to the primary stat update packet (0x08) behind a new flag.
+For a numeric value about the player. Add a member to the stat enum in \`Hybrasyl.Protocol\`, with an explicit \`= N\`: an id is permanent once it ships. The server sends it in the \`0x0008\` ExtendedStats block as \`[u16 statId][f64 value]\`. A new stat needs no dialect version bump. Who owns the id registry is still open (HS-1239).
 
-- \`Internals\\Enums\\StatUpdateFlags.cs\` — add a new \`[Flags]\` bit.
-- \`Objects\\StatInfo.cs\` — add the backing property for \`player.ext.critdmg\`.
-- \`Objects\\User.cs\` → \`UpdateAttributes()\` — write the field when the new flag is set.
-- \`Networking\\ServerPackets\\\` — serialize the field in the 0x08 packet builder.
+### Route B — a new opcode
 
-### Option B — append f32 to the 0xFF ExtendedStats packet
+For a value with its own cadence or shape, or one that is not a number. Allocate the opcode in \`Hybrasyl.Protocol\`'s \`docs/ALLOCATIONS.md\` first; the packet class lives in DALib.
 
-Extend the existing 0xFF extended-stats block with a trailing \`float\`. Best fit for derived/float combat stats that already travel on 0xFF.
-
-- \`Objects\\StatInfo.cs\` — add the backing property for \`player.ext.critdmg\`.
-- \`Objects\\User.cs\` → \`UpdateAttributes()\` — include the field in the 0xFF path.
-- \`Networking\\ServerPackets\\\` — append the \`f32\` to the ExtendedStats writer.
-
-### Option C — new opcode + ServerPacket class
-
-Introduce a dedicated opcode. Warranted only when the value has its own cadence or grouping that does not belong on 0x08 / 0xFF.
-
-- \`Internals\\Enums\\\` — register the new opcode.
-- \`Networking\\ServerPackets\\\` — add a new \`ServerPacket\` subclass.
-- \`Objects\\User.cs\` — emit the packet at the appropriate trigger.
-
-**Recommended:** Option B — append f32 to the 0xFF ExtendedStats packet
+**Recommended:** Route B — a new opcode
 
 ## Wire format
 
-- Payload: \`f32\` (little-endian), appended to the chosen packet body.
+- Payload: \`f64\`, the value of an ExtendedStats record (route A); or a field of the new packet (route B).
 
 ## Client / Brigid expectations
 
