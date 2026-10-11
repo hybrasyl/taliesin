@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-11
+
 ### Added
 
 - **Taliesin looks and works like a Mac app on macOS.** The window keeps the native stoplight buttons, in an empty title bar. An application menu replaces Electron's default one: About, Settings (⌘,), File (Save, Launch Creidhne), Edit, View (Full Screen), Go (every page, ⌘1 to ⌘9 on the first nine), Window and Help (Report an Issue, What's New). The menu has no Reload, which dropped unsaved edits. A menu item does nothing while a dialog is open. Windows and Linux do not change.
