@@ -40,7 +40,8 @@ const iconSx = {
 // Gamified chrome (the four stylized themes): stroked glyphs, keyline/depth.
 const gameBtnSx = {
   WebkitAppRegion: 'no-drag',
-  color: 'text.button',
+  // The bar is secondary.main; see plainBtnSx below.
+  color: 'secondary.contrastText',
   ...iconSx,
   '&:hover': {
     backgroundColor: 'info.main',

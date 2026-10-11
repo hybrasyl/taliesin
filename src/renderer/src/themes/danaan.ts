@@ -40,7 +40,7 @@ const danaanTheme = responsiveFontSizes(
         primary: '#2a1e08',
         secondary: '#4a3c20',
         disabled: '#9a8860',
-        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
         button: '#2a1e08',
         // Text on a light fill: a chrome button on hover (info.main).
         dark: '#1a1008'

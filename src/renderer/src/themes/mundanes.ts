@@ -53,7 +53,7 @@ const mundanesTheme = responsiveFontSizes(
         primary: '#1a1a1a',
         secondary: '#5f6368',
         disabled: '#9aa0a6',
-        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
         button: '#1a1a1a',
         // Text on a light fill: a chrome button on hover (info.main).
         dark: '#1a1a1a'
@@ -116,16 +116,10 @@ const mundanesTheme = responsiveFontSizes(
             color: '#ffffff',
             borderBottom: '1px solid rgba(255,255,255,0.12)',
             boxShadow: 'none',
-            // Chrome icons are IconButtons whose sx color is text.button, which
-            // is dark in this theme. Force them white, and drop the dark keyline
-            // stroke that otherwise greys white glyphs on the navy bar. Scoped
-            // to the AppBar, which is only ever the app chrome. The active nav
-            // icon out-specifies this (see NavToolbar activeBtnSx).
-            '& .MuiIconButton-root': { color: '#ffffff' },
-            '& .MuiIconButton-root svg': { stroke: 'transparent' },
-            // text.button is dark (it heads the grey page and the white cards), so
-            // the toolbar's caption, which also uses it, is forced white here.
-            '& .MuiTypography-root': { color: '#ffffff' }
+            // The chrome's icons take secondary.contrastText, which is white
+            // here. Drop the dark keyline stroke, which greys white glyphs on the
+            // navy bar. Scoped to the AppBar, which is only ever the app chrome.
+            '& .MuiIconButton-root svg': { stroke: 'transparent' }
           }
         }
       },

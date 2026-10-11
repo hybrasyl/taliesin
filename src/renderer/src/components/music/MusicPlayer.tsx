@@ -130,7 +130,7 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
         <IconButton
           size="small"
           onClick={() => onPlayingChange(!playing)}
-          sx={{ color: 'text.button', flexShrink: 0 }}
+          sx={{ color: 'secondary.contrastText', flexShrink: 0 }}
         >
           {playing ? '⏸' : '▶'}
         </IconButton>
@@ -140,13 +140,16 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
       <Typography
         variant="caption"
         noWrap
-        sx={{ color: 'text.button', minWidth: 120, maxWidth: 200, flexShrink: 0 }}
+        sx={{ color: 'secondary.contrastText', minWidth: 120, maxWidth: 200, flexShrink: 0 }}
       >
         {trackName}
       </Typography>
 
       {/* Seek bar */}
-      <Typography variant="caption" sx={{ color: 'text.button', opacity: 0.7, flexShrink: 0 }}>
+      <Typography
+        variant="caption"
+        sx={{ color: 'secondary.contrastText', opacity: 0.7, flexShrink: 0 }}
+      >
         {formatTime(currentTime)}
       </Typography>
       <Slider
@@ -162,9 +165,12 @@ const MusicPlayer: React.FC<Props> = ({ filePath, trackName, playing, onPlayingC
           setSeeking(false)
           if (audioRef.current) audioRef.current.currentTime = v as number
         }}
-        sx={{ flex: 1, color: 'text.button' }}
+        sx={{ flex: 1, color: 'secondary.contrastText' }}
       />
-      <Typography variant="caption" sx={{ color: 'text.button', opacity: 0.7, flexShrink: 0 }}>
+      <Typography
+        variant="caption"
+        sx={{ color: 'secondary.contrastText', opacity: 0.7, flexShrink: 0 }}
+      >
         {formatTime(duration)}
       </Typography>
     </Box>

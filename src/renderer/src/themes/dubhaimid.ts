@@ -48,7 +48,7 @@ const dubhaimidTheme = responsiveFontSizes(
         primary: '#e0e0e0',
         secondary: '#9aa0a6',
         disabled: '#6a6a6e',
-        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
         button: '#ffffff',
         // Text on a light fill: a chrome button on hover (info.main).
         dark: '#1a1a1b'

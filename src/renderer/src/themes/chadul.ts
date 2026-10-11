@@ -39,7 +39,7 @@ const chadulTheme = responsiveFontSizes(
         primary: '#a8d8a0',
         secondary: '#6a9870',
         disabled: '#3a5840',
-        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        // Headings on the page and on cards. (The bars use secondary.contrastText.)
         button: '#a8d8a0',
         // Text on a light fill: a chrome button on hover (info.main).
         dark: '#020804'

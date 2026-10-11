@@ -31,10 +31,12 @@ const iconSx = {
   }
 }
 
+// The bar is secondary.main, so its icons and caption take that colour's own
+// contrast text. text.button is for headings on the page.
 const btnSx = {
   WebkitAppRegion: 'no-drag',
   mx: -0.5,
-  color: 'text.button',
+  color: 'secondary.contrastText',
   ...iconSx,
   '&:hover': {
     backgroundColor: 'info.main',
@@ -86,7 +88,7 @@ const NavToolbar: React.FC = () => {
       {libName ? (
         <Typography
           variant="caption"
-          sx={{ color: 'text.button', opacity: 0.7, letterSpacing: '0.03em' }}
+          sx={{ color: 'secondary.contrastText', opacity: 0.7, letterSpacing: '0.03em' }}
         >
           Current Library: <strong>{libName}</strong>
         </Typography>
