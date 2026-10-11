@@ -28,7 +28,10 @@
 //    the PowerShell procedure in SECURITY.md, run by hand. Automating it means
 //    launching a GUI application on a runner and deciding it "has not printed
 //    anything yet", which is a timing assumption about someone else's binary on
-//    a displayless box that nobody here has measured.
+//    a displayless box that nobody here has measured. The same holds for
+//    EnableEmbeddedAsarIntegrityValidation: this reads that the fuse is on, not
+//    that the app still starts with it. README's release steps start the
+//    packaged builds by hand (HTOO-381).
 //
 // Usage: node scripts/verify-fuses.mjs <path to packaged binary>
 //   win32   dist/win-unpacked/taliesin.exe

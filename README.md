@@ -264,6 +264,7 @@ Write the release notes in **`CHANGELOG.md`**, not on GitHub after the release.
    `## [Unreleased]` above it. Then set the version with `npm version X.Y.Z --no-git-tag-version`.
 3. Run `npm run build:win` and start both `dist/*-setup.exe` (install it) and `dist/*-portable.exe`. Each must open its window. The asar integrity fuse makes a damaged package exit with no window and no message, so this is the only check that a packaged build starts (HTOO-381).
 4. Tag the commit `vX.Y.Z` and push it.
+5. When `release.yml` has published, download the signed setup and portable exes and the dmg, and start each on its platform. A build that does not open has a damaged package: take the release down.
 
 `release.yml` then builds and signs the artifacts. `scripts/changelog-extract.mjs` puts that
 version's section into the release body, and `generate_release_notes` adds the list of PRs below it.
