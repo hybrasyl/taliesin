@@ -3,9 +3,19 @@
  * artwork in the document repo's `docs/logos/macros/`.
  *
  * macOS gets its own artwork because its icon conventions are not the Windows
- * or Linux ones: the icon is a full-bleed rounded square (an Apple squircle, not
- * a circular-cornered rectangle) and the OS does NOT mask it for you. Whatever
- * is in the corners of the file is what appears in the Dock.
+ * or Linux ones: the icon is a rounded square (an Apple squircle, not a
+ * circular-cornered rectangle) and the OS does NOT mask it for you. Whatever is
+ * in the corners of the file is what appears in the Dock.
+ *
+ * ## The icon sits on Apple's grid, not full-bleed
+ *
+ * A macOS icon is an 824x824 body centred on a 1024x1024 canvas, with 100px of
+ * transparency on every side (the same proportion at every size). An icon that
+ * fills the whole canvas renders about 24% larger than its Dock neighbours, and
+ * recent macOS versions put it on a light rounded plate, which reads as a white
+ * border (HTOO-550). So every ICNS chunk is the body scaled to the grid. The
+ * 1024 master beside it, `build/icon-mac.png`, stays full-bleed: it is the input
+ * for the next run, and a gridded master would shrink again each time.
  *
  * ## The source PNG has no alpha channel, and that matters
  *
@@ -90,6 +100,9 @@ const DEFAULT_SOURCE = resolve(repoRoot, '../Comhaigne/docs/logos/macros/taliesi
  */
 const NAVY = 'srgb(3,15,38)'
 const NAVY_BLUE = 38
+
+/** Apple's grid: the body's share of the canvas (824 of 1024), at every size. */
+const BODY_RATIO = 824 / 1024
 
 /**
  * ICNS chunk types, each holding a PNG at the given pixel size. `ic13`/`ic08`
@@ -214,14 +227,13 @@ function main() {
       magick([source, '-alpha', 'off', fill, '-compose', 'Plus', '-composite', flat])
     }
 
-    // 3. Scale the colour and the coverage independently, then recombine.
-    const chunks = []
-    for (const [type, px] of ICNS_ENTRIES) {
-      const rgb = join(tmp, `rgb-${px}.png`)
-      const alpha = join(tmp, `a-${px}.png`)
-      const out = join(tmp, `${type}-${px}.png`)
-      magick([flat, '-filter', 'Lanczos', '-resize', `${px}x${px}!`, rgb])
-      magick([mask, '-filter', 'Lanczos', '-resize', `${px}x${px}!`, alpha])
+    // 3. Scale the colour and the coverage independently, then recombine. A
+    //    chunk puts the body on the grid (`body` < `canvas`); the master does not.
+    const render = (canvas, body, out) => {
+      const rgb = join(tmp, `rgb-${canvas}-${body}.png`)
+      const alpha = join(tmp, `a-${canvas}-${body}.png`)
+      magick([flat, '-filter', 'Lanczos', '-resize', `${body}x${body}!`, rgb])
+      magick([mask, '-filter', 'Lanczos', '-resize', `${body}x${body}!`, alpha])
       magick([
         '(',
         rgb,
@@ -250,10 +262,44 @@ function main() {
         '-combine',
         '-colorspace',
         'sRGB',
+        '-background',
+        'none',
+        '-gravity',
+        'center',
+        '-extent',
+        `${canvas}x${canvas}`,
         '-strip',
         `PNG32:${out}`
       ])
-      chunks.push([type, readFileSync(out)])
+      return readFileSync(out)
+    }
+
+    const chunks = []
+    for (const [type, px] of ICNS_ENTRIES) {
+      const body = Math.round(px * BODY_RATIO)
+      chunks.push([type, render(px, body, join(tmp, `${type}-${px}.png`))])
+    }
+
+    // 4. Check the 1024 chunk before anyone ships it: transparent corners, an
+    //    opaque body, and ink exactly in the grid box.
+    const check = join(tmp, 'check-1024.png')
+    writeFileSync(check, chunks.find(([type]) => type === 'ic10')[1])
+    const inset = (1024 - Math.round(1024 * BODY_RATIO)) / 2
+    const body1024 = 1024 - 2 * inset
+    const inkBox = magick([check, '-format', '%@', 'info:']).toString().trim()
+    const alphaAt = (x, y) =>
+      // -alpha extract first: this ImageMagick reads `p{}.a` as the red channel.
+      magick([check, '-alpha', 'extract', '-format', `%[fx:round(255*p{${x},${y}})]`, 'info:'])
+        .toString()
+        .trim()
+    const checks = [
+      ['body on the grid', inkBox, `${body1024}x${body1024}+${inset}+${inset}`],
+      ['corner alpha', alphaAt(0, 0), '0'],
+      ['body alpha', alphaAt(512, 512), '255']
+    ]
+    for (const [label, actual, expected] of checks) {
+      console.log(`  ${label.padEnd(16)} ${expected} -> ${actual}`)
+      if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`)
     }
 
     const icns = join(repoRoot, 'build', 'icon.icns')
@@ -262,11 +308,11 @@ function main() {
     console.log(`wrote ${icns}`)
     console.log(`verified ${seen.length} chunks: ${seen.join(' ')}`)
 
-    // Keep the 1024 RGBA master beside it: it is what a future conversion should
-    // start from, and it is the only place the recovered alpha is stored.
+    // Keep the 1024 RGBA master beside it, full-bleed: it is what a future
+    // conversion should start from, and it is the only place the recovered alpha
+    // is stored.
     const master = join(repoRoot, 'build', 'icon-mac.png')
-    const largest = chunks.find(([type]) => type === 'ic10')[1]
-    writeFileSync(master, largest)
+    writeFileSync(master, render(1024, 1024, join(tmp, 'master-1024.png')))
     console.log(`wrote ${master}`)
   } finally {
     rmSync(tmp, { recursive: true, force: true })
