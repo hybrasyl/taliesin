@@ -78,7 +78,7 @@ Kind registration and `covers` folding, modelled on the `itemIconsDye` tests.
 
 ## Acceptance criteria
 
-1. ✅ An `ambient_sounds` pack can be created, filled and compiled from the UI with no kind-specific editor code. **The on-screen pass is HTOO-152's `needs-testing` state.**
+1. ✅ An `ambient_sounds` pack can be created, filled and compiled from the UI with no kind-specific editor code. Confirmed on screen in `npm run dev` by Sabrael, 2026-10-11 (HTOO-152).
 2. ✅ Its `covers` blob matches the shape above exactly — one-shots only, keyed by numeric id.
 3. ✅ Files are emitted as `amb_{id:D4}.{ext}` with ids auto-assigned from 1.
 4. ✅ The manifest validates against `contentTypeSchema` in main.

@@ -46,10 +46,6 @@ Per settled decision 4, palette resolution rules live in dalib-ts and are specif
 
 **Trigger:** the Brigid client's virtual-resolution rebase. Recorded in `complete/static-tile-manager.md`; the Static Tile Manager shipped at 1×.
 
-### `packImport.test.ts` flakes under full-suite load
-
-**Trigger:** it fails a run that matters, or someone is in that file anyway. `packImport — basics > extracts a compiled .datf into a fresh project + asset files` intermittently exceeds vitest's 5 s default. Observed 2026-08-01 at 5429 ms in a full `test:coverage` run; the same test passes in **684 ms** when run alone (`npx vitest run --project node src/main/__tests__/packImport.test.ts`). It builds real `.datf` bytes through `archiver` and reads them back through `unzipper`, so it is genuinely the slowest node test and loses to contention rather than to a defect. The fix is a per-test timeout, not a global one.
-
 ### `loadFiles` should be a `useCallback` in the two file-list pages
 
 **Trigger:** the next substantial change to either page's loading path. `MapEditorPage.tsx` and `WorldMapPage.tsx` both call a body-declared `loadFiles()` from an effect keyed on `activeLibrary`. Listing `loadFiles` as a dependency would re-scan the library filesystem on **every render**, so both carry a justified `eslint-disable` instead. Satisfying the rule honestly means wrapping `loadFiles` in `useCallback` with its own dependency set, which reaches into how each page tracks selection and editing state — worth doing, not worth doing blind. `MapCatalogEditor.tsx` carries a third disable that is **not** this: reading `entry.width`/`entry.height` without depending on them is correct there, because the picker writes those values back and the effect would re-read the file.

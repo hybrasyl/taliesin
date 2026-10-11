@@ -220,6 +220,11 @@ describe('Placement tab — copy and paste', () => {
 })
 
 describe('Placement tab — repeating the last placed node', () => {
+  // Its own timeout (HTOO-573): it places a warp the long way, typing the
+  // destination into an Autocomplete a key at a time, the slowest test here.
+  // ~1.6 s alone, and it ran 5.6–5.8 s in a loaded full run on Linux, past the
+  // 5 s default. Raised here only, so the default still catches the next test
+  // that gets slow for real.
   it('shift-click repeats the last node placed in the armed mode', async () => {
     const user = userEvent.setup()
     const { overlay } = await renderPanel()
@@ -237,7 +242,7 @@ describe('Placement tab — repeating the last placed node', () => {
 
     expect(await screen.findByText('(4,4) → Abel')).toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
-  })
+  }, 20_000)
 
   it('falls back to the dialog when the mode has placed nothing yet', async () => {
     const user = userEvent.setup()
