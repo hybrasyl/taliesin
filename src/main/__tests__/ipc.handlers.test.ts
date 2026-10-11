@@ -95,6 +95,11 @@ const {
   })
 
   const fsMock = {
+    // pickerStart.ts reads the disk synchronously to choose a picker's start folder.
+    existsSync: vi.fn((path: string) => {
+      const norm = path.replace(/\\/g, '/')
+      return files.has(norm) || dirs.has(norm)
+    }),
     promises: {
       readFile: vi.fn(async (path: string, encoding?: string) => {
         const norm = path.replace(/\\/g, '/')
@@ -505,6 +510,17 @@ describe('dialog handlers', () => {
   it('dialog:saveFile returns the chosen output path', async () => {
     dialogReplies.saveFile = '/u/out.txt'
     expect(await invoke('dialog:saveFile')).toBe('/u/out.txt')
+  })
+
+  // Electron 43+ opens a dialog with no defaultPath in Downloads (HTOO-553).
+  it('opens the next picker in the folder picked last', async () => {
+    dirs.set('/u/picked', new Set())
+    dialogReplies.openDirectory = '/u/picked'
+    await invoke('dialog:openDirectory')
+    dialogReplies.openFile = []
+    await invoke('dialog:openFile')
+    const calls = electronMock.dialog.showOpenDialog.mock.calls
+    expect(calls[calls.length - 1][0]).toMatchObject({ defaultPath: '/u/picked' })
   })
 })
 

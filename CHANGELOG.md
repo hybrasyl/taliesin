@@ -7,6 +7,16 @@ All notable user-facing changes to Taliesin are recorded here. Format follows
 <!--
 Release process (the notes are authored HERE, not edited on GitHub after the fact):
   1. As you land a PR, add its user-facing change under ## [Unreleased]
+
+### Changed
+
+- **Taliesin runs on Electron 44.** Electron 41 is end-of-life and gets no more Chromium or Node security fixes. Taliesin now needs macOS 13 or later, and a 64-bit system.
+
+### Fixed
+
+- **File and folder pickers open in a useful folder.** Electron 43 and later opens a picker with no start folder in Downloads. A picker now opens in the folder you picked last, then in the client folder, then in Documents. A save picker puts its suggested file name in that folder.
+- **Report an Issue opens the browser only after the report is on the clipboard.** Before, the issue page could open before the copy completed, and a paste then gave nothing.
+- **The splash spinner is round on Linux.** When the font fell back from Segoe UI, the spinner drew as an oval.
      (Added / Changed / Fixed / Removed / Deprecated / Security).
   2. To cut a release: rename ## [Unreleased] to ## [X.Y.Z] - YYYY-MM-DD, add a
      fresh empty ## [Unreleased] above it, and bump package.json to X.Y.Z

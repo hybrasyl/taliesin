@@ -97,7 +97,8 @@ export const ctx: HandlerContext = {
   settingsManager,
   appGetVersion: () => app.getVersion(),
   settingsRoots: new Set<string>(),
-  blessedRoots: new Set<string>()
+  blessedRoots: new Set<string>(),
+  pickerFallbacks: () => [app.getPath('documents'), app.getPath('home')]
 }
 
 // Hydrate ctx.settingsRoots from the persisted settings as soon as we boot
