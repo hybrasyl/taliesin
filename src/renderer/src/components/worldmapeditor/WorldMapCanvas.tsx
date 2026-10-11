@@ -41,6 +41,7 @@ import {
 import { CLIENT_NODE_BOX, type WorldMapPoint } from '../../data/worldMapData'
 import type { SxProps } from '@mui/material'
 import { createWheelStepper, isPinch } from '../../utils/wheel'
+import { isMac } from '../../utils/platform'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -504,24 +505,24 @@ export default function WorldMapCanvas({
       const canvas = overlayRef.current
       if (!canvas) return
       const rect = canvas.getBoundingClientRect()
-      // macOS (HTOO-569): a trackpad pinch (Ctrl + wheel) zooms, a step per ~40 px
-      // of pinch, and a two-finger scroll pans, the way a Mac map does. A mouse
-      // wheel there pans too, because the two cannot be told apart. Windows and
-      // Linux keep the wheel as zoom.
-      if (window.api?.platform === 'darwin') {
-        if (isPinch(e, 'darwin')) {
-          const step = pinchStepRef.current(e.deltaY)
-          if (step !== 0) {
-            zoomAbout(
-              nextZoom(zoomRef.current, step < 0 ? 1 : -1),
-              e.clientX - rect.left,
-              e.clientY - rect.top
-            )
-          }
-          return
+      // macOS (HTOO-569, utils/wheel.ts): a pinch zooms and a two-finger scroll
+      // pans, the way a Mac map does; a mouse wheel there pans too, because the
+      // two cannot be told apart. Windows and Linux keep the wheel as zoom.
+      if (isPinch(e)) {
+        const step = pinchStepRef.current(e.deltaY)
+        if (step !== 0) {
+          zoomAbout(
+            nextZoom(zoomRef.current, step < 0 ? 1 : -1),
+            e.clientX - rect.left,
+            e.clientY - rect.top
+          )
         }
-        const p = panRef.current
-        setPan({ x: p.x - e.deltaX, y: p.y - e.deltaY })
+        return
+      }
+      if (isMac()) {
+        // Functional: two events can arrive before a render updates panRef.
+        const { deltaX, deltaY } = e
+        setPan((p) => ({ x: p.x - deltaX, y: p.y - deltaY }))
         return
       }
       zoomAbout(

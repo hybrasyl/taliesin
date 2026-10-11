@@ -45,7 +45,7 @@ import ArtPickerDialog, { type ArtTarget } from './ArtPickerDialog'
 import SpecDialog, { type SpecDialogInitial } from './SpecDialog'
 import type { SpecPrefill } from './BindingEditor'
 import type { UiVariableType } from '../../uiforge/variableCatalog'
-import { isModKey, isTypingTarget } from '../../utils/keyboard'
+import { historyChord, isModKey, isTypingTarget } from '../../utils/keyboard'
 
 export interface ForgePanelProps {
   project: PackProject
@@ -536,20 +536,13 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
     const onKey = (e: KeyboardEvent) => {
       // Shared with the Map Maker's handler — see utils/keyboard.ts (HTOO-342).
       const typing = isTypingTarget(e.target)
-      // ⌘ alone on macOS, Ctrl elsewhere (HTOO-569).
-      const platform = window.api?.platform
-      const mod = isModKey(e, platform)
+      const mod = isModKey(e)
 
-      if (mod && (e.key === 'z' || e.key === 'Z')) {
+      const history = historyChord(e)
+      if (history) {
         e.preventDefault()
-        if (e.shiftKey) redo()
+        if (history === 'redo') redo()
         else undo()
-        return
-      }
-      // Ctrl+Y is redo on Windows and Linux only; ⌘Y is not redo on macOS.
-      if (mod && platform !== 'darwin' && (e.key === 'y' || e.key === 'Y')) {
-        e.preventDefault()
-        redo()
         return
       }
       if (typing) return

@@ -32,7 +32,11 @@ const byId = (template: Item[], id: string): Item => {
 const submenu = (template: Item[], label: string): Item[] =>
   template.find((m) => m.label === label)!.submenu as Item[]
 
+/** The Go menu's page ids, separators dropped. */
+const goPageIds = GO_PAGES.flatMap((p) => (p ? [p.page] : []))
+
 describe('buildMenuTemplate', () => {
+  // Edit is part of the shape: without it ⌘C, ⌘V and ⌘A stop working in text fields.
   it('has the house shape: app, File, Edit, View, Go, Window, Help', () => {
     expect(build().map((m) => m.label ?? m.role)).toEqual([
       'Taliesin',
@@ -73,10 +77,6 @@ describe('buildMenuTemplate', () => {
     expect(byId(build(), 'settings').accelerator).toBe('Cmd+,')
   })
 
-  it('keeps the Edit menu, without which ⌘C, ⌘V and ⌘A stop working in text fields', () => {
-    expect(build().some((m) => m.role === 'editMenu')).toBe(true)
-  })
-
   it('greys out Save and Launch Creidhne until the renderer reports them', () => {
     const initial = build()
     expect(byId(initial, 'save').enabled).toBe(false)
@@ -92,8 +92,7 @@ describe('buildMenuTemplate', () => {
     const go = submenu(build({ ...INITIAL_MENU_STATE, page: 'mapmaker' }), 'Go').filter(
       (i) => i.type !== 'separator'
     )
-    const pages = GO_PAGES.filter((p): p is { page: string; label: string } => p !== null)
-    expect(go.map((i) => i.id)).toEqual(pages.map((p) => `go:${p.page}`))
+    expect(go.map((i) => i.id)).toEqual(goPageIds.map((p) => `go:${p}`))
     expect(go.slice(0, 9).map((i) => i.accelerator)).toEqual(
       Array.from({ length: 9 }, (_, i) => `Cmd+${i + 1}`)
     )
@@ -109,10 +108,14 @@ describe('buildMenuTemplate', () => {
     expect(send.mock.calls).toEqual([[{ command: 'go:uiforge' }], [{ command: 'whatsNew' }]])
   })
 
-  it('gives every app item an id equal to its command, so e2e can find it', () => {
-    const appItems = flatten(build()).filter((i) => typeof i.click === 'function')
+  it('gives every app item an id equal to the command it sends, so e2e can find it', () => {
+    const send = vi.fn()
+    const appItems = flatten(build(INITIAL_MENU_STATE, { send })).filter(
+      (i) => typeof i.click === 'function'
+    )
     expect(appItems.length).toBeGreaterThan(15)
-    for (const i of appItems) expect(typeof i.id).toBe('string')
+    for (const i of appItems) (i.click as () => void)()
+    expect(send.mock.calls.map(([msg]) => msg.command)).toEqual(appItems.map((i) => i.id))
   })
 })
 
@@ -152,8 +155,7 @@ describe('the contract with the preload and the renderer', () => {
     const nav = read('renderer/src/components/NavToolbar.tsx')
     const navPages = [...nav.matchAll(/onClick=\{nav\('(\w+)'\)\}/g)].map((m) => m[1])
     expect(navPages.length).toBeGreaterThan(10) // guard the guard
-    const goPages = GO_PAGES.filter((p) => p !== null).map((p) => p!.page)
-    expect(goPages).toEqual(navPages.filter((p) => p !== 'settings'))
+    expect(goPageIds).toEqual(navPages.filter((p) => p !== 'settings'))
   })
 
   it('covers every page the renderer knows, and nothing else', () => {
@@ -161,7 +163,6 @@ describe('the contract with the preload and the renderer', () => {
     const block = store.slice(store.indexOf('export const PAGES = ['), store.indexOf('] as const'))
     const pages = [...block.matchAll(/'(\w+)'/g)].map((m) => m[1])
     expect(pages.length).toBeGreaterThan(10) // guard the guard
-    const goPages = GO_PAGES.filter((p) => p !== null).map((p) => p!.page)
-    expect([...goPages, 'settings'].sort()).toEqual([...pages].sort())
+    expect([...goPageIds, 'settings'].sort()).toEqual([...pages].sort())
   })
 })

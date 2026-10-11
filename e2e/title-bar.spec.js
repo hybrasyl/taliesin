@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, getMainWindow } from './helpers.js'
+import { launchApp, getMainWindow, isMac } from './helpers.js'
 
 // The title bar's real geometry (HTOO-569). jsdom does not apply media queries,
 // so a padding asserted there passes against a layout no build renders. This
@@ -10,8 +10,6 @@ import { launchApp, getMainWindow } from './helpers.js'
 // into an empty bar, padded 78px so nothing sits under them; Windows and Linux
 // draw the logo, the name and three window buttons, at the padding the bar
 // always rendered, measured before the change.
-
-const isMac = process.platform === 'darwin'
 
 test.describe('Title bar', () => {
   let electronApp
@@ -48,7 +46,7 @@ test.describe('Title bar', () => {
       await expect(bar.getByRole('button')).toHaveCount(0)
     } else {
       expect(geometry).toMatchObject({ pl: '24px', pr: '24px', imgLeft: 24 })
-      await expect(bar.getByTestId('app-title')).toBeVisible()
+      await expect(bar.getByTestId('app-title')).toHaveText('Taliesin')
       for (const name of ['Minimize', 'Maximize', 'Close']) {
         await expect(bar.getByRole('button', { name })).toBeVisible()
       }

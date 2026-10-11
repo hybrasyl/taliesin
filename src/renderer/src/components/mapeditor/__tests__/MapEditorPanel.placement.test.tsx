@@ -157,9 +157,7 @@ describe('Placement tab — copy and paste', () => {
   // HTOO-569. On macOS the command key is ⌘ alone; ⌃C belongs to the text system.
   it('on macOS, copies with ⌘C and leaves ⌃C alone', async () => {
     // This file installs no window.api; the panel reads only `platform` from it.
-    const w = window as unknown as { api?: object }
-    const before = w.api
-    w.api = { ...before, platform: 'darwin' }
+    vi.stubGlobal('api', { platform: 'darwin' })
     try {
       const { overlay } = await renderPanel({ reactors: [{ x: 6, y: 6, script: 'door.py' }] })
       fireEvent.click(overlay, at(6, 6))
@@ -170,7 +168,7 @@ describe('Placement tab — copy and paste', () => {
       fireEvent.keyDown(window, { key: 'c', metaKey: true })
       expect(await screen.findByText('Copied: reactor')).toBeTruthy()
     } finally {
-      w.api = before
+      vi.unstubAllGlobals()
     }
   })
 

@@ -140,25 +140,14 @@ let closeConfirmedFor: (target: BrowserWindow) => void = () => {}
  */
 let rendererHasUnsaved = false
 
-// macOS ⌘Q (the menu's Quit) through the unsaved-changes guard (HTOO-569).
-// `app.quit()` closes each window, and the guard cancels a dirty window's first
-// `close` to ask the renderer. A cancelled `close` cancels the quit, and macOS
-// keeps an app running when its last window closes, so a confirmed ⌘Q used to
-// close the window and leave Taliesin running with no window. `before-quit`
-// comes before the windows' `close` events, so the guard can record which kind
-// of close it is asking about. Ported from creidhne.
+// Set by ⌘Q / app.quit(): `before-quit` comes before the windows' `close`
+// events, so the close guard can tell a quit from a plain close (HTOO-569).
 let quitRequested = false
-/** Whether the close in progress is a quit, so `window-all-closed` ends the app on macOS too. */
-let quitAfterClose = false
 app.on('before-quit', () => {
   quitRequested = true
 })
 
-// ── The macOS application menu (HTOO-569) ──────────────────────────────────
-// A Taliesin item sends `menu:command` to the main window. The renderer reports
-// what to grey out and mark (`app:setMenuState`), and the menu is rebuilt when
-// that changes. Windows and Linux keep Electron's default menu, hidden with the
-// frame. See src/main/appMenu.ts.
+// ── The macOS application menu (HTOO-569, src/main/appMenu.ts) ──────────────
 let menuState: MenuState = INITIAL_MENU_STATE
 
 function sendMenuCommand(msg: { command: string }): void {
@@ -175,7 +164,7 @@ function applyAppMenu(): void {
   if (process.platform !== 'darwin') return
   const template = buildMenuTemplate(menuState, {
     appName: appIdentity.productName,
-    isDev: !app.isPackaged,
+    isDev: is.dev,
     send: sendMenuCommand
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
@@ -294,6 +283,10 @@ function createWindow(): void {
   // cannot answer, and a close that waits on an answer that never comes is a
   // window the user cannot get rid of — so those cases skip the question.
   let closeApproved = false
+  // Whether the question in flight was caused by ⌘Q. The guard's cancel also
+  // cancels the quit, so an approval has to start it again; otherwise macOS
+  // closes the window and leaves Taliesin running with no window (HTOO-569).
+  let quitPending = false
   win.webContents.on('render-process-gone', () => {
     closeApproved = true
   })
@@ -307,7 +300,8 @@ function createWindow(): void {
     // this IPC handler and that event the compositor can paint a frame of the
     // default background, which is exactly the flash the hide prevents.
     win.hide()
-    win.close()
+    if (quitPending) app.quit()
+    else win.close()
   }
 
   win.on('close', (e) => {
@@ -318,18 +312,12 @@ function createWindow(): void {
       !win.webContents.isDestroyed()
     ) {
       e.preventDefault()
-      // Kept for this question only: a Cancel in the renderer sends nothing, so
-      // a later close must not inherit the quit.
-      quitAfterClose = quitRequested
+      // Every question overwrites it, so a cancelled ⌘Q leaves nothing behind.
+      quitPending = quitRequested
       quitRequested = false
       win.webContents.send('app:closeRequested')
       return
     }
-    // The close goes ahead. It is a quit when ⌘Q caused it now, or when it is
-    // the renderer's approval of a ⌘Q it was asked about. A close after a
-    // cancelled ⌘Q is not: this guard asks only when something is dirty, so a
-    // clean close must reset the flag here or the next red-button click quits.
-    quitAfterClose = quitRequested || (closeApproved && quitAfterClose)
     win.hide()
   })
 
@@ -442,7 +430,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindowRevealed = false
       rendererHasUnsaved = false
-      quitAfterClose = false
       menuState = INITIAL_MENU_STATE
       applyAppMenu()
       splash = createSplashWindow()
@@ -453,9 +440,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  // On macOS the app stays running with no window, unless the close was a
-  // confirmed ⌘Q (see `quitAfterClose`).
-  if (process.platform !== 'darwin' || quitAfterClose) app.quit()
+  if (process.platform !== 'darwin') app.quit()
 })
 
 // Every handler registers through the guarded proxy, never the raw `ipcMain`,

@@ -122,14 +122,6 @@ describe('useAppMenu', () => {
     expect(api.menu.setState).toHaveBeenLastCalledWith(expect.objectContaining({ page: 'archive' }))
   })
 
-  it('sends a report only when the state changes', () => {
-    api.platform = 'darwin'
-    renderHook(() => useAppMenu(true))
-    const before = api.menu.setState.mock.calls.length
-    act(() => useUiStore.getState().setActivePaletteId('p1'))
-    expect(api.menu.setState.mock.calls.length).toBe(before)
-  })
-
   it('runs a command the menu sends', () => {
     api.platform = 'darwin'
     let deliver: (msg: { command: string }) => void = () => {}

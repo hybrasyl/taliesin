@@ -10,6 +10,7 @@ import { useSettingsStore, PLAIN_CHROME_THEMES } from '../store/settingsStore'
 // copied the whole resources/ tree into out/renderer on top of asarUnpack
 // shipping it. See the document repo's ecosystem-rollout-checklist.md R-002.
 import logoUrl from '../assets/taliesin.webp'
+import { isMac } from '../utils/platform'
 
 // Shared shadow vocabulary for the title bar (ported from Oghma). KEYLINE is the
 // crisp four-way #000 outline; DEPTH is the soft layer that lifts the glyph off
@@ -57,39 +58,33 @@ const plainBtnSx = {
   '&:hover': { backgroundColor: 'rgba(255,255,255,0.16)' }
 } as const
 
-// On macOS the title bar is an empty drag region that holds the native stoplights
-// (main sets `titleBarStyle: 'hiddenInset'`): no logo, no name, no window buttons
-// (HTOO-569). The left padding clears the lights, which end near x = 66 (three
-// 14 px lights, 6 px apart, from x = 12), so anything added to the bar later sits
-// beside them.
-//
-// `disableGutters`, and both paddings in sx. The Toolbar's gutters are a media
-// query (24px from `sm` up), and an sx padding with no breakpoint does not beat
-// it: the `px: 1.5` this bar had always rendered as 24px (measured in e2e, see
-// e2e/title-bar.spec.js). So Windows and Linux keep the 24px they actually had.
+// On macOS the bar is an empty drag region that holds the native stoplights
+// (HTOO-569); 78px clears them. `disableGutters` because the Toolbar's gutters
+// are a media query that beats an sx padding: the old `px: 1.5` rendered as
+// 24px, which Windows and Linux keep (e2e/title-bar.spec.js).
 const MAC_LIGHTS_CLEARANCE = '78px'
 
 const TitleBar: React.FC = () => {
-  // Corporate themes get plain MUI window icons and a flat bar; the four
-  // stylized themes keep the gamified skull glyph + #000 keyline shadows.
-  const themeName = useSettingsStore((s) => s.theme)
-  const plain = PLAIN_CHROME_THEMES.includes(themeName)
-  const isMac = window.api?.platform === 'darwin'
+  const mac = isMac()
 
   return (
     <Toolbar
       data-testid="title-bar"
       variant="dense"
       disableGutters
-      sx={{ bgcolor: 'secondary.main', minHeight: 36, pl: isMac ? MAC_LIGHTS_CLEARANCE : 3, pr: 3 }}
+      sx={{ bgcolor: 'secondary.main', minHeight: 36, pl: mac ? MAC_LIGHTS_CLEARANCE : 3, pr: 3 }}
     >
-      {!isMac && <TitleBarContent plain={plain} />}
+      {!mac && <TitleBarContent />}
     </Toolbar>
   )
 }
 
 /** The logo, the name and the window buttons: everything but macOS. */
-const TitleBarContent: React.FC<{ plain: boolean }> = ({ plain }) => {
+const TitleBarContent: React.FC = () => {
+  // Corporate themes get plain MUI window icons and a flat bar; the four
+  // stylized themes keep the gamified skull glyph + #000 keyline shadows.
+  const themeName = useSettingsStore((s) => s.theme)
+  const plain = PLAIN_CHROME_THEMES.includes(themeName)
   const winBtnSx = plain ? plainBtnSx : gameBtnSx
   const closeBtnSx = {
     ...winBtnSx,

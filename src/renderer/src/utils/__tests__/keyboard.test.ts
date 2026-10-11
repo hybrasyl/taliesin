@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { isForeignChord, isModKey, isTypingTarget } from '../keyboard'
+import { historyChord, isModKey, isTypingTarget } from '../keyboard'
 
 // HTOO-342. The Map Maker and the map XML editor's Placement tab both bind
 // single-letter tool keys and both have text fields in reach, so both need the
@@ -78,10 +78,32 @@ describe('isModKey', () => {
   })
 })
 
-describe('isForeignChord', () => {
-  it('is any Control chord on macOS, and nothing elsewhere', () => {
-    expect(isForeignChord({ ctrlKey: true }, 'darwin')).toBe(true)
-    expect(isForeignChord({ ctrlKey: false }, 'darwin')).toBe(false)
-    expect(isForeignChord({ ctrlKey: true }, 'win32')).toBe(false)
+describe('historyChord', () => {
+  const chord = (
+    key: string,
+    mods: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
+  ) => ({
+    key,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    ...mods
+  })
+
+  it('undoes on mod+Z and redoes on Shift+mod+Z, on every platform', () => {
+    expect(historyChord(chord('z', { metaKey: true }), 'darwin')).toBe('undo')
+    expect(historyChord(chord('Z', { metaKey: true, shiftKey: true }), 'darwin')).toBe('redo')
+    expect(historyChord(chord('z', { ctrlKey: true }), 'win32')).toBe('undo')
+    expect(historyChord(chord('Z', { ctrlKey: true, shiftKey: true }), 'win32')).toBe('redo')
+  })
+
+  it('redoes on Ctrl+Y off macOS only', () => {
+    expect(historyChord(chord('y', { ctrlKey: true }), 'win32')).toBe('redo')
+    expect(historyChord(chord('y', { metaKey: true }), 'darwin')).toBeNull()
+  })
+
+  it('leaves a Control chord alone on macOS, and a bare key everywhere', () => {
+    expect(historyChord(chord('z', { ctrlKey: true }), 'darwin')).toBeNull()
+    expect(historyChord(chord('z', {}), 'win32')).toBeNull()
   })
 })

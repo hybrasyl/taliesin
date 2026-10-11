@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { filenameFromPath } from '../utils/format'
 import { mapFilesDir } from '../utils/pickerDefaults'
-import { isModKey, isTypingTarget } from '../utils/keyboard'
+import { historyChord, isModKey, isTypingTarget } from '../utils/keyboard'
 import { useTransientStatus } from '../hooks/useTransientStatus'
 import { StatusMessage } from '../components/shared/StatusMessage'
 import {
@@ -796,25 +796,17 @@ const MapMakerPage: React.FC = () => {
       // and a bare `case 's'` would swallow the letter. See utils/keyboard.ts.
       if (isTypingTarget(e.target)) return
       if (anyDialogOpen) return
-      // The command key is ⌘ alone on macOS, Ctrl elsewhere (HTOO-569). The key
-      // is lower-cased because Shift makes it upper case: `e.key` is 'S' for
-      // Ctrl+Shift+S, which is why Save As never fired from the keyboard.
-      const platform = window.api?.platform
-      const mod = isModKey(e, platform)
-      const key = e.key.toLowerCase()
-      if (mod && key === 'z') {
+      const history = historyChord(e)
+      if (history) {
         e.preventDefault()
-        // ⇧⌘Z is redo on macOS, and Ctrl+Shift+Z is redo elsewhere too.
-        if (e.shiftKey) handleRedo()
+        if (history === 'redo') handleRedo()
         else handleUndo()
         return
       }
-      // Ctrl+Y is redo on Windows and Linux only; ⌘Y is not redo on macOS.
-      if (mod && key === 'y' && platform !== 'darwin') {
-        e.preventDefault()
-        handleRedo()
-        return
-      }
+      // ⌘ on macOS, Ctrl elsewhere (HTOO-569). Lower-cased because Shift makes
+      // `e.key` 'S' for Ctrl+Shift+S, which is why Save As never fired.
+      const mod = isModKey(e)
+      const key = e.key.toLowerCase()
       if (mod && key === 's') {
         e.preventDefault()
         if (e.shiftKey) handleSaveAs()

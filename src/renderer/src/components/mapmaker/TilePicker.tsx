@@ -274,7 +274,7 @@ const TilePicker: React.FC<Props> = ({
   const handleTileClick = useCallback(
     (tileId: number, e: React.MouseEvent) => {
       // ⌘-click on macOS, where a Control-click is a right-click (HTOO-569).
-      if (isModKey(e, window.api?.platform)) {
+      if (isModKey(e)) {
         // Toggle individual tile
         const next = selectedTileIds.includes(tileId)
           ? selectedTileIds.filter((id) => id !== tileId)

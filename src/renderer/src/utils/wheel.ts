@@ -1,3 +1,5 @@
+import { currentPlatform } from './platform'
+
 /**
  * Trackpad gestures for the map canvases (HTOO-569).
  *
@@ -9,7 +11,10 @@
  */
 
 /** A pinch: Ctrl + wheel on macOS. Elsewhere Ctrl + wheel keeps its own meaning. */
-export function isPinch(e: Pick<WheelEvent, 'ctrlKey'>, platform: string | undefined): boolean {
+export function isPinch(
+  e: Pick<WheelEvent, 'ctrlKey'>,
+  platform: string | undefined = currentPlatform()
+): boolean {
   return platform === 'darwin' && e.ctrlKey
 }
 

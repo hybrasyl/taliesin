@@ -1191,23 +1191,22 @@ const MapEditorCanvas: React.FC<Props> = ({
   const wheelHandlerRef = useRef<((e: WheelEvent) => void) | undefined>(undefined)
   const pinchStepRef = useRef(createWheelStepper())
   wheelHandlerRef.current = (e: WheelEvent) => {
-    // A trackpad pinch on macOS is Ctrl + wheel, so it zooms there, a step per
-    // ~40 px of pinch (HTOO-569). Elsewhere Ctrl + wheel keeps panning along x,
-    // the Windows convention. A two-finger scroll is a plain wheel, which the
-    // scroll container already turns into a pan on both axes.
-    if (isPinch(e, window.api?.platform)) {
+    // One zoom step, in or out, inside the Map Maker's range.
+    const stepZoom = (zoomIn: boolean): void => {
+      const newZoom = Math.max(0.25, Math.min(2, zoom + (zoomIn ? 0.25 : -0.25)))
+      if (newZoom !== zoom) onZoomChange(newZoom)
+    }
+    // A pinch zooms on macOS (see utils/wheel.ts, HTOO-569). A two-finger scroll
+    // is a plain wheel, which the scroll container already pans.
+    if (isPinch(e)) {
       e.preventDefault()
       const step = pinchStepRef.current(e.deltaY)
-      if (step === 0) return
-      const newZoom = Math.max(0.25, Math.min(2, zoom - step * 0.25))
-      if (newZoom !== zoom) onZoomChange(newZoom)
+      if (step !== 0) stepZoom(step < 0)
       return
     }
     if (e.shiftKey) {
       e.preventDefault()
-      const delta = e.deltaY > 0 ? -0.25 : 0.25
-      const newZoom = Math.max(0.25, Math.min(2, zoom + delta))
-      if (newZoom !== zoom) onZoomChange(newZoom)
+      stepZoom(e.deltaY <= 0)
     } else if (e.ctrlKey) {
       e.preventDefault()
       const container = scrollRef.current

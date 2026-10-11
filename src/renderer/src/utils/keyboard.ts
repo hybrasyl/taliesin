@@ -1,3 +1,5 @@
+import { currentPlatform } from './platform'
+
 /**
  * Shared predicates for page-level keyboard handlers.
  *
@@ -31,25 +33,28 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * The platform's command key (HTOO-569). Callers pass `window.api.platform`, so
- * this stays pure.
- *
- * On macOS the command key is ⌘ alone. Control belongs to the text system there
- * (⌃K deletes to the end of the line, ⌃P moves up a line), and a Control-click is
- * a right-click. So a Control chord is never Taliesin's on macOS. Elsewhere Ctrl
- * and the meta key are interchangeable, as they always were.
+ * The platform's command key (HTOO-569): ⌘ alone on macOS, where Control belongs
+ * to the text system (⌃K, ⌃P) and a Control-click is a right-click. Elsewhere
+ * Ctrl and the meta key are interchangeable, as they always were.
  */
 export function isModKey(
   e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey'>,
-  platform: string | undefined
+  platform: string | undefined = currentPlatform()
 ): boolean {
   return platform === 'darwin' ? e.metaKey && !e.ctrlKey : e.ctrlKey || e.metaKey
 }
 
-/** A Control chord on macOS: the text system's, so Taliesin leaves it alone. */
-export function isForeignChord(
-  e: Pick<KeyboardEvent, 'ctrlKey'>,
-  platform: string | undefined
-): boolean {
-  return platform === 'darwin' && e.ctrlKey
+/**
+ * Undo or redo, by the platform's convention: mod+Z undoes, Shift+mod+Z redoes,
+ * and mod+Y redoes except on macOS, where ⌘Y is not redo.
+ */
+export function historyChord(
+  e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey' | 'shiftKey' | 'key'>,
+  platform: string | undefined = currentPlatform()
+): 'undo' | 'redo' | null {
+  if (!isModKey(e, platform)) return null
+  const key = e.key.toLowerCase()
+  if (key === 'z') return e.shiftKey ? 'redo' : 'undo'
+  if (key === 'y' && platform !== 'darwin') return 'redo'
+  return null
 }

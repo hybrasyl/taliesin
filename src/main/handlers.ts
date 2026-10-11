@@ -1792,13 +1792,11 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   // The renderer's macOS menu state (nothing else sends it). Fire-and-forget, so
   // a bad report is logged and dropped, and the menu keeps the last good one.
   ipcMain.on('app:setMenuState', (_e, payload: unknown) => {
-    let state: MenuState
     try {
-      state = parseOrLog(ctx, 'app:setMenuState', menuStateSchema, payload)
+      ctx.onMenuState?.(parseOrLog(ctx, 'app:setMenuState', menuStateSchema, payload))
     } catch {
-      return
+      /* logged by parseOrLog */
     }
-    ctx.onMenuState?.(state)
   })
 
   // Settings / app

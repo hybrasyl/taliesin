@@ -82,14 +82,6 @@ test.describe('Settings persist across a relaunch', () => {
     expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(
       themedBackground
     )
-    // Dubhaimid is a plain-chrome theme, so the title bar drops its text-shadow.
-    // macOS has no title text (HTOO-569).
-    if (process.platform !== 'darwin') {
-      const shadow = await page.evaluate(
-        () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
-      )
-      expect(shadow).toBe('none')
-    }
 
     await page.getByTestId('nav-settings').click()
     await expect(page.getByTestId('theme-option-dubhaimid')).toHaveAttribute('aria-checked', 'true')

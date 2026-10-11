@@ -12,6 +12,9 @@ export const mainEntry = join(repoRoot, 'out', 'main', 'index.js')
 // (`join(localAppData, 'Erisco', 'Taliesin')`).
 export const USERDATA_SUBPATH = ['Erisco', 'Taliesin']
 
+// macOS draws a different title bar and installs the application menu (HTOO-569).
+export const isMac = process.platform === 'darwin'
+
 // Launch the BUILT app under Electron.
 //
 // %LOCALAPPDATA% is redirected to a throwaway temp dir because src/main/index.ts

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useUiStore, isPage } from '../store/uiStore'
 import { useMenuStore } from '../store/menuStore'
 import { useCompanionStatus } from './useCompanionStatus'
+import { isMac } from '../utils/platform'
 
 /**
  * The renderer half of the macOS application menu (HTOO-569): run a menu
@@ -82,45 +83,29 @@ export function currentMenuState({ companionFound }: { companionFound: boolean }
  * is no menu to drive, and the companion is not asked about a second time.
  */
 export function useAppMenu(enabled: boolean): void {
-  const isMac = window.api?.platform === 'darwin'
-  const active = enabled && isMac
+  const active = enabled && isMac()
   const { found: companionFound, refresh: refreshCompanion } = useCompanionStatus({
     enabled: active
   })
 
-  // Read at run time, so a command sees the current companion answer without
-  // re-subscribing on every render.
-  const foundRef = useRef(companionFound)
-  const refreshRef = useRef(refreshCompanion)
-  useEffect(() => {
-    foundRef.current = companionFound
-    refreshRef.current = refreshCompanion
-  })
-
-  // The command listener, once.
+  // The command listener. `refreshCompanion` is stable, so this runs once.
   useEffect(() => {
     if (!active) return
     const actions: MenuActions = {
       launchCompanion: async () => {
         await window.api.launchCompanion()
         // A launch is the moment a target can turn out to have gone missing.
-        refreshRef.current()
+        refreshCompanion()
       }
     }
     return window.api.menu.onCommand((msg) => runMenuCommand(msg, actions))
-  }, [active])
+  }, [active, refreshCompanion])
 
-  // The state report: on every store change, and when the companion answer changes.
-  const lastRef = useRef('')
+  // The state report: on every store change, and when the companion answer
+  // changes. Main drops a report that changes nothing.
   useEffect(() => {
     if (!active) return
-    const report = (): void => {
-      const state = currentMenuState({ companionFound: foundRef.current })
-      const json = JSON.stringify(state)
-      if (json === lastRef.current) return
-      lastRef.current = json
-      window.api.menu.setState(state)
-    }
+    const report = (): void => window.api.menu.setState(currentMenuState({ companionFound }))
     report()
     return useUiStore.subscribe(report)
   }, [active, companionFound])
