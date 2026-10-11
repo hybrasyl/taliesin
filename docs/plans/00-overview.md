@@ -34,9 +34,8 @@ Taliesin has no Tier-1 design doc of its own; it predates the tier system. The n
 
 ## Milestone — palette resolution, LFT fonts, SOTP adoption, ambient packs
 
-**Baseline 2.8.0. Scope agreed 2026-07-28. ✅ All seven WPs shipped.** The code is complete and on
-`main`; what remains is the on-screen pass in `npm run dev`, which is why HTOO-150, HTOO-151 and
-HTOO-152 sit in `needs-testing` rather than `done`. See "Milestone verification" below.
+**Baseline 2.8.0. Scope agreed 2026-07-28. ✅ Closed 2026-10-11.** All seven WPs shipped, and the
+on-screen pass in `npm run dev` is done (HTOO-150, HTOO-151, HTOO-152). See "Milestone verification" below.
 
 Taliesin used to show a legacy sprite in the wrong colours until the user guessed a palette, show the client's real font as a hex dump, and ship an editor for a font format the client stopped calling. This milestone makes the Archive Viewer tell the truth about what is in a `.dat`, and retires the part that lies. Five of the seven WPs are read/decode work on legacy client formats; one adds a pack kind.
 
@@ -81,9 +80,9 @@ Most of this milestone changes pixels rather than return codes, so a green suite
 
 1. ✅ `da.lft` in `national.dat` browses without hanging, and a sample string renders (WP2).
 2. ✅ `mptpal.tbl`, `gndani.tbl`, `effect.tbl` and a numbered cycling file such as `stc0006.tbl` render as structured tables, and `color0.tbl` still shows dye swatches (WP4).
-3. **Outstanding** — ground tiles in the Map Maker match the archive tileset preview; walls and the passability overlay are unchanged (WP5). Ground tiles **do** change appearance here: empty parts of a tile were drawn as see-through holes and are now solid, matching the preview. HTOO-150, and HTOO-151 for the wall palettes.
-4. **Outstanding** — an `ambient_sounds` pack compiles and its `covers` blob matches the contract (WP6). Tick **One-shot** on one asset and confirm only that id appears, as `{ "loop": false }`. HTOO-152.
+3. ✅ Ground tiles in the Map Maker match the archive tileset preview; walls and the passability overlay are unchanged (WP5). Ground tiles **do** change appearance here: empty parts of a tile were drawn as see-through holes and are now solid, matching the preview. HTOO-150, and HTOO-151 for the wall palettes.
+4. ✅ An `ambient_sounds` pack compiles and its `covers` blob matches the contract (WP6). Tick **One-shot** on one asset and confirm only that id appears, as `{ "loop": false }`. HTOO-152.
 
 The WP0 and WP1 items on this list are done; they are recorded in those WPs' own acceptance criteria.
 
-Items 3 and 4 are the only thing between this milestone and closed. Nothing in the repo is waiting on them.
+Items 3 and 4 were confirmed on screen by Sabrael on 2026-10-11, which closes the milestone.

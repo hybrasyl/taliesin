@@ -129,7 +129,7 @@ Tests live under `src/renderer/src/utils/__tests__/`.
 1. ✅ `MapAssets` carries a `SotpFile`, and no consumer decodes the collision nibble by hand.
 2. ✅ `wallWalkability` still returns `'unknown'` past `sotp.maxTileId`. A test pins it, asserting that dalib's answer and ours differ — dalib returns 0 past the end of the table, and 0 reads as passable, so deferring the range check would hand the allocator unknown ids as free passable slots.
 3. ✅ Ground and wall tiles render through `renderTile`/`renderHpf`, and the local `pixelsToImageData` is gone.
-4. ✅ Walls are pixel-for-pixel unchanged and ground tiles match the archive tileset preview — measured off-screen against a real client, per "What shipped". **Still owed: the on-screen confirmation in `npm run dev`, which is HTOO-150's `needs-testing` state.**
+4. ✅ Walls are pixel-for-pixel unchanged and ground tiles match the archive tileset preview — measured off-screen against a real client, per "What shipped". Confirmed on screen in `npm run dev` by Sabrael, 2026-10-11 (HTOO-150).
 5. ✅ `stcani.tbl` no longer contributes palette entries to the wall palette table, and `tileEligibility.ts` still sees the cycling files.
 6. ✅ The SOTP unit tests keep their fixture bytes and hand them to the parser instead of indexing by hand, so the identical expectations are the evidence the refactor preserved behaviour.
 7. ✅ All checks green.
