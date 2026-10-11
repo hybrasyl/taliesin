@@ -47,7 +47,11 @@ const dubhaimidTheme = responsiveFontSizes(
       text: {
         primary: '#e0e0e0',
         secondary: '#9aa0a6',
-        disabled: '#6a6a6e'
+        disabled: '#6a6a6e',
+        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        button: '#ffffff',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#1a1a1b'
       },
       divider: 'rgba(255,255,255,0.12)',
       error: { main: '#f44336' },

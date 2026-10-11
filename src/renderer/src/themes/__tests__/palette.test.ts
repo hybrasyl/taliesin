@@ -113,6 +113,21 @@ describe('theme palettes', () => {
       expect(contrast(p.primary.contrastText, p.primary.main)).toBeGreaterThanOrEqual(4.5)
     })
 
+    it('text.button reads on the page and on paper', () => {
+      // Headings on the page and on the Settings cards use it. Before it was in
+      // any palette, every `color: 'text.button'` was dropped and the text took
+      // its parent's colour (see themes/augmentation.ts).
+      const button = p.text.button
+      expect(button, 'text.button is set').toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(button, p.background.default)).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(button, p.background.paper, p.background.default)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('text.dark reads on info.main, the chrome hover', () => {
+      expect(p.text.dark, 'text.dark is set').toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(p.text.dark, p.info.main)).toBeGreaterThanOrEqual(4.5)
+    })
+
     it('an override that fills with primary.main gives its text 4.5:1', () => {
       // The component overrides paint the accent themselves, with their own label
       // colour. danaan's contained button put cream on its gold (2.76:1) while

@@ -39,7 +39,11 @@ const danaanTheme = responsiveFontSizes(
       text: {
         primary: '#2a1e08',
         secondary: '#4a3c20',
-        disabled: '#9a8860'
+        disabled: '#9a8860',
+        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        button: '#2a1e08',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#1a1008'
       },
       divider: 'rgba(159,126,36,0.3)',
       error: { main: '#ff0000' },

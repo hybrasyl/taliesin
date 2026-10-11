@@ -52,7 +52,11 @@ const mundanesTheme = responsiveFontSizes(
       text: {
         primary: '#1a1a1a',
         secondary: '#5f6368',
-        disabled: '#9aa0a6'
+        disabled: '#9aa0a6',
+        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        button: '#1a1a1a',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#1a1a1a'
       },
       divider: 'rgba(0,0,0,0.12)',
       error: { main: '#d32f2f' },
@@ -112,14 +116,16 @@ const mundanesTheme = responsiveFontSizes(
             color: '#ffffff',
             borderBottom: '1px solid rgba(255,255,255,0.12)',
             boxShadow: 'none',
-            // Chrome icons are IconButtons whose sx color (text.button) is
-            // undefined, so without this they fall back to MUI's default
-            // action.active grey. Force them white, and drop the dark keyline
+            // Chrome icons are IconButtons whose sx color is text.button, which
+            // is dark in this theme. Force them white, and drop the dark keyline
             // stroke that otherwise greys white glyphs on the navy bar. Scoped
             // to the AppBar, which is only ever the app chrome. The active nav
             // icon out-specifies this (see NavToolbar activeBtnSx).
             '& .MuiIconButton-root': { color: '#ffffff' },
-            '& .MuiIconButton-root svg': { stroke: 'transparent' }
+            '& .MuiIconButton-root svg': { stroke: 'transparent' },
+            // text.button is dark (it heads the grey page and the white cards), so
+            // the toolbar's caption, which also uses it, is forced white here.
+            '& .MuiTypography-root': { color: '#ffffff' }
           }
         }
       },

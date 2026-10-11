@@ -39,7 +39,11 @@ const grinnealTheme = responsiveFontSizes(
       text: {
         primary: '#d4c4a8',
         secondary: '#9a8a70',
-        disabled: '#5a4e3c'
+        disabled: '#5a4e3c',
+        // Headings on the page and cards, the chrome icons and the toolbar caption.
+        button: '#f8f0df',
+        // Text on a light fill: a chrome button on hover (info.main).
+        dark: '#1a1408'
       },
       divider: 'rgba(122,106,80,0.25)',
       error: { main: '#ff0000' },
