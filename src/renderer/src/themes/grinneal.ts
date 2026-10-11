@@ -19,7 +19,7 @@ const grinnealTheme = responsiveFontSizes(
       mode: 'dark',
       // HTOO-355: the olive is a middle tone, so the cream label cannot pass on
       // it (2.72:1). A lighter olive with a dark label, as hybrasyl (HTOO-341):
-      // 4.69:1 on the page, 5.54:1 on paper, and the label is 4.69:1 on it.
+      // 4.69:1 on the page, 5.45:1 on paper, and the label is 4.69:1 on it.
       primary: {
         main: '#7f9360',
         light: '#8a9a68',
@@ -79,12 +79,12 @@ const grinnealTheme = responsiveFontSizes(
             borderRadius: 2,
             border: '1px solid #7f9360',
             color: '#8a9a68',
-            '&:hover': { backgroundColor: 'rgba(106,122,80,0.14)', borderColor: '#8a9a68' }
+            '&:hover': { backgroundColor: 'rgba(127,147,96,0.14)', borderColor: '#8a9a68' }
           },
           contained: {
-            backgroundColor: 'rgba(106,122,80,0.22)',
+            backgroundColor: 'rgba(127,147,96,0.22)',
             color: '#d4c4a8',
-            '&:hover': { backgroundColor: 'rgba(106,122,80,0.36)' }
+            '&:hover': { backgroundColor: 'rgba(127,147,96,0.36)' }
           }
         }
       },
@@ -115,7 +115,7 @@ const grinnealTheme = responsiveFontSizes(
             color: '#5a4e3c',
             borderBottom: '1px solid rgba(122,106,80,0.08)',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(106,122,80,0.12)',
+              backgroundColor: 'rgba(127,147,96,0.12)',
               borderLeft: '2px solid #7f9360',
               color: '#8a9a68'
             },
@@ -141,9 +141,22 @@ const grinnealTheme = responsiveFontSizes(
             fontFamily: '"Cinzel", serif',
             fontSize: '0.65rem',
             letterSpacing: '0.1em',
-            backgroundColor: 'rgba(106,122,80,0.14)',
-            color: '#7f9360',
-            border: '1px solid rgba(122,106,80,0.3)'
+            border: '1px solid rgba(122,106,80,0.3)',
+            // The tint is for a plain chip only. On `root` it beat MUI's own fill
+            // for every colour, so a warning or a selected chip looked plain.
+            '&.MuiChip-colorDefault': {
+              backgroundColor: 'rgba(127,147,96,0.14)',
+              color: '#7f9360'
+            },
+            // HTOO-355: a selected chip (color="primary", filled) takes the accent
+            // and its label, as MUI's own fill does, but keeps the accent on hover:
+            // primary.dark under a dark label fails 4.5:1.
+            '&.MuiChip-filled.MuiChip-colorPrimary': {
+              backgroundColor: '#7f9360',
+              color: '#27221c',
+              borderColor: '#7f9360',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#7f9360' }
+            }
           }
         }
       },
@@ -165,7 +178,7 @@ const grinnealTheme = responsiveFontSizes(
       MuiCheckbox: {
         styleOverrides: {
           root: {
-            color: 'rgba(106,122,80,0.5)',
+            color: 'rgba(127,147,96,0.5)',
             '&.Mui-checked': { color: '#7f9360' }
           }
         }
@@ -179,8 +192,8 @@ const grinnealTheme = responsiveFontSizes(
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(106,122,80,0.3)' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(106,122,80,0.6)' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(127,147,96,0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(127,147,96,0.6)' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7f9360' }
           }
         }

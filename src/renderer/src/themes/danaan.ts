@@ -8,7 +8,7 @@ import { sharedComponents, type Surface } from './sharedComponents'
 const surface: Surface = {
   backgroundImage: 'none',
   backgroundColor: 'rgba(250,242,220,0.94)',
-  border: '1px solid rgba(184,146,42,0.45)',
+  border: '1px solid rgba(159,126,36,0.45)',
   backdropFilter: 'blur(2px)',
   boxShadow: '-2px -2px 0 0 #9f7e24, 2px 2px 0 0 #9f7e24'
 }
@@ -18,7 +18,7 @@ const danaanTheme = responsiveFontSizes(
     palette: {
       mode: 'light',
       // HTOO-355: an older gold. #b8922a was 2.39:1 on the parchment; this is
-      // 3.13:1 on the page, 3.43:1 on paper, and the label is 4.89:1 on it.
+      // 3.13:1 on the page, 3.41:1 on paper, and the label is 4.89:1 on it.
       // The values are Mabon's (WP96), picked from a preview of the controls.
       primary: {
         main: '#9f7e24',
@@ -41,7 +41,7 @@ const danaanTheme = responsiveFontSizes(
         secondary: '#4a3c20',
         disabled: '#9a8860'
       },
-      divider: 'rgba(184,146,42,0.3)',
+      divider: 'rgba(159,126,36,0.3)',
       error: { main: '#ff0000' },
       warning: { main: '#FFFF00' },
       info: { main: '#6de7f7' },
@@ -109,7 +109,7 @@ const danaanTheme = responsiveFontSizes(
             borderRadius: 2,
             border: '1px solid #9f7e24',
             color: '#7a5e18',
-            '&:hover': { backgroundColor: 'rgba(184,146,42,0.12)', borderColor: '#e8c060' }
+            '&:hover': { backgroundColor: 'rgba(159,126,36,0.12)', borderColor: '#e8c060' }
           },
           contained: {
             backgroundColor: '#9f7e24',
@@ -124,7 +124,7 @@ const danaanTheme = responsiveFontSizes(
           root: {
             backgroundColor: 'rgba(255,248,225,0.97)',
             backgroundImage: 'none',
-            borderBottom: '1px solid rgba(184,146,42,0.3)',
+            borderBottom: '1px solid rgba(159,126,36,0.3)',
             boxShadow: 'none',
             color: '#2a1e08'
           }
@@ -134,7 +134,7 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           paper: {
             backgroundColor: 'rgba(250,242,220,0.97)',
-            borderRight: '1px solid rgba(184,146,42,0.4)'
+            borderRight: '1px solid rgba(159,126,36,0.4)'
           }
         }
       },
@@ -145,13 +145,13 @@ const danaanTheme = responsiveFontSizes(
             fontSize: '0.7rem',
             letterSpacing: '0.1em',
             color: '#4a3c20',
-            borderBottom: '1px solid rgba(184,146,42,0.12)',
+            borderBottom: '1px solid rgba(159,126,36,0.12)',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(184,146,42,0.15)',
+              backgroundColor: 'rgba(159,126,36,0.15)',
               borderLeft: '2px solid #9f7e24',
               color: '#7a5e18'
             },
-            '&:hover': { backgroundColor: 'rgba(184,146,42,0.1)', paddingLeft: '20px' }
+            '&:hover': { backgroundColor: 'rgba(159,126,36,0.1)', paddingLeft: '20px' }
           }
         }
       },
@@ -159,23 +159,36 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             backgroundColor: 'rgba(255,250,235,0.96)',
-            border: '1px solid rgba(184,146,42,0.25)',
+            border: '1px solid rgba(159,126,36,0.25)',
             backgroundImage: 'none',
             transition: 'border-color 0.2s, transform 0.2s',
             '&:hover': { borderColor: '#9f7e24', transform: 'translateY(-2px)' }
           }
         }
       },
-      MuiDivider: { styleOverrides: { root: { borderColor: 'rgba(184,146,42,0.2)' } } },
+      MuiDivider: { styleOverrides: { root: { borderColor: 'rgba(159,126,36,0.2)' } } },
       MuiChip: {
         styleOverrides: {
           root: {
             fontFamily: '"Cinzel", serif',
             fontSize: '0.65rem',
             letterSpacing: '0.1em',
-            backgroundColor: 'rgba(184,146,42,0.15)',
-            color: '#7a5e18',
-            border: '1px solid rgba(184,146,42,0.35)'
+            border: '1px solid rgba(159,126,36,0.35)',
+            // The tint is for a plain chip only. On `root` it beat MUI's own fill
+            // for every colour, so a warning or a selected chip looked plain.
+            '&.MuiChip-colorDefault': {
+              backgroundColor: 'rgba(159,126,36,0.15)',
+              color: '#7a5e18'
+            },
+            // HTOO-355: a selected chip (color="primary", filled) takes the accent
+            // and its label, as MUI's own fill does, but keeps the accent on hover:
+            // primary.dark under a dark label fails 4.5:1.
+            '&.MuiChip-filled.MuiChip-colorPrimary': {
+              backgroundColor: '#9f7e24',
+              color: '#1a1008',
+              borderColor: '#9f7e24',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#9f7e24' }
+            }
           }
         }
       },
@@ -197,7 +210,7 @@ const danaanTheme = responsiveFontSizes(
       MuiCheckbox: {
         styleOverrides: {
           root: {
-            color: 'rgba(184,146,42,0.5)',
+            color: 'rgba(159,126,36,0.5)',
             '&.Mui-checked': { color: '#9f7e24' }
           }
         }
@@ -211,8 +224,8 @@ const danaanTheme = responsiveFontSizes(
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.3)' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,146,42,0.6)' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(159,126,36,0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(159,126,36,0.6)' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#9f7e24' }
           }
         }

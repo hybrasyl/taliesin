@@ -91,7 +91,7 @@ const mundanesTheme = responsiveFontSizes(
             borderRadius: 6,
             border: '1px solid rgba(0,0,0,0.23)',
             color: '#1871c9',
-            '&:hover': { backgroundColor: 'rgba(25,118,210,0.06)', borderColor: '#1871c9' }
+            '&:hover': { backgroundColor: 'rgba(24,113,201,0.06)', borderColor: '#1871c9' }
           },
           contained: {
             backgroundColor: '#1871c9',
@@ -136,7 +136,7 @@ const mundanesTheme = responsiveFontSizes(
           root: {
             color: '#5f6368',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(25,118,210,0.08)',
+              backgroundColor: 'rgba(24,113,201,0.08)',
               borderLeft: '2px solid #1871c9',
               color: '#1871c9'
             },
@@ -160,9 +160,22 @@ const mundanesTheme = responsiveFontSizes(
       MuiChip: {
         styleOverrides: {
           root: {
-            backgroundColor: '#eceff1',
-            color: '#455a64',
-            border: '1px solid rgba(0,0,0,0.12)'
+            border: '1px solid rgba(0,0,0,0.12)',
+            // The tint is for a plain chip only. On `root` it beat MUI's own fill
+            // for every colour, so a warning or a selected chip looked plain.
+            '&.MuiChip-colorDefault': {
+              backgroundColor: '#eceff1',
+              color: '#455a64'
+            },
+            // HTOO-355: a selected chip (color="primary", filled) takes the accent
+            // and its label, as MUI's own fill does, but keeps the accent on hover:
+            // primary.dark under a dark label fails 4.5:1.
+            '&.MuiChip-filled.MuiChip-colorPrimary': {
+              backgroundColor: '#1871c9',
+              color: '#ffffff',
+              borderColor: '#1871c9',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#1871c9' }
+            }
           }
         }
       },
