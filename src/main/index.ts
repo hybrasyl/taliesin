@@ -23,10 +23,16 @@ import { shouldDisableHardwareAcceleration, REMOTE_SESSION_CSS } from './remoteS
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
 // %LOCALAPPDATA% ourselves. macOS/Linux have no roaming concept; appData is local.
+//
+// LOCALAPPDATA is read on EVERY platform (HTOO-543). Nothing sets it on Linux or
+// macOS except the e2e helper, which points it at a temp dir. Read on Windows
+// only, the redirect did nothing there, and every spec read and wrote the real
+// settings. No other variable moves appData on macOS.
 const localAppData =
-  process.platform === 'win32'
-    ? (process.env.LOCALAPPDATA ?? join(app.getPath('home'), 'AppData', 'Local'))
-    : app.getPath('appData')
+  process.env.LOCALAPPDATA ??
+  (process.platform === 'win32'
+    ? join(app.getPath('home'), 'AppData', 'Local')
+    : app.getPath('appData'))
 const settingsPath = join(localAppData, 'Erisco', 'Taliesin')
 const cachePath = join(localAppData, 'Erisco', 'Taliesin')
 app.setPath('userData', cachePath)
@@ -65,6 +71,10 @@ if (!app.requestSingleInstanceLock()) app.exit(0)
 // lived in %APPDATA%/Erisco/Taliesin; carry a returning user's settings over so
 // active library / packs / preferences don't reset. Best-effort.
 function migrateSettingsFromRoaming(): void {
+  // Windows only: roaming is a Windows concept. On Linux and macOS a redirected
+  // LOCALAPPDATA (the e2e helper) makes oldDir differ from settingsPath, and this
+  // would copy the user's real settings into the test's temp dir (HTOO-543).
+  if (process.platform !== 'win32') return
   try {
     const oldDir = join(app.getPath('appData'), 'Erisco', 'Taliesin')
     if (oldDir === settingsPath) return // same location (non-Windows) — nothing to do

@@ -353,7 +353,7 @@ let prevLocalAppData: string | undefined
 const boot = { lockRequests: 0, exits: 0, appEvents: [] as string[] }
 
 beforeAll(async () => {
-  // Settings now resolve from %LOCALAPPDATA% on Windows; pin it to the same
+  // Settings resolve from %LOCALAPPDATA% on every platform (HTOO-543); pin it to the same
   // base the electron mock returns for app.getPath('appData') so the in-memory
   // fs paths the handler tests assert (/appdata/...) stay deterministic.
   prevLocalAppData = process.env.LOCALAPPDATA

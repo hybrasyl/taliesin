@@ -1,6 +1,6 @@
 import { _electron as electron, expect } from '@playwright/test'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 
@@ -30,10 +30,34 @@ export async function launchApp({ seedSettings, localAppData: reuseDir } = {}) {
   // Electron-hosted terminals set it), the launched electron binary runs as
   // plain Node (no `app`, no windows) and the main process throws at
   // app.setPath. We want a real Electron app here.
-  const env = { ...process.env, LOCALAPPDATA: localAppData, NODE_ENV: 'test' }
+  //
+  // HYBINDEX_CACHE_DIR: hybindex-ts reads LOCALAPPDATA on Windows only and
+  // writes ~/.config/Erisco/hybindex elsewhere, so the world-index cache needs
+  // its own redirect (HTOO-543). Same layout as Windows.
+  const env = {
+    ...process.env,
+    LOCALAPPDATA: localAppData,
+    HYBINDEX_CACHE_DIR: join(localAppData, 'Erisco', 'hybindex'),
+    NODE_ENV: 'test'
+  }
   delete env.ELECTRON_RUN_AS_NODE
   const electronApp = await electron.launch({ args: [mainEntry], cwd: repoRoot, env })
+  await assertIsolated(electronApp, localAppData)
   return { electronApp, localAppData }
+}
+
+// Fail the launch when the app's userData is not under the temp dir (HTOO-543).
+// This is the alarm, not the fix: it reads userData AFTER the launch, so the app
+// has already made its profile folder wherever userData points. It stops a SPEC
+// from saving into the real settings. The `localAppData` line in
+// src/main/index.ts is what keeps the launch itself off the real profile.
+export async function assertIsolated(electronApp, localAppData) {
+  const userData = await electronApp.evaluate(({ app }) => app.getPath('userData'))
+  const expected = join(localAppData, ...USERDATA_SUBPATH)
+  if (resolve(userData).toLowerCase() !== resolve(expected).toLowerCase()) {
+    await electronApp.close().catch(() => {})
+    throw new Error(`e2e isolation failed: userData is ${userData}, expected ${expected}`)
+  }
 }
 
 // Find the real main window and wait until it's actually shown. The app pops a
