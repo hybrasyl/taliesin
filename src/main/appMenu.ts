@@ -92,8 +92,8 @@ export function buildMenuTemplate(
       label: appName,
       submenu: [
         item(`About ${appName}`, 'about'),
-        // No "Check for Updates…": Taliesin checks once at launch and has no
-        // manual check to point at (HTOO-65).
+        // Goes to the Check for updates button on the Settings About card.
+        item('Check for Updates…', 'checkForUpdates'),
         sep,
         item('Settings…', 'settings', { accelerator: 'Cmd+,' }),
         sep,

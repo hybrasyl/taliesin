@@ -171,8 +171,10 @@ declare global {
     launchCompanion: () => Promise<CompanionLaunchResult>
     companionStatus: () => Promise<CompanionStatus>
     companionPickerFilters: () => Promise<{ name: string; extensions: string[] }[]>
-    /** A newer published release, or null when current / offline / rate-limited. */
-    checkForUpdate: () => Promise<{ version: string; url: string } | null>
+    /** The update check (update-check module v1). Never rejects on a network
+     *  failure: "up to date" is `{ ok: true, update: null }` and "could not
+     *  tell" is `{ ok: false, reason }`. */
+    checkForUpdate: () => Promise<import('../../shared/updateVersion').UpdateCheckResult>
     openFile: (
       filters?: { name: string; extensions: string[] }[],
       defaultPath?: string

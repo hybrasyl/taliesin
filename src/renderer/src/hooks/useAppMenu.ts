@@ -42,7 +42,9 @@ export function runMenuCommand(
       return
     case 'about':
     case 'whatsNew':
-      // Both dialogs belong to Settings, which takes the request when it mounts.
+    case 'checkForUpdates':
+      // The two dialogs and the Check for updates button belong to Settings,
+      // which takes the request when it mounts.
       useMenuStore.getState().request(command)
       ui.setCurrentPage('settings')
       return

@@ -75,6 +75,7 @@ describe('buildMenuTemplate', () => {
     expect(app.find((i) => i.role === 'hide')!.label).toBe('Hide Taliesin')
     expect(byId(build(), 'about').label).toBe('About Taliesin')
     expect(byId(build(), 'settings').accelerator).toBe('Cmd+,')
+    expect(byId(build(), 'checkForUpdates').label).toBe('Check for Updates…')
   })
 
   it('greys out Save and Launch Creidhne until the renderer reports them', () => {

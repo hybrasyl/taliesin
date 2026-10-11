@@ -1,6 +1,6 @@
 import { clipboard, shell } from 'electron'
 import os from 'os'
-import { appIdentity } from './appIdentity'
+import { appIdentity } from '../../shared/appIdentity'
 import { simplifyPlatform } from './osName'
 import { buildDiagnosticsBlock } from './diagnosticsBlock'
 import { buildIssueUrl, truncateBodyForUrl } from './issueUrl'

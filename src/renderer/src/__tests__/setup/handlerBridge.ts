@@ -241,7 +241,7 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // Never reaches the network in a test: integration specs assert page state
     // machines, and an update check that made a real request would make every
     // one of them depend on GitHub being up.
-    checkForUpdate: async () => null,
+    checkForUpdate: async () => ({ ok: true, update: null }),
 
     // Report Issue / diagnostics — routed to the real handler bodies like every
     // other channel here. These were stubbed until HTOO-175, which meant the

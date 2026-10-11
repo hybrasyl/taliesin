@@ -31,6 +31,7 @@ export function createMockApi(): MockApi {
     // App
     'getAppVersion',
     'getChangelog',
+    'checkForUpdate',
     'getUserDataPath',
     'appReady',
     'launchCompanion',

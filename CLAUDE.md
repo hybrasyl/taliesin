@@ -52,7 +52,8 @@ src/
   preload/    index.ts — typed contextBridge contract exposed as window.api. Imports `electron`
               and NOTHING else — any package import here breaks `sandbox: true` in the packaged
               app only (it builds and lints clean). See src/preload/index.ts.
-  shared/     electron-free predicates main and the vitest node project both use (externalUrl.ts)
+  shared/     electron-free code main, the renderer and the vitest node project use: externalUrl.ts,
+              appIdentity.ts (Report Issue + update check), updateVersion.ts (update-check module)
   renderer/src/
     App.tsx       ThemeProvider + CssBaseline; hydrates settingsStore then calls window.api.appReady()
     components/ pages/ hooks/ utils/ data/
@@ -62,12 +63,7 @@ src/
     uiforge/      UI Layout Forge (ui_panels WYSIWYG editor)
 ```
 
-Alias: `@renderer` → `src/renderer/src`. **`src/shared/` holds only electron-free predicates**
-shared by main and the vitest **node** project (currently `externalUrl.ts`). Cross-cutting
-_renderer_ types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in
-`store/settingsStore.ts` — do not migrate them. Adding a file there needs two glob edits:
-`tsconfig.node.json` (loud — TS6307) and `vitest.config.mjs`'s node project (**silent** — the
-suite is simply never collected and vitest still reports success).
+Alias: `@renderer` → `src/renderer/src` (imports are relative in practice). **`src/shared/` holds only electron-free code**: no electron or node imports, because main, the renderer (relative imports; `tsconfig.web.json` includes it) and the vitest **node** project all load it. `appIdentity.ts` is there because `scripts/publish-version.mjs` reads `updateKey` from `src/shared/appIdentity.ts`. Cross-cutting _renderer_ types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in `store/settingsStore.ts` — do not migrate them. Both tsconfigs include `src/shared/**` already; a test there is collected only by the `src/shared/**/__tests__` glob in `vitest.config.mjs`'s node project (**silent** if a new layout misses it — the suite is never collected and vitest still reports success).
 
 ## Load-bearing house patterns (don't reinvent)
 

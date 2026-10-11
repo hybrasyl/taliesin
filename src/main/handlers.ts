@@ -37,7 +37,9 @@ import {
   type CompanionLaunchResult,
   type CompanionProbe
 } from './companion'
-import { checkForUpdate as updateCheck, type UpdateInfo } from './updateCheck'
+import { checkForUpdate as updateCheck } from './updateCheck'
+import type { UpdateCheckResult } from '../shared/updateVersion'
+import { appIdentity } from '../shared/appIdentity'
 import {
   loadPacks,
   listActivePacks,
@@ -87,6 +89,9 @@ export interface HandlerContext {
   settingsPath: string
   settingsManager: ReturnType<typeof createSettingsManager>
   appGetVersion: () => string
+  /** The fetch the update check uses. Defaults to the global one; inject
+   *  Electron's `net.fetch` for the system proxy and OS certificate store. */
+  fetchImpl?: typeof fetch
   /** Path roots derived from current settings (active library, pack dir, etc.). */
   settingsRoots: Set<string>
   /**
@@ -291,12 +296,17 @@ export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLau
 }
 
 /**
- * Best-effort "a newer release exists" check (HTOO-65). Null for every failure
- * and for "already current" alike -- the renderer shows something only when
- * there is something to show.
+ * Update check (HTOO-65, update-check module v1). Never throws: "up to date"
+ * and "could not tell" come back as different values. `ctx.fetchImpl` lets
+ * the app route the one request through `net.fetch`.
  */
-export async function checkForUpdate(ctx: HandlerContext): Promise<UpdateInfo | null> {
-  return updateCheck(ctx.appGetVersion())
+export async function checkForUpdate(ctx: HandlerContext): Promise<UpdateCheckResult> {
+  return updateCheck({
+    currentVersion: ctx.appGetVersion(),
+    updateKey: appIdentity.updateKey,
+    releaseUrlPrefix: appIdentity.releaseUrlPrefix,
+    fetchImpl: ctx.fetchImpl
+  })
 }
 
 /** The file filters for the Settings "Change" picker, which differ per platform:
