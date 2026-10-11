@@ -1,5 +1,6 @@
 import React from 'react'
 import { Toolbar, IconButton, Tooltip, Box, Typography } from '@mui/material'
+import { ENGRAVE, ENGRAVED_ICON_SX, useEngraved } from './chromeEngrave'
 import { GiContract, GiExpand, GiDeathSkull } from 'react-icons/gi'
 import RemoveIcon from '@mui/icons-material/Remove'
 import CropSquareIcon from '@mui/icons-material/CropSquare'
@@ -49,6 +50,9 @@ const gameBtnSx = {
   }
 } as const
 
+// Dark title text is engraved, not outlined: see chromeEngrave.ts.
+const engravedBtnSx = { ...gameBtnSx, ...ENGRAVED_ICON_SX } as const
+
 // Plain chrome (corporate themes): standard MUI icons, flat, no stroke/shadow.
 // The bar is the navy secondary.main, so hover uses a translucent-white wash
 // (a dark action.hover overlay would be invisible on navy).
@@ -86,7 +90,9 @@ const TitleBarContent: React.FC = () => {
   // stylized themes keep the gamified skull glyph + #000 keyline shadows.
   const themeName = useSettingsStore((s) => s.theme)
   const plain = PLAIN_CHROME_THEMES.includes(themeName)
-  const winBtnSx = plain ? plainBtnSx : gameBtnSx
+  // A decorated theme with dark title text is engraved, not outlined.
+  const engraved = useEngraved() && !plain
+  const winBtnSx = plain ? plainBtnSx : engraved ? engravedBtnSx : gameBtnSx
   const closeBtnSx = {
     ...winBtnSx,
     '&:hover': plain
@@ -121,7 +127,9 @@ const TitleBarContent: React.FC = () => {
           // Pin against responsiveFontSizes() breakpoint media queries on the h6
           // variant, which would otherwise grow the title on window resize.
           '&&': { fontSize: '1.5rem' },
-          textShadow: plain ? 'none' : TITLE_TEXT_SHADOW
+          // The bar's own text colour, as its buttons use (HTOO-355).
+          color: 'secondary.contrastText',
+          textShadow: plain ? 'none' : engraved ? ENGRAVE : TITLE_TEXT_SHADOW
         }}
       >
         Taliesin
