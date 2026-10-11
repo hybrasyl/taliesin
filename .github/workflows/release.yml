@@ -364,11 +364,11 @@ jobs:
         if: success()
         run: |
           CMD="npm run publish:version -- ${{ github.ref_name }}"
-          echo "::notice title=Publish the version manifest::Start the packaged app, then run: $CMD"
+          echo "::notice title=Publish the version manifest::Run: $CMD"
           {
             echo "### Next: publish the version manifest"
             echo
-            echo "Start the packaged app from the release. Then run this in the app checkout:"
+            echo "Run this in the app checkout:"
             echo
             echo "    $CMD"
             echo

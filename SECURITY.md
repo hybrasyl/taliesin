@@ -82,7 +82,7 @@ working rather than the command being mistyped.
 
 Absence of the marker proves `runAsNode: false`. The second launch proves the fuse did not brick the ordinary path — and it is also the app becoming immune to the `ELECTRON_RUN_AS_NODE` trap, in which an exported variable makes a healthy app exit 0 with no window, indistinguishable by eye from a missing runtime dependency.
 
-**Embedded asar integrity** (HTOO-381) has the same split. The reader asserts the fuse. Whether the app still starts with it is a launch: a changed `app.asar` makes the packaged app exit with code 1 and print `ASAR Integrity Violation` to stderr only, with no window and no message. So start the packaged builds before you tag, and the published artifacts after (README, "Releasing").
+**Embedded asar integrity** (HTOO-381) has the same split. The reader asserts the fuse. Whether the app still starts with it is a launch: a changed `app.asar` makes the packaged app exit with code 1 and print `ASAR Integrity Violation` to stderr only, with no window and no message. So start the packaged builds before you tag (README, "Releasing"). The reader in each release job checks the fuses in what it publishes.
 
 What it does not cover: `resources/**` is `asarUnpack`'d and outside the check, and Linux ignores the fuse. On Windows the hash is in the inner `taliesin.exe`, which `release.yml` does not sign (it signs the setup and portable exes). So someone who can write to the install folder can rewrite the hash with the code. The fuse catches a damaged or changed package; it does not stop a local attacker.
 

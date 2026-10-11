@@ -32,7 +32,7 @@ electronFuses:
   # Violation` on stderr only, no window and no message. That is why it lands
   # WITH the reader: scripts/verify-fuses.mjs asserts index 4 in each release
   # build job, and README's release steps start the packaged builds before the
-  # tag and the published artifacts after it. The asarUnpack'd `resources/**`
+  # tag. The asarUnpack'd `resources/**`
   # tree is outside the check, and so is the hash itself: the inner exe is not
   # signed, so this catches a damaged package, not a local attacker
   # (SECURITY.md).
