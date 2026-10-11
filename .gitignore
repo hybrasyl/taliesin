@@ -7,7 +7,7 @@ node_modules/
 # Build output
 # =========================
 # build/ is electron-builder's buildResources dir: ignore stray build
-# output but keep the signing/icon/splash inputs that must be committed.
+# output but keep the signing and icon inputs that must be committed.
 # These are BUILD INPUTS -- CI packages from a clean checkout, so anything
 # electron-builder.yml points at here has to be tracked or the release fails.
 build/*
@@ -20,7 +20,6 @@ build/*
 # PRIVATE document repo, which CI never checks out, so committing this keeps the
 # Mac icon rebuildable from this repo alone.
 !build/icon-mac.png
-!build/portable-splash.bmp
 # The Linux hicolor set (linux.icon points here). A DIRECTORY negation, and it
 # has to come as a pair: `build/*` excludes the directory itself, and git cannot
 # re-include a file whose parent directory is excluded, so `!build/icons/**`
