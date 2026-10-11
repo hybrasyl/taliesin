@@ -13,10 +13,12 @@
  * would re-render the component every time an unrelated setting changed, to
  * compute a value that is only wanted at the moment of the click.
  *
- * `undefined` means "let the OS decide", and it is what every function here
- * returns when the setting behind it is unset. The main handlers omit the key
- * when it is absent, so a user who has configured nothing keeps the old
- * behaviour.
+ * `undefined` means "let main decide", and it is what every function here
+ * returns when the setting behind it is unset. Main does not leave it to the
+ * OS: since Electron 43 that is Downloads. `withPickerStart` in
+ * `src/main/pickerStart.ts` opens the dialog in the last folder picked this
+ * session, then the client folder, then Documents (HTOO-553). It also checks a
+ * folder sent from here, and replaces it when it no longer exists.
  *
  * A `defaultPath` grants no access. Main blesses the root of the file the user
  * actually picks, and only then — see `blessRoot` in `handlers.ts`.

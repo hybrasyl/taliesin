@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // opens, before the report is on the clipboard.
 const { clipboard, shell } = vi.hoisted(() => ({
   clipboard: { writeText: vi.fn() },
-  shell: { openExternal: vi.fn(async () => undefined), openPath: vi.fn() }
+  shell: { openExternal: vi.fn(async () => undefined) }
 }))
 vi.mock('electron', () => ({ clipboard, shell }))
 

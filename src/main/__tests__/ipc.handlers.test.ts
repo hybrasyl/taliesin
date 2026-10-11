@@ -95,11 +95,6 @@ const {
   })
 
   const fsMock = {
-    // pickerStart.ts reads the disk synchronously to choose a picker's start folder.
-    existsSync: vi.fn((path: string) => {
-      const norm = path.replace(/\\/g, '/')
-      return files.has(norm) || dirs.has(norm)
-    }),
     promises: {
       readFile: vi.fn(async (path: string, encoding?: string) => {
         const norm = path.replace(/\\/g, '/')

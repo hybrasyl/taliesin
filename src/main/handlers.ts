@@ -48,7 +48,6 @@ import {
   suggestedBrigidAssetsPath
 } from './assetPacks'
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
-import { dialogDefaultPath, pickedFolder, pickerStartPath } from './pickerStart'
 import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
 import { parseOrLog } from './schemaLog'
 import {
@@ -115,11 +114,6 @@ export interface HandlerContext {
    * that are only exercised on the author's own machine have one tested path.
    */
   companionProbe?: CompanionProbe
-  /**
-   * The last folders a picker can open in (Documents, then home). Wired up in
-   * index.ts from `app.getPath`; a test leaves it out.
-   */
-  pickerFallbacks?: () => string[]
 }
 
 /**
@@ -1828,46 +1822,28 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
 
   // Dialogs — every successful dialog return is added to ctx.blessedRoots so
   // the renderer can immediately read/write the picked path via Category-A
-  // handlers without a separate "set active" round-trip.
+  // handlers without a separate "set active" round-trip. `dialog` comes in
+  // wrapped by withPickerStart (index.ts), which picks the folder each dialog
+  // opens at (HTOO-553).
   // Both dialog arguments are optional and validated together, so a rejection
   // names the dialog that was asked for. Electron throws from inside
   // showOpenDialog on a malformed filter list, which reaches the user as a
   // dialog that never opens and an error naming none of our own code.
-  //
-  // Where each picker opens (HTOO-553). Since Electron 43 a dialog with no
-  // `defaultPath` opens in Downloads, not in the last folder used. A picker
-  // opens at the folder the renderer named, then the last folder picked this
-  // session, then the client folder, then Documents.
   //
   // The three calls are spelled out with literal channel names rather than
   // routed through one helper taking `channel` as a parameter. That is not
   // duplication for its own sake: ipcSchemaCoverage.test.ts reads THIS file and
   // matches `parseOrLog(ctx, '<channel>'`, so a variable channel name is
   // invisible to it and these three would read as unvalidated.
-  let lastPickedDir: string | null = null
-  const pickerStart = async (): Promise<string | undefined> => {
-    let clientPath: string | null = null
-    try {
-      clientPath = (await ctx.settingsManager.load()).clientPath ?? null
-    } catch {
-      /* no settings yet: fall through to Documents */
-    }
-    return pickerStartPath([lastPickedDir, clientPath, ...(ctx.pickerFallbacks?.() ?? [])])
-  }
-  const rememberPicked = (picked: string | null | undefined, isDirectory: boolean): void => {
-    if (picked) lastPickedDir = pickedFolder(picked, isDirectory)
-  }
-
   ipcMain.handle('dialog:openFile', async (_, filters?: unknown, defaultPath?: unknown) => {
     const a = parseOrLog(ctx, 'dialog:openFile', fileDialogArgsSchema, { filters, defaultPath })
     const r = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
-      defaultPath: dialogDefaultPath(a.defaultPath, await pickerStart())
+      ...(a.defaultPath ? { defaultPath: a.defaultPath } : {})
     })
     const picked = r.filePaths[0] ?? null
     blessRoot(ctx, picked)
-    rememberPicked(picked, false)
     return picked
   })
   ipcMain.handle('dialog:openFiles', async (_, filters?: unknown, defaultPath?: unknown) => {
@@ -1875,31 +1851,25 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
     const r = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
-      defaultPath: dialogDefaultPath(a.defaultPath, await pickerStart())
+      ...(a.defaultPath ? { defaultPath: a.defaultPath } : {})
     })
     for (const p of r.filePaths) blessRoot(ctx, p)
-    rememberPicked(r.filePaths[0], false)
     return r.filePaths
   })
   ipcMain.handle('dialog:openDirectory', async () => {
-    const r = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
-      defaultPath: await pickerStart()
-    })
+    const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     const picked = r.filePaths[0] ?? null
     blessRoot(ctx, picked)
-    rememberPicked(picked, true)
     return picked
   })
   ipcMain.handle('dialog:saveFile', async (_, filters?: unknown, defaultPath?: unknown) => {
     const a = parseOrLog(ctx, 'dialog:saveFile', fileDialogArgsSchema, { filters, defaultPath })
     const r = await dialog.showSaveDialog({
       filters: a.filters ?? [{ name: 'All Files', extensions: ['*'] }],
-      defaultPath: dialogDefaultPath(a.defaultPath, await pickerStart(), { keepName: true })
+      defaultPath: a.defaultPath ?? undefined
     })
     const picked = r.filePath ?? null
     blessRoot(ctx, picked)
-    rememberPicked(picked, false)
     return picked
   })
 
