@@ -39,10 +39,10 @@ describe('openIssue', () => {
     expect(shell.openExternal).toHaveBeenCalledTimes(1)
   })
 
-  it('opens no browser when the clipboard write fails', async () => {
+  it('still opens the page when the clipboard write fails, and says it did not copy', async () => {
     clipboard.writeText.mockRejectedValueOnce(new Error('clipboard busy'))
-    await expect(openIssue({ title: 'T', body: 'b' })).rejects.toThrow('clipboard busy')
-    expect(shell.openExternal).not.toHaveBeenCalled()
+    await expect(openIssue({ title: 'T', body: 'b' })).resolves.toMatchObject({ copied: false })
+    expect(shell.openExternal).toHaveBeenCalledTimes(1)
   })
 })
 

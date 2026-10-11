@@ -40,12 +40,12 @@ export async function pickerStartPath(
  * The `defaultPath` for one dialog, from what the renderer asked for and the
  * start folder. `start` is called only when the request cannot be used as it is.
  *
- * - An open dialog keeps a path that exists. A save dialog keeps a path whose
- *   folder exists: the file is usually new.
- * - A bare name ("map.png") goes in the start folder. Without a folder,
+ * - A save keeps a path whose folder exists: the file is usually new. A stale
+ *   or bare name ("map.png") goes in the start folder, because without a folder
  *   Electron 43+ puts it in Downloads.
- * - A stale path falls back to the start folder. A save keeps its file name; an
- *   open does not, because the name of a moved folder is not a file name.
+ * - An open keeps a path that exists, or else the folder it was in. Otherwise
+ *   it opens at the start folder, with no name: a name it cannot find helps
+ *   nobody.
  */
 export async function dialogDefaultPath(
   given: string | undefined,
@@ -53,18 +53,19 @@ export async function dialogDefaultPath(
   kind: 'open' | 'save',
   exists: Exists = pathExists
 ): Promise<string | undefined> {
-  if (given && isAbsolute(given) && (await exists(kind === 'save' ? dirname(given) : given))) {
-    return given
+  if (given && isAbsolute(given)) {
+    if (kind === 'open' && (await exists(given))) return given
+    if (await exists(dirname(given))) return kind === 'save' ? given : dirname(given)
   }
   const dir = await start()
-  if (!given || !dir) return given || dir
-  if (!isAbsolute(given)) return join(dir, given)
-  return kind === 'save' ? join(dir, basename(given)) : dir
+  if (kind === 'open' || !given) return dir
+  if (!dir) return given
+  return join(dir, isAbsolute(given) ? basename(given) : given)
 }
 
 export interface PickerStartSources {
-  /** The client folder from settings, or nothing. */
-  clientPath: () => Promise<string | null | undefined>
+  /** The client folder from the settings in memory, or nothing. */
+  clientPath: () => string | null | undefined
   /** The last folders to try: Documents, then home. */
   fallbacks: () => string[]
   exists?: Exists
@@ -75,10 +76,7 @@ export function withPickerStart(dialog: DialogShape, sources: PickerStartSources
   const exists = sources.exists ?? pathExists
   let lastPickedDir: string | undefined
   const start = async (): Promise<string | undefined> =>
-    pickerStartPath(
-      [lastPickedDir, await sources.clientPath().catch(() => null), ...sources.fallbacks()],
-      exists
-    )
+    pickerStartPath([lastPickedDir, sources.clientPath(), ...sources.fallbacks()], exists)
 
   return {
     async showOpenDialog(opts) {

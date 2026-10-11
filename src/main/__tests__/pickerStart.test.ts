@@ -54,14 +54,26 @@ describe('dialogDefaultPath', () => {
     expect(await dialogDefaultPath(stale, start, 'save', exists)).toBe(join(docs, 'pack.datf'))
   })
 
-  it('drops the name of a stale folder for an open dialog', async () => {
-    expect(await dialogDefaultPath(join('/client', 'moved'), start, 'open', exists)).toBe(docs)
+  it('opens in the folder of a file that is gone', async () => {
+    const gone = join('/client', 'maps', 'lod001.map')
+    onDisk.add(join('/client', 'maps'))
+    expect(await dialogDefaultPath(gone, start, 'open', exists)).toBe(join('/client', 'maps'))
+    onDisk.delete(join('/client', 'maps'))
+  })
+
+  it('opens at the start folder, with no name, when the path and its folder are gone', async () => {
+    expect(await dialogDefaultPath(join('/moved', 'packs'), start, 'open', exists)).toBe(docs)
+  })
+
+  it('never hands an open dialog a bare name', async () => {
+    expect(await dialogDefaultPath('maps', start, 'open', exists)).toBe(docs)
   })
 
   it('passes the request through when there is no start folder', async () => {
     const none = async (): Promise<undefined> => undefined
     expect(await dialogDefaultPath('map.png', none, 'save', exists)).toBe('map.png')
     expect(await dialogDefaultPath(undefined, none, 'open', exists)).toBeUndefined()
+    expect(await dialogDefaultPath('maps', none, 'open', exists)).toBeUndefined()
   })
 })
 
@@ -78,7 +90,7 @@ describe('withPickerStart', () => {
       }))
     }
     const dialog = withPickerStart(inner, {
-      clientPath: async () => clientPath,
+      clientPath: () => clientPath,
       fallbacks: () => [docs, join('/home/me')],
       exists
     })
@@ -122,24 +134,5 @@ describe('withPickerStart', () => {
       filePaths: []
     })
     expect(lastOpen()).toMatchObject({ properties: ['openFile'], filters })
-  })
-
-  it('falls through to Documents when settings cannot be read', async () => {
-    const inner = {
-      showOpenDialog: vi.fn(async (_opts: Electron.OpenDialogOptions) => ({
-        canceled: true,
-        filePaths: [] as string[]
-      })),
-      showSaveDialog: vi.fn(async (_opts: Electron.SaveDialogOptions) => ({ canceled: true }))
-    }
-    const dialog = withPickerStart(inner, {
-      clientPath: async () => {
-        throw new Error('no settings yet')
-      },
-      fallbacks: () => [docs],
-      exists
-    })
-    await dialog.showOpenDialog({ properties: ['openDirectory'] })
-    expect(inner.showOpenDialog.mock.calls[0][0]).toMatchObject({ defaultPath: docs })
   })
 })

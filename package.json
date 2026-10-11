@@ -85,6 +85,7 @@
     "xml2js": "^0.6.2",
     "zustand": "^5.0.14"
   },
+  "//allowScripts": "npm 12 runs a dependency's install script only when this approves it (HTOO-542). By name, never pkg@version: a pinned approval stops matching at the next bump. esbuild downloads its platform binary. electron-winstaller is denied: its script only selects a 7-Zip binary for Squirrel.Windows installers, and electron-builder.yml ships NSIS and portable only. electron is absent: since Electron 42 it has no install script, and postinstall runs install-electron.",
   "allowScripts": {
     "esbuild": true,
     "electron-winstaller": false

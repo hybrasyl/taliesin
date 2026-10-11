@@ -87,6 +87,12 @@ export interface HandlerContext {
   appGetVersion: () => string
   /** Path roots derived from current settings (active library, pack dir, etc.). */
   settingsRoots: Set<string>
+  /**
+   * The client folder from the last settings loaded or saved. The picker reads
+   * it here: a settings.json read can recover from the backup and write it back,
+   * which must not race the renderer's own save.
+   */
+  clientPath?: string | null
   /** Paths blessed this session via OS dialog selections (one-shot user consent). */
   blessedRoots: Set<string>
   /**
@@ -134,6 +140,7 @@ export function* allRoots(ctx: HandlerContext): Iterable<string> {
  */
 export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
   ctx.settingsRoots.clear()
+  ctx.clientPath = settings.clientPath ?? null
   if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
   // Installed .datf packs live here; whitelist it so pack-adjacent reads (e.g.
   // audio preview of an installed pack) pass the path-safety check.
@@ -346,7 +353,7 @@ export async function buildReport(ctx: HandlerContext): Promise<string> {
 export function reportOpenIssue(
   ctx: HandlerContext,
   payload: unknown
-): Promise<{ ok: true; truncated: boolean }> {
+): Promise<{ ok: true; truncated: boolean; copied: boolean }> {
   return openIssue(parseOrLog(ctx, 'diagnostics:openIssue', openIssueSchema, payload))
 }
 

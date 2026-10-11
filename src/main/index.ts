@@ -382,7 +382,7 @@ registerHandlers(
     ipcMain: guardIpc(ipcMain),
     BrowserWindow,
     dialog: withPickerStart(dialog, {
-      clientPath: async () => (await settingsManager.load()).clientPath,
+      clientPath: () => ctx.clientPath,
       fallbacks: () => [app.getPath('documents'), app.getPath('home')]
     })
   },
