@@ -124,6 +124,10 @@ beforeEach(() => {
 })
 
 describe('packImport — basics', () => {
+  // Its own timeout (HTOO-157): it builds real .datf bytes through archiver and
+  // reads them back through unzipper, the slowest node test. ~0.7 s alone, and it
+  // ran 5.4 s in a loaded full run, past the 5 s default. Raised here only, so
+  // the default still catches the next test that gets slow for real.
   it('extracts a compiled .datf into a fresh project + asset files', async () => {
     const fs = memfs
     const datfBytes = await buildDatfBytes(
@@ -168,7 +172,7 @@ describe('packImport — basics', () => {
     // Assets extracted under /work/foo/
     expect(fs.files.get('/work/foo/skill0001.png')?.toString('utf-8')).toBe('IMG1')
     expect(fs.files.get('/work/foo/spell0001.png')?.toString('utf-8')).toBe('IMG2')
-  })
+  }, 20_000)
 
   it('preserves nested ui_sprite_overrides paths', async () => {
     const fs = memfs
