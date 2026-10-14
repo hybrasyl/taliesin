@@ -10,7 +10,7 @@ Taliesin is the Dark Ages asset viewer and authoring tool, companion to Creidhne
 - **House working practices** (git, commits, verify-before-commit, PR prep, security posture) — the document repo's `docs/architecture/dev-practices.md`.
 - **Electron stack and architecture standard** — the document repo's `docs/architecture/electron-app-skeleton.md`.
 - **This layout** — the document repo's `docs/architecture/design-docs.md` (Tier 2), tracked as R-007 in its `docs/architecture/ecosystem-rollout-checklist.md`.
-- **`.datf` asset-pack format**, the authoritative `content_type` registry — the document repo's `docs/plans/hybrasyl.client/asset-pack-format.md`.
+- **`.datf` asset-pack format**, the authoritative `content_type` registry — the document repo's `docs/plans/brigid/reference/asset-pack-format.md`.
 - **Primary reuse source** — Creidhne, then the wider Electron sibling set (dagda, epona, mabon, oghma, elatha). Port a proven idiom before inventing one.
 
 Taliesin has no Tier-1 design doc of its own; it predates the tier system. The nearest thing is the document repo's `docs/plans/taliesin/audio-pack-authoring.md`, which covers one feature area rather than the app.
