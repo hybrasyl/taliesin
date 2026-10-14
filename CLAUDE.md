@@ -11,7 +11,7 @@ the house Erisco/Hybrasyl Electron standard (this repo predates and partly seede
 - **Electron stack & architecture standard** — stack versions, directory layout, IPC/preload/
   settings/theming patterns: the document repo's `docs/architecture/electron-app-skeleton.md`.
 - **`.datf` asset-pack format** (content types, `covers`, filename contracts): the document repo's
-  `docs/plans/hybrasyl.client/asset-pack-format.md` — the authoritative registry of `content_type`s.
+  `docs/plans/brigid/reference/asset-pack-format.md` — the authoritative registry of `content_type`s.
 
 ## Commands
 
