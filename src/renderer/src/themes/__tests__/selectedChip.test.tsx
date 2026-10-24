@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { ThemeProvider, Chip } from '@mui/material'
 import { themesByName } from '../index'
-import type { ThemeName } from '../../store/settingsStore'
+import type { ThemeName } from '@shared/types'
 
 const THEME_NAMES = Object.keys(themesByName) as ThemeName[]
 
@@ -16,8 +16,8 @@ function rgb(hex: string): string {
 /**
  * A coloured chip shows its colour (HTOO-355).
  *
- * Settings and the world map editor mark a selected chip with
- * `color="primary"`, and status chips use `warning` or `success`. Every theme's
+ * An app marks a selected chip with `color="primary"`, and a status chip uses
+ * `warning` or `success`. Every theme's
  * MuiChip override set a tinted fill and an accent text colour on `root`, and
  * that beat MUI's own fill for every colour: a selected or a warning chip
  * rendered exactly like a plain one, in all six themes. The palette test could

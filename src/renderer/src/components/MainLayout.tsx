@@ -1,6 +1,6 @@
 import React from 'react'
 import { AppBar, Box, Divider } from '@mui/material'
-import TitleBar from './TitleBar'
+import AppTitleBar from './AppTitleBar'
 import NavToolbar from './NavToolbar'
 
 interface MainLayoutProps {
@@ -17,7 +17,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           userSelect: 'none'
         }}
       >
-        <TitleBar />
+        <AppTitleBar />
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
         <NavToolbar />
       </AppBar>

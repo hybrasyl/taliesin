@@ -1,6 +1,15 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // The same aliases as electron.vite.config.mjs. The house modules (themes,
+  // title bar, theme gallery) import through them (HTOO-572).
+  resolve: {
+    alias: {
+      '@renderer': resolve('src/renderer/src'),
+      '@shared': resolve('src/shared')
+    }
+  },
   test: {
     coverage: {
       provider: 'v8',

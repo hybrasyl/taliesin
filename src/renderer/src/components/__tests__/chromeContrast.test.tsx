@@ -1,92 +1,91 @@
 import React from 'react'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material'
-import { themesByName } from '../../themes'
-import type { ThemeName } from '../../store/settingsStore'
-import { useSettingsStore, PLAIN_CHROME_THEMES } from '../../store/settingsStore'
-import MainLayout from '../MainLayout'
-import { installMockApi } from '../../__tests__/setup/mockApi'
-import { contrast } from '../../themes/__tests__/contrast'
-import { isDarkText } from '../chromeEngrave'
+import { getLuminance } from '@mui/material/styles'
+import { themesByName } from '@renderer/themes'
+import { blend, contrast } from '@renderer/lib/contrast'
+import type { ThemeName } from '@shared/types'
+import TitleBar from '../TitleBar'
+import { BUTTON, CLOSE, PLAIN_CHROME_THEMES, chromeKind } from '../titleChrome'
 
 const THEME_NAMES = Object.keys(themesByName) as ThemeName[]
 
+/** A palette path (`info.main`) in a theme, or a CSS colour as it is. */
+function colourOf(name: ThemeName, value: string): string {
+  const [group, key] = value.split('.')
+  const palette = themesByName[name].palette as unknown as Record<string, Record<string, string>>
+  return key && palette[group]?.[key] ? palette[group][key] : value
+}
+
+function renderBar(name: ThemeName): void {
+  render(
+    <ThemeProvider theme={themesByName[name]}>
+      <TitleBar
+        name="Template"
+        icon="template.webp"
+        theme={name}
+        platform="win32"
+        controls={{ minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() }}
+      />
+    </ThemeProvider>
+  )
+}
+
 /**
- * The chrome reads against its bars (WCAG 1.4.11 for icons, 1.4.3 for text).
- *
- * The title bar and the nav bar paint `secondary.main`, and their icons and
- * caption take `secondary.contrastText`. A theme's component overrides can
- * still change what draws (mundanes styles the AppBar), and the palette alone
- * does not show that. So this renders the real chrome and reads the colour each
- * theme draws.
- *
- * The caption's `opacity: 0.7` is not in its computed colour, so the 4.5:1 here
- * is for the colour, not the faded caption on screen.
+ * The title bar reads against itself (WCAG 1.4.11 for icons, 1.4.3 for text),
+ * HTOO-572. It paints `secondary.main`, and its window icons and wordmark take
+ * `secondary.contrastText`. A theme's overrides can still change what draws,
+ * and the palette alone does not show that, so this renders the real bar and
+ * reads the colour each theme draws. Taliesin's chromeContrast test, for the
+ * template's one bar.
  */
-describe('the chrome', () => {
-  beforeEach(() => {
-    const api = installMockApi()
-    api.companionStatus.mockResolvedValue({ found: false })
-    useSettingsStore.setState({ activeLibrary: 'C:/worlds/demo' })
-  })
+describe('the title bar', () => {
   afterEach(cleanup)
 
-  it.each(THEME_NAMES)('%s: icons are 3:1 and the caption 4.5:1 on the bar', (name) => {
-    const theme = themesByName[name]
-    render(
-      <ThemeProvider theme={theme}>
-        <MainLayout>
-          <div />
-        </MainLayout>
-      </ThemeProvider>
-    )
-    const bar = theme.palette.secondary.main
+  it.each(THEME_NAMES)('%s: icons are 3:1 and the wordmark 4.5:1 on the bar', (name) => {
+    renderBar(name)
+    const bar = themesByName[name].palette.secondary.main
     const drawn = (el: Element): string => getComputedStyle(el).color
-    const navIcon = drawn(screen.getByTestId('nav-catalog'))
-    const titleIcon = drawn(screen.getByRole('button', { name: 'Minimize' }))
-    const caption = drawn(screen.getByText(/Current Library/))
-
-    expect(contrast(navIcon, bar), `nav icon ${navIcon}`).toBeGreaterThanOrEqual(3)
-    expect(contrast(titleIcon, bar), `title-bar icon ${titleIcon}`).toBeGreaterThanOrEqual(3)
-    expect(contrast(caption, bar), `caption ${caption}`).toBeGreaterThanOrEqual(4.5)
+    const icon = drawn(screen.getByRole('button', { name: 'Minimize' }))
+    const wordmark = drawn(screen.getByText('Template'))
+    expect(contrast(icon, bar), `icon ${icon}`).toBeGreaterThanOrEqual(3)
+    expect(contrast(wordmark, bar), `wordmark ${wordmark}`).toBeGreaterThanOrEqual(4.5)
   })
 
-  // Dark bar text (danaan, grinneal) is engraved, not outlined: the dark stroke
-  // on the icons merges with a dark glyph. See chromeEngrave.ts.
-  it.each(THEME_NAMES)('%s: the nav bar engraves dark text and outlines light', (name) => {
-    const theme = themesByName[name]
-    render(
-      <ThemeProvider theme={theme}>
-        <MainLayout>
-          <div />
-        </MainLayout>
-      </ThemeProvider>
-    )
-    const captionShadow = getComputedStyle(screen.getByText(/Current Library/)).textShadow
-    const iconStroke = getComputedStyle(
-      screen.getByTestId('nav-catalog').querySelector('svg') as SVGElement
-    ).stroke
-    const iconFilter = getComputedStyle(
-      screen.getByTestId('nav-catalog').querySelector('svg') as SVGElement
-    ).filter
-    // The outline is a translucent black stroke, rgba(0,0,0,0.25).
-    const KEYLINE_STROKE = /rgba\(0, ?0, ?0, ?0\.25\)/
-    if (isDarkText(theme.palette.secondary.contrastText)) {
-      expect(captionShadow).toMatch(/rgba\(255, ?248, ?232/)
-      expect(iconStroke).not.toMatch(KEYLINE_STROKE)
-      expect(iconFilter).toMatch(/rgba\(255, ?248, ?232/)
-    } else {
-      expect(captionShadow).not.toMatch(/rgba\(255, ?248, ?232/)
-      // The plain (corporate) themes draw flat icons with no stroke at all.
-      if (!PLAIN_CHROME_THEMES.includes(name)) expect(iconStroke).toMatch(KEYLINE_STROKE)
+  it.each(THEME_NAMES)('%s: keylines the decorated bar, flattens the plain one', (name) => {
+    renderBar(name)
+    const shadow = getComputedStyle(screen.getByText('Template')).textShadow
+    // jsdom reports `none` as a transparent colour, so the plain case asserts
+    // what is absent rather than the keyword.
+    if (PLAIN_CHROME_THEMES.includes(name)) expect(shadow).not.toMatch(/#000|rgb\(0, 0, 0\)/)
+    else expect(shadow).toMatch(/#000/)
+  })
+
+  // jsdom cannot apply :hover, so this reads the hover colours from
+  // titleChrome.ts. The decorated close button drew yellow on cyan (1.1:1).
+  it.each(THEME_NAMES)('%s: a window button and the close button read on hover', (name) => {
+    const bar = themesByName[name].palette.secondary.main
+    const kind = chromeKind(name)
+    for (const [label, c] of [
+      ['window button', BUTTON[kind]],
+      ['close button', { ...BUTTON[kind], ...CLOSE }]
+    ] as const) {
+      const fill = blend(colourOf(name, c.hoverBackground), bar)
+      const glyph = colourOf(name, c.hoverColor)
+      expect(contrast(glyph, fill, fill), `${label}: ${glyph} on ${fill}`).toBeGreaterThanOrEqual(3)
     }
   })
 
-  it('treats danaan and grinneal as dark bar text, hybrasyl as light', () => {
-    // Pins the branch above, so a palette change cannot move every theme into one side.
-    const dark = (n: ThemeName): boolean =>
-      isDarkText(themesByName[n].palette.secondary.contrastText)
-    expect([dark('danaan'), dark('grinneal'), dark('hybrasyl')]).toEqual([true, true, false])
+  it('gives every decorated bar light text, which the keyline outlines', () => {
+    // The #000 keyline outlines LIGHT text. Around dark text it merges with the
+    // glyph and doubles its edges, which is why danaan's and grinneal's old light
+    // bars needed an engrave. A decorated bar must stay dark, with light text.
+    const darkText = THEME_NAMES.filter(
+      (n) =>
+        !PLAIN_CHROME_THEMES.includes(n) &&
+        getLuminance(themesByName[n].palette.secondary.contrastText) < 0.18
+    )
+    expect(darkText).toEqual([])
   })
 })

@@ -1,40 +1,23 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
-import { sharedComponents, type Surface } from './sharedComponents'
-
-/**
- * The raised surface this theme is made of: panels, dialogs, cards, and the
- * tooltip, which is a card that floats. Declared once so they cannot drift.
- */
-const surface: Surface = {
-  backgroundImage: 'none',
-  backgroundColor: 'rgba(6,12,18,0.82)',
-  border: '1px solid rgba(58,158,144,0.32)',
-  backdropFilter: 'blur(2px)',
-  boxShadow: '-2px -2px 0 0 #1e5e56, 2px 2px 0 0 #1e5e56'
-}
+import { filledControls } from './filledControls'
+import { taliesinOverrides } from './taliesinOverrides'
+import { baseTypography } from './baseTypography'
 
 const hybrasylTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'dark',
-      // `main` MUST NOT equal `background.default`. It did — both were
-      // '#0d182f' — so every control signalling its active state through
-      // `color="primary"` painted itself the colour of the page behind it. The
-      // affordance inverted: a filled Chip takes `main` as its background while
-      // an unselected one keeps MUI's default grey, so the SELECTED chip was
-      // the one that vanished.
-      //
-      // '#4d84d1' was sitting right there as `light`, unused for this, which is
-      // the tell that `main` was filled in from the background rather than
-      // chosen. It reads 4.66:1 against the page and 5.18:1 against paper.
-      //
-      // `contrastText` is deep navy, NOT the theme's cream. Measured: cream
-      // (#f0e6cc) on this blue is only 3.05:1, which fails WCAG AA for normal
-      // text — and chip and button labels are normal text. Navy gives 4.66:1.
-      // Keeping cream is possible but only in a band roughly 0.128–0.138
-      // relative luminance wide, where the best candidates reach 3.08:1 against
-      // the page — passing with no margin at all. Legibility over palette
-      // sentiment; see HTOO-341.
+      // MUI picks a status label (a filled chip or alert) by this ratio. Its
+      // default, 3, takes white on #ff0000 at 4.00:1; labels are text, so 4.5.
+      contrastThreshold: 4.5,
+      // `main` was `#0d182f` — the same value as `background.default` — so every
+      // control that signals "active" through `color="primary"` painted itself
+      // the colour of the page and vanished (HTOO-341). The blue that was
+      // `light` is now `main`: 4.66:1 against the page, 5.18:1 against paper.
+      // `contrastText` is navy, not the theme's cream: cream on this blue is
+      // 3.05:1, which fails WCAG AA for the normal-sized text chip and button
+      // labels are, and no cream-preserving blue clears both thresholds with
+      // any margin. `palette.test.ts` pins all three numbers.
       primary: {
         main: '#4d84d1',
         light: '#7fa9e0',
@@ -49,60 +32,80 @@ const hybrasylTheme = responsiveFontSizes(
       },
       background: {
         default: '#0d182f',
-        paper: 'rgba(6,12,18,0.82)'
+        gray: '#0d182f',
+        paper: 'rgba(6,12,18,0.82)',
+        paperMedium: 'rgba(4,9,14,0.90)',
+        paperLight: 'rgba(12,22,34,0.70)',
+        paperDark: 'rgba(2,5,10,0.95)',
+        tableLight: 'rgba(13,24,47,0.60)',
+        tableDark: 'rgba(6,12,24,0.75)',
+        tableBorderL: 'rgba(58,158,144,0.15)',
+        tableBorderD: 'rgba(58,158,144,0.30)',
+        scrollbarDark: '#1e5e56',
+        scrollbarLight: '#3a9e90'
       },
       text: {
         primary: '#f0e6cc',
         secondary: '#a8b8c4',
-        disabled: '#506070',
-        // Headings on the page and on cards. (The bars use secondary.contrastText.)
+        disabled: '#a8b8c4',
+        headline: '#f0e6cc',
+        link: '#60ebd8',
+        linkHover: '#5ecfbe',
+        visited: '#399086',
         button: '#f0e6cc',
-        // Text on a light fill: a chrome button on hover (info.main).
         dark: '#0c1018'
       },
       divider: 'rgba(58,158,144,0.22)',
-      error: { main: '#ff0000' },
+      // Status colours are text on the page as well as fills (outlined chips,
+      // text buttons), so each reads 4.5:1 on the page and on paper (HTOO-572).
+      error: { main: '#ff1313' },
       warning: { main: '#FFFF00' },
       info: { main: '#6de7f7' },
       success: { main: '#38ff4f' }
     },
 
-    typography: {
-      fontFamily: '"Crimson Pro", Georgia, serif',
-      h1: { fontFamily: '"Cinzel Decorative", serif', letterSpacing: '0.22em', fontWeight: 400 },
-      h2: { fontFamily: '"Cinzel", serif', letterSpacing: '0.08em', fontWeight: 400 },
-      h3: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
-      h4: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
-      h5: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
-      h6: { fontFamily: '"Cinzel", serif', letterSpacing: '0.06em', fontWeight: 400 },
-      button: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase'
-      },
-      caption: { fontFamily: '"Cinzel", serif', letterSpacing: '0.18em', fontSize: '0.7rem' }
-    },
+    typography: baseTypography,
 
     shape: { borderRadius: 2 },
 
     components: {
-      ...sharedComponents(surface),
+      ...filledControls,
+      ...taliesinOverrides,
       MuiPaper: {
         styleOverrides: {
-          root: surface
+          root: {
+            backgroundImage: 'none',
+            backgroundColor: 'rgba(6,12,18,0.82)',
+            border: '1px solid rgba(58,158,144,0.32)',
+            backdropFilter: 'blur(2px)',
+            boxShadow: '-2px -2px 0 0 #1e5e56, 2px 2px 0 0 #1e5e56'
+          }
         }
       },
       MuiButton: {
         styleOverrides: {
           root: {
             borderRadius: 2,
-            border: '1px solid #3a9e90',
-            color: '#5ecfbe',
-            '&:hover': { backgroundColor: 'rgba(58,158,144,0.15)', borderColor: '#5ecfbe' }
+            border: '1px solid currentColor',
+            // The theme draws its own look on PRIMARY buttons only. On `root` it beat
+            // MUI for every colour, so an error or a warning button drew like a
+            // primary one (HTOO-572, as the chip did). Other colours take MUI's own
+            // colour, which the palette test holds at 4.5:1, and a border in it.
+            '&.MuiButton-text.MuiButton-colorPrimary, &.MuiButton-outlined.MuiButton-colorPrimary':
+              {
+                borderColor: '#3a9e90',
+                color: '#5ecfbe',
+                '&:hover': { backgroundColor: 'rgba(58,158,144,0.15)', borderColor: '#5ecfbe' }
+              }
           },
           contained: {
-            backgroundColor: 'rgba(58,158,144,0.2)',
-            '&:hover': { backgroundColor: 'rgba(58,158,144,0.35)' }
+            '&.MuiButton-colorPrimary, &.MuiButton-colorInherit': {
+              backgroundColor: 'rgba(58,158,144,0.2)',
+              borderColor: '#3a9e90',
+              color: '#5ecfbe',
+              '&:hover': { backgroundColor: 'rgba(58,158,144,0.35)' }
+            },
+            '&.MuiButton-colorInherit': { color: 'inherit' }
           }
         }
       },
@@ -128,8 +131,9 @@ const hybrasylTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             fontFamily: '"Cinzel", serif',
-            fontSize: '0.7rem',
+            fontSize: '0.85rem',
             letterSpacing: '0.1em',
+            color: '#a8b8c4',
             borderBottom: '1px solid rgba(58,158,144,0.08)',
             '&.Mui-selected': {
               backgroundColor: 'rgba(58,158,144,0.12)',
@@ -146,8 +150,8 @@ const hybrasylTheme = responsiveFontSizes(
             backgroundColor: 'rgba(10,18,26,0.92)',
             border: '1px solid rgba(58,158,144,0.16)',
             backgroundImage: 'none',
-            transition: 'border-color 0.2s, transform 0.2s',
-            '&:hover': { borderColor: '#3a9e90', transform: 'translateY(-2px)' }
+            transition: 'border-color 0.2s',
+            '&:hover': { borderColor: '#3a9e90' }
           }
         }
       },
@@ -160,19 +164,47 @@ const hybrasylTheme = responsiveFontSizes(
             letterSpacing: '0.1em',
             border: '1px solid rgba(58,158,144,0.3)',
             // The tint is for a plain chip only. On `root` it beat MUI's own fill
-            // for every colour, so a warning or a selected chip looked plain.
+            // for every colour, so a warning or a selected chip looked plain
+            // (HTOO-572).
             '&.MuiChip-colorDefault': {
               backgroundColor: 'rgba(58,158,144,0.14)',
-              color: '#3a9e90'
+              // 4.65:1 on the tint over the page; #3a9e90 was 4.49:1.
+              color: '#3ba193'
             },
-            // HTOO-355: a selected chip (color="primary", filled) takes the accent
-            // and its label, as MUI's own fill does, but keeps the accent on hover:
-            // primary.dark under a dark label fails 4.5:1.
+            // A selected chip (color="primary", filled) takes the accent and its
+            // label, as MUI's own fill does, and keeps the accent on hover.
             '&.MuiChip-filled.MuiChip-colorPrimary': {
               backgroundColor: '#4d84d1',
               color: '#0d182f',
               borderColor: '#4d84d1',
               '&.MuiChip-clickable:hover': { backgroundColor: '#4d84d1' }
+            }
+          }
+        }
+      },
+      MuiPaginationItem: {
+        styleOverrides: {
+          root: {
+            fontFamily: '"Cinzel", serif',
+            fontSize: '1rem',
+            borderRadius: 2,
+            textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
+            '& .MuiPaginationItem-icon': {
+              filter:
+                'drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)'
+            },
+            backgroundColor: '#1e5e56',
+            color: '#f0e6cc',
+            border: '1px solid #3a9e90',
+            '&:hover': { backgroundColor: '#3a9e90', borderColor: '#5ecfbe' },
+            '&.Mui-selected': {
+              backgroundColor: '#3a9e90',
+              borderColor: '#5ecfbe',
+              color: '#f0e6cc'
+            },
+            '&.Mui-disabled': {
+              backgroundColor: 'rgba(30,94,86,0.3)',
+              color: 'rgba(240,230,204,0.4)'
             }
           }
         }
@@ -200,12 +232,6 @@ const hybrasylTheme = responsiveFontSizes(
           }
         }
       },
-      MuiSlider: {
-        defaultProps: { color: 'secondary' },
-        styleOverrides: {
-          rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
-        }
-      },
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
@@ -213,6 +239,37 @@ const hybrasylTheme = responsiveFontSizes(
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(58,158,144,0.6)' },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3a9e90' }
           }
+        }
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            color: theme.palette.text.link,
+            textDecoration: 'none',
+            '&:hover': { color: theme.palette.text.linkHover },
+            '&:visited': { color: theme.palette.text.visited }
+          })
+        }
+      },
+      MuiCssBaseline: {
+        styleOverrides: {
+          a: {
+            color: '#3a9e90',
+            textDecoration: 'none',
+            '&:hover': { color: '#5ecfbe' },
+            '&:visited': { color: '#1e5e56' }
+          }
+        }
+      },
+      MuiSvgIcon: {
+        styleOverrides: {
+          root: ({ theme }) => ({ color: theme.palette.secondary.dark })
+        }
+      },
+      MuiCircularProgress: {
+        defaultProps: { color: 'inherit' },
+        styleOverrides: {
+          root: ({ theme }) => ({ color: theme.palette.text.headline })
         }
       }
     }
