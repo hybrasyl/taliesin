@@ -212,6 +212,8 @@ export default defineConfig({
             'src/renderer/src/hooks/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/store/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/components/**/__tests__/**/*.test.{ts,tsx}',
+            // The theme gallery's test (HTOO-572).
+            'src/renderer/src/pages/__tests__/**/*.test.{ts,tsx}',
             // Adding a test directory that matches NO glob here fails silently:
             // vitest collects nothing and still reports success. themes/ was
             // uncovered until HTOO-341.

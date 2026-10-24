@@ -37,6 +37,11 @@ function readPages() {
 
 const PAGES = readPages()
 
+// The pages that are not in PAGES: each has no nav button, so it is opened from
+// the page that holds its button. Settings → Appearance opens the theme gallery
+// (HTOO-572). Add a page here when it is not in `PAGES`.
+const SUBPAGES = [{ from: 'settings', button: 'Theme gallery', testId: 'theme-gallery-page' }]
+
 /** How long each page runs before it is checked. An empty profile answers its
  *  IPC in well under this. */
 const SETTLE_MS = 250
@@ -68,6 +73,20 @@ test.describe('Nav pages', () => {
           `${page}: error boundary`
         ).toHaveCount(0)
         expect(errors, `${page}: page error`).toEqual([])
+      })
+    }
+
+    for (const { from, button, testId } of SUBPAGES) {
+      await test.step(testId, async () => {
+        await win.getByTestId(`nav-${from}`).click({ timeout: 5_000 })
+        await win.getByRole('button', { name: button, exact: true }).click()
+        await expect(win.getByTestId(testId), `${testId}: page marker`).toBeVisible()
+        await win.waitForTimeout(SETTLE_MS)
+        await expect(
+          win.getByTestId('error-boundary-fallback'),
+          `${testId}: error boundary`
+        ).toHaveCount(0)
+        expect(errors, `${testId}: page error`).toEqual([])
       })
     }
   })
