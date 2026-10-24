@@ -39,9 +39,28 @@ function renderLayout(name: ThemeName): void {
  * A theme's overrides can still change what draws, so this renders the real
  * layout and reads the colour each theme draws.
  *
- * The caption's `opacity: 0.7` is not in its computed colour, so the 4.5:1 here
- * is for the colour, not the faded caption on screen.
+ * An `opacity` is not in an element's computed colour, so a faded caption or a
+ * faded bar passes a colour check and still fails on screen. The captions had
+ * `opacity: 0.7` on a bar at `opacity: 0.9`: 3.8:1 to 4.2:1 on screen in
+ * hybrasyl, danaan and grinneal (HTOO-572). So each measured element, and each
+ * of its ancestors, must have no opacity below 1.
  */
+/** The product of the opacities from `el` up to the root: 1 when nothing fades it. */
+function fadeOf(el: Element): number {
+  let fade = 1
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const o = getComputedStyle(n).opacity
+    if (o !== '') fade *= Number(o)
+  }
+  return fade
+}
+
+/** The colour `el` draws, after a check that nothing fades it. */
+function drawn(el: Element): string {
+  expect(fadeOf(el), `${el.textContent?.trim() || el.tagName} is faded`).toBe(1)
+  return getComputedStyle(el).color
+}
+
 describe('the nav bar', () => {
   beforeEach(() => {
     const api = installMockApi()
@@ -54,7 +73,6 @@ describe('the nav bar', () => {
   it.each(THEME_NAMES)('%s: icons are 3:1 and the caption 4.5:1 on the bar', (name) => {
     renderLayout(name)
     const bar = themesByName[name].palette.secondary.main
-    const drawn = (el: Element): string => getComputedStyle(el).color
     const navIcon = drawn(screen.getByTestId('nav-dashboard'))
     const activeIcon = drawn(screen.getByTestId('nav-catalog'))
     const caption = drawn(screen.getByText(/Current Library/))
@@ -69,7 +87,7 @@ describe('the nav bar', () => {
     useSettingsStore.setState({ activeLibrary: null })
     renderLayout(name)
     const bar = themesByName[name].palette.secondary.main
-    const caption = getComputedStyle(screen.getByText('No library selected')).color
+    const caption = drawn(screen.getByText('No library selected'))
     expect(contrast(caption, bar), `caption ${caption}`).toBeGreaterThanOrEqual(4.5)
   })
 

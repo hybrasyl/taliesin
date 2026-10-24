@@ -102,22 +102,25 @@ const NavToolbar: React.FC = () => {
   const barBtnSx = navBtnSx(useChromeKind())
 
   return (
-    <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
+    // No opacity on the bar or its captions: a fade is not in the computed
+    // colour, and it took the captions below 4.5:1 on screen in hybrasyl,
+    // danaan and grinneal. The caption variant and the letter-spacing keep the
+    // captions quiet (HTOO-572).
+    <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40 }}>
       {libName ? (
         <Typography
           variant="caption"
-          sx={{
-            color: 'secondary.contrastText',
-            opacity: 0.7,
-            letterSpacing: '0.03em'
-          }}
+          sx={{ color: 'secondary.contrastText', letterSpacing: '0.03em' }}
         >
           Current Library: <strong>{libName}</strong>
         </Typography>
       ) : (
-        // The bar's text colour, faded like the caption above. text.disabled is
-        // a page colour: on danaan's bar it was 1.4:1 (HTOO-572).
-        <Typography variant="caption" sx={{ color: 'secondary.contrastText', opacity: 0.7 }}>
+        // The bar's text colour, like the caption above. text.disabled is a
+        // page colour: on danaan's bar it was 1.4:1 (HTOO-572).
+        <Typography
+          variant="caption"
+          sx={{ color: 'secondary.contrastText', letterSpacing: '0.03em' }}
+        >
           No library selected
         </Typography>
       )}
