@@ -683,7 +683,7 @@ export function MusicIdField({
             size="small"
             onClick={handleTogglePlay}
             disabled={playDisabled}
-            color={playing ? 'secondary' : 'default'}
+            color={playing ? 'primary' : 'default'}
           >
             {playing ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
           </IconButton>

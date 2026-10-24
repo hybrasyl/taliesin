@@ -129,7 +129,9 @@ const MusicList: React.FC<Props> = ({
                   label={ext}
                   size="small"
                   color={EXT_COLOR[ext] ?? 'default'}
-                  variant="outlined"
+                  // Filled, not outlined: an outlined secondary chip draws the
+                  // bar colour as text on the page (HTOO-572).
+                  variant="filled"
                   sx={{ fontSize: '0.65rem', height: 18, minWidth: 32 }}
                 />
                 <Box sx={{ flex: 1, overflow: 'hidden' }}>

@@ -599,7 +599,7 @@ const TileCell: React.FC<{
           justifyContent: 'flex-end',
           cursor: 'pointer',
           border: isSelected ? '2px solid' : '2px solid transparent',
-          borderColor: isSelected ? 'secondary.light' : 'transparent',
+          borderColor: isSelected ? 'primary.main' : 'transparent',
           borderRadius: 0.5,
           bgcolor: isSelected ? 'action.selected' : 'transparent',
           '&:hover': { bgcolor: 'action.hover' },

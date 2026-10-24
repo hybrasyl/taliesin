@@ -132,7 +132,9 @@ const TileThumb: React.FC<{
         border: 2,
         borderColor: selected ? 'primary.main' : 'transparent',
         borderRadius: 1,
-        '&:hover': onClick ? { borderColor: 'primary.light' } : {}
+        // Not primary.light: on a light page (danaan) it is near the page
+        // colour, and the hover does not show (HTOO-572).
+        '&:hover': onClick ? { borderColor: selected ? 'primary.main' : 'text.secondary' } : {}
       }}
     >
       <canvas ref={canvasRef} width={size} height={size} style={{ display: 'block' }} />

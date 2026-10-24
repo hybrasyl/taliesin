@@ -114,7 +114,7 @@ const MusicMetaEditor: React.FC<Props> = ({
           <IconButton
             size="small"
             onClick={onPlay}
-            sx={{ color: isPlaying ? 'secondary.main' : 'text.button' }}
+            sx={{ color: isPlaying ? 'primary.main' : 'text.button' }}
           >
             {isPlaying ? '⏹' : '▶'}
           </IconButton>
