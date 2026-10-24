@@ -9,7 +9,7 @@ import { useSettingsStore } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
 import MainLayout from '../MainLayout'
 import { installMockApi } from '../../__tests__/setup/mockApi'
-import { BUTTON, PLAIN_CHROME_THEMES, chromeKind } from '../titleChrome'
+import { BUTTON, CURRENT, PLAIN_CHROME_THEMES, chromeKind } from '../titleChrome'
 
 const THEME_NAMES = Object.keys(themesByName) as ThemeName[]
 
@@ -73,8 +73,11 @@ describe('the nav bar', () => {
   it.each(THEME_NAMES)('%s: icons are 3:1 and the caption 4.5:1 on the bar', (name) => {
     renderLayout(name)
     const bar = themesByName[name].palette.secondary.main
-    const navIcon = drawn(screen.getByTestId('nav-dashboard'))
-    const activeIcon = drawn(screen.getByTestId('nav-catalog'))
+    // The icon, not the button: a theme can colour an icon apart from its
+    // button (the DA themes colour every MUI icon, HTOO-572).
+    const icon = (id: string): Element => screen.getByTestId(id).querySelector('svg') as Element
+    const navIcon = drawn(icon('nav-dashboard'))
+    const activeIcon = drawn(icon('nav-catalog'))
     const caption = drawn(screen.getByText(/Current Library/))
 
     expect(contrast(navIcon, bar), `nav icon ${navIcon}`).toBeGreaterThanOrEqual(3)
@@ -102,6 +105,15 @@ describe('the nav bar', () => {
     expect(style.filter).not.toMatch(/rgba\(255, ?248, ?232/)
     const captionShadow = getComputedStyle(screen.getByText(/Current Library/)).textShadow
     expect(captionShadow).not.toMatch(/rgba\(255, ?248, ?232/)
+  })
+
+  it.each(THEME_NAMES)('%s: the open page carries the house current-page mark', (name) => {
+    renderLayout(name)
+    const open = getComputedStyle(screen.getByTestId('nav-catalog'))
+    const other = getComputedStyle(screen.getByTestId('nav-dashboard'))
+    expect(open.boxShadow.toLowerCase()).toBe(CURRENT.ring.toLowerCase())
+    expect(open.backgroundColor.replace(/\s/g, '')).toBe(CURRENT.background)
+    expect(other.boxShadow.toLowerCase()).not.toBe(CURRENT.ring.toLowerCase())
   })
 
   // jsdom cannot apply :hover, so this reads the hover colours from

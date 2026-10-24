@@ -50,6 +50,7 @@ import {
   LOGO_FILTER,
   TITLE_SHADOW,
   chromeKind,
+  navButtonSx,
   windowButtonSx,
   type ChromeKind
 } from '@renderer/components/titleChrome'
@@ -116,11 +117,26 @@ function drawnBackground(el: Element, page: string): string {
   return under
 }
 
+/**
+ * The opacity that `el` draws at: its own times each ancestor's. getComputedStyle
+ * does not fold it into `color`, so a faded caption measured as if it were solid
+ * (taliesin's nav bar: 6:1 measured, 3.84:1 on screen, HTOO-572).
+ */
+function drawnOpacity(el: Element): number {
+  let opacity = 1
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    opacity *= Number(getComputedStyle(n).opacity || '1')
+  }
+  return opacity
+}
+
 /** The contrast that `el` draws its text or icon at, on what is behind it. */
 function drawnContrast(el: Element, page: string): number | null {
   try {
     const under = drawnBackground(el, page)
-    return contrast(blend(getComputedStyle(el).color, under), under)
+    const [r, g, b, a] = parseColor(getComputedStyle(el).color)
+    const drawn = `rgba(${r}, ${g}, ${b}, ${a * drawnOpacity(el)})`
+    return contrast(blend(drawn, under), under)
   } catch {
     return null
   }
@@ -504,6 +520,10 @@ function Text(): React.JSX.Element {
             inherit link
           </Link>
         </Measure>
+        <Measure>
+          {/* A plain <a>, as Markdown draws it: the MuiCssBaseline rule. */}
+          <a href="#gallery">plain a</a>
+        </Measure>
       </Row>
       <Row label="icons with a colour (3:1)">
         {(['inherit', 'action', 'disabled', 'primary', 'error', 'warning', 'success'] as const).map(
@@ -532,8 +552,15 @@ function Surfaces(): React.JSX.Element {
           </ListItemButton>
         </List>
       </Row>
-      <Row label="pagination">
-        <Pagination count={5} page={page} onChange={(_, p) => setPage(p)} />
+      <Row label="pagination: a page, then the selected page">
+        {/* The audit had no sample here, and two themes' page buttons were below
+            4.5:1 (HTOO-572). Hover is checked from the theme in palette.test. */}
+        <Measure part=".MuiPaginationItem-page:not(.Mui-selected)">
+          <Pagination count={5} page={page} onChange={(_, p) => setPage(p)} />
+        </Measure>
+        <Measure part=".MuiPaginationItem-page.Mui-selected">
+          <Pagination count={5} page={page} onChange={(_, p) => setPage(p)} />
+        </Measure>
       </Row>
       <Row label="inputs">
         <TextField size="small" label="Label" defaultValue="Value" />
@@ -573,6 +600,33 @@ function BarButtons({ kind, hovered }: { kind: ChromeKind; hovered: boolean }): 
   )
 }
 
+/**
+ * A nav bar under the title bar, as four apps draw one: a plain button, the
+ * current page, and a hovered button, with `navButtonSx`.
+ */
+function NavBarPreview({ kind }: { kind: ChromeKind }): React.JSX.Element {
+  const buttons = [
+    ['Home', false, false],
+    ['Current page', true, false],
+    ['Hovered', false, true]
+  ] as const
+  return (
+    <Toolbar
+      variant="dense"
+      disableGutters
+      sx={{ bgcolor: 'secondary.main', minHeight: 40, px: 3, gap: 1 }}
+    >
+      {buttons.map(([label, current, hovered]) => (
+        <Measure key={label} part="svg">
+          <IconButton size="small" aria-label={label} sx={navButtonSx(kind, current, hovered)}>
+            <StarIcon />
+          </IconButton>
+        </Measure>
+      ))}
+    </Toolbar>
+  )
+}
+
 /** One title bar, drawn in its own theme with the chrome that TitleBar uses. */
 function BarPreview({ name }: { name: ThemeName }): React.JSX.Element {
   const kind = chromeKind(name)
@@ -580,7 +634,7 @@ function BarPreview({ name }: { name: ThemeName }): React.JSX.Element {
     <ThemeProvider theme={themesByName[name]}>
       <Box sx={{ mb: 1.5 }}>
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {name} ({kind}). At rest, then hovered.
+          {name} ({kind}). At rest, then hovered. Under it, a nav bar.
         </Typography>
         <Toolbar
           variant="dense"
@@ -612,6 +666,7 @@ function BarPreview({ name }: { name: ThemeName }): React.JSX.Element {
           <Box sx={{ width: 16 }} />
           <BarButtons kind={kind} hovered />
         </Toolbar>
+        <NavBarPreview kind={kind} />
       </Box>
     </ThemeProvider>
   )

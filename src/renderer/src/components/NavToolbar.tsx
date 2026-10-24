@@ -22,9 +22,17 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
-import { BUTTON, chromeKind, type ChromeKind } from './titleChrome'
+import { chromeKind, navButtonSx, type ChromeKind } from './titleChrome'
 
-const iconSx = {
+/**
+ * The size and the soft dark outline of the game-icons glyphs, and the tight
+ * spacing of the row. These are layout only. The colours, the hover and the
+ * current-page mark are the house `navButtonSx` (titleChrome.ts): the bar's
+ * text colour at rest, the house hover of each chrome kind, and a light wash
+ * with a ring for the current page (HTOO-572).
+ */
+const layoutSx = {
+  mx: -0.5,
   '& svg': {
     fontSize: '1.4em',
     stroke: 'rgba(0,0,0,0.25)',
@@ -32,36 +40,9 @@ const iconSx = {
   }
 }
 
-/**
- * The nav bar is `secondary.main`, like the title bar, so its icons and caption
- * take the title bar's colours: `secondary.contrastText` at rest, and the house
- * hover of each chrome kind (titleChrome.ts). The decorated hover is
- * `info.main` with `info.contrastText`; the plain one is a white wash. Every
- * decorated bar is dark with light text, so nothing is engraved (HTOO-572).
- */
-function navBtnSx(kind: ChromeKind): object {
-  const c = BUTTON[kind]
-  return {
-    WebkitAppRegion: 'no-drag',
-    mx: -0.5,
-    color: c.color,
-    ...iconSx,
-    '&:hover': { backgroundColor: c.hoverBackground, color: c.hoverColor }
-  }
-}
-
-/**
- * The open page's button. Its icon stays `secondary.contrastText`: the old
- * `secondary.dark` was the bar colour as text, 1.2:1 to 1.5:1 on the bar in
- * five themes. A white wash and a line along the button's lower edge mark it
- * instead, so the mark does not depend on a colour (HTOO-572).
- */
-function activeNavBtnSx(kind: ChromeKind): object {
-  return {
-    ...navBtnSx(kind),
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    boxShadow: 'inset 0 -2px 0 currentColor'
-  }
+/** A nav-bar button: the house colours and mark, with this bar's layout. */
+function navBtnSx(kind: ChromeKind, current = false): object {
+  return { ...navButtonSx(kind, current), ...layoutSx }
 }
 
 /** The chrome kind of the active theme: plain for the corporate themes. */
@@ -85,7 +66,7 @@ const NavButton: React.FC<{ page: Page; title: string; icon: React.ReactElement 
     <Tooltip title={title}>
       <IconButton
         data-testid={`nav-${page}`}
-        sx={active ? activeNavBtnSx(kind) : navBtnSx(kind)}
+        sx={navBtnSx(kind, active)}
         onClick={() => setCurrentPage(page)}
       >
         {icon}

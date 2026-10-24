@@ -147,7 +147,7 @@ Change the theme in **Settings → Appearance**. Do these steps on each of the s
 
 1. **The title bar and the nav bar:** Hybrasyl, Chadul, Danaan and Grinneal have dark bars with light text and icons, with a black outline. The Danaan bars are bronze and the Grinneal bars are brown. Nothing is engraved. Mundanes and Dubhaimid are flat, with no outline. On each theme the bar text, the window buttons and the nav icons are easy to read.
 2. **The hover:** the close button turns red under the pointer. The other window buttons and the nav buttons show a hover that is easy to see.
-3. **The open page:** its nav button has a light background and a line along its lower edge.
+3. **The open page:** its nav button has a light background and a ring inside its edge, in the bar's text colour.
 
 **Expected:** each step is true on each theme. If one fails, record the theme and the step.
 
