@@ -1,6 +1,15 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // The same aliases as electron.vite.config.mjs. The house modules (themes,
+  // title bar, theme gallery) import through them (HTOO-572).
+  resolve: {
+    alias: {
+      '@renderer': resolve('src/renderer/src'),
+      '@shared': resolve('src/shared')
+    }
+  },
   test: {
     coverage: {
       provider: 'v8',
@@ -203,6 +212,8 @@ export default defineConfig({
             'src/renderer/src/hooks/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/store/__tests__/**/*.test.{ts,tsx}',
             'src/renderer/src/components/**/__tests__/**/*.test.{ts,tsx}',
+            // The theme gallery's test (HTOO-572).
+            'src/renderer/src/pages/__tests__/**/*.test.{ts,tsx}',
             // Adding a test directory that matches NO glob here fails silently:
             // vitest collects nothing and still reports success. themes/ was
             // uncovered until HTOO-341.

@@ -42,11 +42,11 @@ test.describe('Title bar', () => {
 
     if (isMac) {
       expect(geometry).toMatchObject({ pl: '78px', pr: '24px', imgLeft: null })
-      await expect(bar.getByTestId('app-title')).toHaveCount(0)
+      await expect(bar.getByText('Taliesin', { exact: true })).toHaveCount(0)
       await expect(bar.getByRole('button')).toHaveCount(0)
     } else {
       expect(geometry).toMatchObject({ pl: '24px', pr: '24px', imgLeft: 24 })
-      await expect(bar.getByTestId('app-title')).toHaveText('Taliesin')
+      await expect(bar.getByText('Taliesin', { exact: true })).toBeVisible()
       for (const name of ['Minimize', 'Maximize', 'Close']) {
         await expect(bar.getByRole('button', { name })).toBeVisible()
       }

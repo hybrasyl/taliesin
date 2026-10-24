@@ -683,7 +683,7 @@ export function MusicIdField({
             size="small"
             onClick={handleTogglePlay}
             disabled={playDisabled}
-            color={playing ? 'secondary' : 'default'}
+            color={playing ? 'primary' : 'default'}
           >
             {playing ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
           </IconButton>
@@ -1591,9 +1591,10 @@ function MapPlacementTab({
                *
                * So the difference is structural as well as chromatic: filled vs
                * outlined, plus a target icon that only the armed chip carries.
-               * `success` because it is the brightest entry in every one of the
-               * six palettes (`#38ff4f` on the fantasy themes); the icon is what
-               * makes the state survive a palette where it is not.
+               * The fill is `success` through the `color` prop, so the theme
+               * draws it with its own label (HTOO-572). It is not the brightest
+               * colour in every palette (danaan's is a dark green), so the icon
+               * is what makes the state survive a palette where it is not.
                */
               variant={placeMode === mode ? 'filled' : 'outlined'}
               color={placeMode === mode ? 'success' : 'default'}

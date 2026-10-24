@@ -6,7 +6,8 @@
     "noEmit": true,
     "moduleResolution": "bundler",
     "paths": {
-      "@renderer/*": ["./src/renderer/src/*"]
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }

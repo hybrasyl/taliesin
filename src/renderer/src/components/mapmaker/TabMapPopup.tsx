@@ -132,7 +132,8 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
         overflow: 'hidden'
       }}
     >
-      {/* Title bar */}
+      {/* Title bar. It paints secondary.main, so its text and its close icon take
+          secondary.contrastText: text.primary is a page colour (HTOO-572). */}
       <Box
         onMouseDown={handleMouseDown}
         sx={{
@@ -145,10 +146,13 @@ const TabMapPopup: React.FC<Props> = ({ mapFile, clientPath, onClose }) => {
           userSelect: 'none'
         }}
       >
-        <Typography variant="caption" sx={{ flex: 1, fontWeight: 'bold' }}>
+        <Typography
+          variant="caption"
+          sx={{ flex: 1, fontWeight: 'bold', color: 'secondary.contrastText' }}
+        >
           Collision Map ({W}×{H})
         </Typography>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'text.primary', p: 0 }}>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'secondary.contrastText', p: 0 }}>
           <CloseIcon sx={{ fontSize: 14 }} />
         </IconButton>
       </Box>

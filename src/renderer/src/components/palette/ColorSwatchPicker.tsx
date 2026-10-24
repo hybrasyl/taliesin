@@ -31,7 +31,7 @@ const ColorSwatchPicker: React.FC<Props> = ({
           borderRadius: 0.5,
           cursor: 'pointer',
           flexShrink: 0,
-          '&:hover': { borderColor: 'secondary.light' }
+          '&:hover': { borderColor: 'primary.main' }
         }}
       />
       <Popover

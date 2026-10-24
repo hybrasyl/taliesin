@@ -1,125 +1,99 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
-import { sharedComponents, type Surface } from './sharedComponents'
+import { filledControls } from './filledControls'
+import { taliesinOverrides } from './taliesinOverrides'
+import { plainTypography } from './plainTypography'
 
 // Mundanes — the light "corporate/boring" theme. White and light-gray
 // surfaces, dark text, a single restrained slate-blue accent, plain
-// system sans-serif type, and flat 1px gray borders with no keyline
-// shadows. Deliberately the plainest theme in the app. Ported from Oghma
-// and reshaped to Taliesin's theme conventions (stock palette keys,
-// inline typography, the same component-override set as the other themes).
-/**
- * The raised surface this theme is made of: panels, dialogs, cards, and the
- * tooltip, which is a card that floats. Declared once so they cannot drift.
- */
-const surface: Surface = {
-  backgroundImage: 'none',
-  backgroundColor: '#ffffff',
-  border: '1px solid rgba(0,0,0,0.12)',
-  boxShadow: 'none'
-}
-
+// sans-serif type (plainTypography), and flat 1px gray borders with no
+// keyline shadows. Deliberately the plainest theme in the app.
 const mundanesTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'light',
-      // HTOO-355: one step darker than Material blue. #1976d2 was 2.89:1 on the
-      // grey page; this is 3.10:1 on the page, 4.95:1 on paper, and white is
-      // 4.95:1 on it.
+      // MUI picks a status label (a filled chip or alert) by this ratio. Its
+      // default, 3, takes white on #ff0000 at 4.00:1; labels are text, so 4.5.
+      contrastThreshold: 4.5,
       primary: {
-        main: '#1871c9',
+        // The accent is text on the page too (text buttons, links), so 4.5:1 on the
+        // grey page and on paper (HTOO-572): 4.52:1 and 7.22:1. White is 7.22:1 on it.
+        // `light` cannot read as text on the page: it is lighter than `main`.
+        main: '#13589d',
         light: '#4a97e0',
-        dark: '#115293',
+        dark: '#0f477f',
         contrastText: '#ffffff'
       },
-      // secondary is the title-bar / chrome color (TitleBar + NavToolbar paint
-      // from secondary.main). Mundanes uses the classic Windows active-title
-      // navy so the corporate look has a real anchor of color, and shares it
-      // with Dubhaimid so both read as the same family.
-      // NOTE: secondary.dark is deliberately *lighter* than main — NavToolbar's
-      // active nav icon paints with secondary.dark, and on the navy bar it must
-      // be bright to read (same inversion the Hybrasyl theme uses).
+      // secondary is the title-bar / chrome color in every theme. Mundanes
+      // uses the classic Windows active-title navy (#0a246a) so the corporate
+      // look has a real anchor of color instead of a near-white bar.
       secondary: {
         main: '#0a246a',
         light: '#2f4f8f',
-        dark: '#7fb3ee',
+        dark: '#061a4f',
         contrastText: '#ffffff'
       },
       background: {
-        // A cool light-gray canvas so white paper/cards read as raised surfaces.
+        // A clearly cool light-gray canvas so white paper/cards read as raised
+        // surfaces (the old #f5f5f5-on-#ffffff had almost no contrast).
         default: '#c9cdd4',
-        paper: '#ffffff'
+        gray: '#e4e8ee',
+        paper: '#ffffff',
+        paperMedium: '#f3f5f8',
+        paperLight: '#ffffff',
+        paperDark: '#d3d9e1',
+        tableLight: '#ffffff',
+        tableDark: '#eef1f5',
+        tableBorderL: 'rgba(0,0,0,0.08)',
+        tableBorderD: 'rgba(0,0,0,0.16)',
+        scrollbarDark: '#b0b6bb',
+        scrollbarLight: '#8a9198'
       },
       text: {
         primary: '#1a1a1a',
-        secondary: '#5f6368',
+        secondary: '#54575c',
         disabled: '#9aa0a6',
-        // Headings on the page and on cards. (The bars use secondary.contrastText.)
+        headline: '#1a1a1a',
+        link: '#13589d',
+        linkHover: '#0f477f',
+        visited: '#6a4fb0',
+        // Headings on the page and on cards. White was 1.6:1 on the grey page and
+        // 1:1 on the white cards (HTOO-355). The navy bars use secondary.contrastText.
         button: '#1a1a1a',
-        // Text on a light fill: a chrome button on hover (info.main).
         dark: '#1a1a1a'
       },
       divider: 'rgba(0,0,0,0.12)',
-      error: { main: '#d32f2f' },
-      warning: { main: '#ed6c02' },
-      info: { main: '#0288d1' },
-      success: { main: '#2e7d32' }
+      // Status colours are text on the page as well as fills (outlined chips,
+      // text buttons), so each reads 4.5:1 on the page and on paper (HTOO-572).
+      error: { main: '#a62525' },
+      warning: { main: '#8f4101' },
+      info: { main: '#015c8e' },
+      success: { main: '#256328' }
     },
 
-    typography: {
-      fontFamily: 'Roboto, "Segoe UI", system-ui, -apple-system, sans-serif',
-      h1: { fontWeight: 500 },
-      h2: { fontWeight: 500 },
-      h3: { fontWeight: 500 },
-      h4: { fontWeight: 500 },
-      h5: { fontWeight: 500 },
-      h6: { fontWeight: 500 },
-      button: { textTransform: 'none', fontWeight: 500 },
-      body1: { fontSize: '0.95rem' },
-      body2: { fontSize: '0.85rem' },
-      subtitle1: { fontSize: '0.9rem' },
-      subtitle2: { fontSize: '0.8rem' }
-    },
+    typography: plainTypography,
 
     shape: { borderRadius: 6 },
 
     components: {
-      ...sharedComponents(surface),
+      ...filledControls,
+      ...taliesinOverrides,
       MuiPaper: {
         styleOverrides: {
-          root: surface
-        }
-      },
-      MuiButton: {
-        styleOverrides: {
           root: {
-            borderRadius: 6,
-            border: '1px solid rgba(0,0,0,0.23)',
-            color: '#1871c9',
-            '&:hover': { backgroundColor: 'rgba(24,113,201,0.06)', borderColor: '#1871c9' }
-          },
-          contained: {
-            backgroundColor: '#1871c9',
-            color: '#ffffff',
-            boxShadow: 'none',
-            '&:hover': { backgroundColor: '#115293', boxShadow: 'none' }
+            backgroundImage: 'none',
+            border: '1px solid rgba(0,0,0,0.12)',
+            boxShadow: 'none'
           }
         }
       },
-      // The AppBar is the app chrome (title bar + nav toolbar), which paints
-      // navy from secondary.main — so its foreground is white, not the dark
-      // body text. AppBar is used nowhere else, so this only affects chrome.
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: '#0a246a',
+            backgroundColor: '#ffffff',
             backgroundImage: 'none',
-            color: '#ffffff',
-            borderBottom: '1px solid rgba(255,255,255,0.12)',
-            boxShadow: 'none',
-            // The chrome's icons take secondary.contrastText, which is white
-            // here. Drop the dark keyline stroke, which greys white glyphs on the
-            // navy bar. Scoped to the AppBar, which is only ever the app chrome.
-            '& .MuiIconButton-root svg': { stroke: 'transparent' }
+            color: '#1a1a1a',
+            borderBottom: '1px solid rgba(0,0,0,0.12)',
+            boxShadow: 'none'
           }
         }
       },
@@ -134,11 +108,11 @@ const mundanesTheme = responsiveFontSizes(
       MuiListItemButton: {
         styleOverrides: {
           root: {
-            color: '#5f6368',
+            color: '#54575c',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(24,113,201,0.08)',
-              borderLeft: '2px solid #1871c9',
-              color: '#1871c9'
+              backgroundColor: 'rgba(19,88,157,0.08)',
+              borderLeft: '2px solid #13589d',
+              color: '#11508f'
             },
             '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
           }
@@ -162,47 +136,42 @@ const mundanesTheme = responsiveFontSizes(
           root: {
             border: '1px solid rgba(0,0,0,0.12)',
             // The tint is for a plain chip only. On `root` it beat MUI's own fill
-            // for every colour, so a warning or a selected chip looked plain.
+            // for every colour, so a warning or a selected chip looked plain
+            // (HTOO-572).
             '&.MuiChip-colorDefault': {
               backgroundColor: '#eceff1',
               color: '#455a64'
             },
-            // HTOO-355: a selected chip (color="primary", filled) takes the accent
-            // and its label, as MUI's own fill does, but keeps the accent on hover:
-            // primary.dark under a dark label fails 4.5:1.
+            // A selected chip (color="primary", filled) takes the accent and its
+            // label, as MUI's own fill does, and keeps the accent on hover.
             '&.MuiChip-filled.MuiChip-colorPrimary': {
-              backgroundColor: '#1871c9',
+              backgroundColor: '#13589d',
               color: '#ffffff',
-              borderColor: '#1871c9',
-              '&.MuiChip-clickable:hover': { backgroundColor: '#1871c9' }
+              borderColor: '#13589d',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#13589d' }
             }
           }
         }
       },
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#13589d' } } },
       MuiTab: {
         styleOverrides: {
           root: {
-            color: '#5f6368',
-            '&.Mui-selected': { color: '#1871c9' }
+            color: '#54575c',
+            '&.Mui-selected': { color: '#13589d' }
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#1871c9' } } },
       MuiInputLabel: {
-        styleOverrides: { root: { '&.Mui-focused': { color: '#1871c9' } } }
+        styleOverrides: { root: { '&.Mui-focused': { color: '#13589d' } } }
       },
       MuiCheckbox: {
         styleOverrides: {
           root: {
-            color: 'rgba(0,0,0,0.4)',
-            '&.Mui-checked': { color: '#1871c9' }
+            // MUI's own action colour: 4.0:1 on the page. 0.4 was 2.66:1.
+            color: 'rgba(0,0,0,0.54)',
+            '&.Mui-checked': { color: '#13589d' }
           }
-        }
-      },
-      MuiSlider: {
-        defaultProps: { color: 'secondary' },
-        styleOverrides: {
-          rail: { backgroundColor: 'rgba(0,0,0,0.2)', opacity: 1 }
         }
       },
       MuiOutlinedInput: {
@@ -210,8 +179,18 @@ const mundanesTheme = responsiveFontSizes(
           root: {
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.23)' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.5)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#1871c9' }
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#13589d' }
           }
+        }
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            color: theme.palette.text.link,
+            textDecoration: 'none',
+            '&:hover': { color: theme.palette.text.linkHover, textDecoration: 'underline' },
+            '&:visited': { color: theme.palette.text.visited }
+          })
         }
       }
     }

@@ -41,8 +41,9 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
   writes its project file and asset directory through `pack:save` + `fs:ensureDir`, and a path
   outside every allowed root is refused. Seeding `packDir` in settings makes it an allowed root
   (`applySettingsRoots`), which is what keeps the OS directory picker out of the way.
-- **`nav-pages.spec.js`** — clicks every page in `PAGES` (`store/uiStore.ts`) and asserts its `page-<page>` marker, no error-boundary fallback and no `pageerror`. A failure names the page. A new page is covered with no edit (HTOO-393).
+- **`nav-pages.spec.js`** — clicks every page in `PAGES` (`store/uiStore.ts`) and asserts its `page-<page>` marker, no error-boundary fallback and no `pageerror`. A failure names the page. A new page is covered with no edit (HTOO-393). A page with no nav button (the theme gallery) is in its `SUBPAGES` list.
 - **`title-bar.spec.js`** — the title bar's layout per platform: the macOS stoplight inset, and the window controls elsewhere.
+- **`theme-gallery.spec.js`** — opens Settings → Appearance → Theme gallery, selects each theme, and reads every measured contrast. It fails on a sample it cannot measure, not on a low ratio. It writes each low ratio to `theme-gallery.json` in the test's output folder (HTOO-572).
 - **`app-menu.spec.js`** — macOS only: the installed application menu, and a Go command's round trip through the renderer.
 
 ### What automation cannot reach
@@ -53,7 +54,7 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
 
 - **`USERDATA_SUBPATH`** in `helpers.js` matches `src/main/index.ts`'s userData dir
   (`['Erisco', 'Taliesin']`).
-- The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` and `app-title` (TitleBar), `nav-<page>` on every page button (NavToolbar), `page-<page>` (PageRenderer), `error-boundary-fallback` (ErrorBoundary), `settings-page` (SettingsPage) and `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a sweep — a testid with no spec behind it is an untested claim about what matters.
+- The specs rely on these hooks in the renderer: `app-root` (MainLayout), `title-bar` (the house TitleBar; the wordmark is its one `h6`), `nav-<page>` on every page button (NavToolbar), `page-<page>` (PageRenderer), `error-boundary-fallback` (ErrorBoundary), `settings-page` (SettingsPage), `theme-gallery-page` (ThemeGallery), `gallery-ratio` (each measured sample in the gallery) and `theme-option-<ThemeName>` (ThemePicker). Add a `data-testid` when a spec needs it, not as a sweep — a testid with no spec behind it is an untested claim about what matters.
 - **Prefer a role or label selector where one exists**; reach for a testid when it does not. If a
   control has no accessible name to select by, that is usually worth fixing rather than working
   around — `pack-filesystem.spec.js` turned up a `Select` with no `labelId`, which screen readers

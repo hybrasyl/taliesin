@@ -48,7 +48,7 @@ const VariantGrid: React.FC<Props> = ({
           p: 0.5,
           borderRadius: 1,
           border: '2px solid',
-          borderColor: selected ? 'secondary.light' : 'transparent',
+          borderColor: selected ? 'primary.main' : 'transparent',
           cursor: 'pointer',
           transition: 'border-color 0.15s, background-color 0.15s',
           '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' }
@@ -85,7 +85,7 @@ const VariantGrid: React.FC<Props> = ({
             textAlign: 'center',
             mt: 0.25,
             fontSize: '0.6rem',
-            color: selected ? 'secondary.light' : 'text.secondary'
+            color: selected ? 'primary.main' : 'text.secondary'
           }}
         >
           {label}
@@ -99,7 +99,7 @@ const VariantGrid: React.FC<Props> = ({
               fontSize: '0.55rem',
               fontWeight: 'bold',
               letterSpacing: '0.1em',
-              color: 'secondary.light',
+              color: 'primary.main',
               lineHeight: 1
             }}
           >

@@ -1,125 +1,119 @@
 import { createTheme, responsiveFontSizes } from '@mui/material/styles'
-import { sharedComponents, type Surface } from './sharedComponents'
-
-/**
- * The raised surface this theme is made of: panels, dialogs, cards, and the
- * tooltip, which is a card that floats. Declared once so they cannot drift.
- */
-const surface: Surface = {
-  backgroundImage: 'none',
-  backgroundColor: 'rgba(250,242,220,0.94)',
-  border: '1px solid rgba(159,126,36,0.45)',
-  backdropFilter: 'blur(2px)',
-  boxShadow: '-2px -2px 0 0 #9f7e24, 2px 2px 0 0 #9f7e24'
-}
+import { filledControls } from './filledControls'
+import { taliesinOverrides } from './taliesinOverrides'
+import { baseTypography } from './baseTypography'
 
 const danaanTheme = responsiveFontSizes(
   createTheme({
     palette: {
       mode: 'light',
-      // HTOO-355: an older gold. #b8922a was 2.39:1 on the parchment; this is
-      // 3.13:1 on the page, 3.41:1 on paper, and the label is 4.89:1 on it.
-      // The values are Mabon's (WP96), picked from a preview of the controls.
+      // MUI picks a status label (a filled chip or alert) by this ratio. Its
+      // default, 3, takes white on #ff0000 at 4.00:1; labels are text, so 4.5.
+      contrastThreshold: 4.5,
+      // The accent is text on the parchment too (text buttons, links), so 4.5:1 on
+      // every surface (HTOO-572): 5.13:1 on the page, 5.57:1 on paper and 4.62:1
+      // on paperDark, the darkest. The label is the parchment, 5.13:1. A filled
+      // button hovers DARKER, to `dark`, under its light label (6.73:1).
+      // `light` cannot read as text on the parchment: it is lighter than `main`.
       primary: {
-        main: '#9f7e24',
+        main: '#765d1b',
         light: '#e8c060',
-        dark: '#7a5e18',
-        contrastText: '#1a1008'
+        dark: '#614c16',
+        contrastText: '#f5e8c0'
       },
+      // The bar: a dark bronze with the parchment as its text (7.74:1), keylined
+      // like the other decorated bars (Sabrael, 2026-10-23). The gold bar's dark
+      // text needed an engrave of its own.
       secondary: {
-        main: '#c8a030',
+        main: '#5a4210',
         light: '#f0d070',
-        dark: '#8a6820',
-        contrastText: '#1a1008'
+        dark: '#3a2810',
+        contrastText: '#f5e8c0'
       },
       background: {
         default: '#f5e8c0',
-        paper: 'rgba(250,242,220,0.94)'
+        gray: '#f5e8c0',
+        paper: 'rgba(250,242,220,0.94)',
+        paperMedium: 'rgba(245,235,205,0.96)',
+        paperLight: 'rgba(255,248,230,0.90)',
+        paperDark: 'rgba(235,220,185,0.98)',
+        tableLight: 'rgba(255,250,235,0.80)',
+        tableDark: 'rgba(240,228,195,0.90)',
+        tableBorderL: 'rgba(122,94,24,0.25)',
+        tableBorderD: 'rgba(122,94,24,0.45)',
+        scrollbarDark: '#7a5e18',
+        scrollbarLight: '#765d1b'
       },
       text: {
         primary: '#2a1e08',
         secondary: '#4a3c20',
-        disabled: '#9a8860',
-        // Headings on the page and on cards. (The bars use secondary.contrastText.)
+        disabled: '#6a5840',
+        headline: '#795b12',
+        link: '#785c18',
+        linkHover: '#765d1b',
+        visited: '#4a3c20',
         button: '#2a1e08',
-        // Text on a light fill: a chrome button on hover (info.main).
         dark: '#1a1008'
       },
-      divider: 'rgba(159,126,36,0.3)',
-      error: { main: '#ff0000' },
-      warning: { main: '#FFFF00' },
-      info: { main: '#6de7f7' },
-      success: { main: '#38ff4f' }
+      divider: 'rgba(122,94,24,0.38)',
+      // Status colours are text on the page as well as fills (outlined chips,
+      // text buttons), so each reads 4.5:1 on the page and on paper (HTOO-572).
+      error: { main: '#c40000' },
+      warning: { main: '#636300' },
+      info: { main: '#31686f' },
+      success: { main: '#196f23' }
     },
 
-    typography: {
-      fontFamily: '"Crimson Pro", Georgia, serif',
-      h1: {
-        fontFamily: '"Cinzel Decorative", serif',
-        letterSpacing: '0.22em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      h2: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.08em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      h3: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.06em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      h4: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.06em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      h5: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.06em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      h6: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.06em',
-        fontWeight: 400,
-        color: '#2a1e08'
-      },
-      button: {
-        fontFamily: '"Cinzel", serif',
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase'
-      },
-      caption: { fontFamily: '"Cinzel", serif', letterSpacing: '0.18em', fontSize: '0.7rem' }
-    },
+    typography: baseTypography,
 
     shape: { borderRadius: 2 },
 
     components: {
-      ...sharedComponents(surface),
+      ...filledControls,
+      ...taliesinOverrides,
       MuiPaper: {
         styleOverrides: {
-          root: surface
+          root: {
+            backgroundImage: 'none',
+            backgroundColor: 'rgba(250,242,220,0.94)',
+            border: '1px solid rgba(122,94,24,0.55)',
+            backdropFilter: 'blur(2px)',
+            boxShadow: '-2px -2px 0 0 #765d1b, 2px 2px 0 0 #765d1b'
+          }
         }
       },
       MuiButton: {
         styleOverrides: {
           root: {
             borderRadius: 2,
-            border: '1px solid #9f7e24',
-            color: '#7a5e18',
-            '&:hover': { backgroundColor: 'rgba(159,126,36,0.12)', borderColor: '#e8c060' }
+            border: '1px solid currentColor',
+            // The theme draws its own look on PRIMARY buttons only. On `root` it beat
+            // MUI for every colour, so an error or a warning button drew like a
+            // primary one (HTOO-572, as the chip did). Other colours take MUI's own
+            // colour, which the palette test holds at 4.5:1, and a border in it.
+            '&.MuiButton-text.MuiButton-colorPrimary, &.MuiButton-outlined.MuiButton-colorPrimary':
+              {
+                borderColor: '#765d1b',
+                // 4.63:1 on paperDark, the darkest surface; #7a5e18 was 4.49:1.
+                color: '#785c18',
+                '&:hover': { backgroundColor: 'rgba(118,93,27,0.12)', borderColor: '#e8c060' }
+              }
           },
           contained: {
-            backgroundColor: '#9f7e24',
-            // HTOO-355: the palette's contrastText (4.89:1); the cream was 2.76:1.
-            color: '#1a1008',
-            '&:hover': { backgroundColor: '#d4a843' }
+            // A filled primary button is the accent with the palette's contrastText,
+            // and hovers darker, to primary.dark (6.73:1), under its light label.
+            '&.MuiButton-colorPrimary': {
+              borderColor: 'transparent',
+              backgroundColor: '#765d1b',
+              color: '#f5e8c0',
+              '&:hover': { backgroundColor: '#614c16' }
+            },
+            // color="inherit" is not the accent: the plain tint, with the text
+            // colour around it. The accent fill drew it at 2.95:1.
+            '&.MuiButton-colorInherit': {
+              backgroundColor: 'rgba(118,93,27,0.22)',
+              color: 'inherit'
+            }
           }
         }
       },
@@ -128,7 +122,7 @@ const danaanTheme = responsiveFontSizes(
           root: {
             backgroundColor: 'rgba(255,248,225,0.97)',
             backgroundImage: 'none',
-            borderBottom: '1px solid rgba(159,126,36,0.3)',
+            borderBottom: '1px solid rgba(122,94,24,0.50)',
             boxShadow: 'none',
             color: '#2a1e08'
           }
@@ -138,7 +132,7 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           paper: {
             backgroundColor: 'rgba(250,242,220,0.97)',
-            borderRight: '1px solid rgba(159,126,36,0.4)'
+            borderRight: '1px solid rgba(122,94,24,0.55)'
           }
         }
       },
@@ -146,16 +140,16 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             fontFamily: '"Cinzel", serif',
-            fontSize: '0.7rem',
+            fontSize: '0.85rem',
             letterSpacing: '0.1em',
             color: '#4a3c20',
-            borderBottom: '1px solid rgba(159,126,36,0.12)',
+            borderBottom: '1px solid rgba(122,94,24,0.22)',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(159,126,36,0.15)',
-              borderLeft: '2px solid #9f7e24',
-              color: '#7a5e18'
+              backgroundColor: 'rgba(118,93,27,0.15)',
+              borderLeft: '2px solid #765d1b',
+              color: '#6a5115'
             },
-            '&:hover': { backgroundColor: 'rgba(159,126,36,0.1)', paddingLeft: '20px' }
+            '&:hover': { backgroundColor: 'rgba(118,93,27,0.1)', paddingLeft: '20px' }
           }
         }
       },
@@ -163,35 +157,64 @@ const danaanTheme = responsiveFontSizes(
         styleOverrides: {
           root: {
             backgroundColor: 'rgba(255,250,235,0.96)',
-            border: '1px solid rgba(159,126,36,0.25)',
+            border: '1px solid rgba(122,94,24,0.42)',
             backgroundImage: 'none',
-            transition: 'border-color 0.2s, transform 0.2s',
-            '&:hover': { borderColor: '#9f7e24', transform: 'translateY(-2px)' }
+            transition: 'border-color 0.2s',
+            '&:hover': { borderColor: '#765d1b' }
           }
         }
       },
-      MuiDivider: { styleOverrides: { root: { borderColor: 'rgba(159,126,36,0.2)' } } },
+      MuiDivider: { styleOverrides: { root: { borderColor: 'rgba(122,94,24,0.38)' } } },
       MuiChip: {
         styleOverrides: {
           root: {
             fontFamily: '"Cinzel", serif',
             fontSize: '0.65rem',
             letterSpacing: '0.1em',
-            border: '1px solid rgba(159,126,36,0.35)',
+            border: '1px solid rgba(122,94,24,0.50)',
             // The tint is for a plain chip only. On `root` it beat MUI's own fill
-            // for every colour, so a warning or a selected chip looked plain.
+            // for every colour, so a warning or a selected chip looked plain
+            // (HTOO-572).
             '&.MuiChip-colorDefault': {
-              backgroundColor: 'rgba(159,126,36,0.15)',
-              color: '#7a5e18'
+              backgroundColor: 'rgba(118,93,27,0.22)',
+              // 4.64:1 on the tint over paperDark, the darkest surface; #7a5e18 was
+              // 4.02:1 on the page.
+              color: '#634c14'
             },
-            // HTOO-355: a selected chip (color="primary", filled) takes the accent
-            // and its label, as MUI's own fill does, but keeps the accent on hover:
-            // primary.dark under a dark label fails 4.5:1.
+            // A selected chip (color="primary", filled) takes the accent and its
+            // label, as MUI's own fill does, and keeps the accent on hover.
             '&.MuiChip-filled.MuiChip-colorPrimary': {
-              backgroundColor: '#9f7e24',
-              color: '#1a1008',
-              borderColor: '#9f7e24',
-              '&.MuiChip-clickable:hover': { backgroundColor: '#9f7e24' }
+              backgroundColor: '#765d1b',
+              color: '#f5e8c0',
+              borderColor: '#765d1b',
+              '&.MuiChip-clickable:hover': { backgroundColor: '#765d1b' }
+            }
+          }
+        }
+      },
+      MuiPaginationItem: {
+        styleOverrides: {
+          root: {
+            fontFamily: '"Cinzel", serif',
+            fontSize: '1rem',
+            borderRadius: 2,
+            textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
+            '& .MuiPaginationItem-icon': {
+              filter:
+                'drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)'
+            },
+            backgroundColor: '#c8a030',
+            color: '#1a1008',
+            border: '1px solid #765d1b',
+            '&:hover': { backgroundColor: '#e8c060', borderColor: '#f0d070' },
+            '&.Mui-selected': {
+              backgroundColor: '#765d1b',
+              borderColor: '#e8c060',
+              color: '#f5e8c0'
+            },
+            '&.Mui-disabled': {
+              backgroundColor: 'rgba(200,160,48,0.3)',
+              color: 'rgba(26,16,8,0.4)'
             }
           }
         }
@@ -202,36 +225,61 @@ const danaanTheme = responsiveFontSizes(
             fontFamily: '"Cinzel", serif',
             fontSize: '0.7rem',
             letterSpacing: '0.14em',
-            color: '#9a8860',
-            '&.Mui-selected': { color: '#7a5e18' }
+            color: '#6a5840',
+            '&.Mui-selected': { color: '#785c18' }
           }
         }
       },
-      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#9f7e24' } } },
+      MuiTabs: { styleOverrides: { indicator: { backgroundColor: '#765d1b' } } },
       MuiInputLabel: {
-        styleOverrides: { root: { '&.Mui-focused': { color: '#9f7e24' } } }
+        styleOverrides: { root: { '&.Mui-focused': { color: '#765d1b' } } }
       },
       MuiCheckbox: {
         styleOverrides: {
           root: {
-            color: 'rgba(159,126,36,0.5)',
-            '&.Mui-checked': { color: '#9f7e24' }
+            color: 'rgba(118,93,27,0.5)',
+            '&.Mui-checked': { color: '#765d1b' }
           }
-        }
-      },
-      MuiSlider: {
-        defaultProps: { color: 'secondary' },
-        styleOverrides: {
-          rail: { backgroundColor: 'rgba(240,230,204,0.25)', opacity: 1 }
         }
       },
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(159,126,36,0.3)' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(159,126,36,0.6)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#9f7e24' }
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(122,94,24,0.45)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(122,94,24,0.70)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#765d1b' }
           }
+        }
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            color: theme.palette.text.link,
+            textDecoration: 'none',
+            '&:hover': { color: theme.palette.text.linkHover },
+            '&:visited': { color: theme.palette.text.visited }
+          })
+        }
+      },
+      MuiCssBaseline: {
+        styleOverrides: {
+          a: {
+            color: '#785c18',
+            textDecoration: 'none',
+            '&:hover': { color: '#765d1b' },
+            '&:visited': { color: '#4a3c20' }
+          }
+        }
+      },
+      MuiSvgIcon: {
+        styleOverrides: {
+          root: ({ theme }) => ({ color: theme.palette.primary.main })
+        }
+      },
+      MuiCircularProgress: {
+        defaultProps: { color: 'inherit' },
+        styleOverrides: {
+          root: ({ theme }) => ({ color: theme.palette.text.headline })
         }
       }
     }

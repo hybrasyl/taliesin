@@ -235,9 +235,15 @@ const CommittedTiles: React.FC<CommittedTilesProps> = ({
                 right: -6,
                 p: 0.2,
                 opacity: 0,
+                // A status fill takes its own label: contrastText on main, and
+                // a label picked against .dark on the hover (HTOO-572). The old
+                // #fff was 3.9:1 on hybrasyl's error.main.
                 bgcolor: 'error.main',
-                color: '#fff',
-                '&:hover': { bgcolor: 'error.dark' }
+                color: 'error.contrastText',
+                '&:hover': {
+                  bgcolor: 'error.dark',
+                  color: (t) => t.palette.getContrastText(t.palette.error.dark)
+                }
               }}
             >
               <DeleteIcon sx={{ fontSize: 12 }} />
@@ -259,7 +265,10 @@ const CommittedTiles: React.FC<CommittedTilesProps> = ({
                   opacity: 0,
                   bgcolor: 'primary.main',
                   color: 'primary.contrastText',
-                  '&:hover': { bgcolor: 'primary.dark' }
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                    color: (t) => t.palette.getContrastText(t.palette.primary.dark)
+                  }
                 }}
               >
                 <TagIcon sx={{ fontSize: 12 }} />

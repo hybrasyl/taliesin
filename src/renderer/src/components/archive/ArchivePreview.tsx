@@ -393,7 +393,7 @@ const AudioPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> 
           border: '2px solid',
           borderColor: 'divider',
           p: 3,
-          color: playing ? 'secondary.light' : 'text.primary'
+          color: playing ? 'primary.main' : 'text.primary'
         }}
       >
         {playing ? <StopIcon sx={{ fontSize: 48 }} /> : <PlayArrowIcon sx={{ fontSize: 48 }} />}

@@ -1,13 +1,10 @@
 import { create } from 'zustand'
+import { THEME_NAMES, type ThemeName } from '../../../shared/types'
 
-export type ThemeName = 'hybrasyl' | 'chadul' | 'danaan' | 'grinneal' | 'mundanes' | 'dubhaimid'
-
-/**
- * The "corporate/plain" themes. Chrome that's stylized for the four fantasy
- * themes (skull window glyphs, #000 keyline/drop shadows) drops to flat MUI
- * icons and no shadows for these. Ported from Oghma's PLAIN_CHROME_THEMES.
- */
-export const PLAIN_CHROME_THEMES: ThemeName[] = ['mundanes', 'dubhaimid']
+// The theme names live in src/shared/types.ts, because the house modules import
+// them from `@shared/types`. They are re-exported here for the app's importers.
+// The plain-chrome list is the title-bar module's: components/titleChrome.ts.
+export { THEME_NAMES, type ThemeName }
 
 export interface MapDirectory {
   path: string
@@ -95,8 +92,7 @@ export type SettingsStore = RendererSettings & SettingsActions
 // wrong-typed values into the store.
 function coerce(raw: Record<string, unknown>): Partial<RendererSettings> {
   const out: Partial<RendererSettings> = {}
-  const themes = ['hybrasyl', 'chadul', 'danaan', 'grinneal', 'mundanes', 'dubhaimid']
-  if (typeof raw.theme === 'string' && themes.includes(raw.theme))
+  if (typeof raw.theme === 'string' && (THEME_NAMES as string[]).includes(raw.theme))
     out.theme = raw.theme as ThemeName
   if (typeof raw.clientPath === 'string') out.clientPath = raw.clientPath
   if (typeof raw.brigidAssetsPath === 'string') out.brigidAssetsPath = raw.brigidAssetsPath

@@ -53,17 +53,19 @@ src/
               and NOTHING else — any package import here breaks `sandbox: true` in the packaged
               app only (it builds and lints clean). See src/preload/index.ts.
   shared/     electron-free code main, the renderer and the vitest node project use: externalUrl.ts,
-              appIdentity.ts (Report Issue + update check), updateVersion.ts (update-check module)
+              appIdentity.ts (Report Issue + update check), updateVersion.ts (update-check module),
+              types.ts (ThemeName, THEME_NAMES)
   renderer/src/
     App.tsx       ThemeProvider + CssBaseline; hydrates settingsStore then calls window.api.appReady()
     components/ pages/ hooks/ utils/ data/
     store/        zustand — settingsStore (owns persistence + hydration gate), uiStore
-    themes/       6 DA themes (see below)
+    themes/       6 DA themes, copied from the house template (see below)
+    lib/          contrast.ts (the house WCAG helper the theme and chrome tests use)
     packKinds/    the .datf content_type registry (see below)
     uiforge/      UI Layout Forge (ui_panels WYSIWYG editor)
 ```
 
-Alias: `@renderer` → `src/renderer/src` (imports are relative in practice). **`src/shared/` holds only electron-free code**: no electron or node imports, because main, the renderer (relative imports; `tsconfig.web.json` includes it) and the vitest **node** project all load it. `appIdentity.ts` is there because `scripts/publish-version.mjs` reads `updateKey` from `src/shared/appIdentity.ts`. Cross-cutting _renderer_ types (`ThemeName`, `THEME_NAMES`, `PLAIN_CHROME_THEMES`) still live in `store/settingsStore.ts` — do not migrate them. Both tsconfigs include `src/shared/**` already; a test there is collected only by the `src/shared/**/__tests__` glob in `vitest.config.mjs`'s node project (**silent** if a new layout misses it — the suite is never collected and vitest still reports success).
+Aliases: `@renderer` → `src/renderer/src` and `@shared` → `src/shared`, in `electron.vite.config.mjs`, `tsconfig.web.json` and `vitest.config.mjs`. App code imports relatively in practice; the house modules (themes, title bar, theme gallery) import through the aliases, because they are copied from the template with no edit. **`src/shared/` holds only electron-free code**: no electron or node imports, because main, the renderer (relative imports; `tsconfig.web.json` includes it) and the vitest **node** project all load it. `appIdentity.ts` is there because `scripts/publish-version.mjs` reads `updateKey` from `src/shared/appIdentity.ts`. `ThemeName` and `THEME_NAMES` live in `src/shared/types.ts`, because the house modules import them from `@shared/types`; `store/settingsStore.ts` re-exports them. `PLAIN_CHROME_THEMES` lives in `components/titleChrome.ts` (HTOO-572). Both tsconfigs include `src/shared/**` already; a test there is collected only by the `src/shared/**/__tests__` glob in `vitest.config.mjs`'s node project (**silent** if a new layout misses it — the suite is never collected and vitest still reports success).
 
 ## Load-bearing house patterns (don't reinvent)
 
@@ -106,10 +108,9 @@ Alias: `@renderer` → `src/renderer/src` (imports are relative in practice). **
   first-frame writes clobbering `settings.json` with defaults).
 - **Splash + `app:ready` reveal handshake**: the main window is hidden until the renderer hydrates
   settings and calls `window.api.appReady()`.
-- **Six themes** — `hybrasyl` (default), `chadul`, `danaan`, `grinneal`, plus the two corporate
-  themes `mundanes` / `dubhaimid`. Corporate themes are "plain chrome" (`PLAIN_CHROME_THEMES`):
-  the title bar swaps the gamified skull glyphs for flat MUI window icons and drops the text-shadow.
-  All themes are wrapped in `responsiveFontSizes()`.
+- **Six themes** — `hybrasyl` (default), `chadul`, `danaan`, `grinneal`, plus the two corporate themes `mundanes` / `dubhaimid`. They are the house template's files, byte for byte (HTOO-572), with `filledControls.ts`, `augmentation.ts`, `baseTypography.ts`, `plainTypography.ts` and `index.ts`. Each theme adds one line: `...taliesinOverrides` after `...filledControls`. Taliesin's own overrides are in `themes/taliesinOverrides.ts` (today the tooltip as a card), and `taliesinOverrides.test.ts` checks that each theme carries them. An override must not set `MuiButtonBase` or `MuiAlert`. To take a new palette, copy the template's files again and put the spread line back. The template's palette, chip, filled-control and chrome tests are copied too: change the template first, then port.
+- **The title bar is the house title-bar v1 module**: `components/TitleBar.tsx` and `components/titleChrome.ts`, copied with no edit. `components/AppTitleBar.tsx` wires it to the theme, `taliesin.webp`, the product name, `window.api.platform` and the window calls. The corporate themes are "plain chrome" (`PLAIN_CHROME_THEMES`, in `titleChrome.ts`): flat MUI window icons and no text-shadow. The four decorated themes have dark bars with light text and a black keyline; danaan's bar is bronze and grinneal's brown. Nothing is engraved. The close button hovers to `error.main`. The nav bar (`NavToolbar.tsx`) is Taliesin's own second bar; it takes the title bar's colours from `titleChrome.ts` (`BUTTON`), and `navBarContrast.test.tsx` checks it.
+- **Call-site rules for the palette**: `secondary` is the bar colour, a fill only — never text or an outline on the page. A bar's text is `secondary.contrastText`. `primary.light` is not text on a light theme; use `primary.main`. A status fill is `main` with `contrastText`; a `.dark` fill takes `getContrastText(.dark)`. **Settings → Appearance → Theme gallery** (`pages/ThemeGallery.tsx`) shows each control in the active theme with its measured contrast; `e2e/theme-gallery.spec.js` writes the low ratios to `theme-gallery.json`.
 
 ## Adding a `.datf` content type
 
