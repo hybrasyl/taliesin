@@ -20,11 +20,17 @@ permissions:
 # build-windows runs CodeSignTool itself. Every action left runs on node24.
 
 jobs:
+  # The Linux jobs name `ubuntu-24.04`, not `ubuntu-latest` (house-wide,
+  # 2026-10-29). GitHub moves `ubuntu-latest` to Ubuntu 26 from 2026-10-19, and
+  # a new image under a release build is a change nobody chose: xvfb and the
+  # packaging tools come from the image. Move to a newer image on purpose, in
+  # its own commit, after one `workflow_dispatch` run on it passes.
+  #
   # Re-runs the PR gate on the tag itself, so a release can never be cut from a
   # commit that does not pass. ci.yml is the same gate on every PR and every
   # push to main; this one exists because a tag is neither.
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       # Depth 1 everywhere in this workflow, deliberately -- see the note on the
@@ -195,7 +201,7 @@ jobs:
           retention-days: 1
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: validate
 
     steps:
@@ -320,7 +326,7 @@ jobs:
           retention-days: 1
 
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-windows, build-linux, build-mac]
     if: github.ref_type == 'tag'
 
