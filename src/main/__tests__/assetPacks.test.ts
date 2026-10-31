@@ -274,23 +274,63 @@ describe('assetPacks loading + resolution', () => {
   })
 })
 
+// Brigid's AppPaths.AssetsDir, platform by platform (HTOO-585). Expectations use
+// `join`, as the code does, so the suite gives the same answer on any OS.
 describe('suggestedBrigidAssetsPath', () => {
-  const prev = process.env.LOCALAPPDATA
+  const home = join('/home', 'a')
 
-  afterEach(() => {
-    if (prev === undefined) delete process.env.LOCALAPPDATA
-    else process.env.LOCALAPPDATA = prev
-  })
-
-  it('joins %LOCALAPPDATA%\\erisco\\Brigid\\assets when set', () => {
-    process.env.LOCALAPPDATA = join('C:', 'Users', 'x', 'AppData', 'Local')
-    expect(suggestedBrigidAssetsPath()).toBe(
-      join(process.env.LOCALAPPDATA, 'erisco', 'Brigid', 'assets')
+  it('Windows: %LOCALAPPDATA%\\Erisco\\Brigid\\assets', () => {
+    const local = join('C:', 'Users', 'a', 'AppData', 'Local')
+    expect(suggestedBrigidAssetsPath('win32', { LOCALAPPDATA: local }, home)).toBe(
+      join(local, 'Erisco', 'Brigid', 'assets')
     )
   })
 
-  it('returns null when LOCALAPPDATA is absent', () => {
-    delete process.env.LOCALAPPDATA
-    expect(suggestedBrigidAssetsPath()).toBeNull()
+  it("Windows without LOCALAPPDATA: the home folder's AppData\\Local", () => {
+    expect(suggestedBrigidAssetsPath('win32', {}, home)).toBe(
+      join(home, 'AppData', 'Local', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('Linux: ~/.config/Erisco/Brigid/assets', () => {
+    expect(suggestedBrigidAssetsPath('linux', {}, home)).toBe(
+      join(home, '.config', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('macOS: ~/Library/Application Support/Erisco/Brigid/assets', () => {
+    // The folder a macOS pass of Brigid recorded its packs in (2026-10-21).
+    expect(suggestedBrigidAssetsPath('darwin', {}, home)).toBe(
+      join(home, 'Library', 'Application Support', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('Linux: an absolute XDG_CONFIG_HOME wins, a relative one does not', () => {
+    const xdg = join('/srv', 'cfg')
+    expect(suggestedBrigidAssetsPath('linux', { XDG_CONFIG_HOME: xdg }, home)).toBe(
+      join(xdg, 'Erisco', 'Brigid', 'assets')
+    )
+    expect(suggestedBrigidAssetsPath('linux', { XDG_CONFIG_HOME: 'cfg' }, home)).toBe(
+      join(home, '.config', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('macOS: XDG_CONFIG_HOME does not move the folder', () => {
+    const xdg = join('/srv', 'cfg')
+    expect(suggestedBrigidAssetsPath('darwin', { XDG_CONFIG_HOME: xdg }, home)).toBe(
+      join(home, 'Library', 'Application Support', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('ignores LOCALAPPDATA off Windows', () => {
+    // The e2e helper sets it on every OS; Brigid never reads it there.
+    expect(suggestedBrigidAssetsPath('linux', { LOCALAPPDATA: '/tmp/e2e' }, home)).toBe(
+      join(home, '.config', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('returns null with no base at all', () => {
+    expect(suggestedBrigidAssetsPath('win32', {}, '')).toBeNull()
+    expect(suggestedBrigidAssetsPath('linux', {}, '')).toBeNull()
   })
 })
