@@ -41,6 +41,9 @@ export interface PackAsset {
 
 export interface PackProject {
   pack_id: string
+  /** The display name Brigid shows where a player picks a pack (BRIG-124).
+   *  Optional; compile writes it as `name` only when it is not blank. */
+  name?: string
   pack_version: string
   content_type: ContentType
   priority: number

@@ -30,3 +30,22 @@ export function nextSlotId(
   }
   return max + 1
 }
+
+/**
+ * Why a `pack_id` can cause a problem in Brigid, or null when it cannot
+ * (HTOO-598). Taliesin makes ids of lowercase letters, digits, `-` and `_`, and
+ * the editor keeps them that way as you type; an id from an imported pack or a
+ * hand-edited project can still be different.
+ *
+ * Brigid refuses a `ui_theme` pack whose id has other characters, and compares
+ * ids without case, so it refuses a second pack whose id differs only in case.
+ */
+export function packIdProblem(packId: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(packId)) {
+    return "Use only letters, digits, '-' and '_'. Brigid refuses a theme pack whose id has other characters."
+  }
+  if (packId !== packId.toLowerCase()) {
+    return 'Use lowercase. Brigid compares pack ids without case, so it refuses a second pack whose id differs only in case.'
+  }
+  return null
+}

@@ -38,6 +38,10 @@ const assetMetaSchema = z.record(z.string(), z.record(z.string(), z.unknown()))
 
 const baseFields = {
   pack_id: z.string().min(1),
+  // The display name (BRIG-124), for example "Icy Steel". Optional: Brigid
+  // shows the pack_id when it is absent or blank. Compile writes it only when it
+  // is not blank (HTOO-598).
+  name: z.string().optional(),
   pack_version: z.string(),
   content_type: contentTypeSchema,
   priority: z.number().int(),

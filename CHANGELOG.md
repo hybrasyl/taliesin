@@ -35,6 +35,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **A pack has a Name.** The pack editor has a **Name** field, for example `Icy Steel`, for every pack type. Brigid shows the name where a player picks a pack, and the pack ID when the name is blank. Taliesin saves the name in the project and writes it to the compiled pack when it is not blank. Import keeps it. The editor also warns when a pack ID has upper case or a character other than a letter, a digit, `-` or `_`, which can come from an imported pack: Brigid refuses a theme pack with such an ID, and treats two IDs that differ only in case as the same pack.
 - **Settings → World indexes removes old world indexes.** Taliesin keeps an index of each world outside the world folder. This version starts a new version of the index, so Taliesin builds each world's index again the first time it opens the world, and the old index stays on disk. A world that moved also leaves its old index. **Find old indexes** lists each one with its size and the reason, and **Remove** deletes them. Taliesin does not remove an index by itself. Creidhne uses the same indexes, and builds its index again if it needs one that you removed.
 - **Settings → Appearance → Theme gallery** shows each type of control in the theme that you use, on the page and on a card. Under each control, the gallery shows its measured contrast. Use it to examine a theme. **Back** returns to Settings.
 

@@ -3,6 +3,7 @@ import { abilityIconsKind } from '../abilityIcons'
 import { nationBadgesKind } from '../nationBadges'
 import { legendMarkIconsKind } from '../legendMarkIcons'
 import { itemIconsKind } from '../itemIcons'
+import { packIdProblem } from '../helpers'
 import { uiSpriteOverridesKind } from '../uiSpriteOverrides'
 import { musicKind } from '../music'
 import { soundEffectsKind } from '../soundEffects'
@@ -711,5 +712,23 @@ describe('uiPanelsKind', () => {
       uiPanelsKind.nextAssetPath({ ctx: { namespace: 'extstats_bg' }, existingAssets: [] })
     ).toEqual({ zipPath: 'extstats_bg.png', relPath: 'extstats_bg.png' })
     expect(() => uiPanelsKind.nextAssetPath({ existingAssets: [] })).toThrow()
+  })
+})
+
+// The pack_id rule Brigid applies (HTOO-598).
+describe('packIdProblem', () => {
+  it('accepts the ids Taliesin makes', () => {
+    expect(packIdProblem('icy-steel')).toBeNull()
+    expect(packIdProblem('items_2')).toBeNull()
+  })
+
+  it('names characters other than letters, digits, - and _', () => {
+    expect(packIdProblem('icy steel')).toMatch(/only letters, digits/)
+    expect(packIdProblem('icy.steel')).toMatch(/only letters, digits/)
+    expect(packIdProblem('')).toMatch(/only letters, digits/)
+  })
+
+  it('names upper case, which Brigid compares without', () => {
+    expect(packIdProblem('IcySteel')).toMatch(/lowercase/)
   })
 })
