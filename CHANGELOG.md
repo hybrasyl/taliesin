@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-31
+
 ### Added
 
 - **Stage and Release a map.** On the Maps page, **Stage** moves the open map XML from `xml/maps/` to `.staging/maps/`, beside `xml/`, as Creidhne stages its files. The server and the world index do not read `.staging/`, so a staged map is not live. The `.map` file stays in `mapfiles/`. Before it stages a map, Taliesin lists the live files that name the map, because those references stay broken until you release it. The **Staged** toggle shows the staged maps. For a staged map, the button is **Release**, which moves the map back to the same path under `xml/maps/`. Release also offers to release the staged maps that the map warps to. Release refuses a map whose name or Id a live map already has. An archived map cannot be staged, and a staged map cannot be archived.
