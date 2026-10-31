@@ -35,7 +35,6 @@ import { useUiStore } from '../../store/uiStore'
 import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
 import { brigidAssetsDir, fileIn, packWorkingDir } from '../../utils/pickerDefaults'
-import { scanDyeUsage } from '../../packKinds/itemIconsDye'
 import AssetThumbnail from './AssetThumbnail'
 import { clearPackCaches } from '../../utils/packCaches'
 
@@ -395,30 +394,30 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       }
 
       const sourceExtension = filePath.split('.').pop()?.toLowerCase()
-      const target = kind.nextAssetPath({
-        ctx: namespace ? { namespace } : undefined,
-        existingAssets: draft.assets,
-        sourceExtension
-      })
+      // A kind refuses an add by throwing: item_icons does when no id is free
+      // below the highest one the client can show (HTOO-599).
+      let target: ReturnType<typeof kind.nextAssetPath>
+      try {
+        target = kind.nextAssetPath({
+          ctx: namespace ? { namespace } : undefined,
+          existingAssets: draft.assets,
+          sourceExtension
+        })
+      } catch (e) {
+        onStatus(`Rejected: ${e instanceof Error ? e.message : 'no free slot'}`)
+        return
+      }
       await window.api.packAddAsset(packDir, filePath, target.zipPath)
 
       const newAssets = [...draft.assets, { filename: target.zipPath, sourcePath: filePath }]
       setDraft((prev) => ({ ...prev, assets: newAssets, updatedAt: new Date().toISOString() }))
       setDirty(true)
 
-      // Item-icon dye heuristic: warn (non-blocking) on near-purple pixels
-      // outside the canonical palette. Skipped when the asset is flagged
-      // noDye (the kind decides via assetMetaFields).
-      let suffix = ''
-      if (buf && draft.content_type === 'item_icons') {
-        const report = scanDyeUsage(buf)
-        if (report.nonDyeablePurplePixels > 0) {
-          suffix = ` (warning: ${report.nonDyeablePurplePixels} near-purple pixels not in canonical palette — mark No dye if intentional)`
-        }
-      }
-      onStatus(`Added ${target.zipPath}${suffix}`)
+      // No dye warning here: every add is a modern id (from 20001), and Brigid
+      // never ramp-dyes one, so a near-purple pixel needs no warning (HTOO-599).
+      onStatus(`Added ${target.zipPath}`)
     },
-    [draft.assets, draft.content_type, kind, packDir, onStatus]
+    [draft.assets, kind, packDir, onStatus]
   )
 
   /**

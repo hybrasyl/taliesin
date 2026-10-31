@@ -236,6 +236,29 @@ describe('packImport — basics', () => {
     })
   })
 
+  // An old scaffold pack names its dye set exactly. The import must keep the
+  // list, or the next save and compile drops it (HTOO-599).
+  it('keeps an explicit item_icons covers.dyeable list', async () => {
+    const fs = memfs
+    const datfBytes = await buildDatfBytes(
+      {
+        schema_version: 1,
+        pack_id: 'scaffold',
+        pack_version: '1.0.0',
+        content_type: 'item_icons',
+        priority: 100,
+        covers: { item_icons: { dyeable: [1, 3] } }
+      },
+      { 'item00001.png': 'A', 'item00002.png': 'B', 'item00003.png': 'C' }
+    )
+    fs.files.set('/out/scaffold.datf', datfBytes)
+
+    await packImport(ctx, '/out/scaffold.datf', '/work')
+
+    const project = JSON.parse(fs.files.get('/work/scaffold.json')!.toString('utf-8'))
+    expect(project.covers).toEqual({ item_icons: { dyeable: [1, 3] } })
+  })
+
   it('round-trips a ui_panels schema_version-2 pack (XML + art, covers preserved)', async () => {
     const fs = memfs
     const panelXml =

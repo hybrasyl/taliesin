@@ -313,7 +313,7 @@ describe('PackEditor — add and remove assets', () => {
     expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/l.png', 'legend0000.png')
   })
 
-  it('item_icons starts at item00001.png (5-digit, 1-based)', async () => {
+  it('item_icons starts at item20001.png, the first modern id (HTOO-599)', async () => {
     const user = userEvent.setup()
     api.openFile.mockResolvedValue('/src/i.png')
     api.packAddAsset.mockResolvedValue(undefined)
@@ -334,7 +334,7 @@ describe('PackEditor — add and remove assets', () => {
     await user.click(screen.getByRole('button', { name: /add png/i }))
 
     await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
-    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/i.png', 'item00001.png')
+    expect(api.packAddAsset).toHaveBeenCalledWith('/p', '/src/i.png', 'item20001.png')
   })
 
   it('ui_sprite_overrides "New source file…" opens dialog, then adds nested mile.spf/0000.png', async () => {
@@ -666,7 +666,9 @@ describe('PackEditor — item_icons dye flow', () => {
     })
   })
 
-  it('warns about non-canonical near-purple pixels when adding an item_icons PNG', async () => {
+  // Every add is a modern id now (from 20001), which Brigid never ramp-dyes, so
+  // a near-purple pixel no longer earns a warning (HTOO-599).
+  it('does not warn about near-purple pixels: a new item icon is modern', async () => {
     const user = userEvent.setup()
     // Build a 16×16 buffer with a few off-palette purple pixels
     const data = new Uint8ClampedArray(16 * 16 * 4)
@@ -693,11 +695,48 @@ describe('PackEditor — item_icons dye flow', () => {
     await user.click(screen.getByRole('button', { name: /add png/i }))
 
     await waitFor(() => expect(api.packAddAsset).toHaveBeenCalled())
-    // Asset is still added — the warning is non-blocking — but onStatus
-    // includes the heuristic message.
-    expect(onStatus).toHaveBeenCalledWith(
-      expect.stringMatching(/Added item00001\.png.*near-purple pixels/)
+    expect(onStatus).toHaveBeenCalledWith('Added item20001.png')
+  })
+
+  it('refuses the add when no item id is free below 32767', async () => {
+    const user = userEvent.setup()
+    api.openFile.mockResolvedValue('/src/i.png')
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'item_icons',
+          covers: { item_icons: {} },
+          assets: [{ filename: 'item32767.png', sourcePath: '/s' }]
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
     )
+    await user.click(screen.getByRole('button', { name: /add png/i }))
+
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/^Rejected: .*32767/))
+    )
+    expect(api.packAddAsset).not.toHaveBeenCalled()
+  })
+
+  it('says when an explicit dyeable list overrides No dye', () => {
+    render(
+      <PackEditor
+        pack={makePack({
+          content_type: 'item_icons',
+          covers: { item_icons: { dyeable: [1, 2] } },
+          assets: [{ filename: 'item00001.png', sourcePath: '/s' }]
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    expect(screen.getByTestId('dyeable-list').textContent).toMatch(/2 ids.*ignores No dye/)
   })
 
   it('renders the dye palette swatches via the kind Panel', () => {
