@@ -298,19 +298,27 @@ describe('suggestedBrigidAssetsPath', () => {
     )
   })
 
-  it('macOS: ~/.config too, as .NET gives Brigid, not Application Support', () => {
+  it('macOS: ~/Library/Application Support/Erisco/Brigid/assets', () => {
+    // The folder a macOS pass of Brigid recorded its packs in (2026-10-21).
     expect(suggestedBrigidAssetsPath('darwin', {}, home)).toBe(
-      join(home, '.config', 'Erisco', 'Brigid', 'assets')
+      join(home, 'Library', 'Application Support', 'Erisco', 'Brigid', 'assets')
     )
   })
 
-  it('macOS and Linux: an absolute XDG_CONFIG_HOME wins, a relative one does not', () => {
+  it('Linux: an absolute XDG_CONFIG_HOME wins, a relative one does not', () => {
     const xdg = join('/srv', 'cfg')
     expect(suggestedBrigidAssetsPath('linux', { XDG_CONFIG_HOME: xdg }, home)).toBe(
       join(xdg, 'Erisco', 'Brigid', 'assets')
     )
-    expect(suggestedBrigidAssetsPath('darwin', { XDG_CONFIG_HOME: 'cfg' }, home)).toBe(
+    expect(suggestedBrigidAssetsPath('linux', { XDG_CONFIG_HOME: 'cfg' }, home)).toBe(
       join(home, '.config', 'Erisco', 'Brigid', 'assets')
+    )
+  })
+
+  it('macOS: XDG_CONFIG_HOME does not move the folder', () => {
+    const xdg = join('/srv', 'cfg')
+    expect(suggestedBrigidAssetsPath('darwin', { XDG_CONFIG_HOME: xdg }, home)).toBe(
+      join(home, 'Library', 'Application Support', 'Erisco', 'Brigid', 'assets')
     )
   })
 

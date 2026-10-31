@@ -168,7 +168,7 @@ An AppImage runs from a temporary mount, so Taliesin must look for Creidhne besi
 1. Open **Settings → Installed Asset Packs**.
 2. Click **Use default location**.
 
-**Expected:** the field shows `~/.config/Erisco/Brigid/assets` on macOS and on Linux, with `Erisco` in capitals. If `XDG_CONFIG_HOME` is set to an absolute path, the field shows `$XDG_CONFIG_HOME/Erisco/Brigid/assets`. If Brigid is installed on the machine, its packs folder is that same folder. If the field stays empty or shows another folder, record what it shows.
+**Expected:** the field shows `~/Library/Application Support/Erisco/Brigid/assets` on macOS and `~/.config/Erisco/Brigid/assets` on Linux, with `Erisco` in capitals. On Linux, if `XDG_CONFIG_HOME` is set to an absolute path, the field shows `$XDG_CONFIG_HOME/Erisco/Brigid/assets`. If Brigid is installed on the machine, its packs folder is that same folder. If the field stays empty or shows another folder, record what it shows.
 
 ## For this release (November 2026)
 

@@ -376,9 +376,15 @@ export async function resolveAssetBytes(
  * the one Brigid takes from .NET:
  *
  * - Windows: `LocalApplicationData`, which is `%LOCALAPPDATA%`.
- * - macOS and Linux: `ApplicationData`, which is `$XDG_CONFIG_HOME` when it is
- *   an absolute path, else `~/.config`. This is `~/.config` on macOS too, not
- *   `~/Library/Application Support`: Brigid is a .NET app, not an Electron one.
+ * - macOS: `ApplicationData`, which .NET maps to `~/Library/Application Support`
+ *   there. A macOS pass of Brigid recorded packs in that folder (2026-10-21).
+ *   Brigid's own doc comments say `~/.config` for macOS; they are out of date.
+ * - Linux: `ApplicationData`, which is `$XDG_CONFIG_HOME` when it is an absolute
+ *   path, else `~/.config`.
+ *
+ * These are the same bases that Electron's `appData` gives Taliesin and the other
+ * house apps, and that hybindex-ts uses since 1.2.0. This module does not import
+ * electron, so it resolves them itself.
  *
  * The vendor folder is `Erisco`, as Brigid writes it since it moved from
  * `erisco` (`MigrateLegacyVendorFolder`). Linux keeps the two apart.
@@ -394,6 +400,8 @@ export function suggestedBrigidAssetsPath(
   let base: string | undefined
   if (platform === 'win32') {
     base = env.LOCALAPPDATA || (home ? join(home, 'AppData', 'Local') : undefined)
+  } else if (platform === 'darwin') {
+    base = home ? join(home, 'Library', 'Application Support') : undefined
   } else {
     const xdg = env.XDG_CONFIG_HOME
     base = xdg && isAbsolute(xdg) ? xdg : home ? join(home, '.config') : undefined
