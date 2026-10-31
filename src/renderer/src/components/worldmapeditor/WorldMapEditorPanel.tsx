@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Alert,
   Box,
   Chip,
   Collapse,
@@ -22,6 +21,7 @@ import RestoreIcon from '@mui/icons-material/Restore'
 import StarIcon from '@mui/icons-material/Star'
 import SyncIcon from '@mui/icons-material/Sync'
 import EditorHeader from '../shared/EditorHeader'
+import { EditorAlert, useEditorAlert, type EditorAlertData } from '../shared/EditorAlerts'
 import { ItemsGroup } from '../shared/ItemsGroup'
 import WarpDialog from '../shared/WarpDialog'
 import ClientMapSelect from './ClientMapSelect'
@@ -49,15 +49,14 @@ interface Props {
   initialFolder: string
   /** Folders already in use, offered as save destinations. */
   folderOptions: string[]
-  isTemplate: boolean
   isReferenceSet?: boolean
   isExisting: boolean
   mapNames: string[]
   meta: WorldMapMeta | null
   referencePoints: WorldMapPoint[] | null
   onSave: (data: WorldMapData, fileName: string, folder: string) => Promise<void>
-  onMoveToTemplates?: () => void
-  onMoveToActive?: () => void
+  /** Move the file to the typed name and folder, and write nothing else. */
+  onRenameFile?: (fileName: string, folder: string) => Promise<void>
   onDirtyChange: (dirty: boolean) => void
   onExclude: (key: string) => void
   onRestore: (key: string) => void
@@ -193,15 +192,13 @@ export default function WorldMapEditorPanel({
   initialFileName,
   initialFolder,
   folderOptions,
-  isTemplate,
   isReferenceSet,
   isExisting,
   mapNames,
   meta,
   referencePoints,
   onSave,
-  onMoveToTemplates,
-  onMoveToActive,
+  onRenameFile,
   onDirtyChange,
   onExclude,
   onRestore,
@@ -231,16 +228,21 @@ export default function WorldMapEditorPanel({
 
   const isDerived = meta !== null
 
+  // Two effects, not one: a Rename changes the file's name and folder and not
+  // the world map, so it resets the filename fields and keeps the unsaved edits.
   useEffect(() => {
-    setData(worldMap)
     setFileName(initialFileName ?? computeWorldMapFilename(worldMap.name))
     setFolder(initialFolder)
+  }, [worldMap, initialFileName, initialFolder])
+
+  useEffect(() => {
+    setData(worldMap)
     setSelectedIndex(null)
     setPlaceMode(false)
     setDialogState(null)
     isDirtyRef.current = false
     onDirtyChange(false)
-  }, [worldMap, initialFileName]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [worldMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const markDirty = useCallback(() => {
     if (!isDirtyRef.current) {
@@ -276,6 +278,43 @@ export default function WorldMapEditorPanel({
 
   const overlapPairs = overlappingPointPairs(data.points)
 
+  // ── Alerts, in the area under the header (HTOO-633) ───────────────────────
+  //
+  // Overlap is a fault in a set a player receives, and expected in a reference
+  // set, whose overlapping points are normally split across derived sets.
+  const pairName = ([a, b]: [number, number]): string =>
+    `${data.points[a]?.name || `#${a + 1}`} / ${data.points[b]?.name || `#${b + 1}`}`
+  const overlapAlert: EditorAlertData | null =
+    !isReferenceSet && overlapPairs.length > 0
+      ? {
+          order: 10,
+          severity: 'error',
+          testId: 'overlap-alert',
+          message:
+            (overlapPairs.length === 1
+              ? 'One pair of points overlaps'
+              : `${overlapPairs.length} pairs of points overlap`) +
+            '. The client draws the later point on top, but a click goes to the earlier one, so the' +
+            ' point on top cannot be reached in game. Points may overlap in a reference set, not in' +
+            ' a set a player receives.',
+          items: [
+            ...overlapPairs.slice(0, 3).map(pairName),
+            ...(overlapPairs.length > 3 ? [`…and ${overlapPairs.length - 3} more`] : [])
+          ]
+        }
+      : null
+  const orphanAlert: EditorAlertData | null =
+    isDerived && orphanKeys.size > 0
+      ? {
+          order: 20,
+          severity: 'warning',
+          testId: 'orphan-alert',
+          message: `${orphanKeys.size} point(s) in this group are not in the reference set and will be lost on next sync.`
+        }
+      : null
+  const overlapInArea = useEditorAlert('overlap', overlapAlert)
+  const orphanInArea = useEditorAlert('orphans', orphanAlert)
+
   const excludedRows: ExcludedRow[] =
     isDerived && referencePoints
       ? meta.excludes
@@ -310,6 +349,10 @@ export default function WorldMapEditorPanel({
   useEffect(() => {
     saveRef.current = doSave
   }, [doSave, saveRef])
+
+  const doRename = useCallback(async () => {
+    await onRenameFile?.(fileName, normalizeFolder(folder))
+  }, [fileName, folder, onRenameFile])
 
   // ── Point actions ─────────────────────────────────────────────────────────
 
@@ -384,14 +427,10 @@ export default function WorldMapEditorPanel({
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <EditorHeader
         title={data.name || 'New World Map'}
-        entityLabel="world map"
         fileName={fileName}
         initialFileName={initialFileName ?? undefined}
         computedFileName={computedFileName}
         isExisting={isExisting}
-        isArchived={isTemplate && !isReferenceSet}
-        archiveLabel="Move to Templates"
-        unarchiveLabel="Move to Active"
         onFileNameChange={setFileName}
         folder={folder}
         folderOptions={folderOptions}
@@ -399,8 +438,7 @@ export default function WorldMapEditorPanel({
         onFolderChange={setFolder}
         onRegenerate={() => setFileName(computedFileName)}
         onSave={doSave}
-        onArchive={onMoveToTemplates}
-        onUnarchive={onMoveToActive}
+        onRenameFile={onRenameFile ? () => void doRename() : undefined}
       />
       {/* Reference set badge */}
       {isReferenceSet && (
@@ -413,32 +451,12 @@ export default function WorldMapEditorPanel({
           sx={{ alignSelf: 'flex-start', mb: 1 }}
         />
       )}
-      {/* Overlap — a fault in a set a player receives, expected in a reference
-          set, whose overlapping points are normally split across derived sets. */}
-      {!isReferenceSet && overlapPairs.length > 0 && (
-        <Alert severity="error" sx={{ mb: 1, flexShrink: 0 }}>
-          {overlapPairs.length === 1
-            ? 'One pair of points overlaps'
-            : `${overlapPairs.length} pairs of points overlap`}
-          . The client draws the later point on top, but a click goes to the earlier one, so the
-          point on top cannot be reached in game. Points may overlap in a reference set, not in a
-          set a player receives.{' '}
-          {overlapPairs
-            .slice(0, 3)
-            .map(
-              ([a, b]) =>
-                `${data.points[a]?.name || `#${a + 1}`} / ${data.points[b]?.name || `#${b + 1}`}`
-            )
-            .join(', ')}
-          {overlapPairs.length > 3 ? ', …' : ''}
-        </Alert>
+      {/* With no alerts area (a test of this panel alone), they show here. */}
+      {overlapAlert && !overlapInArea && (
+        <EditorAlert alert={overlapAlert} sx={{ mb: 1, flexShrink: 0 }} />
       )}
-      {/* Orphan warning */}
-      {isDerived && orphanKeys.size > 0 && (
-        <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
-          {orphanKeys.size} point(s) in this group are not in the reference set and will be lost on
-          next sync.
-        </Alert>
+      {orphanAlert && !orphanInArea && (
+        <EditorAlert alert={orphanAlert} sx={{ mb: 1, flexShrink: 0 }} />
       )}
       {/* Top fields row */}
       <Box

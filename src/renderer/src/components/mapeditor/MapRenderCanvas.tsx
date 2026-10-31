@@ -631,7 +631,7 @@ export default function MapRenderCanvas({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ position: 'relative', overflow: 'auto', ...sx }}>
+    <Box data-testid="map-render-canvas" sx={{ position: 'relative', overflow: 'auto', ...sx }}>
       {/* Status overlay */}
       {(loading || statusMsg) && (
         <Box

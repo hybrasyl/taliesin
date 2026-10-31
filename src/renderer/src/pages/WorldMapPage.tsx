@@ -17,7 +17,6 @@ import {
   Menu,
   MenuItem,
   Snackbar,
-  Tooltip,
   Typography
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -27,7 +26,7 @@ import { useUnsavedGuard } from '../hooks/useUnsavedGuard'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import WorldMapEditorPanel from '../components/worldmapeditor/WorldMapEditorPanel'
-import SectionFileList from '../components/shared/SectionFileList'
+import EditorFileListPanel, { type DisabledActions } from '../components/shared/EditorFileListPanel'
 import { RowTooltip } from '../components/shared/RowTooltip'
 import { parseWorldMapXml, serializeWorldMapXml } from '../utils/worldMapXml'
 import { FIELD_NAMES } from '../utils/worldMapRenderer'
@@ -58,6 +57,8 @@ interface FileEntry {
   display: string
   /** Lives under `.ignore/` — a template rather than an active world map. */
   template?: boolean
+  /** The same as {@link template}: the panel's name for the `.ignore` set. */
+  archived?: boolean
   /** True only for a reference set — one per field map (HTOO-410). */
   isReferenceSet?: boolean
   /** The field this reference set serves; null for the legacy single set. */
@@ -83,8 +84,12 @@ function FileListPanel({
   onNew,
   onCreateReference,
   unsetFields,
-  showTemplates,
-  onToggleTemplates
+  onArchive,
+  onUnarchive,
+  onDuplicate,
+  onDelete,
+  disabledActions,
+  children
 }: {
   referenceFiles: FileEntry[]
   files: FileEntry[]
@@ -95,8 +100,12 @@ function FileListPanel({
   onCreateReference: (field: string) => void
   /** Fields with no reference set yet — what the create menu offers. */
   unsetFields: string[]
-  showTemplates: boolean
-  onToggleTemplates: () => void
+  onArchive: () => void
+  onUnarchive: () => void
+  onDuplicate: (f: FileEntry) => void
+  onDelete: (f: FileEntry) => void
+  disabledActions: DisabledActions
+  children: React.ReactNode
 }) {
   const viewMode = useSettingsStore((s) => s.fileListViewMode)
   const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null)
@@ -207,13 +216,13 @@ function FileListPanel({
   )
 
   return (
-    <SectionFileList
+    <EditorFileListPanel
       title="World Maps"
+      entityLabel="world map"
       files={files}
       archivedFiles={templateFiles}
       archivedLabel="Templates"
-      showArchived={showTemplates}
-      onToggleArchived={onToggleTemplates}
+      selectedFile={selectedFile}
       matches={matchesQuery}
       renderRow={renderRow}
       header={header}
@@ -221,14 +230,17 @@ function FileListPanel({
       // world maps at all still gets an actionable panel, not "none found".
       headerMatches={referenceMatchesQuery}
       emptyMessage="No world map XMLs found. Check that a library is set in Settings."
-      actions={
-        <Tooltip title="New World Map">
-          <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
-            New
-          </Button>
-        </Tooltip>
-      }
-    />
+      onNew={onNew}
+      archiveLabel="Move to Templates"
+      unarchiveLabel="Move to Active"
+      onArchive={onArchive}
+      onUnarchive={onUnarchive}
+      onDuplicate={onDuplicate}
+      onDelete={onDelete}
+      disabledActions={disabledActions}
+    >
+      {children}
+    </EditorFileListPanel>
   )
 }
 
@@ -244,7 +256,6 @@ export default function WorldMapPage() {
   const [editingMap, setEditingMap] = useState<WorldMapData | null>(null)
   const [loadingMap, setLoadingMap] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [showTemplates, setShowTemplates] = useState(false)
   const [snackbar, setSnackbar] = useState<{
     message: string
     severity: 'success' | 'error' | 'info' | 'warning'
@@ -309,7 +320,7 @@ export default function WorldMapPage() {
         path: `${dir}/${rel}`,
         name: baseName(rel),
         display: displayName(rel),
-        ...(template && { template: true })
+        ...(template && { template: true, archived: true })
       })
       // listSection sorts by code unit; re-sort for display with numeric
       // collation so Field10 follows Field2.
@@ -360,10 +371,6 @@ export default function WorldMapPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLibrary])
 
-  // Both lists arrive from one listSection call, so revealing templates is
-  // pure state — no round trip.
-  const handleToggleTemplates = () => setShowTemplates((v) => !v)
-
   // ── Create reference set ──────────────────────────────────────────────────
 
   /**
@@ -396,6 +403,7 @@ export default function WorldMapPage() {
         display: displayName(filename),
         path: refPath,
         template: true,
+        archived: true,
         isReferenceSet: true,
         referenceField: field
       }
@@ -434,6 +442,28 @@ export default function WorldMapPage() {
     if (!path) return
     await window.api.writeFile(path, JSON.stringify(newMeta, null, 2))
   }
+
+  /**
+   * Carry a world map's sidecar with it when the file moves. The sidecar is
+   * keyed on the map's rel, so a rename that leaves it behind unlinks the map
+   * from its reference set, with no error.
+   *
+   * The world map has already moved when this runs, so a failure here does not
+   * undo or cancel that. It returns false, and the caller says so.
+   */
+  const moveSidecar = async (fromRel: string, toRel: string): Promise<boolean> => {
+    const from = metaPath(fromRel)
+    const to = metaPath(toRel)
+    if (!from || !to || from === to) return true
+    try {
+      if (await window.api.exists(from)) await window.api.moveFile(from, to)
+      return true
+    } catch {
+      return false
+    }
+  }
+  const SIDECAR_LEFT =
+    'Its link to the reference set (.meta.json) did not move. Link it to the reference set again.'
 
   const loadMetaAndReference = async (
     rel: string,
@@ -552,12 +582,29 @@ export default function WorldMapPage() {
         }
       }
 
+      const sidecarMoved =
+        isRename && selectedFile ? await moveSidecar(selectedFile.rel, targetRel) : true
+
+      // A new world map (New, or Duplicate) must not write over a file that is
+      // there. The renamed one is checked inside `moveFile`, above.
+      if (!selectedFile && (await window.api.exists(newPath))) {
+        setSnackbar({
+          message: `A world map file named "${targetRel}" exists. Change the filename, then save.`,
+          severity: 'error'
+        })
+        return
+      }
+
       await window.api.writeFile(newPath, xml)
       setEditingMap(data)
 
       if (isRename || !selectedFile) {
         if (isRename) {
-          setSnackbar({ message: `Renamed to "${fileName}".`, severity: 'success' })
+          setSnackbar(
+            sidecarMoved
+              ? { message: `Renamed to "${fileName}".`, severity: 'success' }
+              : { message: `Renamed to "${fileName}". ${SIDECAR_LEFT}`, severity: 'warning' }
+          )
         }
         setSelectedFile({
           rel: isTemplate ? `.ignore/${targetRel}` : targetRel,
@@ -565,6 +612,7 @@ export default function WorldMapPage() {
           name: baseName(targetRel),
           display: displayName(targetRel),
           template: isTemplate || undefined,
+          archived: isTemplate || undefined,
           isReferenceSet: selectedFile?.isReferenceSet
         })
       }
@@ -737,13 +785,112 @@ export default function WorldMapPage() {
     }
   }
 
+  /**
+   * Rename only: move the file, and its sidecar, to the typed name and folder,
+   * and write nothing. The editor keeps its unsaved changes. The collision check
+   * is inside `moveFile` (HTOO-379).
+   */
+  const handleRenameFile = async (fileName: string, folder: string) => {
+    if (!selectedFile || !worldmapsDir || !ignoreDir) return
+    const targetRel = joinRel(folder, fileName)
+    if (targetRel === activeRel(selectedFile.rel)) return
+    const isTemplateFile = selectedFile.template === true
+    const newPath = `${isTemplateFile ? ignoreDir : worldmapsDir}/${targetRel}`
+    try {
+      await window.api.moveFile(selectedFile.path, newPath)
+    } catch (e) {
+      setSnackbar({
+        message: `${e instanceof Error ? e.message : 'Cannot rename this world map'}. Rename cancelled.`,
+        severity: 'error'
+      })
+      return
+    }
+    const sidecarMoved = await moveSidecar(selectedFile.rel, targetRel)
+    const rel = isTemplateFile ? `.ignore/${targetRel}` : targetRel
+    setSelectedFile({
+      ...selectedFile,
+      rel,
+      path: newPath,
+      name: baseName(targetRel),
+      display: displayName(rel)
+    })
+    setSnackbar(
+      sidecarMoved
+        ? { message: `Renamed to "${fileName}".`, severity: 'success' }
+        : { message: `Renamed to "${fileName}". ${SIDECAR_LEFT}`, severity: 'warning' }
+    )
+    await loadFiles()
+    void refreshWorldIndex()
+  }
+
+  /**
+   * Duplicate opens a copy of the file as a new, unsaved world map. Nothing is
+   * written until Save. The copy's Name takes " (copy)", and the filename
+   * follows the Name, so the copy does not save over its original.
+   */
+  const doDuplicate = async (file: FileEntry) => {
+    try {
+      const bytes = await window.api.readFile(file.path)
+      const parsed = parseWorldMapXml(new TextDecoder('utf-8').decode(bytes))
+      setSelectedFile(null)
+      setLoadError(null)
+      setMeta(null)
+      setReferencePoints(null)
+      setEditingMap({ ...parsed, name: `${parsed.name} (copy)` })
+      setSnackbar({
+        message: `Opened a copy of "${file.display}". Save writes it as a new file.`,
+        severity: 'info'
+      })
+    } catch (err) {
+      setSnackbar({
+        message: `Duplicate failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    }
+  }
+  const handleDuplicate = (file: FileEntry) => guard(() => doDuplicate(file))
+
+  /** Delete moves the file and its sidecar to the OS trash, after the panel's
+   *  confirmation. */
+  const handleDelete = async (file: FileEntry) => {
+    try {
+      await window.api.trashFile(file.path)
+      const sidecar = metaPath(file.rel)
+      if (sidecar && (await window.api.exists(sidecar))) await window.api.trashFile(sidecar)
+      if (selectedFile?.path === file.path) {
+        markClean()
+        setSelectedFile(null)
+        setEditingMap(null)
+        setMeta(null)
+        setReferencePoints(null)
+      }
+      await loadFiles()
+      void refreshWorldIndex()
+    } catch (err) {
+      setSnackbar({
+        message: `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    }
+  }
+
+  // A reference set is one per field, at the archive root, and derived world
+  // maps link to it by name. None of the item actions applies to it.
+  const disabledActions: DisabledActions =
+    selectedFile?.isReferenceSet === true
+      ? {
+          archive: 'A reference set stays at the archive root',
+          copy: 'A reference set is one per field. Create one from the list.',
+          delete: 'Derived world maps link to a reference set, so it is not deleted here'
+        }
+      : {}
+
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
       dirty ? markDirty() : markClean()
     },
     [markDirty, markClean]
   )
-  const isTemplate = selectedFile?.template === true
   const isReferenceSet = selectedFile?.isReferenceSet === true
 
   // ── Sync confirm dialog ───────────────────────────────────────────────────
@@ -765,10 +912,12 @@ export default function WorldMapPage() {
         onSelect={handleSelect}
         onNew={handleNew}
         onCreateReference={(field) => guard(() => handleCreateReference(field))}
-        showTemplates={showTemplates}
-        onToggleTemplates={handleToggleTemplates}
-      />
-      <Box sx={{ flex: 1, p: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        onArchive={() => void handleMoveToTemplates()}
+        onUnarchive={() => void handleMoveToActive()}
+        onDuplicate={handleDuplicate}
+        onDelete={(f) => void handleDelete(f)}
+        disabledActions={disabledActions}
+      >
         {loadError ? (
           <Alert severity="error">
             <strong>Failed to load world map:</strong> {loadError}
@@ -785,15 +934,13 @@ export default function WorldMapPage() {
             initialFileName={selectedFile?.name ?? null}
             initialFolder={selectedFile ? relFolder(selectedFile.rel) : ''}
             folderOptions={folderChoices}
-            isTemplate={isTemplate}
             isReferenceSet={isReferenceSet}
             isExisting={!!selectedFile}
             mapNames={mapNames}
             meta={meta}
             referencePoints={referencePoints}
             onSave={handleSave}
-            onMoveToTemplates={isReferenceSet ? undefined : handleMoveToTemplates}
-            onMoveToActive={isReferenceSet ? undefined : handleMoveToActive}
+            onRenameFile={handleRenameFile}
             onDirtyChange={handleDirtyChange}
             onExclude={handleExclude}
             onRestore={handleRestore}
@@ -815,7 +962,7 @@ export default function WorldMapPage() {
             </Typography>
           </Box>
         )}
-      </Box>
+      </FileListPanel>
       {/* Sync confirmation dialog */}
       <Dialog open={syncConfirm} onClose={() => setSyncConfirm(false)}>
         <DialogTitle>Sync from Reference</DialogTitle>

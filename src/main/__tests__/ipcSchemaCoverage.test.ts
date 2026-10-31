@@ -111,6 +111,7 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
   'fs:stat': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'fs:ensureDir': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'fs:deleteFile': { category: 'path-only', reason: 'assertInsideAnyRoot' },
+  'fs:trashFile': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'fs:listArchive': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'catalog:load': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'catalog:scan': { category: 'path-only', reason: 'assertInsideAnyRoot' },

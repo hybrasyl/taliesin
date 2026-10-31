@@ -61,6 +61,7 @@ export function createMockApi(): MockApi {
     'exists',
     'ensureDir',
     'deleteFile',
+    'trashFile',
     'listArchive',
     // Catalog
     'catalogLoad',

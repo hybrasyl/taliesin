@@ -38,6 +38,9 @@ export interface RendererSettings {
   /** How the map / world map editor file lists group their rows. Global rather
    *  than per-editor: it is a reading preference, not per-section state. */
   fileListViewMode: FileListViewMode
+  /** Whether the map editor's Properties section above the placement map is
+   *  open (HTOO-633). */
+  mapPropertiesOpen: boolean
 }
 
 /** Flat rows of `folder/name`, or rows grouped under collapsible folders. */
@@ -61,7 +64,8 @@ export const DEFAULT_SETTINGS: RendererSettings = {
   companionPath: null,
   musEncodeKbps: 64,
   musEncodeSampleRate: 22050,
-  fileListViewMode: 'flat'
+  fileListViewMode: 'flat',
+  mapPropertiesOpen: true
 }
 
 interface SettingsActions {
@@ -81,6 +85,7 @@ interface SettingsActions {
   setMusEncodeKbps: (kbps: number) => void
   setMusEncodeSampleRate: (rate: number) => void
   setFileListViewMode: (mode: FileListViewMode) => void
+  setMapPropertiesOpen: (open: boolean) => void
   /** Load persisted settings from disk into the store (once, at startup). */
   hydrate: () => Promise<void>
 }
@@ -114,6 +119,7 @@ function coerce(raw: Record<string, unknown>): Partial<RendererSettings> {
     (FILE_LIST_VIEW_MODES as readonly string[]).includes(raw.fileListViewMode)
   )
     out.fileListViewMode = raw.fileListViewMode as FileListViewMode
+  if (typeof raw.mapPropertiesOpen === 'boolean') out.mapPropertiesOpen = raw.mapPropertiesOpen
   return out
 }
 
@@ -155,6 +161,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setMusEncodeKbps: (musEncodeKbps) => set({ musEncodeKbps }),
   setMusEncodeSampleRate: (musEncodeSampleRate) => set({ musEncodeSampleRate }),
   setFileListViewMode: (fileListViewMode) => set({ fileListViewMode }),
+  setMapPropertiesOpen: (mapPropertiesOpen) => set({ mapPropertiesOpen }),
 
   hydrate: async () => {
     const loaded = await window.api.loadSettings()
@@ -193,7 +200,8 @@ function persist(state: SettingsStore): Promise<void> {
     companionPath,
     musEncodeKbps,
     musEncodeSampleRate,
-    fileListViewMode
+    fileListViewMode,
+    mapPropertiesOpen
   } = state
   // Promise.resolve wraps the IPC result so a non-thenable return (e.g. a
   // test stub) can't break the .catch chain.
@@ -214,7 +222,8 @@ function persist(state: SettingsStore): Promise<void> {
       companionPath,
       musEncodeKbps,
       musEncodeSampleRate,
-      fileListViewMode
+      fileListViewMode,
+      mapPropertiesOpen
     })
   ).catch((err) => console.error('[settings] save IPC failed:', err))
 }

@@ -125,6 +125,11 @@ export interface HandlerContext {
    */
   revealSettings?: () => void
   /**
+   * Moves a file to the OS trash (Recycle Bin, Trash). Wired up in index.ts,
+   * which owns the electron `shell` reference.
+   */
+  trashItem?: (path: string) => Promise<void>
+  /**
    * Platform probe for companion discovery (HTOO-292). Injected only by tests —
    * production falls back to `nodeProbe()`. Registry queries, Applications
    * scans and `.desktop` lookups cannot run in a suite, and precedence rules
@@ -679,6 +684,16 @@ export async function ensureDir(ctx: HandlerContext, dirPath: string): Promise<v
 
 export async function deleteFile(ctx: HandlerContext, filePath: string): Promise<void> {
   await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
+}
+
+/**
+ * Move a file to the OS trash, not unlink it: the editors' Delete (HTOO-633).
+ * The user recovers a mistake from the Recycle Bin or Trash.
+ */
+export async function trashFile(ctx: HandlerContext, filePath: string): Promise<void> {
+  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  if (!ctx.trashItem) throw new Error('The OS trash is not available')
+  await ctx.trashItem(safe)
 }
 
 export async function listArchive(ctx: HandlerContext, filePath: string): Promise<string[]> {
@@ -1933,6 +1948,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:stat', (_, p) => stat(ctx, p))
   ipcMain.handle('fs:ensureDir', (_, p) => ensureDir(ctx, p))
   ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(ctx, p))
+  ipcMain.handle('fs:trashFile', (_, p) => trashFile(ctx, p))
   ipcMain.handle('fs:listArchive', (_, p) => listArchive(ctx, p))
 
   // Catalog

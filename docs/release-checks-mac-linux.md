@@ -66,9 +66,9 @@ If `sha256sum` is missing, use `shasum -a 256`.
 
 Expected for A2:
 
-- **macOS:** 19 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
-- **Linux:** 14 passed and 5 skipped. The skips are `app-menu.spec.js`.
-- On Windows the result is also 14 passed and 5 skipped.
+- **macOS:** 20 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
+- **Linux:** 15 passed and 5 skipped. The skips are `app-menu.spec.js`.
+- On Windows the result is also 15 passed and 5 skipped.
 
 A different total means that a spec was added or was not collected. Say so in the report.
 

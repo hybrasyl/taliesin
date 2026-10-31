@@ -9,7 +9,8 @@ import { useUiStore } from '../../../store/uiStore'
 import { DEFAULT_MAP, type MapData, type MapWarp } from '../../../data/mapData'
 
 /**
- * The Placement tab, as an author uses it.
+ * The placement view, as an author uses it. It sits under the Properties
+ * section now, not on a tab (HTOO-633).
  *
  * Four things are covered: a warning the server cannot give (two warps on one
  * tile are one warp, HTOO-442), a menu that reaches a node no click could reach
@@ -17,7 +18,7 @@ import { DEFAULT_MAP, type MapData, type MapWarp } from '../../../data/mapData'
  * the one kind that cannot be duplicated silently.
  *
  * The canvas renders in schematic mode: no client path and no map directory.
- * The tab opens at zoom 0.4, so a tile is `max(2, round(0.4 * 10))` = 4 pixels,
+ * The view opens at zoom 0.4, so a tile is `max(2, round(0.4 * 10))` = 4 pixels,
  * and jsdom reports a zero-origin bounding box — a client coordinate is a
  * canvas coordinate.
  */
@@ -70,8 +71,6 @@ async function renderPanel(patch: Partial<MapData> = {}) {
       saveRef={saveRef}
     />
   )
-  // The tab is only mounted while selected, and so is its key handler.
-  await userEvent.click(screen.getByRole('tab', { name: 'Placement' }))
   const overlay = await waitFor(() => {
     const canvases = view.container.querySelectorAll('canvas')
     const el = canvases[1] as HTMLCanvasElement | undefined

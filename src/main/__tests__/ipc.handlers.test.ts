@@ -181,7 +181,7 @@ const {
       requestSingleInstanceLock: vi.fn(() => true),
       exit: vi.fn()
     },
-    shell: { openExternal: vi.fn() },
+    shell: { openExternal: vi.fn(), trashItem: vi.fn(async () => undefined) },
     BrowserWindow: vi.fn(),
     ipcMain: {
       handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
@@ -563,6 +563,11 @@ describe('fs handlers', () => {
     files.set('/x/gone.txt', Buffer.from('bye'))
     await invoke('fs:deleteFile', '/x/gone.txt')
     expect(files.has('/x/gone.txt')).toBe(false)
+  })
+
+  it('fs:trashFile hands the checked path to the OS trash', async () => {
+    await invoke('fs:trashFile', '/x/gone.txt')
+    expect(electronMock.shell.trashItem).toHaveBeenCalledWith(expect.stringMatching(/gone.txt$/))
   })
 
   it('fs:copyFile creates the parent dir and duplicates the source', async () => {
@@ -1398,6 +1403,7 @@ describe('Category-A path-traversal rejection', () => {
     ['fs:writeBytes', ['/escape/x', new Uint8Array(0)]],
     ['fs:ensureDir', ['/escape/dir']],
     ['fs:deleteFile', ['/escape/x']],
+    ['fs:trashFile', ['/escape/x']],
     ['fs:listArchive', ['/escape/a.dat']],
     ['catalog:save', ['/escape/maps', {}]],
     ['catalog:scan', ['/escape/maps']],

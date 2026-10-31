@@ -17,7 +17,6 @@ import {
   Tooltip,
   Typography
 } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import { FilterField } from '../components/shared/FilterField'
 import { useSettingsStore, useMapFilesDirectory } from '../store/settingsStore'
@@ -28,7 +27,7 @@ import { useWorldIndex } from '../hooks/useWorldIndex'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import RenameReferrersDialog, { type Referrer } from '../components/mapeditor/RenameReferrersDialog'
-import SectionFileList from '../components/shared/SectionFileList'
+import EditorFileListPanel from '../components/shared/EditorFileListPanel'
 import { RowTooltip } from '../components/shared/RowTooltip'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
@@ -302,102 +301,6 @@ function matchesQuery(f: FileEntry, q: string): boolean {
   )
 }
 
-function FileListPanel({
-  files,
-  archivedFiles,
-  selectedFile,
-  onSelect,
-  onNew,
-  showArchived,
-  onToggleArchived
-}: {
-  files: FileEntry[]
-  archivedFiles: FileEntry[]
-  selectedFile: FileEntry | null
-  onSelect: (f: FileEntry) => void
-  onNew: () => void
-  showArchived: boolean
-  onToggleArchived: () => void
-}) {
-  const viewMode = useSettingsStore((s) => s.fileListViewMode)
-
-  // Active + archived rows are identical except archived ones are muted.
-  const renderRow = useCallback(
-    (f: FileEntry, muted: boolean): React.ReactElement => {
-      const italicClip = {
-        display: 'block',
-        fontStyle: 'italic',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        ...(muted && { color: 'text.disabled' })
-      }
-      return (
-        <RowTooltip
-          details={[
-            { label: 'File', value: f.rel },
-            { label: 'Name', value: f.mapName },
-            { label: 'Map', value: f.mapId !== undefined ? `lod${f.mapId}` : undefined }
-          ]}
-        >
-          <ListItem disablePadding>
-            <ListItemButton selected={selectedFile?.path === f.path} onClick={() => onSelect(f)}>
-              <ListItemText
-                // In folder view the enclosing header already names the folder,
-                // so the row shows only the filename.
-                primary={viewMode === 'folder' ? baseName(f.rel).replace(/\.xml$/i, '') : f.display}
-                secondary={
-                  <>
-                    {f.mapName && (
-                      <Box component="span" sx={italicClip}>
-                        {f.mapName}
-                      </Box>
-                    )}
-                    {f.mapId !== undefined && (
-                      <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
-                    )}
-                  </>
-                }
-                slotProps={{
-                  primary: {
-                    noWrap: true,
-                    variant: 'body2',
-                    ...(muted && { color: 'text.secondary' })
-                  },
-
-                  secondary: { component: 'div', variant: 'caption' }
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        </RowTooltip>
-      )
-    },
-    [selectedFile, onSelect, viewMode]
-  )
-
-  return (
-    <SectionFileList
-      title="Maps"
-      files={files}
-      archivedFiles={archivedFiles}
-      archivedLabel="Archived"
-      showArchived={showArchived}
-      onToggleArchived={onToggleArchived}
-      matches={matchesQuery}
-      renderRow={renderRow}
-      emptyMessage="No map XMLs found. Check that a library is set in Settings."
-      actions={
-        <Tooltip title="New Map">
-          <Button size="small" startIcon={<AddIcon />} onClick={onNew}>
-            New
-          </Button>
-        </Tooltip>
-      }
-    />
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MapEditorPage() {
@@ -421,7 +324,6 @@ export default function MapEditorPage() {
   const [renameBusy, setRenameBusy] = useState(false)
   const [loadingMap, setLoadingMap] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [showArchived, setShowArchived] = useState(false)
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [snackbar, setSnackbar] = useState<{
     message: string
@@ -476,6 +378,16 @@ export default function MapEditorPage() {
     () => new Map((worldIndex?.ignoredMapDetails ?? []).map((d) => [d.filename, d.id])),
     [worldIndex]
   )
+
+  // Active map id → the files that carry it, for the shared-id notice. Two
+  // active maps with one id are one map to the server.
+  const activeMapIds = useMemo(() => {
+    const byId = new Map<number, string[]>()
+    for (const d of worldIndex?.mapDetails ?? []) {
+      byId.set(d.id, [...(byId.get(d.id) ?? []), d.filename])
+    }
+    return byId
+  }, [worldIndex])
 
   // Save destinations offered by the folder picker: every folder maps already
   // occupy, archived ones included — a folder emptied by archiving everything
@@ -557,10 +469,6 @@ export default function MapEditorPage() {
     )
   }, [activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap])
 
-  // Both lists arrive from one listSection call, so revealing the archive is
-  // pure state — no round-trip.
-  const handleToggleArchived = () => setShowArchived((v) => !v)
-
   const doNew = () => setNewDialogOpen(true)
   const handleNew = () => guard(doNew)
 
@@ -627,6 +535,16 @@ export default function MapEditorPage() {
           })
           return
         }
+      }
+
+      // A new map (New, or Duplicate) must not write over a file that is there.
+      // The renamed one is checked inside `moveFile`, above.
+      if (!selectedFile && (await window.api.exists(newPath))) {
+        setSnackbar({
+          message: `A map file named "${targetRel}" exists. Change the filename, then save.`,
+          severity: 'error'
+        })
+        return
       }
 
       await window.api.writeFile(newPath, xml)
@@ -833,6 +751,131 @@ export default function MapEditorPage() {
     }
   }
 
+  /**
+   * Rename only: move the file to the typed name and folder, and write nothing.
+   * The editor keeps its unsaved changes. The collision check is inside
+   * `moveFile` (HTOO-379).
+   */
+  const handleRenameFile = async (fileName: string, folder: string) => {
+    if (!selectedFile || !mapsDir) return
+    const targetRel = joinRel(folder, fileName)
+    if (targetRel === activeRel(selectedFile.rel)) return
+    const base = selectedFile.archived ? `${mapsDir}/.ignore` : mapsDir
+    const newPath = `${base}/${targetRel}`
+    try {
+      await window.api.moveFile(selectedFile.path, newPath)
+    } catch (e) {
+      setSnackbar({
+        message: `${e instanceof Error ? e.message : 'Cannot rename this map'}. Rename cancelled.`,
+        severity: 'error'
+      })
+      return
+    }
+    const rel = selectedFile.archived ? `.ignore/${targetRel}` : targetRel
+    setSelectedFile({ ...selectedFile, rel, path: newPath, display: displayName(rel) })
+    setSnackbar({ message: `Renamed to "${fileName}".`, severity: 'success' })
+    await loadFiles()
+    void refreshWorldIndex()
+  }
+
+  /**
+   * Duplicate opens a copy of the file as a new, unsaved map. Nothing is written
+   * until Save, so a copy never sits live beside its original with the same Id.
+   * The copy's Name takes " (copy)", because a warp names its target by Name.
+   */
+  const doDuplicate = async (file: FileEntry) => {
+    try {
+      const bytes = await window.api.readFile(file.path)
+      const parsed = parseMapXml(new TextDecoder('utf-8').decode(bytes))
+      setSelectedFile(null)
+      setLoadError(null)
+      setEditingMap({ ...parsed, name: `${parsed.name} (copy)` })
+      setSnackbar({
+        message: `Opened a copy of "${file.display}". Save writes it as a new file.`,
+        severity: 'info'
+      })
+    } catch (err) {
+      setSnackbar({
+        message: `Duplicate failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    }
+  }
+  const handleDuplicate = (file: FileEntry) => guard(() => doDuplicate(file))
+
+  /** Delete moves the file to the OS trash, after the panel's confirmation. */
+  const handleDelete = async (file: FileEntry) => {
+    try {
+      await window.api.trashFile(file.path)
+      if (selectedFile?.path === file.path) {
+        markClean()
+        setSelectedFile(null)
+        setEditingMap(null)
+      }
+      await loadFiles()
+      void refreshWorldIndex()
+    } catch (err) {
+      setSnackbar({
+        message: `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    }
+  }
+
+  const viewMode = useSettingsStore((s) => s.fileListViewMode)
+
+  // Active and archived rows are the same, except that archived ones are muted.
+  const renderRow = (f: FileEntry, muted: boolean): React.ReactElement => {
+    const italicClip = {
+      display: 'block',
+      fontStyle: 'italic',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      ...(muted && { color: 'text.disabled' })
+    }
+    return (
+      <RowTooltip
+        details={[
+          { label: 'File', value: f.rel },
+          { label: 'Name', value: f.mapName },
+          { label: 'Map', value: f.mapId !== undefined ? `lod${f.mapId}` : undefined }
+        ]}
+      >
+        <ListItem disablePadding>
+          <ListItemButton selected={selectedFile?.path === f.path} onClick={() => handleSelect(f)}>
+            <ListItemText
+              // In folder view the enclosing header already names the folder,
+              // so the row shows only the filename.
+              primary={viewMode === 'folder' ? baseName(f.rel).replace(/\.xml$/i, '') : f.display}
+              secondary={
+                <>
+                  {f.mapName && (
+                    <Box component="span" sx={italicClip}>
+                      {f.mapName}
+                    </Box>
+                  )}
+                  {f.mapId !== undefined && (
+                    <Box component="span" sx={italicClip}>{`lod${f.mapId}`}</Box>
+                  )}
+                </>
+              }
+              slotProps={{
+                primary: {
+                  noWrap: true,
+                  variant: 'body2',
+                  ...(muted && { color: 'text.secondary' })
+                },
+
+                secondary: { component: 'div', variant: 'caption' }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      </RowTooltip>
+    )
+  }
+
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
       dirty ? markDirty() : markClean()
@@ -843,16 +886,23 @@ export default function MapEditorPage() {
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      <FileListPanel
+      <EditorFileListPanel
+        title="Maps"
+        entityLabel="map"
         files={files}
         archivedFiles={archivedFiles}
+        archivedLabel="Archived"
         selectedFile={selectedFile}
-        onSelect={handleSelect}
+        matches={matchesQuery}
+        renderRow={renderRow}
+        emptyMessage="No map XMLs found. Check that a library is set in Settings."
         onNew={handleNew}
-        showArchived={showArchived}
-        onToggleArchived={handleToggleArchived}
-      />
-      <Box sx={{ flex: 1, p: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        onArchive={() => void handleArchive()}
+        onUnarchive={() => void handleUnarchive()}
+        onDuplicate={handleDuplicate}
+        onDelete={(f) => void handleDelete(f)}
+        stagingPending
+      >
         {loadError ? (
           <Alert severity="error">
             <strong>Failed to load map:</strong> {loadError}
@@ -871,13 +921,14 @@ export default function MapEditorPage() {
             folderOptions={folderChoices}
             isArchived={isArchived}
             isExisting={!!selectedFile}
+            fileRel={selectedFile?.rel ?? null}
+            activeMapIds={activeMapIds}
             mapNames={mapNames}
             npcNames={npcNames}
             worldMapNames={worldMapNames}
             spawnGroupNames={spawnGroupNames}
             onSave={handleSave}
-            onArchive={handleArchive}
-            onUnarchive={handleUnarchive}
+            onRenameFile={handleRenameFile}
             onDirtyChange={handleDirtyChange}
             saveRef={saveRef}
           />
@@ -895,7 +946,7 @@ export default function MapEditorPage() {
             </Typography>
           </Box>
         )}
-      </Box>
+      </EditorFileListPanel>
       <NewMapDialog
         open={newDialogOpen}
         activeMapDirectory={activeMapDirectory}

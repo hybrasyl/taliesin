@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import EditorHeader from '../EditorHeader'
 
 /**
@@ -78,6 +79,38 @@ describe('EditorHeader — what the save will do', () => {
     const text = screen.getByText(/Computed name/).textContent ?? ''
     expect(text).toContain('renames the file')
     expect(text).not.toContain('new file')
+  })
+
+  it('enables Rename only when the name or the folder changed', async () => {
+    const onRenameFile = vi.fn()
+    const { rerender } = renderHeader({ onRenameFile })
+    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled()
+    rerender(
+      <EditorHeader
+        title="Mileth Inn"
+        fileName="Mileth Tavern.xml"
+        initialFileName="Mileth Inn.xml"
+        computedFileName="Mileth Inn.xml"
+        isExisting
+        onFileNameChange={vi.fn()}
+        onRegenerate={vi.fn()}
+        onSave={vi.fn()}
+        onRenameFile={onRenameFile}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    expect(onRenameFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no Rename button when the editor offers no rename', () => {
+    renderHeader()
+    expect(screen.queryByRole('button', { name: 'Rename' })).toBeNull()
+  })
+
+  it('puts the regenerate button inside the Filename field', () => {
+    renderHeader({ computedFileName: 'Mileth Tavern.xml' })
+    const field = screen.getByLabelText('Filename').closest('.MuiInputBase-root')
+    expect(field?.querySelector('button[aria-label="Apply computed filename"]')).not.toBeNull()
   })
 
   it('says nothing at all for a file that does not exist yet', () => {

@@ -302,6 +302,8 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     stat: (p) => handlers.stat(handlerCtx, p),
     ensureDir: (p) => handlers.ensureDir(handlerCtx, p),
     deleteFile: (p) => handlers.deleteFile(handlerCtx, p),
+    // The in-memory filesystem has no trash, so a trashed file is removed.
+    trashFile: (p) => handlers.deleteFile(handlerCtx, p),
     listArchive: (p) => handlers.listArchive(handlerCtx, p),
 
     // Catalog
