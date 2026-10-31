@@ -1,42 +1,24 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
-  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
   Typography
 } from '@mui/material'
 import { FilterField } from './FilterField'
-import { EditorAlertsProvider } from './EditorAlerts'
-import AddIcon from '@mui/icons-material/Add'
-import ArchiveIcon from '@mui/icons-material/Archive'
-import UnarchiveIcon from '@mui/icons-material/Unarchive'
-import PendingActionsIcon from '@mui/icons-material/PendingActions'
-import PublishIcon from '@mui/icons-material/Publish'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import DeleteIcon from '@mui/icons-material/Delete'
-import AccountTreeIcon from '@mui/icons-material/AccountTree'
-import ViewListIcon from '@mui/icons-material/ViewList'
 import FolderIcon from '@mui/icons-material/Folder'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight'
-import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore'
-import UnfoldLessIcon from '@mui/icons-material/UnfoldLess'
+import EditorPageShell, {
+  FILE_LIST_WIDTH,
+  type DisabledActions
+} from '../editorShell/EditorPageShell'
 import { useSettingsStore } from '../../store/settingsStore'
 import { nextCursorIndex } from '../../utils/listKeyboard'
 import {
@@ -47,10 +29,10 @@ import {
   type TreeFile
 } from '../../utils/fileTree'
 
-const INDENT_STEP = 1.5
+export { FILE_LIST_WIDTH }
+export type { DisabledActions }
 
-/** The width of the file list, and of the toolbar cell above it. */
-export const FILE_LIST_WIDTH = 240
+const INDENT_STEP = 1.5
 
 /** A row the panel can act on. `path` is the selection's identity. */
 export interface PanelFile extends TreeFile {
@@ -61,15 +43,6 @@ export interface PanelFile extends TreeFile {
 }
 
 type SetKey = 'active' | 'staged' | 'archived'
-
-/** An item action the page has, which does not apply to the selection. The
- *  string is the tooltip that says why. */
-export interface DisabledActions {
-  archive?: string
-  stage?: string
-  copy?: string
-  delete?: string
-}
 
 export interface EditorFileListPanelProps<T extends PanelFile> {
   /** The page name — "Maps", "World Maps". */
@@ -118,52 +91,24 @@ export interface EditorFileListPanelProps<T extends PanelFile> {
   children: React.ReactNode
 }
 
-/** An icon button with a tooltip that still shows while the button is disabled. */
-function ToolbarButton({
-  title,
-  label,
-  disabled,
-  onClick,
-  children
-}: {
-  title: string
-  label: string
-  disabled?: boolean
-  onClick: (e: React.MouseEvent<HTMLElement>) => void
-  children: React.ReactNode
-}): React.ReactElement {
-  return (
-    <Tooltip title={title}>
-      <span>
-        <IconButton size="small" disabled={disabled} onClick={onClick} aria-label={label}>
-          {children}
-        </IconButton>
-      </span>
-    </Tooltip>
-  )
+/** Act on the first file of the shell's selection: Taliesin selects one. */
+function first<T>(handler: (file: T) => void): (files: T[]) => void {
+  return (files) => {
+    if (files[0]) handler(files[0])
+  }
 }
 
 /**
- * The shell of a world XML editor page (HTOO-633, from Creidhne's HTOO-628
- * `EditorFileListPanel.jsx`): a toolbar across the page, the file list on the
- * left, and the page's editor column (`children`) on the right.
+ * Taliesin's world XML editor page: the house editor shell
+ * (`editorShell/EditorPageShell.tsx`, HTOO-637) with Taliesin's list.
  *
- *   (Page name) | (New) | (Flat) (Staged) (Archived) (Active) | (Archive) (Stage) (Copy) (Delete)
- *
- * One component owns the toolbar and the list, because the toolbar's item
- * actions act on the list's selection. It also puts the alerts provider
- * (`EditorAlerts.tsx`) around the editor column, so a notice anywhere in the
- * column shows under the editor header.
- *
- * The set toggles choose what the list shows. Active is the default, and at
- * least one set stays on. Each shown set has a header row with its count, and a
- * click on the header collapses or expands the set.
+ * The shell owns the toolbar, the delete confirmation and the alerts provider.
+ * This file owns the list: the filter, the set headers, the folder tree and
+ * the arrow keys.
  *
  * The selection is the open file, one at a time: Taliesin's editors do not take
- * Creidhne's multi-select. An item action is enabled only when it applies to
- * the open file. Archive becomes Unarchive for an archived file, and Stage
- * becomes Release for a staged file. Staging has no archive, so a staged file
- * cannot be archived, and an archived file cannot be staged.
+ * Creidhne's multi-select. The shell's actions take a list, so this passes the
+ * open file as a list of one.
  *
  * The list is not virtualized. Its rows are real ListItemButtons, so they hold
  * focus themselves and Enter and Space activate them. Folder mode groups each
@@ -183,13 +128,13 @@ export default function EditorFileListPanel<T extends PanelFile>({
   headerMatches,
   emptyMessage,
   onNew,
-  archiveLabel = 'Archive',
-  unarchiveLabel = 'Unarchive',
+  archiveLabel,
+  unarchiveLabel,
   onArchive,
   onUnarchive,
   onDuplicate,
   onDelete,
-  disabledActions = {},
+  disabledActions,
   stagedFiles = [],
   onStage,
   onRelease,
@@ -198,13 +143,12 @@ export default function EditorFileListPanel<T extends PanelFile>({
   const [search, setSearch] = useState('')
   const [shown, setShown] = useState<SetKey[]>(['active'])
   const [collapsedSets, setCollapsedSets] = useState<ReadonlySet<SetKey>>(() => new Set())
-  const [pendingDelete, setPendingDelete] = useState<T | null>(null)
   const viewMode = useSettingsStore((s) => s.fileListViewMode)
   const setViewMode = useSettingsStore((s) => s.setFileListViewMode)
   // Folders start closed and `expanded` records the exceptions — the same rule
   // creidhne's EditorFileListPanel uses, so the two trees behave alike. One Set
-  // covers the active and the archived list: a folder is the same folder in
-  // both. Expansion is not persisted; a live filter opens everything anyway.
+  // covers every set: a folder is the same folder in each. Expansion is not
+  // persisted; a live filter opens everything anyway.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 
   const hasArchive = !!(onArchive || onUnarchive)
@@ -359,216 +303,41 @@ export default function EditorFileListPanel<T extends PanelFile>({
   const nothingAtAll = shownTotal === 0 && !headerMatches?.('')
   const noMatches = shownMatches === 0 && !nothingAtAll && !headerMatches?.(query)
 
-  // ── The item actions, from the open file ────────────────────────────────────
-  const selected = selectedFile
-  const archiveKind = selected?.archived ? 'unarchive' : 'archive'
-  const archiveHandler = archiveKind === 'unarchive' ? onUnarchive : onArchive
-  const archiveText = archiveKind === 'unarchive' ? unarchiveLabel : archiveLabel
-  // Staging has no archive, as in Creidhne: Release, then Archive.
-  const archiveReason =
-    disabledActions.archive ??
-    (selected?.staged ? `Release this ${entityLabel} before you archive it` : undefined)
-  const archiveEnabled = !!selected && !!archiveHandler && !archiveReason
-  const stageKind = selected?.staged ? 'release' : 'stage'
-  const stageHandler = stageKind === 'release' ? onRelease : onStage
-  const stageText = stageKind === 'release' ? 'Release' : 'Stage'
-  const stageReason =
-    disabledActions.stage ??
-    (selected?.archived ? `Unarchive this ${entityLabel} before you stage it` : undefined)
-  const stageEnabled = !!selected && !!stageHandler && !stageReason
-  const copyEnabled = !!selected && !!onDuplicate && !disabledActions.copy
-  const deleteEnabled = !!selected && !!onDelete && !disabledActions.delete
-  const why = (action: string, enabled: boolean, reason?: string): string =>
-    enabled
-      ? `${action} "${selected?.rel}"`
-      : !selected
-        ? `Open a ${entityLabel} to ${action.toLowerCase()} it`
-        : (reason ?? `${action} does not apply to this ${entityLabel}`)
-
-  const toggles = [
-    hasStaging && { key: 'staged' as const, label: 'Staged', count: stagedFiles.length },
-    hasArchive && { key: 'archived' as const, label: archivedLabel, count: archivedFiles.length },
-    { key: 'active' as const, label: 'Active', count: files.length }
-  ].filter((t): t is { key: SetKey; label: string; count: number } => !!t)
-
-  const newLabel = `New ${entityLabel.replace(/\b\w/g, (c) => c.toUpperCase())}`
+  // The set toggles, in toolbar order.
+  const sets = [
+    hasStaging && { key: 'staged', label: 'Staged', count: stagedFiles.length },
+    hasArchive && { key: 'archived', label: archivedLabel, count: archivedFiles.length },
+    { key: 'active', label: 'Active', count: files.length }
+  ].filter((s): s is { key: SetKey; label: string; count: number } => !!s)
 
   return (
-    <Box
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
-      {/* ── The page toolbar ── */}
-      <Box
-        data-testid="page-toolbar"
-        role="toolbar"
-        aria-label={`${title} toolbar`}
-        sx={{
-          display: 'flex',
-          alignItems: 'stretch',
-          flexShrink: 0,
-          minHeight: 44,
-          borderBottom: 1,
-          borderColor: 'divider'
-        }}
-      >
-        <Box
-          sx={{
-            width: FILE_LIST_WIDTH,
-            flexShrink: 0,
-            px: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRight: 1,
-            borderColor: 'divider'
-          }}
-        >
-          <Typography variant="h6" noWrap>
-            {title}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, minWidth: 0 }}>
-          <ToolbarButton title={newLabel} label={newLabel} onClick={onNew}>
-            <AddIcon fontSize="small" />
-          </ToolbarButton>
-
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-          <ToolbarButton
-            title={folderMode ? 'Grouping by folder' : 'Flat list'}
-            label={folderMode ? 'Switch to flat list' : 'Group by folder'}
-            onClick={() => setViewMode(folderMode ? 'flat' : 'folder')}
-          >
-            {folderMode ? <AccountTreeIcon fontSize="small" /> : <ViewListIcon fontSize="small" />}
-          </ToolbarButton>
-          {folderMode && allFolders.size > 0 && (
-            // Disabled while filtering, not hidden: the filter already opens
-            // every surviving folder, so the button would look broken. Say why.
-            <ToolbarButton
-              title={
-                query
-                  ? 'Filtering already shows every match'
-                  : allExpanded
-                    ? 'Collapse all folders'
-                    : 'Expand all folders'
-              }
-              label={allExpanded ? 'Collapse all folders' : 'Expand all folders'}
-              disabled={!!query}
-              onClick={toggleExpandAll}
-            >
-              {allExpanded ? (
-                <UnfoldLessIcon fontSize="small" />
-              ) : (
-                <UnfoldMoreIcon fontSize="small" />
-              )}
-            </ToolbarButton>
-          )}
-          {toggles.length > 1 && (
-            <ToggleButtonGroup
-              size="small"
-              value={shown}
-              // At least one set stays on: an empty list with no way to say why
-              // is worse than a toggle that does not turn off.
-              onChange={(_, next: SetKey[]) => {
-                if (next.length) setShown(next)
-              }}
-              aria-label="Sets to show"
-              sx={{ ml: 0.5 }}
-            >
-              {toggles.map((t) => (
-                <ToggleButton
-                  key={t.key}
-                  value={t.key}
-                  aria-label={`${t.label} (${t.count})`}
-                  sx={{ py: 0.25, px: 1, textTransform: 'none', whiteSpace: 'nowrap' }}
-                >
-                  {t.label}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    sx={{ ml: 0.75, color: 'text.secondary' }}
-                  >
-                    {t.count}
-                  </Typography>
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          )}
-
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-          {hasArchive && (
-            <ToolbarButton
-              title={why(archiveText, archiveEnabled, archiveReason)}
-              label={archiveText}
-              disabled={!archiveEnabled}
-              onClick={() => selected && archiveHandler?.(selected)}
-            >
-              {archiveKind === 'unarchive' ? (
-                <UnarchiveIcon fontSize="small" />
-              ) : (
-                <ArchiveIcon fontSize="small" />
-              )}
-            </ToolbarButton>
-          )}
-          {hasStaging && (
-            <ToolbarButton
-              title={why(stageText, stageEnabled, stageReason)}
-              label={stageText}
-              disabled={!stageEnabled}
-              onClick={() => selected && stageHandler?.(selected)}
-            >
-              {stageKind === 'release' ? (
-                <PublishIcon fontSize="small" />
-              ) : (
-                <PendingActionsIcon fontSize="small" />
-              )}
-            </ToolbarButton>
-          )}
-          {!!onDuplicate && (
-            <ToolbarButton
-              title={why('Duplicate', copyEnabled, disabledActions.copy)}
-              label="Duplicate"
-              disabled={!copyEnabled}
-              onClick={() => selected && onDuplicate(selected)}
-            >
-              <ContentCopyIcon fontSize="small" />
-            </ToolbarButton>
-          )}
-          {!!onDelete && (
-            <ToolbarButton
-              title={why('Delete', deleteEnabled, disabledActions.delete)}
-              label="Delete"
-              disabled={!deleteEnabled}
-              onClick={() => setPendingDelete(selected)}
-            >
-              <DeleteIcon fontSize="small" />
-            </ToolbarButton>
-          )}
-        </Box>
-      </Box>
-
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        {/* ── The file list ── */}
-        <Box
-          data-testid="file-list"
-          sx={{
-            width: FILE_LIST_WIDTH,
-            flexShrink: 0,
-            borderRight: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
+    <EditorPageShell<T>
+      title={title}
+      entityLabel={entityLabel}
+      onNew={onNew}
+      folderMode={folderMode}
+      onFolderModeChange={(folder) => setViewMode(folder ? 'folder' : 'flat')}
+      expandAll={
+        folderMode && allFolders.size > 0
+          ? { allExpanded, filtering: !!query, onToggle: toggleExpandAll }
+          : null
+      }
+      sets={sets}
+      shownSets={shown}
+      onShownSetsChange={(next) => setShown(next as SetKey[])}
+      selection={selectedFile ? [selectedFile] : []}
+      describeFile={(f) => f.rel}
+      archiveLabel={archiveLabel}
+      unarchiveLabel={unarchiveLabel}
+      onArchive={onArchive && first(onArchive)}
+      onUnarchive={onUnarchive && first(onUnarchive)}
+      onStage={onStage && first(onStage)}
+      onRelease={onRelease && first(onRelease)}
+      onDuplicate={onDuplicate}
+      onDelete={onDelete && first(onDelete)}
+      disabledActions={disabledActions}
+      list={
+        <>
           <Box sx={{ p: 1 }}>
             <FilterField
               fullWidth
@@ -632,50 +401,22 @@ export default function EditorFileListPanel<T extends PanelFile>({
               })
             )}
           </Box>
-        </Box>
-
-        {/* ── The editor column, with the alerts area for its header ── */}
-        <EditorAlertsProvider>
-          <Box
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              p: 2,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            {children}
-          </Box>
-        </EditorAlertsProvider>
+        </>
+      }
+    >
+      {/* The editor column's padding is Taliesin's: the shell adds none. */}
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          p: 2,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        {children}
       </Box>
-
-      {/* Delete confirmation. The file goes to the OS trash, so this is a soft
-          "are you sure" rather than a final warning. */}
-      <Dialog open={!!pendingDelete} onClose={() => setPendingDelete(null)}>
-        <DialogTitle>Delete this {entityLabel}?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            &quot;{pendingDelete?.rel}&quot; moves to your system trash. You can recover it from the
-            Recycle Bin or Trash.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={() => {
-              const file = pendingDelete
-              setPendingDelete(null)
-              if (file) onDelete?.(file)
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+    </EditorPageShell>
   )
 }

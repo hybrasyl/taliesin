@@ -33,13 +33,13 @@ function renderHeader(props: Partial<React.ComponentProps<typeof EditorHeader>> 
 describe('EditorHeader — what the save will do', () => {
   it('says nothing when neither the name nor the folder has changed', () => {
     renderHeader()
-    expect(screen.queryByText(/Saving will/)).toBeNull()
+    expect(screen.queryByText(/^Save /)).toBeNull()
   })
 
   it('says rename when only the name changed', () => {
     renderHeader({ fileName: 'Mileth Tavern.xml' })
-    const text = screen.getByText(/Saving will/).textContent ?? ''
-    expect(text).toContain('rename')
+    const text = screen.getByText(/^Save /).textContent ?? ''
+    expect(text).toContain('renames')
     expect(text).toContain('Mileth Tavern.xml')
     // The word that was wrong.
     expect(text).not.toContain('archive')
@@ -47,10 +47,10 @@ describe('EditorHeader — what the save will do', () => {
 
   it('says move when only the folder changed', () => {
     renderHeader({ folder: 'towns', initialFolder: '', folderOptions: ['towns'] })
-    const text = screen.getByText(/Saving will/).textContent ?? ''
-    expect(text).toContain('move')
+    const text = screen.getByText(/^Save /).textContent ?? ''
+    expect(text).toContain('moves')
     expect(text).toContain('towns')
-    expect(text).not.toContain('rename')
+    expect(text).not.toContain('renames')
     expect(text).not.toContain('archive')
   })
 
@@ -61,15 +61,15 @@ describe('EditorHeader — what the save will do', () => {
       initialFolder: 'drafts',
       folderOptions: ['towns', 'drafts']
     })
-    const text = screen.getByText(/Saving will/).textContent ?? ''
-    expect(text).toContain('move and rename')
+    const text = screen.getByText(/^Save /).textContent ?? ''
+    expect(text).toContain('moves and renames')
     expect(text).toContain('drafts/Mileth Inn.xml')
     expect(text).toContain('towns/Mileth Tavern.xml')
   })
 
   it('names the top level rather than an empty folder', () => {
     renderHeader({ folder: '', initialFolder: 'drafts', folderOptions: ['drafts'] })
-    expect(screen.getByText(/Saving will/).textContent).toContain('the top level')
+    expect(screen.getByText(/^Save /).textContent).toContain('the top level')
   })
 
   it('offers the computed name without claiming a new file is made', () => {
@@ -116,6 +116,6 @@ describe('EditorHeader — what the save will do', () => {
   it('says nothing at all for a file that does not exist yet', () => {
     // No initial filename: there is nothing to rename or move.
     renderHeader({ initialFileName: undefined, fileName: 'New Map.xml', isExisting: false })
-    expect(screen.queryByText(/Saving will/)).toBeNull()
+    expect(screen.queryByText(/^Save /)).toBeNull()
   })
 })

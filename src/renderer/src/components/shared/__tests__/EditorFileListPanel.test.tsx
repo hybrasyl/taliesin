@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { ListItem, ListItemButton, ListItemText } from '@mui/material'
 import EditorFileListPanel, { type PanelFile } from '../EditorFileListPanel'
 import EditorHeader from '../EditorHeader'
-import { useEditorAlert } from '../EditorAlerts'
+import { useEditorAlert } from '../../editorShell/EditorAlerts'
 import { resetStores } from '../../../__tests__/setup/storeWrapper'
 
 /**
