@@ -1,3 +1,4 @@
+// house module: editor-shell v1 — change it in the template, then port
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
@@ -12,18 +13,18 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
 /**
- * The collapsible alerts under the editor header (HTOO-633, from Creidhne's
- * HTOO-628 `EditorAlerts.jsx`).
+ * The collapsible alerts under the editor header: part of the editor shell
+ * house module (HTOO-637, from Creidhne's HTOO-628 and Taliesin's HTOO-633).
  *
  * A notice registers here, and `EditorHeader` shows every registered alert in
  * one area under itself. Before, each editor put its notices where it rendered
- * them: the duplicate-warp notice showed only on the Placement tab.
+ * them, so a notice could be on a tab that was not open.
  *
  * An alert is data, not a node, so a component that re-renders registers an
  * equal value and nothing updates. A node is a new object on every render, and
  * the registry would update forever.
  *
- * `EditorFileListPanel` puts the provider around the editor column. Outside a
+ * `EditorPageShell` puts the provider around the editor column. Outside a
  * provider, `useEditorAlert` returns false, and the caller renders the alert in
  * place.
  */
@@ -50,7 +51,7 @@ export function EditorAlertsProvider({
   children
 }: {
   children: React.ReactNode
-}): React.ReactElement {
+}): React.JSX.Element {
   const [alerts, setAlerts] = useState<Record<string, EditorAlertData>>({})
   const register = useCallback((id: string, alert: EditorAlertData | null) => {
     setAlerts((prev) => {
@@ -86,7 +87,7 @@ export function EditorAlert({
 }: {
   alert: EditorAlertData
   sx?: SxProps<Theme>
-}): React.ReactElement {
+}): React.JSX.Element {
   return (
     <Alert severity={alert.severity} data-testid={alert.testId} sx={sx}>
       {alert.message}
@@ -106,7 +107,7 @@ export function EditorAlert({
  * content has a height limit and scrolls, so a long list of alerts cannot push
  * the editor out of the pane.
  */
-export function EditorAlertsArea(): React.ReactElement | null {
+export function EditorAlertsArea(): React.JSX.Element | null {
   const ctx = useContext(AlertsContext)
   const [open, setOpen] = useState(true)
   const list = useMemo(
