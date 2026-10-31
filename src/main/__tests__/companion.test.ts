@@ -64,6 +64,22 @@ describe('launcherDir', () => {
     })
     expect(launcherDir(probe)).toBe('/opt/taliesin')
   })
+
+  it('uses the AppImage file directory, not the squashfs mount (HTOO-584)', () => {
+    // Under an AppImage, execPath is the binary inside /tmp/.mount_XXXXXX, so
+    // dirname(execPath) is the app's own files. APPIMAGE names the image file.
+    const probe = makeProbe({
+      platform: 'linux',
+      execPath: '/tmp/.mount_TaliesAbc123/taliesin',
+      env: { APPIMAGE: '/home/a/Downloads/taliesin-2.15.0.AppImage' }
+    })
+    expect(launcherDir(probe)).toBe('/home/a/Downloads')
+  })
+
+  it('ignores APPIMAGE off Linux', () => {
+    const probe = makeProbe({ env: { APPIMAGE: '/tmp/attacker/x.AppImage' } })
+    expect(launcherDir(probe)).toBe(join('C:', 'Program Files', 'Taliesin'))
+  })
 })
 
 describe('release-artifact naming', () => {
@@ -157,6 +173,26 @@ describe('resolution precedence', () => {
     const status = await resolveCompanion(probe, 'creidhne', null)
     expect(status.resolved).toEqual({
       target: join('/opt/taliesin', 'Creidhne.AppImage'),
+      kind: 'binary',
+      source: 'sibling'
+    })
+  })
+
+  it('finds the sibling AppImage beside a running AppImage (HTOO-584)', async () => {
+    // The pair as a user keeps it: both release artifacts in one folder. The
+    // readdir answers only for that folder, so a search of the mount finds
+    // nothing, as it did before the fix.
+    const downloads = '/home/a/Downloads'
+    const probe = makeProbe({
+      platform: 'linux',
+      execPath: '/tmp/.mount_TaliesAbc123/taliesin',
+      env: { APPIMAGE: `${downloads}/taliesin-2.15.0.AppImage` },
+      readdir: async (dir) =>
+        dir === downloads ? ['taliesin-2.15.0.AppImage', 'creidhne-1.15.0.AppImage'] : []
+    })
+    const status = await resolveCompanion(probe, 'creidhne', null)
+    expect(status.resolved).toEqual({
+      target: join(downloads, 'creidhne-1.15.0.AppImage'),
       kind: 'binary',
       source: 'sibling'
     })
