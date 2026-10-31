@@ -10,17 +10,17 @@ interface Card {
 }
 
 /**
- * The component overrides that Taliesin adds to each of the six house themes.
+ * The component overrides that Taliesin adds to each of the eight house themes.
  * The template does not have them. Each theme file is the template's file, plus
  * one spread of this object in its `components`, after the template's
  * `...filledControls`. Keep them in this one file, so that the next port of the
- * template's palettes is a copy of the six theme files and the spread line. Do
+ * template's palettes is a copy of the eight theme files and the spread line. Do
  * not set `MuiButtonBase` or `MuiAlert` here: that key replaces the one in
  * `filledControls`, and `palette.test.ts` fails.
  *
  * - `MuiTooltip`: a tooltip is one of the theme's cards (#73). Taliesin's file
  *   lists put a tooltip on each row, and the longest of them is a file path.
- *   MUI's default tooltip is a grey slab with white text in all six themes, and
+ *   MUI's default tooltip is a grey slab with white text in all eight themes, and
  *   matches none of them. This one takes the ground, the edge and the bevel of
  *   the theme's own `MuiPaper`, and the theme's text colour. A card that sits
  *   inline can have no shadow; a floating card needs one, so a flat theme's

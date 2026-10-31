@@ -139,11 +139,11 @@ describe('REMOTE_SESSION_CSS', () => {
   })
 
   it('is the mitigation the themes actually need', () => {
-    // Not decoration: four of the six themes put backdropFilter on MuiPaper.root,
+    // Not decoration: six of the eight themes put backdropFilter on MuiPaper.root,
     // which backs Card, Dialog, Accordion and Menu. If that ever stops being true
-    // this rule is dead weight — and if a seventh theme adds one, the rule already
+    // this rule is dead weight — and if a ninth theme adds one, the rule already
     // covers it, because it is unconditional.
-    const themes = ['chadul', 'danaan', 'grinneal', 'hybrasyl']
+    const themes = ['chadul', 'danaan', 'grinneal', 'hybrasyl', 'shattered', 'untamed']
     for (const name of themes) {
       const src = readFileSync(
         join(import.meta.dirname, '..', '..', 'renderer', 'src', 'themes', `${name}.ts`),

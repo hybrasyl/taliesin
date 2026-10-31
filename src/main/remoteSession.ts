@@ -140,8 +140,9 @@ export function shouldDisableHardwareAcceleration(
 /**
  * Injected into the main window when software rendering is in force.
  *
- * Four of Taliesin's six themes put `backdropFilter: blur(2px)` on
- * `MuiPaper.root` — chadul, danaan, grinneal and hybrasyl — which backs Card,
+ * Six of Taliesin's eight themes put `backdropFilter: blur(2px)` on
+ * `MuiPaper.root` — chadul, danaan, grinneal, hybrasyl, shattered and untamed —
+ * which backs Card,
  * Dialog, Accordion and Menu. A blur makes Chromium read back everything behind
  * the surface and blur it on every repaint, including every frame of a drag. With
  * a GPU that is nearly free; under software compositing it is not. Disabling the
@@ -156,7 +157,7 @@ export function shouldDisableHardwareAcceleration(
  *
  * **Narrower than epona's, and measured rather than copied.** Epona also kills
  * `text-shadow` and forces antialiased smoothing, because its themes carry text
- * shadows widely. Taliesin's six themes declare none — the only `textShadow` in
+ * shadows widely. Taliesin's eight themes declare none — the only `textShadow` in
  * the app is one line on the title-bar title, already dropped on the two corporate
  * themes. One element's shadow is not a repaint cost worth a global `!important`,
  * and a rule that changes how the app looks should earn it.
