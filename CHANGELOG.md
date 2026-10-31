@@ -56,6 +56,10 @@ record; where they disagree with this file, the git history was taken as authori
 - **The file-type chips in the Music Manager are easy to read.** The OGG and FLAC chips drew the bar colour as text on the page. All the file-type chips are now filled.
 - **The Collision Map window in the Map Maker:** its title and close button now use the bar's text colour.
 
+### Security
+
+- **Taliesin runs on Electron 44.10.0.** This release bundles Node 24.22.1 and Chromium 152.0.7977.169, with their security fixes. It also stops trust in the compromised eMudhra intermediate certificates. Taliesin connects to the network only through Chromium, so the Brotli fault in Node (CVE-2026-111497) did not apply to it.
+
 ## [2.14.0] - 2026-10-11
 
 ### Added

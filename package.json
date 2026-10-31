@@ -37,7 +37,7 @@
     "archiver": "^7.0.1",
     "music-metadata": "^11.16.1",
     "unzipper": "^0.12.3",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "//devDependencies": "@electron/fuses is here for ONE reason: scripts/verify-fuses.test.mjs pins our copied SENTINEL and state bytes against it, and a pin on a transitive dependency is a pin on whatever the tree happens to hoist. app-builder-lib depends on it too and is what actually flips the wire at package time. Nothing imports it at run time -- the verifier reads the artifact with fs.",
   "devDependencies": {
@@ -65,8 +65,8 @@
     "@types/react-dom": "^19.2.3",
     "@types/xml2js": "^0.4.14",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vitest/coverage-v8": "^4.1.11",
-    "electron": "^44.7.0",
+    "@vitest/coverage-v8": "^4.1.12",
+    "electron": "^44.10.0",
     "electron-builder": "^26.17.0",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.4",
@@ -80,8 +80,8 @@
     "react-icons": "^5.6.0",
     "simplex-noise": "^4.0.3",
     "typescript": "^5.7.0",
-    "vite": "^6.4.1",
-    "vitest": "^4.1.11",
+    "vite": "^6.4.5",
+    "vitest": "^4.1.12",
     "vitest-canvas-mock": "^1.1.4",
     "xml2js": "^0.6.2",
     "zustand": "^5.0.14"
