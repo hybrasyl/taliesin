@@ -220,25 +220,13 @@ function readPaletteMap(text: string, lines: string[], rule: string): TypedTable
 }
 
 /**
- * Read a palette cycling table.
- *
- * dalib-ts parses this format only inside `PaletteTable.fromArchive`, which
- * merges a whole family of files and keys them by the name's number — there is
- * no public entry point for one entry's bytes. The grammar it applies is three
- * integers per line, reproduced here for a single-entry preview. Recorded as a
- * dalib-ts follow-up in docs/plans/00a-backlog.md.
+ * Read a palette cycling table, through the reader `PaletteTable.fromArchive`
+ * uses for each numbered file in a family (dalib-ts 3.3.0, HTOO-160). The
+ * library reads the grammar only; which grammar a `.tbl` has is still decided
+ * here, by the ladder above.
  */
-function readPaletteCycling(lines: string[], rule: string): TypedTable | null {
-  const rows: CyclingRow[] = []
-  for (const line of lines) {
-    const tokens = line.split(' ')
-    if (tokens.length !== 3) continue
-    const startIndex = parseInt(tokens[0]!, 10)
-    const endIndex = parseInt(tokens[1]!, 10)
-    const period = parseInt(tokens[2]!, 10)
-    if (isNaN(startIndex) || isNaN(endIndex) || isNaN(period)) continue
-    rows.push({ startIndex, endIndex, period })
-  }
+function readPaletteCycling(buf: Uint8Array, rule: string): TypedTable | null {
+  const rows: CyclingRow[] = PaletteTable.cyclingEntriesFromBuffer(buf)
   if (rows.length === 0) return null
   return {
     kind: 'palette-cycling',
@@ -319,7 +307,7 @@ export function readTypedTable(entryName: string, buf: Uint8Array): TypedTable |
       case 'palette-map':
         return readPaletteMap(text, lines, decided.rule)
       case 'palette-cycling':
-        return readPaletteCycling(lines, decided.rule)
+        return readPaletteCycling(buf, decided.rule)
       case 'tile-animation':
         return readTileAnimation(text, decided.rule)
       case 'effect':
