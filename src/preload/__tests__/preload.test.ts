@@ -91,6 +91,8 @@ describe('Preload ↔ Main IPC contract', () => {
         "get-user-data-path",
         "index:build",
         "index:delete",
+        "index:listCaches",
+        "index:pruneCaches",
         "index:read",
         "index:status",
         "library:resolve",

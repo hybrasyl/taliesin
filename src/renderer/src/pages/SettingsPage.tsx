@@ -46,6 +46,7 @@ import ThemeGallery from './ThemeGallery'
 import AboutDialog from '../components/AboutDialog'
 import UpdateCheckButton from '../components/UpdateCheckButton'
 import WhatsNewDialog from '../components/WhatsNewDialog'
+import IndexCacheSection from '../components/IndexCacheSection'
 import logoUrl from '../assets/taliesin.webp'
 import { reloadPacks } from '../utils/packCaches'
 
@@ -1193,6 +1194,10 @@ const SettingsPage: React.FC = () => {
       >
         <AppearanceCard onOpenGallery={() => setGalleryOpen(true)} />
         <LibrariesCard />
+        {/* World indexes: remove the old index caches (HTOO-583) */}
+        <Paper sx={cardSx}>
+          <IndexCacheSection />
+        </Paper>
         <DAClientCard />
         <BrigidAssetsCard />
         <CompanionCard />

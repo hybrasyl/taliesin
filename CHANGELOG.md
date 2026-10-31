@@ -35,6 +35,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- **Settings → World indexes removes old world indexes.** Taliesin keeps an index of each world outside the world folder. This version starts a new version of the index, so Taliesin builds each world's index again the first time it opens the world, and the old index stays on disk. A world that moved also leaves its old index. **Find old indexes** lists each one with its size and the reason, and **Remove** deletes them. Taliesin does not remove an index by itself. Creidhne uses the same indexes, and builds its index again if it needs one that you removed.
 - **Settings → Appearance → Theme gallery** shows each type of control in the theme that you use, on the page and on a card. Under each control, the gallery shows its measured contrast. Use it to examine a theme. **Back** returns to Settings.
 
 ### Changed
