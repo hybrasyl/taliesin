@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionLaunchResult, CompanionStatus } from '../main/companion'
 import type { UpdateCheckResult } from '../shared/updateVersion'
 import type { WarpReferrer } from '../main/handlers'
+import type { StagedMap } from '../main/mapStaging'
 import type { MenuState } from '../main/schemas/menu'
 
 export interface DirEntry {
@@ -167,6 +168,15 @@ const api = {
     newName: string
   ): Promise<{ updated: WarpReferrer[]; failed: string[] }> =>
     ipcRenderer.invoke('maps:updateWarpTargets', libraryPath, oldName, newName),
+  /** The staged map XMLs in `<world>/.staging/maps/` (HTOO-634). */
+  listStagedMaps: (libraryPath: string): Promise<{ dir: string; files: StagedMap[] }> =>
+    ipcRenderer.invoke('staging:listMaps', libraryPath),
+  /** Move `xml/maps/<rel>` to `.staging/maps/<rel>`. Returns the new path. */
+  stageMap: (libraryPath: string, rel: string): Promise<{ path: string }> =>
+    ipcRenderer.invoke('staging:stageMap', libraryPath, rel),
+  /** Move `.staging/maps/<rel>` to `xml/maps/<rel>`. Returns the new path. */
+  releaseMap: (libraryPath: string, rel: string): Promise<{ path: string }> =>
+    ipcRenderer.invoke('staging:releaseMap', libraryPath, rel),
   copyFile: (src: string, dst: string): Promise<void> =>
     ipcRenderer.invoke('fs:copyFile', src, dst),
   moveFile: (src: string, dst: string): Promise<void> =>

@@ -18,6 +18,8 @@ export interface Referrer {
   file: string
   count: number
   section: string
+  /** In `.staging/<section>/`: not live (HTOO-635). */
+  staged?: true
 }
 
 /** What a section is called in a sentence, and what one hit in it is called. */
@@ -25,6 +27,7 @@ const SECTION_LABELS: Record<string, { file: string; hit: string }> = {
   maps: { file: 'map', hit: 'warp' },
   nations: { file: 'nation', hit: 'reference' },
   serverconfigs: { file: 'server config', hit: 'reference' },
+  items: { file: 'item', hit: 'teleport' },
   worldmaps: { file: 'world map', hit: 'point' }
 }
 
@@ -66,6 +69,9 @@ interface Props {
  *
  * Skip and Cancel are different answers, and the wording has to keep them
  * apart: Skip saves the map and leaves the warps broken, Cancel saves nothing.
+ *
+ * A file in staging is in the list too, and Update repoints it (HTOO-635). Its
+ * row says "staged", so the user can see that it is not live.
  */
 const RenameReferrersDialog: React.FC<Props> = ({
   open,
@@ -118,10 +124,14 @@ const RenameReferrersDialog: React.FC<Props> = ({
                 </Typography>
               </ListItem>
               {groups[section]!.map((r) => (
-                <ListItem key={`${section}/${r.file}`} disableGutters sx={{ pl: 1.5, py: 0 }}>
+                <ListItem
+                  key={`${r.staged ? 'staged' : 'live'}/${section}/${r.file}`}
+                  disableGutters
+                  sx={{ pl: 1.5, py: 0 }}
+                >
                   <ListItemText
                     primary={r.file}
-                    secondary={plural(r.count, labelFor(section).hit)}
+                    secondary={`${plural(r.count, labelFor(section).hit)}${r.staged ? ' · staged' : ''}`}
                     slotProps={{
                       primary: { variant: 'body2', sx: { fontFamily: 'monospace' } },
                       secondary: { variant: 'caption' }

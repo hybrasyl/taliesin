@@ -46,6 +46,7 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
 - **`theme-gallery.spec.js`** — opens Settings → Appearance → Theme gallery, selects each theme, and reads every measured contrast. It fails on a sample it cannot measure, not on a low ratio. It writes each low ratio to `theme-gallery.json` in the test's output folder (HTOO-572).
 - **`app-menu.spec.js`** — macOS only: the installed application menu, and a Go command's round trip through the renderer.
 - **`page-toolbar.spec.js`** — at the minimum window (1024 px), every control of the Maps and World Maps page toolbars is inside the toolbar, and the map canvas is at least 400 px wide. It seeds a world with one map and one world map, and opens each, so the item actions show at their enabled widths (HTOO-633, from Creidhne's HTOO-628 spec).
+- **`map-staging.spec.js`** — stages a map and checks the move on disk, with the dialog that lists a live referrer. Then it renames the staged map, and checks that the warp in a staged map is repaired and marked staged in the dialog. Then it releases the map (HTOO-634, HTOO-635).
 - **`index-caches.spec.js`** — Settings → World indexes finds the old index caches and removes only those.
 
 ### What automation cannot reach

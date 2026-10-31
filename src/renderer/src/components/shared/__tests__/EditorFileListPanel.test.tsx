@@ -26,6 +26,12 @@ const old: Row = {
   display: 'Old',
   archived: true
 }
+const draft: Row = {
+  rel: 'Abel.xml',
+  path: '/w/.staging/maps/Abel.xml',
+  display: 'Draft',
+  staged: true
+}
 
 function renderPanel(
   props: Partial<React.ComponentProps<typeof EditorFileListPanel<Row>>> = {},
@@ -36,7 +42,9 @@ function renderPanel(
     onArchive: vi.fn(),
     onUnarchive: vi.fn(),
     onDuplicate: vi.fn(),
-    onDelete: vi.fn()
+    onDelete: vi.fn(),
+    onStage: vi.fn(),
+    onRelease: vi.fn()
   }
   const view = render(
     <EditorFileListPanel<Row>
@@ -55,7 +63,7 @@ function renderPanel(
         </ListItem>
       )}
       emptyMessage="No maps."
-      stagingPending
+      stagedFiles={[draft]}
       {...handlers}
       {...props}
     >
@@ -93,9 +101,38 @@ describe('EditorFileListPanel — the item actions follow the open file', () => 
     expect(handlers.onUnarchive).toHaveBeenCalledWith(old)
   })
 
-  it('keeps Stage disabled while staging is pending', () => {
-    renderPanel({ selectedFile: abel })
+  it('stages the open active file', async () => {
+    const { handlers } = renderPanel({ selectedFile: abel })
+    await userEvent.click(toolbar().getByRole('button', { name: 'Stage' }))
+    expect(handlers.onStage).toHaveBeenCalledWith(abel)
+    expect(handlers.onRelease).not.toHaveBeenCalled()
+  })
+
+  it('turns Stage into Release for a staged file, and disables Archive', async () => {
+    const { handlers } = renderPanel({ selectedFile: draft })
+    expect(toolbar().queryByRole('button', { name: 'Stage' })).toBeNull()
+    expect(toolbar().getByRole('button', { name: 'Archive' })).toBeDisabled()
+    expect(toolbar().getByLabelText('Archive').parentElement).toHaveAttribute(
+      'aria-label',
+      'Release this map before you archive it'
+    )
+    await userEvent.click(toolbar().getByRole('button', { name: 'Release' }))
+    expect(handlers.onRelease).toHaveBeenCalledWith(draft)
+  })
+
+  it('does not stage an archived file', () => {
+    renderPanel({ selectedFile: old })
     expect(toolbar().getByRole('button', { name: 'Stage' })).toBeDisabled()
+    expect(toolbar().getByLabelText('Stage').parentElement).toHaveAttribute(
+      'aria-label',
+      'Unarchive this map before you stage it'
+    )
+  })
+
+  it('has no Stage button and no Staged set without both handlers', () => {
+    renderPanel({ selectedFile: abel, onRelease: undefined })
+    expect(toolbar().queryByRole('button', { name: 'Stage' })).toBeNull()
+    expect(toolbar().queryByRole('button', { name: /^Staged/ })).toBeNull()
   })
 
   it('disables an action the page says does not apply', () => {
@@ -140,6 +177,14 @@ describe('EditorFileListPanel — the sets', () => {
     await userEvent.click(toolbar().getByRole('button', { name: 'Active (2)' }))
     await userEvent.click(toolbar().getByRole('button', { name: 'Archived (1)' }))
     expect(screen.getByTestId('list-section-archived')).toBeInTheDocument()
+  })
+
+  it('adds the staged set from its toggle', async () => {
+    renderPanel()
+    expect(screen.queryByTestId('list-section-staged')).toBeNull()
+    await userEvent.click(toolbar().getByRole('button', { name: 'Staged (1)' }))
+    expect(screen.getByTestId('list-section-staged')).toBeInTheDocument()
+    expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
   it('collapses a set from its header', async () => {
