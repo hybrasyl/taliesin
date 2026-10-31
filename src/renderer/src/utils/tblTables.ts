@@ -277,14 +277,14 @@ function readTileAnimation(text: string, rule: string): TypedTable | null {
 /**
  * Read an effect table. `EffectTable` enumerates cleanly via count + id.
  *
- * The single trailing line terminator is stripped first: the parser turns every
- * blank line into an empty effect slot, and a file that simply ends with a
- * newline would otherwise report one more effect than its own count line says.
- * Blank lines in the middle are real empty slots and are left alone.
+ * The bytes go to the parser unchanged. Since dalib-ts 3.3.0 (HTOO-568) the
+ * parser itself removes the one line terminator at the end of the file, so a
+ * file that ends with a newline has the count its own count line says. Do not
+ * strip it here too: a file whose last slot is empty (`3\n1\n2\n\n`) would then
+ * lose that slot. Blank lines in the middle are real empty slots.
  */
-function readEffect(text: string, rule: string): TypedTable | null {
-  const trimmed = text.replace(/\r?\n$/, '')
-  const table = EffectTable.fromBuffer(new TextEncoder().encode(trimmed))
+function readEffect(buf: Uint8Array, rule: string): TypedTable | null {
+  const table = EffectTable.fromBuffer(buf)
   if (table.count === 0) return null
   const rows: EffectRow[] = []
   const shown = Math.min(table.count, MAX_TABLE_ROWS)
@@ -323,7 +323,7 @@ export function readTypedTable(entryName: string, buf: Uint8Array): TypedTable |
       case 'tile-animation':
         return readTileAnimation(text, decided.rule)
       case 'effect':
-        return readEffect(text, decided.rule)
+        return readEffect(buf, decided.rule)
     }
   } catch {
     // A parser that throws on these bytes is a "not this kind" answer.

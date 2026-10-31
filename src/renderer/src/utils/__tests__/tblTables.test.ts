@@ -73,6 +73,20 @@ describe('readTypedTable — effect tables', () => {
     expect(table.total).toBe(3)
     expect(table.rows[1]).toEqual({ effectId: 2, frameSequence: [] })
   })
+
+  // dalib-ts 3.3.0 removes the one line terminator at the end of the file
+  // (HTOO-568). If Taliesin removed it too, the blank last slot would be lost
+  // and the file would read as two effects (HTOO-603).
+  it('keeps an empty last slot, before the final line terminator', () => {
+    const table = readTypedTable('effect.tbl', bytes('3\n1\n2\n\n'))
+    if (table?.kind !== 'effect') throw new Error('wrong kind')
+    expect(table.total).toBe(3)
+    expect(table.rows).toEqual([
+      { effectId: 1, frameSequence: [1] },
+      { effectId: 2, frameSequence: [2] },
+      { effectId: 3, frameSequence: [] }
+    ])
+  })
 })
 
 describe('readTypedTable — identification by structure', () => {
