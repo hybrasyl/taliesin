@@ -1572,6 +1572,8 @@ export async function packImport(
   const now = new Date().toISOString()
   const project = {
     pack_id: manifest.pack_id,
+    // Keep the display name, or the next compile drops it (HTOO-598).
+    ...(manifest.name?.trim() ? { name: manifest.name.trim() } : {}),
     pack_version: manifest.pack_version,
     content_type: manifest.content_type,
     priority: manifest.priority ?? 100,

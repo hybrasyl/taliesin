@@ -497,6 +497,80 @@ describe('PackEditor — compile flow', () => {
     expect(onStatus).toHaveBeenCalledWith('Compiled my-pack.datf (1 assets)')
   })
 
+  // The display name Brigid shows where a player picks a pack (HTOO-598).
+  it('writes the Name to the manifest, trimmed, and saves it in the project', async () => {
+    const user = userEvent.setup()
+    api.packSave.mockResolvedValue(undefined)
+    api.saveFile.mockResolvedValue('/out/my-pack.datf')
+    api.packCompile.mockResolvedValue(undefined)
+    render(
+      <PackEditor
+        pack={makePack({
+          pack_id: 'my-pack',
+          assets: [{ filename: 'skill0001.png', sourcePath: '/a' }]
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.type(screen.getByLabelText('Name'), '  Icy Steel ')
+    await user.click(screen.getByRole('button', { name: /compile \.datf/i }))
+
+    await waitFor(() => expect(api.packCompile).toHaveBeenCalled())
+    expect(api.packCompile.mock.calls[0][1]).toMatchObject({ name: 'Icy Steel' })
+    expect((api.packSave.mock.calls[0][1] as PackProject).name).toBe('  Icy Steel ')
+  })
+
+  it('writes no name when the Name is blank, so Brigid shows the pack ID', async () => {
+    const user = userEvent.setup()
+    api.packSave.mockResolvedValue(undefined)
+    api.saveFile.mockResolvedValue('/out/my-pack.datf')
+    api.packCompile.mockResolvedValue(undefined)
+    render(
+      <PackEditor
+        pack={makePack({
+          pack_id: 'my-pack',
+          name: '   ',
+          assets: [{ filename: 'skill0001.png', sourcePath: '/a' }]
+        })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /compile \.datf/i }))
+
+    await waitFor(() => expect(api.packCompile).toHaveBeenCalled())
+    expect(api.packCompile.mock.calls[0][1]).not.toHaveProperty('name')
+  })
+
+  it('warns about an imported pack ID that Brigid can refuse, and not about a good one', () => {
+    const { unmount } = render(
+      <PackEditor
+        pack={makePack({ pack_id: 'Icy Steel' })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    expect(screen.getByText(/Use only letters, digits/)).toBeInTheDocument()
+    unmount()
+    render(
+      <PackEditor
+        pack={makePack({ pack_id: 'icy-steel' })}
+        packDir="/p"
+        packFilePath="/p/pack.json"
+        onSave={onSave}
+        onStatus={onStatus}
+      />
+    )
+    expect(screen.queryByText(/Use only letters, digits|Use lowercase/)).toBeNull()
+  })
+
   it('Compile aborts when the save dialog is cancelled', async () => {
     const user = userEvent.setup()
     const pack = makePack({

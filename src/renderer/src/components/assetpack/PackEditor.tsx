@@ -31,6 +31,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import TagIcon from '@mui/icons-material/Tag'
 import SyncIcon from '@mui/icons-material/Sync'
 import { getKind } from '../../packKinds'
+import { packIdProblem } from '../../packKinds/helpers'
 import { useUiStore } from '../../store/uiStore'
 import type { PackAsset, PackProject } from '../../packKinds'
 import { loadPixelBufferFromPath } from '../../utils/imageLoader'
@@ -349,6 +350,8 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
   const metaFields = useMemo(() => kind.assetMetaFields?.() ?? {}, [kind])
   const metaFieldEntries = Object.entries(metaFields)
 
+  const idProblem = packIdProblem(draft.pack_id)
+
   const updateField = useCallback((field: keyof PackProject, value: unknown) => {
     setDraft((prev) => ({ ...prev, [field]: value, updatedAt: new Date().toISOString() }))
     setDirty(true)
@@ -560,6 +563,8 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
       const manifest = {
         schema_version: kind.manifestSchemaVersion ?? 1,
         pack_id: reduced.pack_id,
+        // Only when it is not blank: Brigid then shows the pack_id (HTOO-598).
+        ...(reduced.name?.trim() ? { name: reduced.name.trim() } : {}),
         pack_version: reduced.pack_version,
         content_type: reduced.content_type,
         priority: reduced.priority,
@@ -688,7 +693,17 @@ const PackEditor: React.FC<Props> = ({ pack, packDir, packFilePath, onSave, onSt
           onChange={(e) =>
             updateField('pack_id', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-'))
           }
+          helperText={idProblem ?? undefined}
+          slotProps={{ formHelperText: { sx: { color: 'warning.main' } } }}
           sx={{ width: 200 }}
+        />
+        <TextField
+          label="Name"
+          size="small"
+          value={draft.name ?? ''}
+          onChange={(e) => updateField('name', e.target.value)}
+          helperText="Shown where a player picks a pack. Blank shows the pack ID."
+          sx={{ width: 240 }}
         />
         <TextField
           label="Version"

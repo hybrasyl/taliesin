@@ -236,6 +236,30 @@ describe('packImport — basics', () => {
     })
   })
 
+  // The display name goes back into the project, trimmed, or the next compile
+  // drops it (HTOO-598). A blank name is left out, as compile leaves it out.
+  it('keeps the manifest name, and leaves out a blank one', async () => {
+    const fs = memfs
+    const manifest = (name: string) => ({
+      schema_version: 1,
+      pack_id: 'themed',
+      pack_version: '1.0.0',
+      content_type: 'nation_badges',
+      priority: 100,
+      covers: { nation_badges: {} },
+      name
+    })
+    fs.files.set('/out/themed.datf', await buildDatfBytes(manifest(' Icy Steel '), {}))
+    await packImport(ctx, '/out/themed.datf', '/work')
+    expect(JSON.parse(fs.files.get('/work/themed.json')!.toString('utf-8')).name).toBe('Icy Steel')
+
+    fs.files.set('/out/themed.datf', await buildDatfBytes(manifest('  '), {}))
+    await packImport(ctx, '/out/themed.datf', '/work', { force: true })
+    expect(JSON.parse(fs.files.get('/work/themed.json')!.toString('utf-8'))).not.toHaveProperty(
+      'name'
+    )
+  })
+
   // An old scaffold pack names its dye set exactly. The import must keep the
   // list, or the next save and compile drops it (HTOO-599).
   it('keeps an explicit item_icons covers.dyeable list', async () => {
