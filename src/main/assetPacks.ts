@@ -12,7 +12,8 @@
 // load also previews here.
 
 import { promises as fs } from 'fs'
-import { dirname, join, resolve } from 'path'
+import { homedir } from 'os'
+import { dirname, isAbsolute, join, resolve } from 'path'
 
 // unzipper ships no types; we import it dynamically (as elsewhere in main) and
 // describe only the surface we use. `.buffer()` reads a single entry's bytes.
@@ -370,13 +371,34 @@ export async function resolveAssetBytes(
 }
 
 /**
- * Suggested default for the Brigid assets dir on Windows —
- * `%LOCALAPPDATA%\erisco\Brigid\assets` (matches Brigid's AppPaths.AssetsDir).
- * Null when LOCALAPPDATA is absent (non-Windows); the user sets it manually.
+ * The Brigid assets folder, where Brigid finds `.datf` packs: Brigid's
+ * `AppPaths.AssetsDir`, `<base>/Erisco/Brigid/assets` (HTOO-585). The base is
+ * the one Brigid takes from .NET:
+ *
+ * - Windows: `LocalApplicationData`, which is `%LOCALAPPDATA%`.
+ * - macOS and Linux: `ApplicationData`, which is `$XDG_CONFIG_HOME` when it is
+ *   an absolute path, else `~/.config`. This is `~/.config` on macOS too, not
+ *   `~/Library/Application Support`: Brigid is a .NET app, not an Electron one.
+ *
+ * The vendor folder is `Erisco`, as Brigid writes it since it moved from
+ * `erisco` (`MigrateLegacyVendorFolder`). Linux keeps the two apart.
+ *
+ * Null only when there is no base: no `LOCALAPPDATA` and no home folder. The
+ * arguments are for the tests; the app passes none.
  */
-export function suggestedBrigidAssetsPath(): string | null {
-  const localAppData = process.env.LOCALAPPDATA
-  return localAppData ? join(localAppData, 'erisco', 'Brigid', 'assets') : null
+export function suggestedBrigidAssetsPath(
+  platform: string = process.platform,
+  env: Record<string, string | undefined> = process.env,
+  home: string = homedir()
+): string | null {
+  let base: string | undefined
+  if (platform === 'win32') {
+    base = env.LOCALAPPDATA || (home ? join(home, 'AppData', 'Local') : undefined)
+  } else {
+    const xdg = env.XDG_CONFIG_HOME
+    base = xdg && isAbsolute(xdg) ? xdg : home ? join(home, '.config') : undefined
+  }
+  return base ? join(base, 'Erisco', 'Brigid', 'assets') : null
 }
 
 // ── Browsable image entries (separate from override resolution) ────────────────

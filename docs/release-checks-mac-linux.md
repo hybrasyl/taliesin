@@ -163,14 +163,22 @@ An AppImage runs from a temporary mount, so Taliesin must look for Creidhne besi
 
 **Expected:** Creidhne starts, and Taliesin does not ask you to select it. **Settings → Companion App** shows the AppImage in the same folder. If Taliesin asks you to select Creidhne, record the folder and the two file names.
 
+### B7. The default Brigid assets folder (both OS) — HTOO-585
+
+1. Open **Settings → Installed Asset Packs**.
+2. Click **Use default location**.
+
+**Expected:** the field shows `~/.config/Erisco/Brigid/assets` on macOS and on Linux, with `Erisco` in capitals. If `XDG_CONFIG_HOME` is set to an absolute path, the field shows `$XDG_CONFIG_HOME/Erisco/Brigid/assets`. If Brigid is installed on the machine, its packs folder is that same folder. If the field stays empty or shows another folder, record what it shows.
+
 ## For this release (November 2026)
 
 Rewrite this section for each release: what applies, and what is already done. The release order is in the document repo's `docs/plans/releases/2026-11-release-plan.md`. The list of owed checks is the November 2026 comment on HTOO-239.
 
-All of A1 to A5 and B1 to B6 apply.
+All of A1 to A5 and B1 to B7 apply.
 
 - **A1 on Linux:** report how long each `ThemeGallery.test.tsx` theme takes. Each theme has 60 s (HTOO-572); a theme near the limit is a finding.
 - **B5** is new (#101, HTOO-572 and HTOO-629). It includes the nav bar's own colour.
+- **B7** is new (HTOO-585).
 - **B6** is new (HTOO-584). Creidhne has the same fix; one AppImage pair checks both directions if you also click **Launch Taliesin** in Creidhne.
 
 The Windows checks for #101 are complete: the gate, e2e (13 passed, 5 macOS-only skipped), and Sabrael's by-eye pass on the six themes. More checks join this list as the release's other PRs merge.
