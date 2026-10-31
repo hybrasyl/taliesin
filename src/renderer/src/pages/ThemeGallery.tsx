@@ -602,7 +602,8 @@ function BarButtons({ kind, hovered }: { kind: ChromeKind; hovered: boolean }): 
 
 /**
  * A nav bar under the title bar, as four apps draw one: a plain button, the
- * current page, and a hovered button, with `navButtonSx`.
+ * current page, and a hovered button, with `navButtonSx`. It paints
+ * `tertiary.main`, so it reads as a second bar (tertiary.test.ts).
  */
 function NavBarPreview({ kind }: { kind: ChromeKind }): React.JSX.Element {
   const buttons = [
@@ -614,7 +615,7 @@ function NavBarPreview({ kind }: { kind: ChromeKind }): React.JSX.Element {
     <Toolbar
       variant="dense"
       disableGutters
-      sx={{ bgcolor: 'secondary.main', minHeight: 40, px: 3, gap: 1 }}
+      sx={{ bgcolor: 'tertiary.main', minHeight: 40, px: 3, gap: 1 }}
     >
       {buttons.map(([label, current, hovered]) => (
         <Measure key={label} part="svg">

@@ -49,6 +49,16 @@ declare module '@mui/material/styles' {
      *  `info.contrastText`, because a light theme's info colour is dark (HTOO-572). */
     dark: string
   }
+
+  /** The nav bar under the title bar. It is a fill only, as `secondary` is:
+   *  `contrastText` is `secondary.contrastText` (tertiary.test.ts). */
+  interface Palette {
+    tertiary: Palette['primary']
+  }
+
+  interface PaletteOptions {
+    tertiary?: PaletteOptions['primary']
+  }
 }
 
 // Empty export to keep this a module rather than a global script.

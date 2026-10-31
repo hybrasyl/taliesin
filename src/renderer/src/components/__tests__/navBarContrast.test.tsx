@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material'
 import { themesByName } from '@renderer/themes'
-import { blend, contrast } from '@renderer/lib/contrast'
+import { blend, contrast, parseColor } from '@renderer/lib/contrast'
 import type { ThemeName } from '@shared/types'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useUiStore } from '../../store/uiStore'
@@ -35,7 +35,9 @@ function renderLayout(name: ThemeName): void {
  * Taliesin's nav bar reads against itself (WCAG 1.4.11 for icons, 1.4.3 for
  * text). The house `chromeContrast.test.tsx` checks the title bar; this checks
  * the second bar, which the house module does not draw. It paints
- * `secondary.main` too, and its icons and caption take `secondary.contrastText`.
+ * `tertiary.main`, so it reads apart from the title bar, and its icons and
+ * caption take `secondary.contrastText`, which `tertiary.contrastText` repeats
+ * (HTOO-629).
  * A theme's overrides can still change what draws, so this renders the real
  * layout and reads the colour each theme draws.
  *
@@ -70,9 +72,19 @@ describe('the nav bar', () => {
   })
   afterEach(cleanup)
 
+  // The cases below measure against tertiary.main, so they hold only if the
+  // bar draws it (HTOO-629).
+  it.each(THEME_NAMES)('%s: the bar paints tertiary.main', (name) => {
+    renderLayout(name)
+    const toolbar = screen.getByTestId('nav-dashboard').closest('.MuiToolbar-root') as Element
+    expect(parseColor(getComputedStyle(toolbar).backgroundColor)).toEqual(
+      parseColor(themesByName[name].palette.tertiary.main)
+    )
+  })
+
   it.each(THEME_NAMES)('%s: icons are 3:1 and the caption 4.5:1 on the bar', (name) => {
     renderLayout(name)
-    const bar = themesByName[name].palette.secondary.main
+    const bar = themesByName[name].palette.tertiary.main
     // The icon, not the button: a theme can colour an icon apart from its
     // button (the DA themes colour every MUI icon, HTOO-572).
     const icon = (id: string): Element => screen.getByTestId(id).querySelector('svg') as Element
@@ -89,7 +101,7 @@ describe('the nav bar', () => {
   it.each(THEME_NAMES)('%s: the empty-library caption takes the bar text colour', (name) => {
     useSettingsStore.setState({ activeLibrary: null })
     renderLayout(name)
-    const bar = themesByName[name].palette.secondary.main
+    const bar = themesByName[name].palette.tertiary.main
     const caption = drawn(screen.getByText('No library selected'))
     expect(contrast(caption, bar), `caption ${caption}`).toBeGreaterThanOrEqual(4.5)
   })
@@ -119,7 +131,7 @@ describe('the nav bar', () => {
   // jsdom cannot apply :hover, so this reads the hover colours from
   // titleChrome.ts, which the nav buttons take.
   it.each(THEME_NAMES)('%s: a nav button reads on hover', (name) => {
-    const bar = themesByName[name].palette.secondary.main
+    const bar = themesByName[name].palette.tertiary.main
     const c = BUTTON[chromeKind(name)]
     const fill = blend(colourOf(name, c.hoverBackground), bar)
     const glyph = colourOf(name, c.hoverColor)

@@ -87,7 +87,12 @@ const NavToolbar: React.FC = () => {
     // colour, and it took the captions below 4.5:1 on screen in hybrasyl,
     // danaan and grinneal. The caption variant and the letter-spacing keep the
     // captions quiet (HTOO-572).
-    <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40 }}>
+    //
+    // The bar paints tertiary.main, so it reads as its own bar; with
+    // secondary.main, the title bar's colour, the two read as one band. Its
+    // text keeps secondary.contrastText, which tertiary.contrastText repeats
+    // (HTOO-629).
+    <Toolbar variant="dense" sx={{ bgcolor: 'tertiary.main', minHeight: 40 }}>
       {libName ? (
         <Typography
           variant="caption"

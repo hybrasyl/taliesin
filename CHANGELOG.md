@@ -39,6 +39,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The nav bar has its own colour.** Before, it had the colour of the title bar, and the two bars looked like one bar. Its icons and captions keep the colour of the title bar text.
 - **The Danaan and Grinneal title bars and nav bars are dark.** The Danaan bars are bronze and the Grinneal bars are brown. The bar text and icons are light, with a black outline, as on Hybrasyl and Chadul. The engraved text is removed.
 - **The accent colour and the status colours are easy to read as text.** In every theme, the accent colour and the error, warning, info and success colours now have a contrast of 4.5:1 or more against the page and against cards. Chadul, Danaan, Mundanes and Dubhaimid have new accent colours. Danaan and Mundanes have darker status colours, so that they show clearly on the light page. In Chadul and Dubhaimid, filled buttons and selected chips now have dark labels.
 - **Sliders, selection marks and play indicators use the accent colour.** Before, sliders, the selected tile and palette variant, and the "playing" indicators used the bar colour, which did not show clearly on the page in every theme.
