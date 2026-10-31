@@ -157,7 +157,7 @@ Change the theme in **Settings → Appearance**. Do these steps on each of the s
 
 An AppImage runs from a temporary mount, so Taliesin must look for Creidhne beside the `.AppImage` file, not beside its own binary.
 
-1. Put a Taliesin AppImage and a Creidhne AppImage in one folder, for example `~/Downloads`, with their release names (`taliesin-<version>.AppImage`, `creidhne-<version>.AppImage`). Make both executable.
+1. Put a Taliesin AppImage and a Creidhne AppImage in one folder, for example `~/Downloads`, with their release names (`taliesin-<version>.AppImage`, `Creidhne-<version>.AppImage`: Creidhne's has a capital C). Make both executable.
 2. Make sure that no Creidhne is installed another way: no `.desktop` entry, and no Creidhne path in Taliesin's settings.
 3. Start the Taliesin AppImage. Click **Launch Creidhne** in the nav bar.
 
@@ -168,17 +168,43 @@ An AppImage runs from a temporary mount, so Taliesin must look for Creidhne besi
 1. Open **Settings → Installed Asset Packs**.
 2. Click **Use default location**.
 
-**Expected:** the field shows `~/Library/Application Support/Erisco/Brigid/assets` on macOS and `~/.config/Erisco/Brigid/assets` on Linux, with `Erisco` in capitals. On Linux, if `XDG_CONFIG_HOME` is set to an absolute path, the field shows `$XDG_CONFIG_HOME/Erisco/Brigid/assets`. If Brigid is installed on the machine, its packs folder is that same folder. If the field stays empty or shows another folder, record what it shows.
+**Expected:** the field shows `~/Library/Application Support/Erisco/Brigid/assets` on macOS and `~/.config/Erisco/Brigid/assets` on Linux, with `Erisco` in capitals. On Linux, if `XDG_CONFIG_HOME` is set to an absolute path, the field shows `$XDG_CONFIG_HOME/Erisco/Brigid/assets`. If Brigid is installed on the machine, its packs folder is that same folder. If the field stays empty or shows another folder, record what it shows. Before the click, the empty field's example names the same folder for the OS.
+
+### B8 and B9 use a copy of the world
+
+B8 and B9 move files. Copy `world`'s `xml/` and `mapfiles/` into one temp folder, under your home folder so that the Trash is the one in your home folder. In Settings, set the library to the copy's `xml/` and add the copy's `mapfiles/` as a map directory. Never run them on the `world` checkout.
+
+### B8. Delete moves a map to the Trash (both OS) — HTOO-633
+
+No test uses the real OS trash: the unit tests replace it, and e2e does not delete.
+
+1. On the Maps page, open a map, for example `Abel Grotto/hyb31705 - Abel Grotto 3-2`.
+2. Click **Delete** on the page toolbar, then **Delete** in the confirmation.
+
+**Expected:** the file is gone from the copy's `xml/maps/`, and the Active count is one less. The file is in the Trash: on Linux, in `~/.local/share/Trash/files/`, with a `.trashinfo` in `~/.local/share/Trash/info/` that gives the original path; on macOS, in `~/.Trash/`. Remove it from the Trash after the check.
+
+### B9. Stage and Release a map on real data (both OS) — HTOO-634
+
+e2e stages and releases a small made-up world. This check uses real maps, whose folders and names have spaces and capitals.
+
+1. On the Maps page, open a map that other maps warp to, for example `Abel Grotto/hyb31703 - Abel Grotto 2-2`. Click **Stage**.
+2. The dialog lists the live files that name the map. Compare the list with `grep -rl ">Abel Grotto 2-2<" xml/` in the copy. Click **Stage**.
+3. Turn on **Staged**, open the map, and click **Release**.
+
+**Expected:** after step 2, the XML is in `.staging/maps/Abel Grotto/` beside `xml/`, and `mapfiles/lod31703.map` stays where it is. After step 3, the XML is back at its first path, and it is the same, byte for byte, as the file in `world` (`cmp`). `.staging/` holds no file.
 
 ## For this release (November 2026)
 
 Rewrite this section for each release: what applies, and what is already done. The release order is in the document repo's `docs/plans/releases/2026-11-release-plan.md`. The list of owed checks is the November 2026 comment on HTOO-239.
 
-All of A1 to A5 and B1 to B7 apply.
+All of A1 to A5 and B1 to B9 apply.
 
 - **A1 on Linux:** report how long each `ThemeGallery.test.tsx` theme takes. Each theme has 60 s (HTOO-572); a theme near the limit is a finding.
 - **B5** is new (#101, HTOO-572 and HTOO-629). It includes the nav bar's own colour.
 - **B7** is new (HTOO-585).
 - **B6** is new (HTOO-584). Creidhne has the same fix; one AppImage pair checks both directions if you also click **Launch Taliesin** in Creidhne.
+- **B8** is new (#111, HTOO-633) and **B9** is new (#113, HTOO-634).
 
-The Windows checks for #101 are complete: the gate, e2e (13 passed, 5 macOS-only skipped), and Sabrael's by-eye pass on the six themes. More checks join this list as the release's other PRs merge.
+The Windows checks for #101 to #114 are in each PR.
+
+**Linux is done** (2026-10-31, at `6ba9903`; the results are on each card and on HTOO-239). A1 failed on one test, which is fixed on `main` after `6ba9903`; run A1 again on macOS at the newer commit. Everything else passed, and B5 passed by eye. **Owed: macOS**, A1 to A5, B1 to B3 and B7 to B9.
