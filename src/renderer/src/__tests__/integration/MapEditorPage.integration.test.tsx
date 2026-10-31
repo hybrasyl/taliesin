@@ -144,19 +144,21 @@ beforeEach(async () => {
 })
 
 // Each case drives the real handlers through several renders, which is slow
-// under the coverage run.
-describe('MapEditorPage in the editor shell', { timeout: 15000 }, () => {
+// under the coverage run: on Linux a case took 15 s, so each block has 30 s.
+describe('MapEditorPage in the editor shell', { timeout: 30000 }, () => {
   it('renames the file and keeps the unsaved edits', async () => {
     await seedMap('Abel.xml', 1, 'Abel')
     await mount()
     await open('Abel')
 
+    // Paste, not type: each typed key renders the whole page, and under the
+    // coverage run the 18 keys took this case past its timeout on Linux.
     const name = screen.getByLabelText('Name')
     await userEvent.clear(name)
-    await userEvent.type(name, 'Abel Town')
+    await userEvent.paste('Abel Town')
     const filename = screen.getByLabelText('Filename')
     await userEvent.clear(filename)
-    await userEvent.type(filename, 'Abel2.xml')
+    await userEvent.paste('Abel2.xml')
     await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
 
     await waitFor(async () => expect(await file(`${MAPS}/Abel2.xml`)).toBeDefined())
@@ -198,7 +200,7 @@ describe('MapEditorPage in the editor shell', { timeout: 15000 }, () => {
   })
 })
 
-describe('MapEditorPage staging (HTOO-634)', { timeout: 15000 }, () => {
+describe('MapEditorPage staging (HTOO-634)', { timeout: 30000 }, () => {
   async function showStaged(): Promise<void> {
     await userEvent.click(await toolbar().findByRole('button', { name: /^Staged \(/ }))
   }
