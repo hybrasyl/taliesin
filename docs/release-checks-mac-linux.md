@@ -151,10 +151,13 @@ Change the theme in **Settings → Appearance**. Do these steps on each of the s
 
 **Expected:** each step is true on each theme. If one fails, record the theme and the step.
 
-## For this release (2.14.0)
+## For this release (November 2026)
 
-Rewrite this section for each release: what applies, and what is already done.
+Rewrite this section for each release: what applies, and what is already done. The release order is in the document repo's `docs/plans/releases/2026-11-release-plan.md`. The list of owed checks is the November 2026 comment on HTOO-239.
 
-All of A1 to A5 and B1 to B4 apply. The Windows checks are complete: the portable exe closes with no flash (HTOO-466), and the theme checks for HTOO-355 and the engraved danaan and grinneal chrome are done.
+All of A1 to A5 and B1 to B5 apply.
 
-When the release is published, Sabrael runs `npm run publish:version -- v2.14.0` on the Windows box. That closes Taliesin's row on HTOO-382; it is not a Mac or Linux step.
+- **A1 on Linux:** report how long each `ThemeGallery.test.tsx` theme takes. Each theme has 60 s (HTOO-572); a theme near the limit is a finding.
+- **B5** is new (#101, HTOO-572 and HTOO-629). It includes the nav bar's own colour.
+
+The Windows checks for #101 are complete: the gate, e2e (13 passed, 5 macOS-only skipped), and Sabrael's by-eye pass on the six themes. More checks join this list as the release's other PRs merge.
