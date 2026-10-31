@@ -267,6 +267,14 @@ describe('AssetPackPage — round-trip integration', () => {
     })
   })
 
+  // This case waits on real work through the handler bridge: unzipper inflates
+  // the .datf, memfs takes the writes, and the page lists the packs again and
+  // renders the editor. In coverage runs each wait took 56 to 414 ms (HTOO-610),
+  // but under a busy full suite one wait sometimes went past the 1 s default of
+  // Testing Library. So each wait has 3 s, and the case has 10 s: three slow
+  // waits fit, and a real hang still fails at the wait that names it.
+  const IMPORT_WAIT = { timeout: 3000 }
+
   it('Import .datf round-trips a compiled pack into an editable project', async () => {
     const fs = await memfs
 
@@ -305,21 +313,22 @@ describe('AssetPackPage — round-trip integration', () => {
     const user = userEvent.setup()
     render(<AssetPackPage />, { wrapper: withPackDir() })
 
-    await user.click(await screen.findByRole('button', { name: /import \.datf/i }))
+    await user.click(await screen.findByRole('button', { name: /import \.datf/i }, IMPORT_WAIT))
 
     // Project json + extracted assets should land under PACK_DIR
     await waitFor(() => {
       expect(fs.files.has(`${PACK_DIR}/imported.json`)).toBe(true)
-    })
+    }, IMPORT_WAIT)
     expect(fs.files.get(`${PACK_DIR}/imported/skill0001.png`)?.toString('utf-8')).toBe('FIRST')
     expect(fs.files.get(`${PACK_DIR}/imported/skill0002.png`)?.toString('utf-8')).toBe('SECOND')
 
     // Pack list refreshes and the imported pack is selected — version field reflects it
-    await waitFor(() =>
-      expect((screen.getByLabelText('Version') as HTMLInputElement).value).toBe('2.0.0')
+    await waitFor(
+      () => expect((screen.getByLabelText('Version') as HTMLInputElement).value).toBe('2.0.0'),
+      IMPORT_WAIT
     )
     expect(screen.getByText(/Type: ability_icons/)).toBeInTheDocument()
-  })
+  }, 10_000)
 
   it('ui_sprite_overrides → New source file… creates nested mile.spf/0000.png on disk', async () => {
     const fs = await memfs
