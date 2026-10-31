@@ -41,6 +41,9 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Changed
 
+- **The Maps and World Maps pages have a page toolbar.** The toolbar across the page holds New, the list view, the **Active** and **Archived** toggles (on World Maps, **Templates**), and the actions for the open file: **Archive** or **Unarchive**, **Duplicate** and **Delete**. Maps also shows **Stage**, which is not available yet. The list shows each set under a header, and a click on the header collapses the set. **Duplicate** opens a copy as a new file that is not saved, with " (copy)" after its Name. **Delete** moves the file to the Recycle Bin or Trash after a confirmation. A world map's link to its reference set moves with a renamed world map, and goes to the trash with a deleted one.
+- **The Maps editor has no tabs.** **Properties** is a section above the placement map, so the fields and the map show together. Click **Properties** to close or open it, and Taliesin remembers which. The editor header has a **Rename** button, which renames the file and keeps the changes that are not saved.
+- **The editor notices are in one place.** An **Alerts** area under the editor header holds the notices for the open file: two warps on one tile, overlapping world map points, and points that are not in the reference set. The two-warp notice shows whether **Properties** is open or not. A new notice says when another active map has the same Id.
 - **A new item icon gets a modern id.** In an Item Icons pack, **Add PNG** gives the icon the id 20001, or one more than the highest id of 20001 or more in the pack. Before, it counted from 1, so a new icon took the id of a legacy item and replaced that item's icon in Brigid. Taliesin refuses an id above 32767, because the client cannot show it. Brigid never dyes an icon of 20001 or more with the purple ramp, so Taliesin no longer warns about near-purple pixels when you add an icon. The **No dye** help text says which ids it applies to.
 - **The nav bar has its own colour.** Before, it had the colour of the title bar, and the two bars looked like one bar. Its icons and captions keep the colour of the title bar text.
 - **The Danaan and Grinneal title bars and nav bars are dark.** The Danaan bars are bronze and the Grinneal bars are brown. The bar text and icons are light, with a black outline, as on Hybrasyl and Chadul. The engraved text is removed.
@@ -50,6 +53,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **A new map or world map does not save over a file.** Before, **Save** on a new map or world map wrote over a file with the same name. Now Taliesin refuses, and asks for a different filename.
 - **Destructive buttons show their colour.** In Hybrasyl, Chadul, Danaan and Grinneal, every button had the theme's button colour, so a **Delete** button looked like any other button. Error and warning buttons now show their own colour.
 - **The close button on the title bar turns red under the pointer.** In Hybrasyl, Chadul, Danaan and Grinneal, it showed the skull on cyan, which was almost not visible.
 - **The nav bar shows the open page.** The button of the open page took a colour near the bar colour, and in five themes it was almost not visible. Now it keeps the bar's text colour, on a light background with a ring inside its edge: the house mark for the current page. The nav bar and its captions are no longer faded, and the "No library selected" caption now uses the bar's text colour.

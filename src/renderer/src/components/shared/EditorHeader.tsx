@@ -1,24 +1,28 @@
 import React from 'react'
-import { Box, Button, IconButton, TextField, Tooltip, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
+  Typography
+} from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
-import ArchiveIcon from '@mui/icons-material/Archive'
-import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
+import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline'
 import FolderSelect from './FolderSelect'
+import { EditorAlertsArea } from './EditorAlerts'
 
 /** One header per editor pane, so a constant is enough to describe the field. */
 const HELPER_ID = 'editor-header-filename-helper'
 
 interface Props {
   title: string
-  entityLabel?: string
   fileName: string
   initialFileName?: string | null
   computedFileName?: string
   isExisting?: boolean
-  isArchived?: boolean
-  archiveLabel?: string
-  unarchiveLabel?: string
   onFileNameChange: (value: string) => void
   /** Save destination within the type directory. Omit the trio to hide the
    *  picker entirely (editors that have no folder notion). */
@@ -29,20 +33,33 @@ interface Props {
   onFolderChange?: (value: string) => void
   onRegenerate: () => void
   onSave: () => void
-  onArchive?: () => void
-  onUnarchive?: () => void
+  /** Move the file to the typed name and folder, and write nothing else. Omit
+   *  to hide the Rename button. */
+  onRenameFile?: () => void
 }
 
+/**
+ * The editor header (HTOO-633, Creidhne's HTOO-628 layout):
+ *
+ *   title                                   [Rename] [Save]
+ *   [Filename ............. ↺]  [Folder .................]
+ *   what the save will do
+ *   Alerts (n) ▾
+ *
+ * Archive and Unarchive are the page toolbar's item actions now, not header
+ * buttons (`EditorFileListPanel`).
+ *
+ * Rename is always shown, and is enabled only when the filename or the folder
+ * differs from where the file is. It moves the file and leaves the editor's
+ * changes unsaved. Save also moves the file when the name changed, and then
+ * writes it.
+ */
 const EditorHeader: React.FC<Props> = ({
   title,
-  entityLabel,
   fileName,
   initialFileName,
   computedFileName,
   isExisting,
-  isArchived,
-  archiveLabel,
-  unarchiveLabel,
   onFileNameChange,
   folder,
   folderOptions,
@@ -50,14 +67,14 @@ const EditorHeader: React.FC<Props> = ({
   onFolderChange,
   onRegenerate,
   onSave,
-  onArchive,
-  onUnarchive
+  onRenameFile
 }) => {
   const recyclePending = !!initialFileName && fileName !== computedFileName
   const willRename = !!initialFileName && fileName !== initialFileName
   const willMove = !!initialFileName && initialFolder !== undefined && folder !== initialFolder
   const fileNameWarn = recyclePending || willRename
   const recycleDisabled = fileName === computedFileName
+  const canRename = !!isExisting && (willRename || willMove)
 
   const destination = folder ? `${folder}/${fileName}` : fileName
   const source = `${initialFolder ? `${initialFolder}/` : ''}${initialFileName}`
@@ -91,7 +108,11 @@ const EditorHeader: React.FC<Props> = ({
       ? 'Reset to computed filename'
       : 'Apply computed filename'
 
-  const label = entityLabel ?? 'entity'
+  const renameTooltip = !canRename
+    ? 'Change the filename or the folder to rename the file'
+    : willMove && !willRename
+      ? `Move "${initialFileName}" to ${folder ? `"${folder}"` : 'the top level'}`
+      : `Rename "${source}" to "${destination}"`
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pb: 1, flexShrink: 0 }}>
@@ -99,19 +120,21 @@ const EditorHeader: React.FC<Props> = ({
         <Typography variant="h6" noWrap sx={{ flex: 1, mr: 1 }}>
           {title}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {isExisting && !isArchived && onArchive && (
-            <Tooltip title={archiveLabel ?? `Archive ${label}`}>
-              <IconButton size="small" onClick={onArchive}>
-                <ArchiveIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          {isExisting && isArchived && onUnarchive && (
-            <Tooltip title={unarchiveLabel ?? `Unarchive ${label}`}>
-              <IconButton size="small" onClick={onUnarchive}>
-                <UnarchiveIcon fontSize="small" />
-              </IconButton>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {onRenameFile && (
+            <Tooltip title={renameTooltip}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DriveFileRenameOutlineIcon />}
+                  disabled={!canRename}
+                  onClick={onRenameFile}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Rename
+                </Button>
+              </span>
             </Tooltip>
           )}
           <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>
@@ -119,7 +142,7 @@ const EditorHeader: React.FC<Props> = ({
           </Button>
         </Box>
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <TextField
           size="small"
           label="Filename"
@@ -129,6 +152,26 @@ const EditorHeader: React.FC<Props> = ({
             htmlInput: {
               spellCheck: false,
               ...(helperText && { 'aria-describedby': HELPER_ID })
+            },
+            input: {
+              // ↺ sits in the field it acts on.
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip title={recycleTooltip}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        edge="end"
+                        onClick={onRegenerate}
+                        disabled={recycleDisabled}
+                        aria-label={recycleTooltip}
+                      >
+                        <AutorenewIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </InputAdornment>
+              )
             }
           }}
           sx={{
@@ -139,13 +182,6 @@ const EditorHeader: React.FC<Props> = ({
             })
           }}
         />
-        <Tooltip title={recycleTooltip}>
-          <span>
-            <IconButton size="small" onClick={onRegenerate} disabled={recycleDisabled}>
-              <AutorenewIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
         {onFolderChange && (
           <FolderSelect
             value={folder ?? ''}
@@ -157,9 +193,8 @@ const EditorHeader: React.FC<Props> = ({
       </Box>
       {/* Below the row, not as the Filename field's helperText: a map's computed
           name (`lod00500.xml`) almost never matches its real one (`Abel.xml`), so
-          the message is permanently visible there and its height knocks the ↺
-          button and folder picker off the input's centreline. Out here the row
-          height is constant and the message gets the full width. */}
+          the message is permanently visible there, and under the field it would
+          take only the field's width. Out here it gets the full width. */}
       {helperText && (
         <Typography
           id={HELPER_ID}
@@ -169,6 +204,7 @@ const EditorHeader: React.FC<Props> = ({
           {helperText}
         </Typography>
       )}
+      <EditorAlertsArea />
     </Box>
   )
 }

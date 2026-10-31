@@ -182,7 +182,8 @@ describe('createSettingsManager.load', () => {
         musEncodeSampleRate: 48000,
         packDir: '/packs',
         companionPath: '/companion',
-        fileListViewMode: 'folder'
+        fileListViewMode: 'folder',
+        mapPropertiesOpen: false
       })
     )
     const s = await createSettingsManager(USER_DATA).load()
@@ -201,6 +202,7 @@ describe('createSettingsManager.load', () => {
     expect(s.packDir).toBe('/packs')
     expect(s.companionPath).toBe('/companion')
     expect(s.fileListViewMode).toBe('folder')
+    expect(s.mapPropertiesOpen).toBe(false)
   })
 
   it('coerces wrong-typed optional fields to undefined/defaults (withDefaults falsy branches)', async () => {
@@ -221,7 +223,8 @@ describe('createSettingsManager.load', () => {
         musEncodeSampleRate: null, // → 22050
         packDir: 0,
         companionPath: true,
-        fileListViewMode: 'tree' // not one of the two modes → undefined
+        fileListViewMode: 'tree', // not one of the two modes → undefined
+        mapPropertiesOpen: 'yes' // not a boolean → undefined
       })
     )
     const s = await createSettingsManager(USER_DATA).load()
@@ -238,6 +241,7 @@ describe('createSettingsManager.load', () => {
     expect(s.packDir).toBeUndefined()
     expect(s.companionPath).toBeUndefined()
     expect(s.fileListViewMode).toBeUndefined()
+    expect(s.mapPropertiesOpen).toBeUndefined()
   })
 
   it('accepts either file-list view mode', async () => {

@@ -5,13 +5,13 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
-  Alert,
   Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,8 +27,6 @@ import {
   Paper,
   Select,
   Switch,
-  Tab,
-  Tabs,
   TextField,
   Tooltip,
   Typography
@@ -36,6 +34,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import ClearIcon from '@mui/icons-material/Clear'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
@@ -50,6 +49,7 @@ import GridOnIcon from '@mui/icons-material/GridOn'
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
 import EditorHeader from '../shared/EditorHeader'
+import { EditorAlert, useEditorAlert, type EditorAlertData } from '../shared/EditorAlerts'
 import WarpDialog from '../shared/WarpDialog'
 import ScriptAutocomplete from '../shared/ScriptAutocomplete'
 import { ItemsGroup } from '../shared/ItemsGroup'
@@ -111,14 +111,18 @@ interface Props {
   folderOptions: string[]
   isArchived: boolean
   isExisting: boolean
-  warnings?: string[]
+  /** The selected file's type-relative rel, null for a new map. */
+  fileRel?: string | null
+  /** Active map ids to the rels of the files that carry them, from the world
+   *  index. Feeds the shared-id notice. */
+  activeMapIds?: ReadonlyMap<number, string[]>
   mapNames: string[]
   npcNames: string[]
   worldMapNames: string[]
   spawnGroupNames: string[]
   onSave: (data: MapData, fileName: string, folder: string) => Promise<void>
-  onArchive?: () => void
-  onUnarchive?: () => void
+  /** Move the file to the typed name and folder, and write nothing else. */
+  onRenameFile?: (fileName: string, folder: string) => Promise<void>
   onDirtyChange: (dirty: boolean) => void
   saveRef: React.MutableRefObject<(() => Promise<void>) | null>
 }
@@ -693,7 +697,7 @@ export function MusicIdField({
   )
 }
 
-// ── Tab 1: Properties + Flags + SpawnGroup ───────────────────────────────────
+// ── Properties + Flags + SpawnGroup: the section above the map ──────────────
 
 function MapFieldsTab({
   data,
@@ -1112,7 +1116,7 @@ function MapFieldsTab({
   )
 }
 
-// ── Tab 2: Placement canvas ───────────────────────────────────────────────────
+// ── Placement canvas ──────────────────────────────────────────────────────────
 
 type PlaceMode = 'none' | 'warp-map' | 'warp-worldmap' | 'npc' | 'sign' | 'reactor'
 
@@ -1195,6 +1199,32 @@ function MapPlacementTab({
 
   const duplicateWarpTiles = useMemo(() => findDuplicateWarpTiles(data.warps), [data.warps])
 
+  /*
+    A second warp on a tile is a lost warp, not a preference. The server
+    loads warps into a dictionary keyed by coordinate and overwrites, with
+    no error and no log line, so the only sign of it is the map not
+    behaving. Reactors are not warned about: they stack, and all of them
+    run (HTOO-442).
+  */
+  const duplicateWarpAlert: EditorAlertData | null =
+    duplicateWarpTiles.length > 0
+      ? {
+          order: 20,
+          severity: 'warning',
+          testId: 'duplicate-warp-alert',
+          message:
+            (duplicateWarpTiles.length === 1
+              ? `Two or more warps share tile (${duplicateWarpTiles[0]}).`
+              : `Two or more warps share each of these tiles: ${duplicateWarpTiles
+                  .map((t) => `(${t})`)
+                  .join(', ')}.`) +
+            ' The server keeps one warp per tile and the last one in the file wins.'
+        }
+      : null
+  // In the alerts area under the header, so it shows whether Properties is
+  // open or not. With no area (a test of this panel alone), it shows here.
+  const duplicateWarpInArea = useEditorAlert('duplicate-warps', duplicateWarpAlert)
+
   /** Arm a mode, or disarm it if it is already armed. Chips and keys share it. */
   const toggleMode = useCallback((mode: Exclude<PlaceMode, 'none'>) => {
     setPlaceMode((p) => (p === mode ? 'none' : mode))
@@ -1203,13 +1233,14 @@ function MapPlacementTab({
   /**
    * Placement hotkeys.
    *
-   * The Placement tab had no keyboard handler at all, so this adds the first
+   * The Placement view had no keyboard handler at all, so this adds the first
    * one — bound to the window, and guarded, rather than repeating the mistake
    * HTOO-342 found in the Map Maker, where a `tabIndex` container nothing
    * focused meant no shortcut worked until the user clicked inside the page.
    *
-   * The tab is only mounted while it is the selected tab, so the listener is
-   * only live where the keys mean something.
+   * The placement view is always mounted now, under the Properties section
+   * (HTOO-633). Typing into a Properties field is guarded below, as typing into
+   * a dialog is.
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -1647,22 +1678,8 @@ function MapPlacementTab({
         </Box>
       </Box>
       <Divider />
-      {/*
-        A second warp on a tile is a lost warp, not a preference. The server
-        loads warps into a dictionary keyed by coordinate and overwrites, with
-        no error and no log line, so the only sign of it is the map not
-        behaving. Reactors are not warned about: they stack, and all of them
-        run (HTOO-442).
-      */}
-      {duplicateWarpTiles.length > 0 && (
-        <Alert severity="warning" variant="outlined" sx={{ py: 0, flexShrink: 0 }}>
-          {duplicateWarpTiles.length === 1
-            ? `Two or more warps share tile (${duplicateWarpTiles[0]}).`
-            : `Two or more warps share each of these tiles: ${duplicateWarpTiles
-                .map((t) => `(${t})`)
-                .join(', ')}.`}{' '}
-          The server keeps one warp per tile and the last one in the file wins.
-        </Alert>
+      {duplicateWarpAlert && !duplicateWarpInArea && (
+        <EditorAlert alert={duplicateWarpAlert} sx={{ py: 0, flexShrink: 0 }} />
       )}
       {/* Main area: canvas + items panel */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 1 }}>
@@ -1973,14 +1990,14 @@ export default function MapEditorPanel({
   folderOptions,
   isArchived,
   isExisting,
-  warnings = [],
+  fileRel,
+  activeMapIds,
   mapNames,
   npcNames,
   worldMapNames,
   spawnGroupNames,
   onSave,
-  onArchive,
-  onUnarchive,
+  onRenameFile,
   onDirtyChange,
   saveRef
 }: Props) {
@@ -1989,7 +2006,8 @@ export default function MapEditorPanel({
     initialFileName ?? computeMapFilename(map.id, map.genericName)
   )
   const [folder, setFolder] = useState(initialFolder)
-  const [tab, setTab] = useState(0)
+  const propertiesOpen = useSettingsStore((s) => s.mapPropertiesOpen)
+  const setPropertiesOpen = useSettingsStore((s) => s.setMapPropertiesOpen)
   const isDirtyRef = useRef(false)
 
   // Feeds the regenerate button in EditorHeader, which is disabled while the
@@ -2000,12 +2018,34 @@ export default function MapEditorPanel({
   // (HTOO-344).
   const computedFileName = computeMapFilename(data.id, data.genericName)
 
+  // Two effects, not one: a Rename changes the file's name and folder and not
+  // the map, so it resets the filename fields and keeps the unsaved edits.
   useEffect(() => {
     setData({ ...DEFAULT_MAP, ...map })
+    isDirtyRef.current = false
+  }, [map])
+  useEffect(() => {
     setFileName(initialFileName ?? computeMapFilename(map.id, map.genericName))
     setFolder(initialFolder)
-    isDirtyRef.current = false
   }, [map, initialFileName, initialFolder])
+
+  // A live map's id must be its own: two active maps with one id are one map
+  // to the server. Copy makes this easy to do by accident.
+  const sharedId = isArchived
+    ? []
+    : (activeMapIds?.get(data.id) ?? []).filter((rel) => rel !== fileRel)
+  useEditorAlert(
+    'shared-map-id',
+    sharedId.length > 0
+      ? {
+          order: 10,
+          severity: 'error',
+          testId: 'shared-map-id-alert',
+          message: `Another active map has Id ${data.id}. Change the Id before this map goes live.`,
+          items: sharedId
+        }
+      : null
+  )
 
   const markDirty = useCallback(() => {
     if (!isDirtyRef.current) {
@@ -2030,16 +2070,18 @@ export default function MapEditorPanel({
 
   saveRef.current = handleSave
 
+  const handleRename = useCallback(async () => {
+    await onRenameFile?.(fileName, normalizeFolder(folder))
+  }, [fileName, folder, onRenameFile])
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <EditorHeader
         title={data.name || '(unnamed map)'}
-        entityLabel="map"
         fileName={fileName}
         initialFileName={initialFileName}
         computedFileName={computedFileName}
         isExisting={isExisting}
-        isArchived={isArchived}
         onFileNameChange={setFileName}
         folder={folder}
         folderOptions={folderOptions}
@@ -2047,34 +2089,45 @@ export default function MapEditorPanel({
         onFolderChange={setFolder}
         onRegenerate={() => setFileName(computedFileName)}
         onSave={handleSave}
-        onArchive={onArchive}
-        onUnarchive={onUnarchive}
+        onRenameFile={onRenameFile ? () => void handleRename() : undefined}
       />
 
-      {warnings.map((w, i) => (
-        <Alert key={i} severity="warning" sx={{ mb: 1 }}>
-          {w}
-        </Alert>
-      ))}
+      {/* Properties is a section above the placement map, not a tab beside it
+          (HTOO-633). It remembers whether it is open. Its height is limited and
+          it scrolls, so the map keeps most of the column. */}
+      <Box sx={{ flexShrink: 0, mb: 1 }}>
+        <Button
+          size="small"
+          color="inherit"
+          onClick={() => setPropertiesOpen(!propertiesOpen)}
+          aria-expanded={propertiesOpen}
+          aria-controls="map-properties-section"
+          startIcon={propertiesOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          sx={{ textTransform: 'none', px: 0.5 }}
+        >
+          Properties
+        </Button>
+        <Collapse in={propertiesOpen}>
+          <Box
+            id="map-properties-section"
+            data-testid="map-properties-section"
+            sx={{ maxHeight: '40vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}
+          >
+            <MapFieldsTab data={data} spawnGroupNames={spawnGroupNames} onChange={handleChange} />
+          </Box>
+        </Collapse>
+      </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flexShrink: 0, mb: 1 }}>
-        <Tab label="Properties" />
-        <Tab label="Placement" />
-      </Tabs>
-
-      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {tab === 0 && (
-          <MapFieldsTab data={data} spawnGroupNames={spawnGroupNames} onChange={handleChange} />
-        )}
-        {tab === 1 && (
-          <MapPlacementTab
-            data={data}
-            mapNames={mapNames}
-            npcNames={npcNames}
-            worldMapNames={worldMapNames}
-            onChange={handleChange}
-          />
-        )}
+      <Box
+        sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      >
+        <MapPlacementTab
+          data={data}
+          mapNames={mapNames}
+          npcNames={npcNames}
+          worldMapNames={worldMapNames}
+          onChange={handleChange}
+        />
       </Box>
     </Box>
   )

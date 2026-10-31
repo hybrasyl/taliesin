@@ -206,6 +206,7 @@ declare global {
     stat: (filePath: string) => Promise<{ mtimeMs: number; sizeBytes: number } | null>
     ensureDir: (dirPath: string) => Promise<void>
     deleteFile: (filePath: string) => Promise<void>
+    trashFile: (filePath: string) => Promise<void>
     listArchive: (filePath: string) => Promise<string[]>
     catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
     catalogSave: (dirPath: string, data: unknown) => Promise<void>

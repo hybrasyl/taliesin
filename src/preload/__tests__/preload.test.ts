@@ -86,6 +86,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "fs:moveFile",
         "fs:readFile",
         "fs:stat",
+        "fs:trashFile",
         "fs:writeBytes",
         "fs:writeFile",
         "get-user-data-path",

@@ -33,5 +33,6 @@ export const taliesinSettingsSchema = z.object({
   musEncodeSampleRate: z.number(),
   packDir: z.string().nullable().optional(),
   companionPath: z.string().nullable().optional(),
-  fileListViewMode: z.enum(['flat', 'folder']).optional()
+  fileListViewMode: z.enum(['flat', 'folder']).optional(),
+  mapPropertiesOpen: z.boolean().optional()
 })

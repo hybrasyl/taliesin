@@ -180,6 +180,7 @@ const api = {
     ipcRenderer.invoke('fs:stat', filePath),
   ensureDir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:ensureDir', dirPath),
   deleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:deleteFile', filePath),
+  trashFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:trashFile', filePath),
   listArchive: (filePath: string): Promise<string[]> =>
     ipcRenderer.invoke('fs:listArchive', filePath),
 

@@ -407,6 +407,7 @@ ctx.onUnsavedChanged = (dirty) => {
 // Reveal settings.json in the OS file manager (Settings → About). `shell` and
 // the settings path live here, so the handler in handlers.ts delegates back.
 ctx.revealSettings = () => shell.showItemInFolder(join(settingsPath, 'settings.json'))
+ctx.trashItem = (p) => shell.trashItem(p)
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('co.eris.taliesin')

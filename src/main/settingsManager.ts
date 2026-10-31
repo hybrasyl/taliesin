@@ -27,6 +27,8 @@ export interface TaliesinSettings {
   companionPath?: string
   /** File-list grouping preference for the map / world map editors. */
   fileListViewMode?: 'flat' | 'folder'
+  /** Whether the map editor's Properties section is open (HTOO-633). */
+  mapPropertiesOpen?: boolean
 }
 
 const DEFAULTS: TaliesinSettings = {
@@ -77,7 +79,9 @@ function withDefaults(data: Partial<TaliesinSettings>): TaliesinSettings {
     fileListViewMode:
       data.fileListViewMode === 'flat' || data.fileListViewMode === 'folder'
         ? data.fileListViewMode
-        : undefined
+        : undefined,
+    mapPropertiesOpen:
+      typeof data.mapPropertiesOpen === 'boolean' ? data.mapPropertiesOpen : undefined
   }
 }
 
