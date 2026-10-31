@@ -1,15 +1,15 @@
 /**
- * pack:import tests use the real archiver + unzipper libraries (no mocks for
+ * pack:import tests use the real yazl + unzipper libraries (no mocks for
  * those — only fs is mocked via an in-test memfs). The renderer's
  * handlerBridge has a richer memfs for full integration tests; this one is a
  * focused subset that doesn't need to cross the main↔renderer tsconfig
  * boundary.
  *
- * Each test seeds memfs with a synthesized .datf buffer built via archiver,
+ * Each test seeds memfs with a synthesized .datf buffer built via yazl,
  * then exercises packImport end-to-end and asserts on the extracted on-disk
  * project + asset paths.
  *
- * TIMEOUT. Whichever test runs first here pays the one-time load of archiver
+ * TIMEOUT. Whichever test runs first here pays the one-time load of yazl
  * and unzipper, which the rest of the file then reuses. Alone that costs about
  * 700 ms for the whole file, but under a full `npm test` — every project's
  * workers competing for the same cores — it has been measured at 5.4 s and
@@ -84,6 +84,7 @@ vi.mock('@eriscorp/hybindex-ts', () => {
 
 import { packImport } from '../handlers'
 import type { HandlerContext } from '../handlers'
+import { ZipFile } from 'yazl'
 
 const SETTINGS_PATH = '/appdata/taliesin'
 
@@ -98,25 +99,26 @@ const ctx: HandlerContext = {
   blessedRoots: new Set<string>(['/work', '/out'])
 }
 
+/** A .datf's bytes, built in memory with yazl, the writer the compile uses. */
+async function zipBytes(entries: [string, Buffer | string][]): Promise<Buffer> {
+  const zip = new ZipFile()
+  for (const [name, content] of entries) {
+    zip.addBuffer(Buffer.isBuffer(content) ? content : Buffer.from(content), name)
+  }
+  zip.end()
+  const chunks: Buffer[] = []
+  for await (const chunk of zip.outputStream) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks)
+}
+
 async function buildDatfBytes(
   manifest: object | string,
   files: Record<string, Buffer | string>
 ): Promise<Buffer> {
-  const archiver = (await import('archiver')).default
-  const archive = archiver('zip')
-  const chunks: Buffer[] = []
-  return new Promise<Buffer>((resolve, reject) => {
-    archive.on('data', (c: Buffer) => chunks.push(c))
-    archive.on('end', () => resolve(Buffer.concat(chunks)))
-    archive.on('error', reject)
-    archive.append(typeof manifest === 'string' ? manifest : JSON.stringify(manifest, null, 2), {
-      name: '_manifest.json'
-    })
-    for (const [name, content] of Object.entries(files)) {
-      archive.append(typeof content === 'string' ? Buffer.from(content) : content, { name })
-    }
-    void archive.finalize()
-  })
+  return zipBytes([
+    ['_manifest.json', typeof manifest === 'string' ? manifest : JSON.stringify(manifest, null, 2)],
+    ...Object.entries(files)
+  ])
 }
 
 beforeEach(() => {
@@ -124,7 +126,7 @@ beforeEach(() => {
 })
 
 describe('packImport — basics', () => {
-  // Its own timeout (HTOO-157): it builds real .datf bytes through archiver and
+  // Its own timeout (HTOO-157): it builds real .datf bytes through yazl and
   // reads them back through unzipper, the slowest node test. ~0.7 s alone, and it
   // ran 5.4 s in a loaded full run, past the 5 s default. Raised here only, so
   // the default still catches the next test that gets slow for real.
@@ -372,16 +374,7 @@ describe('packImport — error paths', () => {
 
   it('rejects a .datf with no _manifest.json', async () => {
     const fs = memfs
-    const archiver = (await import('archiver')).default
-    const archive = archiver('zip')
-    const chunks: Buffer[] = []
-    const bytes = await new Promise<Buffer>((resolve, reject) => {
-      archive.on('data', (c: Buffer) => chunks.push(c))
-      archive.on('end', () => resolve(Buffer.concat(chunks)))
-      archive.on('error', reject)
-      archive.append('not a manifest', { name: 'random.txt' })
-      void archive.finalize()
-    })
+    const bytes = await zipBytes([['random.txt', 'not a manifest']])
     fs.files.set('/out/bad.datf', bytes)
     await expect(packImport(ctx, '/out/bad.datf', '/work')).rejects.toThrow(/Missing _manifest/)
   })
@@ -413,8 +406,7 @@ describe('packImport — error paths', () => {
   })
 
   // The Zip-Slip defense is the assertInside call wrapped around every
-  // entry name in packImport. archiver itself normalizes "../escape" away
-  // before writing, so a real malicious .datf would have to be crafted with
+  // entry name in packImport. yazl itself refuses a "../escape" entry name, so a real malicious .datf would have to be crafted with
   // raw zip bytes — out of scope for this test surface. The pathSafety unit
   // tests cover assertInside's traversal handling directly.
 })

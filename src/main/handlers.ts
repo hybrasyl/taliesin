@@ -54,6 +54,7 @@ import {
 import { assertInside, assertInsideAnyRoot } from './pathSafety'
 import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
 import { parseOrLog } from './schemaLog'
+import { renameWithRetry } from './renameRetry'
 import {
   taliesinSettingsSchema,
   paletteSchema,
@@ -1395,74 +1396,99 @@ export async function packCompile(
   // Validate every asset filename before opening the output stream — prevents
   // a malicious entry from leaking files outside packDir into the archive.
   const resolved = parsedFilenames.map((f) => ({ name: f, abs: assertInside(safePack, f) }))
-  const archiver = (await import('archiver')).default
+  const { ZipFile } = await import('yazl')
   const { createWriteStream } = await import('fs')
-  return new Promise<void>((resolve, reject) => {
-    const output = createWriteStream(safeOut)
-    const archive = archiver('zip', { zlib: { level: 9 } })
 
-    // Every way this can end has to settle the promise. It used to listen for
-    // 'close' on the output and 'error' on the archive, and nothing else — so
-    // a failure on the OUTPUT stream settled nothing and the caller waited for
-    // a close that was never coming. On Windows that is one file lock away:
-    // write over a .datf another process holds open and the stream emits EBUSY,
-    // the renderer's Compile button spins, and no error is reported anywhere.
-    // An unhandled 'error' on a stream also throws in main, and main installs
-    // no uncaughtException handler.
-    //
-    // `settled` because a failing pipe can emit on both ends, and the second
-    // call must not turn a reported failure into a reported success.
-    let settled = false
-    const fail = (err: Error): void => {
-      if (settled) return
-      settled = true
-      archive.abort()
-      output.destroy()
-      reject(err)
-    }
-    const done = (): void => {
-      if (settled) return
-      settled = true
-      resolve()
-    }
+  // The pack is written beside the output and renamed over it at the end, so a
+  // compile that fails leaves the old pack as it was. Opening the output itself
+  // empties it at once, and a failure after that left a broken .datf where a
+  // working one had been — in Brigid's assets folder, the installed pack.
+  const tmp = `${safeOut}.tmp`
 
-    output.on('close', done)
-    output.on('error', (err: Error) => fail(new Error(`cannot write ${safeOut}: ${err.message}`)))
-    archive.on('error', fail)
-    // An entry-level fault — a file deleted between save and compile — arrives
-    // as a warning and is skipped. Skipping it silently ships a pack missing
-    // art nobody asked it to drop, so it fails the compile instead.
-    archive.on('warning', (err: Error & { code?: string }) =>
-      fail(new Error(`cannot add an asset to the pack: ${err.message}`))
-    )
+  try {
+    await new Promise<void>((resolve, reject) => {
+      // Every way this can end has to settle the promise once. An 'error' on a
+      // stream with no listener throws in main, and main installs no
+      // uncaughtException handler. A failing pipe can emit on both ends, so
+      // `settled` keeps the second event from changing a reported failure into
+      // a reported success.
+      const zip = new ZipFile()
+      let settled = false
+      let output: ReturnType<typeof createWriteStream> | null = null
+      const fail = (err: Error): void => {
+        if (settled) return
+        settled = true
+        if (!output || output.closed) {
+          reject(err)
+          return
+        }
+        // Reject once the file is closed, so the cleanup below can delete it.
+        zip.outputStream.unpipe(output)
+        output.once('close', () => reject(err))
+        output.destroy()
+      }
 
-    archive.pipe(output)
-    archive.append(JSON.stringify(parsedManifest, null, 2), { name: '_manifest.json' })
-    for (const { name, abs } of resolved) {
-      archive.file(abs, { name })
-    }
-    archive.finalize().catch(fail)
-  }).then(async () => {
-    // The pack set is bound at scan time: loadPacks keeps an open zip directory
-    // and an entry map per pack. Writing a .datf over one main already holds
-    // therefore changed nothing until a restart (HTOO-421). This process is the
-    // one that just wrote it, so it is the one that should know.
-    //
-    // Unconditional rather than "only if this pack is installed": the output
-    // path may be a brand new pack in the assets directory, and comparing paths
-    // to the configured sources here would duplicate what loadPacks already
-    // does. The reload reads manifests and zip indexes, not asset bytes.
-    //
-    // Failure is logged and swallowed. A compile that succeeded must not be
-    // reported as failed because the refresh afterwards did not — the file is
-    // written either way, and the old behaviour (no refresh at all) is what a
-    // failure here degrades to.
+      // yazl reports an entry fault — an asset deleted between save and
+      // compile — here on the ZipFile, not on its outputStream. Skipping the
+      // asset would ship a pack short of art nobody asked it to drop, so it
+      // fails the compile.
+      zip.on('error', (err: Error) =>
+        fail(new Error(`cannot add an asset to the pack: ${err.message}`))
+      )
+
+      // Every entry before the output opens: yazl checks each name as it is
+      // added and throws at once, so a bad name touches no file.
+      try {
+        zip.addBuffer(Buffer.from(JSON.stringify(parsedManifest, null, 2)), '_manifest.json', {
+          compressionLevel: 9
+        })
+        for (const { name, abs } of resolved) {
+          zip.addFile(abs, name, { compressionLevel: 9 })
+        }
+        zip.end()
+      } catch (err) {
+        fail(err instanceof Error ? err : new Error(String(err)))
+        return
+      }
+
+      output = createWriteStream(tmp)
+      output.on('close', () => {
+        if (settled) return
+        settled = true
+        resolve()
+      })
+      output.on('error', (err: Error) => fail(new Error(`cannot write ${safeOut}: ${err.message}`)))
+      zip.outputStream.pipe(output)
+    })
     try {
-      await reloadPacks(ctx)
+      await renameWithRetry(tmp, safeOut)
     } catch (err) {
-      console.warn('[packs] reload after compile failed:', (err as Error)?.message ?? err)
+      throw new Error(`cannot write ${safeOut}: ${(err as Error).message}`)
     }
-  })
+  } catch (err) {
+    await fs.rm(tmp, { force: true }).catch(() => undefined)
+    throw err
+  }
+
+  // The pack set is bound at scan time: loadPacks keeps an open zip directory
+  // and an entry map per pack. Writing a .datf over one main already holds
+  // therefore changed nothing until a restart (HTOO-421). This process is the
+  // one that just wrote it, so it is the one that should know.
+  //
+  // Unconditional rather than "only if this pack is installed": the output
+  // path may be a brand new pack in the assets directory, and comparing paths
+  // to the configured sources here would duplicate what loadPacks already
+  // does. The reload reads manifests and zip indexes, not asset bytes.
+  //
+  // Failure is logged and swallowed. A compile that succeeded must not be
+  // reported as failed because the refresh afterwards did not — the file is
+  // written either way, and the old behaviour (no refresh at all) is what a
+  // failure here degrades to.
+  try {
+    await reloadPacks(ctx)
+  } catch (err) {
+    console.warn('[packs] reload after compile failed:', (err as Error)?.message ?? err)
+  }
 }
 
 export interface PackImportResult {

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { promises as fs, createWriteStream } from 'fs'
+import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import archiver from 'archiver'
+import { ZipFile } from 'yazl'
 import {
   loadPacks,
   listActivePacks,
@@ -16,24 +16,32 @@ import {
   _handlers
 } from '../assetPacks'
 
+/** A .datf's bytes, built in memory with yazl, the writer the compile uses. */
+async function zipBytes(entries: [string, Buffer | string][]): Promise<Buffer> {
+  const zip = new ZipFile()
+  for (const [name, content] of entries) {
+    zip.addBuffer(Buffer.isBuffer(content) ? content : Buffer.from(content), name)
+  }
+  zip.end()
+  const chunks: Buffer[] = []
+  for await (const chunk of zip.outputStream) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks)
+}
+
 // Build a real .datf (zip) at filePath with the given manifest + named PNG-ish
-// entries. Uses the same archiver the compile path uses.
+// entries.
 async function buildDatf(
   filePath: string,
   manifest: Record<string, unknown>,
   files: { name: string; content: Buffer }[]
 ): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const output = createWriteStream(filePath)
-    const archive = archiver('zip')
-    output.on('close', () => resolve())
-    output.on('error', reject)
-    archive.on('error', reject)
-    archive.pipe(output)
-    archive.append(JSON.stringify(manifest), { name: '_manifest.json' })
-    for (const f of files) archive.append(f.content, { name: f.name })
-    void archive.finalize()
-  })
+  await fs.writeFile(
+    filePath,
+    await zipBytes([
+      ['_manifest.json', JSON.stringify(manifest)],
+      ...files.map((f): [string, Buffer] => [f.name, f.content])
+    ])
+  )
 }
 
 const manifest = (

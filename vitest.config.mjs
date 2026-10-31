@@ -58,7 +58,11 @@ export default defineConfig({
           functions: 40,
           statements: 53
         },
-        'src/main/settingsManager.ts': { lines: 98, branches: 92, functions: 93, statements: 95 },
+        // renameWithRetry moved to renameRetry.ts (HTOO-638) with its tests' cover,
+        // so settingsManager's floors are its own measure now. Line 143, the
+        // queue's rejected branch, is uncovered as before: the queue never rejects.
+        'src/main/settingsManager.ts': { lines: 97, branches: 92, functions: 92, statements: 93 },
+        'src/main/renameRetry.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
         'src/renderer/src/utils/duotone.ts': {
           lines: 100,
           branches: 80,
