@@ -80,6 +80,7 @@ const NavToolbar: React.FC = () => {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const { found: companionFound } = useCompanionStatus()
+  const companionLabel = companionFound ? 'Launch Creidhne' : 'Creidhne not found — see Settings'
   const barBtnSx = navBtnSx(useChromeKind())
 
   return (
@@ -154,9 +155,12 @@ const NavToolbar: React.FC = () => {
         </IconButton>
       </Tooltip>
       <NavButton page="settings" title="Settings" icon={<GiSettingsKnobs />} />
-      <Tooltip title={companionFound ? 'Launch Creidhne' : 'Creidhne not found — see Settings'}>
+      <Tooltip title={companionLabel}>
         <span>
+          {/* The span carries the tooltip, so that it shows on a disabled button.
+              The tooltip's label goes on the span too, so the button needs its own. */}
           <IconButton
+            aria-label={companionLabel}
             sx={barBtnSx}
             disabled={!companionFound}
             onClick={() => void window.api.launchCompanion()}

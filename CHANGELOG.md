@@ -71,6 +71,7 @@ record; where they disagree with this file, the git history was taken as authori
 - **macOS and Linux: Use default location fills in the Brigid assets folder.** In **Settings → Installed Asset Packs**, the link did nothing on macOS and Linux, so you had to browse to the folder. It now fills in the folder Brigid reads: `~/Library/Application Support/Erisco/Brigid/assets` on macOS, and `~/.config/Erisco/Brigid/assets` on Linux. On Windows it is `%LOCALAPPDATA%\Erisco\Brigid\assets`. Before, the folder name was `erisco` in lower case: Windows does not see the difference, but Linux does, and Brigid uses `Erisco`. The example in the empty field now names the folder for your OS. Before, it showed the Windows folder, in lower case, on every OS.
 - **An imported item icon pack keeps its dyeable list.** An old item icon pack can name its dyeable icons in `covers.item_icons.dyeable`. Taliesin removed that list the next time it saved the pack, so Brigid then used the purple-ramp rule for those icons. Taliesin now keeps the list, and the editor says that Brigid uses it in place of **No dye**.
 - **A truncated `.hpf` entry no longer stops Taliesin.** Before, the Archive Viewer or a map that opened a short `.hpf` hung the window.
+- **A screen reader names the Launch Creidhne button.** Before, the button had no name, because its tooltip text was on the element around it. The name is "Launch Creidhne", or "Creidhne not found — see Settings" when Taliesin does not find Creidhne.
 
 ### Security
 
