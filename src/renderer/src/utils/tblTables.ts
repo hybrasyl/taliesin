@@ -220,25 +220,13 @@ function readPaletteMap(text: string, lines: string[], rule: string): TypedTable
 }
 
 /**
- * Read a palette cycling table.
- *
- * dalib-ts parses this format only inside `PaletteTable.fromArchive`, which
- * merges a whole family of files and keys them by the name's number — there is
- * no public entry point for one entry's bytes. The grammar it applies is three
- * integers per line, reproduced here for a single-entry preview. Recorded as a
- * dalib-ts follow-up in docs/plans/00a-backlog.md.
+ * Read a palette cycling table, through the reader `PaletteTable.fromArchive`
+ * uses for each numbered file in a family (dalib-ts 3.3.0, HTOO-160). The
+ * library reads the grammar only; which grammar a `.tbl` has is still decided
+ * here, by the ladder above.
  */
-function readPaletteCycling(lines: string[], rule: string): TypedTable | null {
-  const rows: CyclingRow[] = []
-  for (const line of lines) {
-    const tokens = line.split(' ')
-    if (tokens.length !== 3) continue
-    const startIndex = parseInt(tokens[0]!, 10)
-    const endIndex = parseInt(tokens[1]!, 10)
-    const period = parseInt(tokens[2]!, 10)
-    if (isNaN(startIndex) || isNaN(endIndex) || isNaN(period)) continue
-    rows.push({ startIndex, endIndex, period })
-  }
+function readPaletteCycling(buf: Uint8Array, rule: string): TypedTable | null {
+  const rows: CyclingRow[] = PaletteTable.cyclingEntriesFromBuffer(buf)
   if (rows.length === 0) return null
   return {
     kind: 'palette-cycling',
@@ -277,14 +265,14 @@ function readTileAnimation(text: string, rule: string): TypedTable | null {
 /**
  * Read an effect table. `EffectTable` enumerates cleanly via count + id.
  *
- * The single trailing line terminator is stripped first: the parser turns every
- * blank line into an empty effect slot, and a file that simply ends with a
- * newline would otherwise report one more effect than its own count line says.
- * Blank lines in the middle are real empty slots and are left alone.
+ * The bytes go to the parser unchanged. Since dalib-ts 3.3.0 (HTOO-568) the
+ * parser itself removes the one line terminator at the end of the file, so a
+ * file that ends with a newline has the count its own count line says. Do not
+ * strip it here too: a file whose last slot is empty (`3\n1\n2\n\n`) would then
+ * lose that slot. Blank lines in the middle are real empty slots.
  */
-function readEffect(text: string, rule: string): TypedTable | null {
-  const trimmed = text.replace(/\r?\n$/, '')
-  const table = EffectTable.fromBuffer(new TextEncoder().encode(trimmed))
+function readEffect(buf: Uint8Array, rule: string): TypedTable | null {
+  const table = EffectTable.fromBuffer(buf)
   if (table.count === 0) return null
   const rows: EffectRow[] = []
   const shown = Math.min(table.count, MAX_TABLE_ROWS)
@@ -319,11 +307,11 @@ export function readTypedTable(entryName: string, buf: Uint8Array): TypedTable |
       case 'palette-map':
         return readPaletteMap(text, lines, decided.rule)
       case 'palette-cycling':
-        return readPaletteCycling(lines, decided.rule)
+        return readPaletteCycling(buf, decided.rule)
       case 'tile-animation':
         return readTileAnimation(text, decided.rule)
       case 'effect':
-        return readEffect(text, decided.rule)
+        return readEffect(buf, decided.rule)
     }
   } catch {
     // A parser that throws on these bytes is a "not this kind" answer.

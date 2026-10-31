@@ -55,6 +55,8 @@ record; where they disagree with this file, the git history was taken as authori
 - **A clickable plain chip keeps its fill under the pointer**, for example an unset spawn flag or Place chip in the Map XML Editor. It shows the hover in its border.
 - **The file-type chips in the Music Manager are easy to read.** The OGG and FLAC chips drew the bar colour as text on the page. All the file-type chips are now filled.
 - **The Collision Map window in the Map Maker:** its title and close button now use the bar's text colour.
+- **An `.epf` file shows each frame under the number that the file gives it.** Before, Taliesin dropped the empty frames, so in some files each later frame moved down one number. In `Legend.dat/emo32.epf`, which has three empty frames, the last two frames each moved down three numbers. Now an empty frame shows as a blank frame. The Archive Viewer frame counter, the PNG export file names and UI Layout Forge prefab import all use the file's frame numbers.
+- **A truncated `.hpf` entry no longer stops Taliesin.** Before, the Archive Viewer or a map that opened a short `.hpf` hung the window.
 
 ### Security
 
