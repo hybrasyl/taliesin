@@ -30,13 +30,13 @@
     "build:linux": "npm run build && electron-builder --linux",
     "fetch-xsd": "node scripts/downloadXSD.js"
   },
-  "//dependencies": "Only what the MAIN process requires at run time. electron-builder copies every entry here into app.asar verbatim, while vite already bundles the renderer's libraries into out/renderer -- so a renderer-only package listed here ships twice. Note main reaches several of these through dynamic `await import('pkg')`, which a static `from '...'` grep does not see: dalib-ts, music-metadata, archiver and unzipper are all runtime requirements despite having no static import. See the document repo's ecosystem-rollout-checklist.md R-003.",
+  "//dependencies": "Only what the MAIN process requires at run time. electron-builder copies every entry here into app.asar verbatim, while vite already bundles the renderer's libraries into out/renderer -- so a renderer-only package listed here ships twice. Note main reaches several of these through dynamic `await import('pkg')`, which a static `from '...'` grep does not see: dalib-ts, music-metadata, yazl and unzipper are all runtime requirements despite having no static import. See the document repo's ecosystem-rollout-checklist.md R-003.",
   "dependencies": {
     "@eriscorp/dalib-ts": "^3.3.0",
     "@eriscorp/hybindex-ts": "^1.2.0",
-    "archiver": "^7.0.1",
     "music-metadata": "^11.16.1",
     "unzipper": "^0.12.3",
+    "yazl": "^3.3.1",
     "zod": "^4.6.7"
   },
   "//devDependencies": "@electron/fuses is here for ONE reason: scripts/verify-fuses.test.mjs pins our copied SENTINEL and state bytes against it, and a pin on a transitive dependency is a pin on whatever the tree happens to hoist. app-builder-lib depends on it too and is what actually flips the wire at package time. Nothing imports it at run time -- the verifier reads the artifact with fs.",
@@ -59,11 +59,11 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/archiver": "^7.0.0",
     "@types/jsdom": "^28.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/xml2js": "^0.4.14",
+    "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.12",
     "electron": "^44.10.0",

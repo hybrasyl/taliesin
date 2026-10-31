@@ -20,7 +20,6 @@ const {
   hybindex,
   libraryPath,
   musicMetadata,
-  archiver,
   childProcess,
   electronToolkit,
   dalib
@@ -238,18 +237,6 @@ const {
       native: {}
     }))
   }
-  const archiver = vi.fn(() => {
-    const events: Record<string, ((...a: unknown[]) => void)[]> = {}
-    return {
-      on: (ev: string, cb: (...a: unknown[]) => void) => {
-        ;(events[ev] ??= []).push(cb)
-      },
-      pipe: () => undefined,
-      append: () => undefined,
-      file: () => undefined,
-      finalize: () => undefined
-    }
-  })
   const childProcess = {
     execFile: vi.fn((_cmd: string, _args: string[], cb?: (e: Error | null) => void) => {
       cb?.(null)
@@ -293,7 +280,6 @@ const {
     hybindex,
     libraryPath,
     musicMetadata,
-    archiver,
     childProcess,
     electronToolkit,
     dalib
@@ -311,7 +297,6 @@ vi.mock('../settingsManager', () => ({
 }))
 vi.mock('../libraryPath', () => libraryPath)
 vi.mock('music-metadata', () => musicMetadata)
-vi.mock('archiver', () => ({ default: archiver }))
 vi.mock('child_process', () => childProcess)
 vi.mock('@electron-toolkit/utils', () => electronToolkit)
 vi.mock('@eriscorp/dalib-ts', () => dalib)

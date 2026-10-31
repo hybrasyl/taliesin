@@ -53,6 +53,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Fixed
 
+- **A compile that fails keeps the old pack.** Before, **Compile** emptied the `.datf` as it started, so a compile that failed, for example on an asset file that was deleted, left a broken pack in place of the old one. Taliesin now writes the new pack beside the old one, and replaces the old pack only when the new one is complete.
 - **A new map or world map does not save over a file.** Before, **Save** on a new map or world map wrote over a file with the same name. Now Taliesin refuses, and asks for a different filename.
 - **Destructive buttons show their colour.** In Hybrasyl, Chadul, Danaan and Grinneal, every button had the theme's button colour, so a **Delete** button looked like any other button. Error and warning buttons now show their own colour.
 - **The close button on the title bar turns red under the pointer.** In Hybrasyl, Chadul, Danaan and Grinneal, it showed the skull on cyan, which was almost not visible.
@@ -71,6 +72,7 @@ record; where they disagree with this file, the git history was taken as authori
 ### Security
 
 - **Taliesin runs on Electron 44.10.0.** This release bundles Node 24.22.1 and Chromium 152.0.7977.169, with their security fixes. It also stops trust in the compromised eMudhra intermediate certificates. Taliesin connects to the network only through Chromium, so the Brotli fault in Node (CVE-2026-111497) did not apply to it.
+- **Taliesin no longer ships glob or minimatch.** Taliesin writes `.datf` packs with yazl, in place of archiver. archiver brought in glob and minimatch, which have open advisories (GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249). Taliesin did not use the affected functions. The packs have the same contents and the same compression.
 
 ## [2.14.0] - 2026-10-11
 

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, onTestFailed } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 // Static, so its first load is not inside the import case (HTOO-610).
-import archiver from 'archiver'
+import { ZipFile } from 'yazl'
 
 // In-memory fs + module mocks must be hoisted before importing handlers.
 const memfs = vi.hoisted(async () => {
@@ -61,7 +61,7 @@ beforeEach(async () => {
   const fs = await memfs
   fs.reset()
   // Bridge installation is async because the handlers module loads dalib-ts /
-  // archiver lazily via dynamic import — but for AssetPackPage we never hit those.
+  // yazl lazily via dynamic import — but for AssetPackPage we never hit those.
   const handlers = await loadHandlers()
   installBridgedApi(handlers, {
     settingsPath: '/appdata/Taliesin',
@@ -293,14 +293,10 @@ describe('AssetPackPage — round-trip integration', () => {
     })
     const fs = await memfs
 
-    // Build a real .datf via archiver, drop it on memfs, then click Import.
-    const datfBytes = await new Promise<Buffer>((resolve, reject) => {
-      const archive = archiver('zip')
-      const chunks: Buffer[] = []
-      archive.on('data', (c: Buffer) => chunks.push(c))
-      archive.on('end', () => resolve(Buffer.concat(chunks)))
-      archive.on('error', reject)
-      archive.append(
+    // Build a real .datf with yazl, drop it on memfs, then click Import.
+    const zip = new ZipFile()
+    zip.addBuffer(
+      Buffer.from(
         JSON.stringify({
           schema_version: 1,
           pack_id: 'imported',
@@ -308,13 +304,16 @@ describe('AssetPackPage — round-trip integration', () => {
           content_type: 'ability_icons',
           priority: 200,
           covers: { ability_icons: { dimensions: [32, 32] } }
-        }),
-        { name: '_manifest.json' }
-      )
-      archive.append(Buffer.from('FIRST'), { name: 'skill0001.png' })
-      archive.append(Buffer.from('SECOND'), { name: 'skill0002.png' })
-      void archive.finalize()
-    })
+        })
+      ),
+      '_manifest.json'
+    )
+    zip.addBuffer(Buffer.from('FIRST'), 'skill0001.png')
+    zip.addBuffer(Buffer.from('SECOND'), 'skill0002.png')
+    zip.end()
+    const chunks: Buffer[] = []
+    for await (const chunk of zip.outputStream) chunks.push(chunk as Buffer)
+    const datfBytes = Buffer.concat(chunks)
     fs.files.set('/imports/imported.datf', datfBytes)
     step('zip built')
 
