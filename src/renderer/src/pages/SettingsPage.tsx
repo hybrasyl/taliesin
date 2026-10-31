@@ -49,6 +49,8 @@ import WhatsNewDialog from '../components/WhatsNewDialog'
 import IndexCacheSection from '../components/IndexCacheSection'
 import logoUrl from '../assets/taliesin.webp'
 import { reloadPacks } from '../utils/packCaches'
+import { brigidAssetsExample } from '../utils/brigidAssets'
+import { currentPlatform } from '../utils/platform'
 
 // Settings sections are Paper cards laid out in a responsive grid (mirrors the
 // creidhne/oghma pattern). Full-height flex column so cards sharing a grid row
@@ -230,7 +232,7 @@ function BrigidAssetsCard() {
       <PathInput
         value={brigidAssetsPath ?? ''}
         onChange={(v) => setBrigidAssetsPath(v || null)}
-        placeholder="e.g. %LOCALAPPDATA%\erisco\Brigid\assets"
+        placeholder={brigidAssetsExample(currentPlatform())}
         onBrowse={async () => {
           const d = await window.api.openDirectory()
           if (d) setBrigidAssetsPath(d)
