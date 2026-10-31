@@ -165,8 +165,55 @@ describe('itemIconsKind', () => {
     expect(itemIconsKind.parseSlot('item0001.png')).toBeNull() // 4 digits, wrong kind
   })
 
-  it('nextAssetPath is 1-based with 5-digit padding', () => {
-    expect(itemIconsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('item00001.png')
+  // A new icon is a modern icon: ids from 20001, to 32767 (HTOO-599, BRIG-77).
+  const assets = (...ids: number[]) =>
+    ids.map((id) => ({ filename: `item${String(id).padStart(5, '0')}.png`, sourcePath: '/s' }))
+
+  it('nextAssetPath starts at the first modern id, 20001', () => {
+    expect(itemIconsKind.nextAssetPath({ existingAssets: [] }).zipPath).toBe('item20001.png')
+  })
+
+  it('nextAssetPath ignores legacy ids and follows the highest modern one', () => {
+    expect(itemIconsKind.nextAssetPath({ existingAssets: assets(5, 13688) }).zipPath).toBe(
+      'item20001.png'
+    )
+    expect(itemIconsKind.nextAssetPath({ existingAssets: assets(5, 20001, 20004) }).zipPath).toBe(
+      'item20005.png'
+    )
+  })
+
+  it('nextAssetPath refuses an id above 32767, which the client cannot show', () => {
+    expect(itemIconsKind.nextAssetPath({ existingAssets: assets(32766) }).zipPath).toBe(
+      'item32767.png'
+    )
+    expect(() => itemIconsKind.nextAssetPath({ existingAssets: assets(32767) })).toThrow(/32767/)
+  })
+
+  it('covers accept the explicit dyeable list of an old scaffold pack', () => {
+    expect(
+      itemIconsKind.coversSchema.safeParse({ item_icons: { dyeable: [1, 2], no_dye: [3] } }).success
+    ).toBe(true)
+  })
+
+  it('reduceCoversFromMeta keeps an imported dyeable list beside no_dye', () => {
+    const draft = {
+      pack_id: 'p',
+      pack_version: '1.0.0',
+      content_type: 'item_icons' as const,
+      priority: 100,
+      covers: { item_icons: { dyeable: [1, 2] } },
+      assets: assets(1, 2, 3),
+      assetMeta: { 'item00003.png': { noDye: true } },
+      createdAt: '',
+      updatedAt: ''
+    }
+    expect(itemIconsKind.reduceCoversFromMeta!(draft)).toEqual({
+      item_icons: { dyeable: [1, 2], no_dye: [3] }
+    })
+    // With no dyeable list, none is written.
+    expect(itemIconsKind.reduceCoversFromMeta!({ ...draft, covers: { item_icons: {} } })).toEqual({
+      item_icons: { no_dye: [3] }
+    })
   })
 
   it('dimension accepts 16–32 in both axes', () => {

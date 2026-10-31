@@ -59,3 +59,11 @@ export function scanDyeUsage(buf: PixelBuffer): DyeUsageReport {
   }
   return { canonicalPixels, nonDyeablePurplePixels, totalOpaquePixels }
 }
+
+// Here rather than in itemIcons.ts, so ItemIconsPanel can read it without an
+// import cycle (itemIcons.ts imports the panel).
+/** The explicit `covers.item_icons.dyeable` list, when the pack has one. */
+export function dyeableList(covers: Record<string, unknown>): number[] | undefined {
+  const itemCovers = covers.item_icons as { dyeable?: unknown } | undefined
+  return Array.isArray(itemCovers?.dyeable) ? (itemCovers.dyeable as number[]) : undefined
+}
