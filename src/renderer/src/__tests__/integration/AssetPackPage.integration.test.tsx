@@ -1,7 +1,9 @@
 import React from 'react'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, onTestFailed } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+// Static, so its first load is not inside the import case (HTOO-610).
+import archiver from 'archiver'
 
 // In-memory fs + module mocks must be hoisted before importing handlers.
 const memfs = vi.hoisted(async () => {
@@ -273,13 +275,25 @@ describe('AssetPackPage — round-trip integration', () => {
   // but under a busy full suite one wait sometimes went past the 1 s default of
   // Testing Library. So each wait has 3 s, and the case has 10 s: three slow
   // waits fit, and a real hang still fails at the wait that names it.
+  //
+  // It also failed once at the 10 s case timeout with no wait failing, in a
+  // run of normal length, so a step with no timeout of its own took the time.
+  // The cause is not known. So the case logs each step it reaches, and prints
+  // the log when it fails: the next failure names the step where it stopped.
   const IMPORT_WAIT = { timeout: 3000 }
 
   it('Import .datf round-trips a compiled pack into an editable project', async () => {
+    const steps: string[] = []
+    const t0 = performance.now()
+    const step = (name: string): void => {
+      steps.push(`${Math.round(performance.now() - t0)} ms ${name}`)
+    }
+    onTestFailed(() => {
+      console.error(`HTOO-610: the import case reached these steps:\n  ${steps.join('\n  ')}`)
+    })
     const fs = await memfs
 
     // Build a real .datf via archiver, drop it on memfs, then click Import.
-    const archiver = (await import('archiver')).default
     const datfBytes = await new Promise<Buffer>((resolve, reject) => {
       const archive = archiver('zip')
       const chunks: Buffer[] = []
@@ -302,8 +316,10 @@ describe('AssetPackPage — round-trip integration', () => {
       void archive.finalize()
     })
     fs.files.set('/imports/imported.datf', datfBytes)
+    step('zip built')
 
     const handlers = await loadHandlers()
+    step('handlers loaded')
     installBridgedApi(handlers, {
       settingsPath: '/appdata/Taliesin',
       settingsManager: { load: async () => ({}), save: async () => undefined },
@@ -312,13 +328,16 @@ describe('AssetPackPage — round-trip integration', () => {
 
     const user = userEvent.setup()
     render(<AssetPackPage />, { wrapper: withPackDir() })
+    step('rendered')
 
     await user.click(await screen.findByRole('button', { name: /import \.datf/i }, IMPORT_WAIT))
+    step('clicked')
 
     // Project json + extracted assets should land under PACK_DIR
     await waitFor(() => {
       expect(fs.files.has(`${PACK_DIR}/imported.json`)).toBe(true)
     }, IMPORT_WAIT)
+    step('project written')
     expect(fs.files.get(`${PACK_DIR}/imported/skill0001.png`)?.toString('utf-8')).toBe('FIRST')
     expect(fs.files.get(`${PACK_DIR}/imported/skill0002.png`)?.toString('utf-8')).toBe('SECOND')
 
