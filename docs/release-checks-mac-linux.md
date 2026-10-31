@@ -121,7 +121,7 @@ Open the packaged app, and put Mabon in the Dock beside it. **Expected:** Talies
 
 ### B3. macOS support (macOS) — HTOO-569
 
-1. **Title bar:** on each of the six themes, the stoplights sit centred in the bar, and nothing else is in the bar.
+1. **Title bar:** on each of the eight themes, the stoplights sit centred in the bar, and nothing else is in the bar.
 2. **Menu greying:** File → Save is available only when an editor has unsaved changes or a Map Maker tab is open. Go marks the current page. With a dialog open, menu items do nothing.
 3. **⌘Q with unsaved work:** make an edit, press ⌘Q. Save or Discard quits the app. Cancel keeps it open, and a later close with the red button does not quit.
 4. **Shortcuts in the Map Maker:** ⌘S saves, ⌘Z undoes, ⇧⌘Z redoes, ⌘C and ⌘V copy and paste, ⌘W closes the Map Maker tab. In a text field, ⌃K deletes to the end of the line.
@@ -143,11 +143,11 @@ Linux file names are case-sensitive. The official installer writes `Legend.dat`,
 
 **Expected:** no "not found" message and no empty page. If one fails, record the file name as it is on disk.
 
-### B5. The bars on the six themes (Linux) — HTOO-572
+### B5. The bars on the eight themes (Linux) — HTOO-572
 
-Change the theme in **Settings → Appearance**. Do these steps on each of the six themes.
+Change the theme in **Settings → Appearance**. Do these steps on each of the eight themes.
 
-1. **The title bar and the nav bar:** Hybrasyl, Chadul, Danaan and Grinneal have dark bars with light text and icons, with a black outline. The Danaan bars are bronze and the Grinneal bars are brown. Nothing is engraved. Mundanes and Dubhaimid are flat, with no outline. On each theme the nav bar has a different colour from the title bar, so the two bars do not look like one bar (HTOO-629). On each theme the bar text, the window buttons and the nav icons are easy to read.
+1. **The title bar and the nav bar:** Hybrasyl, Chadul, Danaan, Grinneal, Shattered and Untamed have dark bars with light text and icons, with a black outline. The Danaan bars are bronze, the Grinneal bars are brown, the Shattered bars are oxblood and the Untamed bars are deep green. Nothing is engraved. Mundanes and Dubhaimid are flat, with no outline. On each theme the nav bar has a different colour from the title bar, so the two bars do not look like one bar (HTOO-629). On each theme the bar text, the window buttons and the nav icons are easy to read.
 2. **The hover:** the close button turns red under the pointer. The other window buttons and the nav buttons show a hover that is easy to see.
 3. **The open page:** its nav button has a light background and a ring inside its edge, in the bar's text colour.
 

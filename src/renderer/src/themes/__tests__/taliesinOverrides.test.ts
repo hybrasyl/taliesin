@@ -17,14 +17,14 @@ function paperSurface(theme: Theme): StyleObject {
 function tooltipStyle(theme: Theme): StyleObject {
   const overrides = theme.components?.MuiTooltip?.styleOverrides?.tooltip
   // The callback form is the point: a fixed value would be one theme's answer
-  // applied to all six.
+  // applied to all eight.
   expect(typeof overrides).toBe('function')
   return (overrides as (p: { theme: Theme }) => StyleObject)({ theme })
 }
 
 /**
  * Each theme file is the house template's file, plus one spread of
- * `taliesinOverrides`. The next port of the template's palettes copies the six
+ * `taliesinOverrides`. The next port of the template's palettes copies the eight
  * files again. This test fails when that copy loses the spread: every tooltip
  * then falls back to MUI's grey slab, and no other test sees it.
  */

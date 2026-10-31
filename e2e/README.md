@@ -35,7 +35,7 @@ so the redirect that makes `launchApp` hermetic does nothing off Windows.
   import there breaks in the packaged app only.
 - **`settings-persistence.spec.js`** — a theme picked in Settings survives a relaunch, and an
   existing `settings.json` is not clobbered with defaults on startup (the hydration gate).
-- **`theme-switch.spec.js`** — all six themes apply with no `pageerror`, each repaints, and the
+- **`theme-switch.spec.js`** — all eight themes apply with no `pageerror`, each repaints, and the
   `PLAIN_CHROME_THEMES` branch swaps the title bar chrome.
 - **`pack-filesystem.spec.js`** — a write-effecting IPC flow against a temp dir: creating a pack
   writes its project file and asset directory through `pack:save` + `fs:ensureDir`, and a path

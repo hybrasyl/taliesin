@@ -12,7 +12,7 @@ import type { ThemeName } from '@shared/types'
  * reviews the chrome that ships (HTOO-572).
  *
  * - `plain` (mundanes, dubhaimid): MUI icons, flat, no shadow.
- * - `keyline` (the four decorated themes): light bar text with a #000 outline
+ * - `keyline` (the six decorated themes): light bar text with a #000 outline
  *   and a soft depth shadow. Every decorated bar is dark, with light text, so
  *   the keyline always outlines light text. danaan and grinneal had light bars
  *   with dark text, which needed an engrave of their own (Sabrael, 2026-10-23).
@@ -130,10 +130,6 @@ export function navButtonSx(kind: ChromeKind, current = false, hovered = false):
   const hover = { backgroundColor: c.hoverBackground, color: c.hoverColor }
   return {
     WebkitAppRegion: 'no-drag',
-    // The DA themes colour every MUI icon (`MuiSvgIcon`: secondary.dark in
-    // hybrasyl, primary.main in danaan), and on the bar that was 1.0:1 to 4:1.
-    // The icon takes the button's colour.
-    '& .MuiSvgIcon-root': { color: 'inherit' },
     ...(current ? { backgroundColor: CURRENT.background, boxShadow: CURRENT.ring } : {}),
     ...(hovered ? hover : { color: c.color, '&:hover': hover })
   }

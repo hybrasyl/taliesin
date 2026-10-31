@@ -121,8 +121,8 @@ interface CoordState {
  * Marker colours, and the letter drawn inside each.
  *
  * Hardcoded hex rather than theme-derived, because these are drawn onto map art
- * and have to stay legible on all six themes — so a change here needs checking
- * against all six, not just the one in front of you.
+ * and have to stay legible on all eight themes — so a change here needs checking
+ * against all eight, not just the one in front of you.
  *
  * Map warps and world warps used to share a `warp` entry, so every warp drew
  * blue with a `W` whatever its target, while the legend claimed two colours it

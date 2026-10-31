@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, getMainWindow, isMac } from './helpers.js'
 
-// Smoke test for all six themes. A theme is a MUI theme object built through
+// Smoke test for all eight themes. A theme is a MUI theme object built through
 // responsiveFontSizes(); a bad token -- a missing palette entry, a malformed
 // value, a key one theme has and another does not -- throws at RENDER time. The
 // jsdom unit suite never sees it: it mounts components against a single theme,
@@ -20,11 +20,13 @@ const THEMES = [
   { name: 'chadul', plain: false },
   { name: 'danaan', plain: false },
   { name: 'grinneal', plain: false },
+  { name: 'shattered', plain: false },
+  { name: 'untamed', plain: false },
   { name: 'mundanes', plain: true },
   { name: 'dubhaimid', plain: true }
 ]
 
-test.describe('All six themes render', () => {
+test.describe('All eight themes render', () => {
   let electronApp
 
   test.afterEach(async () => {
@@ -75,7 +77,7 @@ test.describe('All six themes render', () => {
 
     expect(pageErrors, `renderer errors: ${pageErrors.join(' | ')}`).toEqual([])
 
-    // Six themes, six distinct backgrounds. Exact rather than ">1": the six
+    // Eight themes, eight distinct backgrounds. Exact rather than ">1": the eight
     // `background.default` values are literal and all differ today, so a
     // collision means either a theme stopped being applied or two themes became
     // indistinguishable to look at. Both are worth a failure.

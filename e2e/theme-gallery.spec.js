@@ -18,7 +18,16 @@ import { launchApp, getMainWindow } from './helpers.js'
 // theme picker carries `theme-option-<name>` on each card and reads
 // `aria-checked` for the selection, as theme-switch.spec.js does.
 
-const THEMES = ['hybrasyl', 'chadul', 'danaan', 'grinneal', 'mundanes', 'dubhaimid']
+const THEMES = [
+  'hybrasyl',
+  'chadul',
+  'danaan',
+  'grinneal',
+  'shattered',
+  'untamed',
+  'mundanes',
+  'dubhaimid'
+]
 
 test('the theme gallery measures every sample in every theme', async () => {
   const testInfo = test.info()
