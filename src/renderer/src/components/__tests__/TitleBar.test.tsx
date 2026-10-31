@@ -1,77 +1,130 @@
+// house module: title-bar v1 — change it in the template, then port
 import React from 'react'
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
-import TitleBar from '../TitleBar'
-import { isDarkText } from '../chromeEngrave'
-import { themesByName } from '../../themes'
-import { useSettingsStore, PLAIN_CHROME_THEMES, type ThemeName } from '../../store/settingsStore'
-import { installMockApi, type MockApi } from '../../__tests__/setup/mockApi'
+import StarIcon from '@mui/icons-material/Star'
+import { themesByName } from '@renderer/themes'
+import type { ThemeName } from '@shared/types'
+import TitleBar, { ChromeButton, type TitleBarProps } from '../TitleBar'
 
-// HTOO-569. On macOS the bar is an empty drag region that holds the native
-// stoplights: no logo, no name, no window buttons. The padding is checked in
-// e2e/title-bar.spec.js, because jsdom does not apply the Toolbar's media query.
-
-let api: MockApi
-
-beforeEach(() => {
-  api = installMockApi()
-})
+function renderBar(props: Partial<TitleBarProps> = {}): TitleBarProps['controls'] {
+  const controls = props.controls ?? {
+    minimize: vi.fn(),
+    maximize: vi.fn(),
+    close: vi.fn()
+  }
+  const theme: ThemeName = props.theme ?? 'hybrasyl'
+  render(
+    <ThemeProvider theme={themesByName[theme]}>
+      <TitleBar
+        name="Sample"
+        icon="sample.webp"
+        theme={theme}
+        platform="win32"
+        {...props}
+        controls={controls}
+      />
+    </ThemeProvider>
+  )
+  return controls
+}
 
 describe('TitleBar', () => {
-  it('draws the logo, the name and three window buttons on Windows and Linux', () => {
-    render(<TitleBar />)
-    expect(screen.getByTestId('app-title')).toHaveTextContent('Taliesin')
-    expect(screen.getByAltText('Taliesin')).toBeInTheDocument()
-    expect(screen.getAllByRole('button')).toHaveLength(3)
+  it('draws the name and the icon it is given', () => {
+    renderBar()
+    const bar = screen.getByTestId('title-bar')
+    expect(bar).toHaveTextContent('Sample')
+    expect(bar.querySelector('img')?.getAttribute('src')).toBe('sample.webp')
   })
 
-  it('is empty on macOS', () => {
-    api.platform = 'darwin'
-    render(<TitleBar />)
-    expect(screen.getByTestId('title-bar')).toBeInTheDocument()
-    expect(screen.queryByTestId('app-title')).not.toBeInTheDocument()
-    expect(screen.queryByAltText('Taliesin')).not.toBeInTheDocument()
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+  it('calls the window controls it is given', async () => {
+    const user = userEvent.setup()
+    const controls = renderBar()
+    await user.click(screen.getByRole('button', { name: 'Minimize' }))
+    await user.click(screen.getByRole('button', { name: 'Maximize' }))
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(controls.minimize).toHaveBeenCalledOnce()
+    expect(controls.maximize).toHaveBeenCalledOnce()
+    expect(controls.close).toHaveBeenCalledOnce()
   })
 
-  // The keyline is dark, so it outlines light title text and smears dark text.
-  // danaan's title is dark on its gold bar, and grinneal's on its tan one: those
-  // are engraved with a cream edge instead (ported from Mabon).
-  const DECORATED = (Object.keys(themesByName) as ThemeName[]).filter(
-    (n) => !PLAIN_CHROME_THEMES.includes(n)
-  )
-  it.each(DECORATED)('%s: outlines light title text, engraves dark title text', (name) => {
-    const theme = themesByName[name]
-    useSettingsStore.setState({ theme: name })
+  it('draws no Maximize button for a window of a fixed size', () => {
+    renderBar({ controls: { minimize: vi.fn(), close: vi.fn() } })
+    expect(screen.queryByRole('button', { name: 'Maximize' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
+  })
+
+  it("puts the app's controls between the wordmark and the window buttons", async () => {
+    const user = userEvent.setup()
+    const onClick = vi.fn()
     render(
-      <ThemeProvider theme={theme}>
-        <TitleBar />
+      <ThemeProvider theme={themesByName.hybrasyl}>
+        <TitleBar
+          name="Sample"
+          icon="sample.webp"
+          theme="hybrasyl"
+          platform="win32"
+          controls={{ minimize: vi.fn(), close: vi.fn() }}
+        >
+          <ChromeButton label="Favourites" onClick={onClick}>
+            <StarIcon />
+          </ChromeButton>
+        </TitleBar>
       </ThemeProvider>
     )
-    const shadow = getComputedStyle(screen.getByTestId('app-title')).textShadow
-    const glyph = screen
-      .getByRole('button', { name: 'Minimize' })
-      .querySelector('svg') as SVGElement
-    const stroke = getComputedStyle(glyph).stroke
-    if (isDarkText(theme.palette.secondary.contrastText)) {
-      // The window glyphs lose the #000 stroke too.
-      expect(stroke).not.toMatch(/#000|rgb\(0, 0, 0\)$/)
-      expect(shadow).toMatch(/rgba\(255, ?248, ?232/)
-      expect(shadow).not.toMatch(/#000|rgb\(0, 0, 0\)/)
-    } else {
-      expect(shadow).toMatch(/#000|rgb\(0, 0, 0\)/)
-      expect(stroke).toMatch(/#000|rgb\(0, 0, 0\)$/)
-    }
-    cleanup()
+    const buttons = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))
+    expect(buttons).toEqual(['Favourites', 'Minimize', 'Close'])
+    await user.click(screen.getByRole('button', { name: 'Favourites' }))
+    expect(onClick).toHaveBeenCalledOnce()
   })
 
-  it('engraves danaan and outlines hybrasyl', () => {
-    // The loop above branches on the palette; this pins the two known cases, so
-    // a palette change cannot quietly move every theme into one branch.
-    const dark = (n: ThemeName): boolean =>
-      isDarkText(themesByName[n].palette.secondary.contrastText)
-    expect(dark('danaan')).toBe(true)
-    expect(dark('hybrasyl')).toBe(false)
+  it.each(Object.keys(themesByName) as ThemeName[])(
+    '%s: a ChromeButton draws like a window button',
+    (theme) => {
+      render(
+        <ThemeProvider theme={themesByName[theme]}>
+          <TitleBar
+            name="Sample"
+            icon="sample.webp"
+            theme={theme}
+            platform="win32"
+            controls={{ minimize: vi.fn(), close: vi.fn() }}
+          >
+            <ChromeButton label="Favourites">
+              <StarIcon />
+            </ChromeButton>
+          </TitleBar>
+        </ThemeProvider>
+      )
+      const drawn = (name: string): string =>
+        getComputedStyle(screen.getByRole('button', { name })).color
+      expect(drawn('Favourites')).toBe(drawn('Minimize'))
+    }
+  )
+
+  it("draws no window buttons, name or logo on macOS, and keeps the app's controls", () => {
+    render(
+      <ThemeProvider theme={themesByName.hybrasyl}>
+        <TitleBar
+          name="Sample"
+          icon="sample.webp"
+          theme="hybrasyl"
+          platform="darwin"
+          controls={{ minimize: vi.fn(), maximize: vi.fn(), close: vi.fn() }}
+        >
+          <ChromeButton label="Favourites">
+            <StarIcon />
+          </ChromeButton>
+        </TitleBar>
+      </ThemeProvider>
+    )
+    const bar = screen.getByTestId('title-bar')
+    expect(bar).not.toHaveTextContent('Sample')
+    expect(bar.querySelector('img')).toBeNull()
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Favourites'
+    ])
   })
 })

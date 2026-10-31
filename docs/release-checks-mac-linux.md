@@ -141,6 +141,16 @@ Linux file names are case-sensitive. The official installer writes `Legend.dat`,
 
 **Expected:** no "not found" message and no empty page. If one fails, record the file name as it is on disk.
 
+### B5. The bars on the six themes (Linux) — HTOO-572
+
+Change the theme in **Settings → Appearance**. Do these steps on each of the six themes.
+
+1. **The title bar and the nav bar:** Hybrasyl, Chadul, Danaan and Grinneal have dark bars with light text and icons, with a black outline. The Danaan bars are bronze and the Grinneal bars are brown. Nothing is engraved. Mundanes and Dubhaimid are flat, with no outline. On each theme the nav bar has a different colour from the title bar, so the two bars do not look like one bar (HTOO-629). On each theme the bar text, the window buttons and the nav icons are easy to read.
+2. **The hover:** the close button turns red under the pointer. The other window buttons and the nav buttons show a hover that is easy to see.
+3. **The open page:** its nav button has a light background and a ring inside its edge, in the bar's text colour.
+
+**Expected:** each step is true on each theme. If one fails, record the theme and the step.
+
 ## For this release (2.14.0)
 
 Rewrite this section for each release: what applies, and what is already done.

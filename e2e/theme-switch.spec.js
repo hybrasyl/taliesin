@@ -54,14 +54,16 @@ test.describe('All six themes render', () => {
       await expect(page.getByTestId('title-bar')).toBeVisible()
 
       // The PLAIN_CHROME_THEMES branch: the two corporate themes drop the title
-      // bar's text-shadow, the four stylized ones paint one (the keyline and
-      // depth, or the cream engrave where the bar text is dark). This
-      // is the branch's only observable effect in a production build -- see the
-      // note on `app-title` in TitleBar.tsx.
+      // bar's text-shadow, and the four decorated ones paint the keyline and
+      // depth. Nothing is engraved (HTOO-572). This is the branch's only effect
+      // a spec can see in a production build: MUI strips the data-testid it puts
+      // on its own icons when NODE_ENV is production, so the window glyphs are
+      // not selectable there (HTOO-173/174). The wordmark is the bar's one
+      // heading, an h6.
       // macOS has no title text (HTOO-569), so the check is for Windows and Linux.
       if (!isMac) {
         const shadow = await page.evaluate(
-          () => getComputedStyle(document.querySelector('[data-testid="app-title"]')).textShadow
+          () => getComputedStyle(document.querySelector('[data-testid="title-bar"] h6')).textShadow
         )
         if (plain) expect(shadow, `${name} should use plain chrome`).toBe('none')
         else expect(shadow, `${name} should use gamified chrome`).not.toBe('none')

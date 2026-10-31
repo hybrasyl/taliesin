@@ -35,12 +35,14 @@ import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
 import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined'
+import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined'
 import { useSettingsStore, type MapDirectory } from '../store/settingsStore'
 import { useUiStore } from '../store/uiStore'
 import { useMenuRequest } from '../hooks/useMenuRequest'
 import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useWorldIndex } from '../hooks/useWorldIndex'
 import ThemePicker from '../components/ThemePicker'
+import ThemeGallery from './ThemeGallery'
 import AboutDialog from '../components/AboutDialog'
 import UpdateCheckButton from '../components/UpdateCheckButton'
 import WhatsNewDialog from '../components/WhatsNewDialog'
@@ -154,7 +156,7 @@ function IndexStatus({ status, building, onBuild }: IndexStatusProps) {
 
 // ── Card: Appearance ─────────────────────────────────────────────────────────
 
-function AppearanceCard() {
+function AppearanceCard({ onOpenGallery }: { onOpenGallery: () => void }) {
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
   return (
@@ -167,6 +169,14 @@ function AppearanceCard() {
         are flat/corporate.
       </Typography>
       <ThemePicker value={theme} onChange={setTheme} />
+      <Button
+        variant="outlined"
+        startIcon={<PaletteOutlinedIcon />}
+        onClick={onOpenGallery}
+        sx={{ mt: 2, alignSelf: 'flex-start' }}
+      >
+        Theme gallery
+      </Button>
     </Paper>
   )
 }
@@ -1154,6 +1164,19 @@ const SettingsPage: React.FC = () => {
   const [aboutOpen, setAboutOpen] = useState(false)
   // The macOS menu's "About Taliesin" (HTOO-569) comes to Settings and opens it here.
   useMenuRequest('about', () => setAboutOpen(true))
+  // The theme gallery (HTOO-572) shows in place of the Settings cards, and its
+  // Back button returns here. It is not a page: it has no nav button, because
+  // it is for a review of the themes by eye.
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const aboutDialog = <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+
+  if (galleryOpen)
+    return (
+      <>
+        <ThemeGallery onBack={() => setGalleryOpen(false)} />
+        {aboutDialog}
+      </>
+    )
 
   return (
     <Box data-testid="settings-page" sx={{ height: '100%', overflow: 'auto', p: 3 }}>
@@ -1168,7 +1191,7 @@ const SettingsPage: React.FC = () => {
           alignItems: 'stretch'
         }}
       >
-        <AppearanceCard />
+        <AppearanceCard onOpenGallery={() => setGalleryOpen(true)} />
         <LibrariesCard />
         <DAClientCard />
         <BrigidAssetsCard />
@@ -1181,7 +1204,7 @@ const SettingsPage: React.FC = () => {
         <AssetPacksCard />
         <AboutCard onOpen={() => setAboutOpen(true)} />
       </Box>
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      {aboutDialog}
     </Box>
   )
 }

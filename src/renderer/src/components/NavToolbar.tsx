@@ -22,9 +22,17 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useCompanionStatus } from '../hooks/useCompanionStatus'
 import { useUiStore, Page } from '../store/uiStore'
 import { worldName } from '../hooks/useCatalog'
-import { ENGRAVE, engraveIcons, useEngraved } from './chromeEngrave'
+import { chromeKind, navButtonSx, type ChromeKind } from './titleChrome'
 
-const iconSx = {
+/**
+ * The size and the soft dark outline of the game-icons glyphs, and the tight
+ * spacing of the row. These are layout only. The colours, the hover and the
+ * current-page mark are the house `navButtonSx` (titleChrome.ts): the bar's
+ * text colour at rest, the house hover of each chrome kind, and a light wash
+ * with a ring for the current page (HTOO-572).
+ */
+const layoutSx = {
+  mx: -0.5,
   '& svg': {
     fontSize: '1.4em',
     stroke: 'rgba(0,0,0,0.25)',
@@ -32,31 +40,15 @@ const iconSx = {
   }
 }
 
-// The bar is secondary.main, so its icons and caption take that colour's own
-// contrast text. text.button is for headings on the page.
-const btnSx = {
-  WebkitAppRegion: 'no-drag',
-  mx: -0.5,
-  color: 'secondary.contrastText',
-  ...iconSx,
-  '&:hover': {
-    backgroundColor: 'info.main',
-    color: 'text.dark'
-  }
-} as const
+/** A nav-bar button: the house colours and mark, with this bar's layout. */
+function navBtnSx(kind: ChromeKind, current = false): object {
+  return { ...navButtonSx(kind, current), ...layoutSx }
+}
 
-const activeBtnSx = {
-  ...btnSx,
-  // Tripled self-selector raises specificity so the active tint (secondary.dark)
-  // wins over any theme-level chrome icon color — e.g. the Mundanes theme forces
-  // all chrome IconButtons white. A no-op for themes without that override.
-  '&&&': { color: 'secondary.dark' },
-  backgroundColor: 'rgba(255,255,255,0.08)'
-} as const
-
-// Dark bar text is engraved, not outlined by the dark stroke: see chromeEngrave.ts.
-const engravedBtnSx = engraveIcons(btnSx)
-const engravedActiveBtnSx = engraveIcons(activeBtnSx)
+/** The chrome kind of the active theme: plain for the corporate themes. */
+function useChromeKind(): ChromeKind {
+  return chromeKind(useSettingsStore((s) => s.theme))
+}
 
 /**
  * One button per page. Each carries `nav-<page>`, because
@@ -68,15 +60,13 @@ const NavButton: React.FC<{ page: Page; title: string; icon: React.ReactElement 
   icon
 }) => {
   const active = useUiStore((s) => s.currentPage === page)
-  const engraved = useEngraved()
+  const kind = useChromeKind()
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   return (
     <Tooltip title={title}>
       <IconButton
         data-testid={`nav-${page}`}
-        sx={
-          active ? (engraved ? engravedActiveBtnSx : activeBtnSx) : engraved ? engravedBtnSx : btnSx
-        }
+        sx={navBtnSx(kind, active)}
         onClick={() => setCurrentPage(page)}
       >
         {icon}
@@ -90,25 +80,33 @@ const NavToolbar: React.FC = () => {
   const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const libName = activeLibrary ? worldName(activeLibrary) : null
   const { found: companionFound } = useCompanionStatus()
-  const engraved = useEngraved()
-  const barBtnSx = engraved ? engravedBtnSx : btnSx
+  const barBtnSx = navBtnSx(useChromeKind())
 
   return (
-    <Toolbar variant="dense" sx={{ bgcolor: 'secondary.main', minHeight: 40, opacity: 0.9 }}>
+    // No opacity on the bar or its captions: a fade is not in the computed
+    // colour, and it took the captions below 4.5:1 on screen in hybrasyl,
+    // danaan and grinneal. The caption variant and the letter-spacing keep the
+    // captions quiet (HTOO-572).
+    //
+    // The bar paints tertiary.main, so it reads as its own bar; with
+    // secondary.main, the title bar's colour, the two read as one band. Its
+    // text keeps secondary.contrastText, which tertiary.contrastText repeats
+    // (HTOO-629).
+    <Toolbar variant="dense" sx={{ bgcolor: 'tertiary.main', minHeight: 40 }}>
       {libName ? (
         <Typography
           variant="caption"
-          sx={{
-            color: 'secondary.contrastText',
-            opacity: 0.7,
-            letterSpacing: '0.03em',
-            textShadow: engraved ? ENGRAVE : 'none'
-          }}
+          sx={{ color: 'secondary.contrastText', letterSpacing: '0.03em' }}
         >
           Current Library: <strong>{libName}</strong>
         </Typography>
       ) : (
-        <Typography variant="caption" sx={{ color: 'text.disabled', opacity: 0.5 }}>
+        // The bar's text colour, like the caption above. text.disabled is a
+        // page colour: on danaan's bar it was 1.4:1 (HTOO-572).
+        <Typography
+          variant="caption"
+          sx={{ color: 'secondary.contrastText', letterSpacing: '0.03em' }}
+        >
           No library selected
         </Typography>
       )}

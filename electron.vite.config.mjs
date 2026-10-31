@@ -27,7 +27,8 @@ export default defineConfig(({ command }) => ({
     // the double-ship. See the document repo's ecosystem-rollout-checklist.md R-002.
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src')
+        '@renderer': resolve('src/renderer/src'),
+        '@shared': resolve('src/shared')
       }
     },
     plugins: [react()],

@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { ThemeProvider, Chip } from '@mui/material'
 import { themesByName } from '../index'
-import type { ThemeName } from '../../store/settingsStore'
+import type { ThemeName } from '@shared/types'
 
 const THEME_NAMES = Object.keys(themesByName) as ThemeName[]
 
@@ -16,8 +16,8 @@ function rgb(hex: string): string {
 /**
  * A coloured chip shows its colour (HTOO-355).
  *
- * Settings and the world map editor mark a selected chip with
- * `color="primary"`, and status chips use `warning` or `success`. Every theme's
+ * An app marks a selected chip with `color="primary"`, and a status chip uses
+ * `warning` or `success`. Every theme's
  * MuiChip override set a tinted fill and an accent text colour on `root`, and
  * that beat MUI's own fill for every colour: a selected or a warning chip
  * rendered exactly like a plain one, in all six themes. The palette test could
@@ -51,4 +51,22 @@ describe('a coloured chip', () => {
       )
     }
   )
+
+  it.each(THEME_NAMES)("%s: a plain chip's own sx colour beats the theme's tint", (name) => {
+    // The tint was under `&.MuiChip-colorDefault`: two classes, against one for
+    // a top-level sx colour. Oghma's board chips and the website's selected
+    // filter set their colours in sx, and drew as plain chips (HTOO-572).
+    const theme = themesByName[name]
+    const { getByTestId } = render(
+      <ThemeProvider theme={theme}>
+        <Chip data-testid="own" label="P1" sx={{ bgcolor: '#123456', color: '#fedcba' }} />
+        <Chip data-testid="plain" label="tag" />
+      </ThemeProvider>
+    )
+    const own = getComputedStyle(getByTestId('own'))
+    expect(own.backgroundColor).toBe(rgb('#123456'))
+    expect(own.color).toBe(rgb('#fedcba'))
+    // A plain chip with no sx still takes the theme's tint.
+    expect(getComputedStyle(getByTestId('plain')).backgroundColor).not.toBe(rgb('#123456'))
+  })
 })

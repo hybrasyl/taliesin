@@ -33,6 +33,29 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → Appearance → Theme gallery** shows each type of control in the theme that you use, on the page and on a card. Under each control, the gallery shows its measured contrast. Use it to examine a theme. **Back** returns to Settings.
+
+### Changed
+
+- **The nav bar has its own colour.** Before, it had the colour of the title bar, and the two bars looked like one bar. Its icons and captions keep the colour of the title bar text.
+- **The Danaan and Grinneal title bars and nav bars are dark.** The Danaan bars are bronze and the Grinneal bars are brown. The bar text and icons are light, with a black outline, as on Hybrasyl and Chadul. The engraved text is removed.
+- **The accent colour and the status colours are easy to read as text.** In every theme, the accent colour and the error, warning, info and success colours now have a contrast of 4.5:1 or more against the page and against cards. Chadul, Danaan, Mundanes and Dubhaimid have new accent colours. Danaan and Mundanes have darker status colours, so that they show clearly on the light page. In Chadul and Dubhaimid, filled buttons and selected chips now have dark labels.
+- **Sliders, selection marks and play indicators use the accent colour.** Before, sliders, the selected tile and palette variant, and the "playing" indicators used the bar colour, which did not show clearly on the page in every theme.
+- **The scrollbars use the colours of the theme.** Before, they used the old accent colours.
+
+### Fixed
+
+- **Destructive buttons show their colour.** In Hybrasyl, Chadul, Danaan and Grinneal, every button had the theme's button colour, so a **Delete** button looked like any other button. Error and warning buttons now show their own colour.
+- **The close button on the title bar turns red under the pointer.** In Hybrasyl, Chadul, Danaan and Grinneal, it showed the skull on cyan, which was almost not visible.
+- **The nav bar shows the open page.** The button of the open page took a colour near the bar colour, and in five themes it was almost not visible. Now it keeps the bar's text colour, on a light background with a ring inside its edge: the house mark for the current page. The nav bar and its captions are no longer faded, and the "No library selected" caption now uses the bar's text colour.
+- **The update notice shows its link, its close button and its icon in the colour of its text.** Before, the **View release** link and the close button used the accent colour on the accent fill. Labels on filled chips and filled alerts now have enough contrast against their fill.
+- **Visited links and page numbers are easy to read.** Visited links in Hybrasyl and Chadul, and links in Mundanes and Dubhaimid, now have a contrast of 4.5:1 or more. Mundanes and Dubhaimid links were the browser's default blue. The page-number buttons read at rest, under the pointer and when selected, and a selected page keeps its fill under the pointer.
+- **A clickable plain chip keeps its fill under the pointer**, for example an unset spawn flag or Place chip in the Map XML Editor. It shows the hover in its border.
+- **The file-type chips in the Music Manager are easy to read.** The OGG and FLAC chips drew the bar colour as text on the page. All the file-type chips are now filled.
+- **The Collision Map window in the Map Maker:** its title and close button now use the bar's text colour.
+
 ## [2.14.0] - 2026-10-11
 
 ### Added

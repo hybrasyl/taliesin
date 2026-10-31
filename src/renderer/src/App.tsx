@@ -33,39 +33,6 @@ const themes: Record<ThemeName, Theme> = {
   dubhaimid: dubhaimidTheme
 }
 
-const scrollbarColors: Record<ThemeName, { thumb: string; thumbHover: string; track: string }> = {
-  hybrasyl: {
-    thumb: 'rgba(58,158,144,0.5)',
-    thumbHover: 'rgba(58,158,144,0.8)',
-    track: 'rgba(6,12,18,0.4)'
-  },
-  chadul: {
-    thumb: 'rgba(46,122,58,0.5)',
-    thumbHover: 'rgba(46,122,58,0.8)',
-    track: 'rgba(4,14,6,0.4)'
-  },
-  danaan: {
-    thumb: 'rgba(184,146,42,0.5)',
-    thumbHover: 'rgba(184,146,42,0.8)',
-    track: 'rgba(200,180,120,0.3)'
-  },
-  grinneal: {
-    thumb: 'rgba(106,122,80,0.5)',
-    thumbHover: 'rgba(106,122,80,0.8)',
-    track: 'rgba(22,18,14,0.4)'
-  },
-  mundanes: {
-    thumb: 'rgba(25,118,210,0.5)',
-    thumbHover: 'rgba(25,118,210,0.8)',
-    track: 'rgba(201,205,212,0.4)'
-  },
-  dubhaimid: {
-    thumb: 'rgba(92,139,196,0.5)',
-    thumbHover: 'rgba(92,139,196,0.8)',
-    track: 'rgba(30,30,30,0.4)'
-  }
-}
-
 export default function App(): React.ReactElement {
   const theme = useSettingsStore((s) => s.theme)
   const clientPath = useSettingsStore((s) => s.clientPath)
@@ -81,14 +48,17 @@ export default function App(): React.ReactElement {
   // The same moment as `settingsLoaded`, as state: the macOS menu starts then.
   const [hydrated, setHydrated] = useState(false)
 
-  // Sync scrollbar CSS custom properties with active theme
+  // Push the scrollbar colours onto :root as CSS variables, so that the
+  // scrollbars follow the active theme. assets/main.css reads them. They come
+  // from the theme, as in the house template: the old fixed table followed the
+  // old accents (HTOO-572).
+  const muiTheme = themes[theme] ?? hybrasylTheme
   useEffect(() => {
-    const colors = scrollbarColors[theme] ?? scrollbarColors.hybrasyl
     const root = document.documentElement
-    root.style.setProperty('--scrollbar-thumb', colors.thumb)
-    root.style.setProperty('--scrollbar-thumb-hover', colors.thumbHover)
-    root.style.setProperty('--scrollbar-track', colors.track)
-  }, [theme])
+    root.style.setProperty('--scrollbar-thumb', muiTheme.palette.background.scrollbarDark)
+    root.style.setProperty('--scrollbar-thumb-hover', muiTheme.palette.background.scrollbarLight)
+    root.style.setProperty('--scrollbar-track', muiTheme.palette.background.paperDark)
+  }, [muiTheme])
 
   // Hydrate the settings store from disk on mount, then reveal the window.
   // The store owns persistence (a debounced subscribe pushes changes back), so
@@ -209,7 +179,7 @@ export default function App(): React.ReactElement {
   const handleCloseCancel = useCallback(() => setClosePrompt(null), [])
 
   return (
-    <ThemeProvider theme={themes[theme] ?? hybrasylTheme}>
+    <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <MainLayout>
         <PageRenderer />

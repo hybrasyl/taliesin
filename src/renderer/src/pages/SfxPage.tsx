@@ -262,7 +262,7 @@ const SfxPage: React.FC = () => {
             variant="caption"
             noWrap
             sx={{
-              color: 'secondary.light',
+              color: 'primary.main',
               flex: 1
             }}
           >

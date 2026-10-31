@@ -8,10 +8,14 @@ const lin = (c: number): number => {
   return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
 }
 
-/** `#rrggbb`, or `rgb(a)(r, g, b[, a])` as a palette or getComputedStyle gives it. */
+/**
+ * `#rrggbb`, `#rgb` (MUI's own `#fff`), or `rgb(a)(r, g, b[, a])` as a palette
+ * or getComputedStyle gives it.
+ */
 export function parseColor(color: string): [number, number, number, number] {
   const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?/i)
   if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])]
+  if (/^#[0-9a-f]{3}$/i.test(color)) color = color.replace(/[0-9a-f]/gi, (d) => d + d)
   if (!/^#[0-9a-f]{6}$/i.test(color)) throw new Error(`not a colour this test reads: ${color}`)
   return [
     parseInt(color.slice(1, 3), 16),
@@ -19,6 +23,17 @@ export function parseColor(color: string): [number, number, number, number] {
     parseInt(color.slice(5, 7), 16),
     1
   ]
+}
+
+/** A colour drawn over `under` (opaque), as `#rrggbb`. */
+export function blend(color: string, under: string): string {
+  const [r, g, b, a] = parseColor(color)
+  const [ur, ug, ub] = parseColor(under)
+  const mix = (c: number, u: number): string =>
+    Math.round(c * a + u * (1 - a))
+      .toString(16)
+      .padStart(2, '0')
+  return `#${mix(r, ur)}${mix(g, ug)}${mix(b, ub)}`
 }
 
 /** Relative luminance of a colour drawn over `under` (opaque) when it is translucent. */

@@ -1,8 +1,11 @@
-import type { Theme } from '@mui/material'
-import type { ThemeName } from '../store/settingsStore'
+// Side-effect imports inject the @font-face rules so MUI's typography
+// can resolve "Cinzel" / "Cinzel Decorative" / "Crimson Pro". Without these
+// the browser falls back to the sans-serif stack and the fonts look wrong.
 import '@fontsource/cinzel'
 import '@fontsource/cinzel-decorative'
 import '@fontsource/crimson-pro'
+import type { Theme } from '@mui/material/styles'
+import type { ThemeName } from '@shared/types'
 
 import hybrasylTheme from './hybrasyl'
 import chadulTheme from './chadul'
@@ -13,8 +16,9 @@ import dubhaimidTheme from './dubhaimid'
 
 export { hybrasylTheme, chadulTheme, danaanTheme, grinnealTheme, mundanesTheme, dubhaimidTheme }
 
-// name → MUI theme, so the ThemePicker can paint each preview card in that
-// theme's own palette (mirrors the map App.tsx feeds to ThemeProvider).
+// name → MUI theme, so a ThemePicker (or anything else) can paint a preview in
+// that theme's own palette without making it the active theme. Mirrors the map
+// App.tsx feeds to ThemeProvider.
 export const themesByName: Record<ThemeName, Theme> = {
   hybrasyl: hybrasylTheme,
   chadul: chadulTheme,
