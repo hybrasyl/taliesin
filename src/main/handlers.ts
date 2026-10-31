@@ -17,6 +17,8 @@ import {
   saveIndex,
   getIndexStatus,
   deleteIndex,
+  listIndexCaches,
+  pruneIndexCaches,
   listSectionFiles
 } from '@eriscorp/hybindex-ts'
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
@@ -1179,6 +1181,17 @@ export async function indexDelete(ctx: HandlerContext, libraryRoot: string) {
   return deleteIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
 }
 
+// The index caches that a schema bump or a moved world left behind (HTOO-583).
+// The renderer sends nothing: hybindex-ts decides which caches are old, and it
+// never removes a cache of the current schema whose world exists.
+export async function indexListCaches() {
+  return listIndexCaches()
+}
+
+export async function indexPruneCaches() {
+  return pruneIndexCaches()
+}
+
 // ── Prefabs ──────────────────────────────────────────────────────────────────
 
 function prefabDir(libraryPath: string): string {
@@ -1953,6 +1966,8 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('index:build', (_, p) => indexBuild(ctx, p))
   ipcMain.handle('index:status', (_, p) => indexStatus(ctx, p))
   ipcMain.handle('index:delete', (_, p) => indexDelete(ctx, p))
+  ipcMain.handle('index:listCaches', () => indexListCaches())
+  ipcMain.handle('index:pruneCaches', () => indexPruneCaches())
   ipcMain.handle('library:resolve', (_, p) => libraryResolve(ctx, p))
 
   // Prefabs

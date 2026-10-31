@@ -122,6 +122,7 @@ declare global {
 
   // ── World index (shared format with Creidhne) ─────────────────────────────────
   type WorldIndex = import('@eriscorp/hybindex-ts').WorldIndex
+  type IndexCacheEntry = import('@eriscorp/hybindex-ts').IndexCacheEntry
 
   /** What the macOS menu greys out and marks (main's `menuStateSchema`, HTOO-569). */
   interface MenuState {
@@ -230,6 +231,8 @@ declare global {
       libraryRoot: string
     ) => Promise<{ exists: boolean; builtAt?: string; stale?: boolean }>
     indexDelete: (libraryRoot: string) => Promise<void>
+    indexListCaches: () => Promise<IndexCacheEntry[]>
+    indexPruneCaches: () => Promise<IndexCacheEntry[]>
     libraryResolve: (selectedPath: string) => Promise<string | null>
     prefabList: (libraryPath: string) => Promise<
       {

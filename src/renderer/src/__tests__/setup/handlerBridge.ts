@@ -340,6 +340,8 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     indexBuild: async (l) => (await handlers.indexBuild(handlerCtx, l)) as WorldIndex,
     indexStatus: (l) => handlers.indexStatus(handlerCtx, l),
     indexDelete: (l) => handlers.indexDelete(handlerCtx, l),
+    indexListCaches: () => handlers.indexListCaches(),
+    indexPruneCaches: () => handlers.indexPruneCaches(),
     libraryResolve: (p) => handlers.libraryResolve(handlerCtx, p),
 
     // Prefabs

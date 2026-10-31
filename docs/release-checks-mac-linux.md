@@ -42,15 +42,17 @@ A2 runs the e2e suite (HTOO-553). A3 proves that it does not touch the real sett
 
 The real locations:
 
-| OS    | Settings                                         | World index cache            |
-| ----- | ------------------------------------------------ | ---------------------------- |
-| macOS | `~/Library/Application Support/Erisco/Taliesin/` | `~/.config/Erisco/hybindex/` |
-| Linux | `~/.config/Erisco/Taliesin/`                     | `~/.config/Erisco/hybindex/` |
+| OS    | Settings                                         | World index cache                                |
+| ----- | ------------------------------------------------ | ------------------------------------------------ |
+| macOS | `~/Library/Application Support/Erisco/Taliesin/` | `~/Library/Application Support/Erisco/hybindex/` |
+| Linux | `~/.config/Erisco/Taliesin/`                     | `~/.config/Erisco/hybindex/`                     |
+
+hybindex-ts 1.2.0 moved the macOS cache from `~/.config/Erisco/hybindex/` (HTOO-586). On macOS, hash the old folder too, if it exists: an e2e run must not change either one.
 
 ```bash
 unset ELECTRON_RUN_AS_NODE
 S="<settings dir from the table>"
-H=~/.config/Erisco/hybindex
+H="<world index cache dir from the table>"
 T=$(mktemp -d)
 ls -d "$S" "$H"     # say in the report which ones exist
 find "$S" "$H" -type f -exec sha256sum {} + 2>/dev/null | sort > "$T/before.txt"
@@ -64,9 +66,9 @@ If `sha256sum` is missing, use `shasum -a 256`.
 
 Expected for A2:
 
-- **macOS:** 17 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
-- **Linux:** 12 passed and 5 skipped. The skips are `app-menu.spec.js`.
-- On Windows the result is also 12 passed and 5 skipped.
+- **macOS:** 19 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
+- **Linux:** 14 passed and 5 skipped. The skips are `app-menu.spec.js`.
+- On Windows the result is also 14 passed and 5 skipped.
 
 A different total means that a spec was added or was not collected. Say so in the report.
 

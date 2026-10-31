@@ -87,6 +87,8 @@ export function createMockApi(): MockApi {
     'indexBuild',
     'indexStatus',
     'indexDelete',
+    'indexListCaches',
+    'indexPruneCaches',
     'libraryResolve',
     // Prefabs
     'prefabList',

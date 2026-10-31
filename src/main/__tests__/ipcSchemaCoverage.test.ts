@@ -125,6 +125,11 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
   'index:build': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'index:status': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'index:delete': { category: 'path-only', reason: 'assertInsideAnyRoot' },
+  'index:listCaches': { category: 'no-payload', reason: 'lists the index cache base' },
+  'index:pruneCaches': {
+    category: 'no-payload',
+    reason: 'hybindex-ts picks the old caches; the renderer names none'
+  },
   'library:resolve': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'prefab:list': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'prefab:load': { category: 'path-only', reason: 'library root + filename via assertInside' },

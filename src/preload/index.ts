@@ -251,6 +251,10 @@ const api = {
   }> => ipcRenderer.invoke('index:status', libraryRoot),
   indexDelete: (libraryRoot: string): Promise<void> =>
     ipcRenderer.invoke('index:delete', libraryRoot),
+  // The caches that hybindex-ts marks as old, and their removal (HTOO-583). No
+  // argument: the renderer names no cache.
+  indexListCaches: (): Promise<unknown[]> => ipcRenderer.invoke('index:listCaches'),
+  indexPruneCaches: (): Promise<unknown[]> => ipcRenderer.invoke('index:pruneCaches'),
   libraryResolve: (selectedPath: string): Promise<string | null> =>
     ipcRenderer.invoke('library:resolve', selectedPath),
 

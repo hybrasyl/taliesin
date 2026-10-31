@@ -11,9 +11,7 @@ Taliesin and Creidhne share one world index, which `@eriscorp/hybindex-ts` build
 world library folder in each application. The index then stays in sync, so map names, NPC lists
 and other cross-references are available in both tools.
 
-The applications can rebuild the index, so it is kept in local storage
-(`%LOCALAPPDATA%\Erisco\hybindex\`), not in the world folder that git controls. Both find the same
-cache, because its key comes from the path of the world. Builds are incremental.
+The applications can rebuild the index, so it is kept in local storage (`%LOCALAPPDATA%\Erisco\hybindex\`), not in the world folder that git controls. Both find the same cache, because its key comes from the path of the world. Builds are incremental. On macOS the cache is in `~/Library/Application Support/Erisco/hybindex/`, and on Linux in `~/.config/Erisco/hybindex/`. A new index version or a moved world leaves an old index behind: **Settings → World indexes** lists the old indexes and removes them when you ask.
 
 > For far too long, previous members of the dev team maintained that a tool like this could not exist due to the complexity of the underlying XML structures. Recent advances in machine learning and latent space navigation have shown this to be demonstrably false.
 
