@@ -207,4 +207,6 @@ All of A1 to A5 and B1 to B9 apply.
 
 The Windows checks for #101 to #114 are in each PR.
 
-**Linux is done** (2026-10-31, at `6ba9903`; the results are on each card and on HTOO-239). A1 failed on one test, which is fixed on `main` after `6ba9903`; run A1 again on macOS at the newer commit. Everything else passed, and B5 passed by eye. **Owed: macOS**, A1 to A5, B1 to B3 and B7 to B9.
+**Linux is done** (2026-10-31, at `6ba9903`; the results are on each card and on HTOO-239). A1 failed on one test, which is fixed on `main` after `6ba9903`; run A1 again on macOS at the newer commit. Everything else passed, and B5 passed by eye.
+
+**macOS is done** (2026-10-31, at `07ee8b9`, macOS 27.0.1). A1 to A5, B1 to B3 and B7 to B9 passed; A1 ran 2563 of 2563, and A2 21 passed. One finding, not blocking: a disabled icon button keeps the theme's icon accent in the four decorated themes (HTOO-639, a template fix). **Nothing is owed** from the Mac and Linux pass.
