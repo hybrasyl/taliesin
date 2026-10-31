@@ -112,6 +112,18 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
   'fs:ensureDir': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'fs:deleteFile': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'fs:trashFile': { category: 'path-only', reason: 'assertInsideAnyRoot' },
+  'staging:listMaps': {
+    category: 'path-only',
+    reason: 'library and its staging root via assertInsideAnyRoot (HTOO-634)'
+  },
+  'staging:stageMap': {
+    category: 'path-only',
+    reason: 'main builds both ends from the library; `rel` via assertInside against each'
+  },
+  'staging:releaseMap': {
+    category: 'path-only',
+    reason: 'main builds both ends from the library; `rel` via assertInside against each'
+  },
   'fs:listArchive': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'catalog:load': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'catalog:scan': { category: 'path-only', reason: 'assertInsideAnyRoot' },

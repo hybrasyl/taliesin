@@ -24,6 +24,7 @@ import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
 import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import PendingActionsIcon from '@mui/icons-material/PendingActions'
+import PublishIcon from '@mui/icons-material/Publish'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
@@ -55,14 +56,17 @@ export const FILE_LIST_WIDTH = 240
 export interface PanelFile extends TreeFile {
   path: string
   archived?: boolean
+  /** In `<world>/.staging/<type>/` (HTOO-634). */
+  staged?: boolean
 }
 
-type SetKey = 'active' | 'archived'
+type SetKey = 'active' | 'staged' | 'archived'
 
 /** An item action the page has, which does not apply to the selection. The
  *  string is the tooltip that says why. */
 export interface DisabledActions {
   archive?: string
+  stage?: string
   copy?: string
   delete?: string
 }
@@ -105,9 +109,11 @@ export interface EditorFileListPanelProps<T extends PanelFile> {
   onDelete?: (file: T) => void
   /** Item actions the page has that do not apply to the selection. */
   disabledActions?: DisabledActions
-  /** Show the Stage button, disabled: the page takes staging later
-   *  (HTOO-634). */
-  stagingPending?: boolean
+  /** Staging (HTOO-634). A page that passes `onStage` and `onRelease` gets the
+   *  Staged set and the Stage action, which is Release for a staged file. */
+  stagedFiles?: T[]
+  onStage?: (file: T) => void
+  onRelease?: (file: T) => void
   /** The page's editor column. */
   children: React.ReactNode
 }
@@ -142,7 +148,7 @@ function ToolbarButton({
  * `EditorFileListPanel.jsx`): a toolbar across the page, the file list on the
  * left, and the page's editor column (`children`) on the right.
  *
- *   (Page name) | (New) | (Flat) (Archived) (Active) | (Archive) (Stage) (Copy) (Delete)
+ *   (Page name) | (New) | (Flat) (Staged) (Archived) (Active) | (Archive) (Stage) (Copy) (Delete)
  *
  * One component owns the toolbar and the list, because the toolbar's item
  * actions act on the list's selection. It also puts the alerts provider
@@ -155,7 +161,9 @@ function ToolbarButton({
  *
  * The selection is the open file, one at a time: Taliesin's editors do not take
  * Creidhne's multi-select. An item action is enabled only when it applies to
- * the open file. Archive becomes Unarchive for an archived file.
+ * the open file. Archive becomes Unarchive for an archived file, and Stage
+ * becomes Release for a staged file. Staging has no archive, so a staged file
+ * cannot be archived, and an archived file cannot be staged.
  *
  * The list is not virtualized. Its rows are real ListItemButtons, so they hold
  * focus themselves and Enter and Space activate them. Folder mode groups each
@@ -182,7 +190,9 @@ export default function EditorFileListPanel<T extends PanelFile>({
   onDuplicate,
   onDelete,
   disabledActions = {},
-  stagingPending,
+  stagedFiles = [],
+  onStage,
+  onRelease,
   children
 }: EditorFileListPanelProps<T>): React.ReactElement {
   const [search, setSearch] = useState('')
@@ -198,6 +208,7 @@ export default function EditorFileListPanel<T extends PanelFile>({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 
   const hasArchive = !!(onArchive || onUnarchive)
+  const hasStaging = !!(onStage && onRelease)
   const folderMode = viewMode === 'folder'
   const query = search.trim().toLowerCase()
 
@@ -205,6 +216,7 @@ export default function EditorFileListPanel<T extends PanelFile>({
   const sections = useMemo(() => {
     const all: { key: SetKey; label: string; files: T[] }[] = [
       { key: 'active', label: 'Active', files },
+      { key: 'staged', label: 'Staged', files: stagedFiles },
       { key: 'archived', label: archivedLabel, files: archivedFiles }
     ]
     return all
@@ -214,7 +226,7 @@ export default function EditorFileListPanel<T extends PanelFile>({
         total: s.files.length,
         files: query ? s.files.filter((f) => matches(f, query)) : s.files
       }))
-  }, [files, archivedFiles, archivedLabel, shown, query, matches])
+  }, [files, stagedFiles, archivedFiles, archivedLabel, shown, query, matches])
 
   // The trees are built here rather than at render so that expanding one
   // folder does not re-group every file, and so the expand-all button can read
@@ -352,7 +364,18 @@ export default function EditorFileListPanel<T extends PanelFile>({
   const archiveKind = selected?.archived ? 'unarchive' : 'archive'
   const archiveHandler = archiveKind === 'unarchive' ? onUnarchive : onArchive
   const archiveText = archiveKind === 'unarchive' ? unarchiveLabel : archiveLabel
-  const archiveEnabled = !!selected && !!archiveHandler && !disabledActions.archive
+  // Staging has no archive, as in Creidhne: Release, then Archive.
+  const archiveReason =
+    disabledActions.archive ??
+    (selected?.staged ? `Release this ${entityLabel} before you archive it` : undefined)
+  const archiveEnabled = !!selected && !!archiveHandler && !archiveReason
+  const stageKind = selected?.staged ? 'release' : 'stage'
+  const stageHandler = stageKind === 'release' ? onRelease : onStage
+  const stageText = stageKind === 'release' ? 'Release' : 'Stage'
+  const stageReason =
+    disabledActions.stage ??
+    (selected?.archived ? `Unarchive this ${entityLabel} before you stage it` : undefined)
+  const stageEnabled = !!selected && !!stageHandler && !stageReason
   const copyEnabled = !!selected && !!onDuplicate && !disabledActions.copy
   const deleteEnabled = !!selected && !!onDelete && !disabledActions.delete
   const why = (action: string, enabled: boolean, reason?: string): string =>
@@ -363,6 +386,7 @@ export default function EditorFileListPanel<T extends PanelFile>({
         : (reason ?? `${action} does not apply to this ${entityLabel}`)
 
   const toggles = [
+    hasStaging && { key: 'staged' as const, label: 'Staged', count: stagedFiles.length },
     hasArchive && { key: 'archived' as const, label: archivedLabel, count: archivedFiles.length },
     { key: 'active' as const, label: 'Active', count: files.length }
   ].filter((t): t is { key: SetKey; label: string; count: number } => !!t)
@@ -482,7 +506,7 @@ export default function EditorFileListPanel<T extends PanelFile>({
 
           {hasArchive && (
             <ToolbarButton
-              title={why(archiveText, archiveEnabled, disabledActions.archive)}
+              title={why(archiveText, archiveEnabled, archiveReason)}
               label={archiveText}
               disabled={!archiveEnabled}
               onClick={() => selected && archiveHandler?.(selected)}
@@ -494,14 +518,18 @@ export default function EditorFileListPanel<T extends PanelFile>({
               )}
             </ToolbarButton>
           )}
-          {stagingPending && (
+          {hasStaging && (
             <ToolbarButton
-              title="Staging is not available yet"
-              label="Stage"
-              disabled
-              onClick={() => {}}
+              title={why(stageText, stageEnabled, stageReason)}
+              label={stageText}
+              disabled={!stageEnabled}
+              onClick={() => selected && stageHandler?.(selected)}
             >
-              <PendingActionsIcon fontSize="small" />
+              {stageKind === 'release' ? (
+                <PublishIcon fontSize="small" />
+              ) : (
+                <PendingActionsIcon fontSize="small" />
+              )}
             </ToolbarButton>
           )}
           {!!onDuplicate && (

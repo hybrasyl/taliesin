@@ -19,7 +19,8 @@ import {
   deleteIndex,
   listIndexCaches,
   pruneIndexCaches,
-  listSectionFiles
+  listSectionFiles,
+  isArchivedPath
 } from '@eriscorp/hybindex-ts'
 import type { WorldIndex } from '@eriscorp/hybindex-ts'
 import { resolveLibraryPath } from './libraryPath'
@@ -55,6 +56,7 @@ import { assertInside, assertInsideAnyRoot } from './pathSafety'
 import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
 import { parseOrLog } from './schemaLog'
 import { renameWithRetry } from './renameRetry'
+import { listStagedMaps, stagingRootFor, type StagedMap } from './mapStaging'
 import {
   taliesinSettingsSchema,
   paletteSchema,
@@ -455,6 +457,8 @@ export interface WarpReferrer {
   count: number
   /** Which section it lives in — `maps`, `nations`, `serverconfigs`, … */
   section: string
+  /** Set when the file is in `.staging/<section>/`, not in the live tree. */
+  staged?: true
 }
 
 /**
@@ -482,28 +486,48 @@ export interface WarpReferrer {
  * Archived files under `.ignore/` are not scanned. They are out of service, so
  * their references resolve against nothing either way; the trade is that
  * unarchiving one later can surface a reference this pass did not fix.
+ *
+ * **The staging root too** (HTOO-635), after the live tree, as Creidhne's rename
+ * repair walks it. A staged file often names a live map. A rename that skipped
+ * it would leave the old name in the file, and the fault would show only on the
+ * day the file is released. Taliesin stages maps, and Creidhne stages nations,
+ * server configs and items, so every section is walked there.
  */
 async function eachReferenceSection(
   ctx: HandlerContext,
   libraryPath: string,
-  visit: (rules: SectionRules, dir: string, rel: string, xml: string) => Promise<void> | void
+  visit: (
+    rules: SectionRules,
+    dir: string,
+    rel: string,
+    xml: string,
+    staged: boolean
+  ) => Promise<void> | void
 ): Promise<void> {
-  for (const rules of MAP_REFERENCE_SECTIONS) {
-    let dir: string
-    let active: string[]
-    try {
-      ;({ dir, active } = await listSection(ctx, libraryPath, rules.section))
-    } catch {
-      continue // section absent from this world
-    }
-    for (const rel of active) {
-      let xml: string
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  for (const [root, staged] of [
+    [safeLib, false],
+    [stagingRootFor(safeLib), true]
+  ] as const) {
+    for (const rules of MAP_REFERENCE_SECTIONS) {
+      let dir: string
+      let active: string[]
       try {
-        xml = await fs.readFile(join(dir, rel), 'utf8')
+        // listSection checks the root against the allowed roots, so the
+        // staging root passes only inside a world that the settings name.
+        ;({ dir, active } = await listSection(ctx, root, rules.section))
       } catch {
-        continue // unreadable file: not a referrer we can report on
+        continue // section absent from this world
       }
-      await visit(rules, dir, rel, xml)
+      for (const rel of active) {
+        let xml: string
+        try {
+          xml = await fs.readFile(join(dir, rel), 'utf8')
+        } catch {
+          continue // unreadable file: not a referrer we can report on
+        }
+        await visit(rules, dir, rel, xml, staged)
+      }
     }
   }
 }
@@ -515,9 +539,11 @@ export async function scanWarpReferrers(
 ): Promise<WarpReferrer[]> {
   const mapName = parseOrLog(ctx, 'maps:scanWarpReferrers', mapNameSchema, rawMapName)
   const referrers: WarpReferrer[] = []
-  await eachReferenceSection(ctx, libraryPath, (rules, _dir, rel, xml) => {
+  await eachReferenceSection(ctx, libraryPath, (rules, _dir, rel, xml, staged) => {
     const count = countReferencesTo(xml, mapName, rules.rules)
-    if (count > 0) referrers.push({ file: rel, count, section: rules.section })
+    if (count > 0) {
+      referrers.push({ file: rel, count, section: rules.section, ...(staged && { staged }) })
+    }
   })
   return referrers
 }
@@ -544,17 +570,84 @@ export async function updateWarpTargets(
   const newName = parseOrLog(ctx, 'maps:updateWarpTargets', mapNameSchema, rawNewName)
   const updated: WarpReferrer[] = []
   const failed: string[] = []
-  await eachReferenceSection(ctx, libraryPath, async (rules, dir, rel, xml) => {
+  await eachReferenceSection(ctx, libraryPath, async (rules, dir, rel, xml, staged) => {
     const result = rewriteReferences(xml, oldName, newName, rules.rules)
     if (result.changed === 0) return
     try {
       await fs.writeFile(join(dir, rel), result.xml, 'utf8')
-      updated.push({ file: rel, count: result.changed, section: rules.section })
+      updated.push({
+        file: rel,
+        count: result.changed,
+        section: rules.section,
+        ...(staged && { staged })
+      })
     } catch {
-      failed.push(rel)
+      failed.push(staged ? `${rel} (staged)` : rel)
     }
   })
   return { updated, failed }
+}
+
+// ── Map staging (HTOO-634) ───────────────────────────────────────────────────
+// `<world>/.staging/maps/`, beside `xml/` (mapStaging.ts). Main computes both
+// ends of each move from the library and the map's maps-relative path, so the
+// renderer can move a map only to the other side of the maps folder.
+
+/** The staged maps of the library, with each one's name, Id and warp targets. */
+export async function stagingListMaps(
+  ctx: HandlerContext,
+  libraryPath: string
+): Promise<{ dir: string; files: StagedMap[] }> {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  assertInsideAnyRoot(allRoots(ctx), stagingRootFor(safeLib))
+  return listStagedMaps(safeLib)
+}
+
+/**
+ * Move one map XML from `fromDir` to the same relative path under `toDir`.
+ * `moveFile` refuses a destination that holds another file, and checks both
+ * paths against the allowed roots.
+ *
+ * An archived map is refused: it is out of service, and Unarchive is its way
+ * back. Staging has no archive. Only an `.xml` file moves, so a `rel` of `''`
+ * or `.` cannot move the folder itself.
+ */
+async function transferMap(
+  ctx: HandlerContext,
+  fromDir: string,
+  toDir: string,
+  rel: string
+): Promise<{ path: string }> {
+  if (typeof rel !== 'string' || !/\.xml$/i.test(rel)) {
+    throw new Error(`Only a map XML can be staged or released: "${String(rel)}"`)
+  }
+  if (isArchivedPath(rel.replace(/\\/g, '/'))) {
+    throw new Error(`"${rel}" is archived. Unarchive it first.`)
+  }
+  const src = assertInside(fromDir, rel)
+  const dst = assertInside(toDir, rel)
+  await moveFile(ctx, src, dst)
+  return { path: dst.replace(/\\/g, '/') }
+}
+
+/** Live → staged: `xml/maps/<rel>` to `.staging/maps/<rel>`. */
+export async function stagingStageMap(
+  ctx: HandlerContext,
+  libraryPath: string,
+  rel: string
+): Promise<{ path: string }> {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  return transferMap(ctx, join(safeLib, 'maps'), join(stagingRootFor(safeLib), 'maps'), rel)
+}
+
+/** Staged → live: `.staging/maps/<rel>` to `xml/maps/<rel>`. */
+export async function stagingReleaseMap(
+  ctx: HandlerContext,
+  libraryPath: string,
+  rel: string
+): Promise<{ path: string }> {
+  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  return transferMap(ctx, join(stagingRootFor(safeLib), 'maps'), join(safeLib, 'maps'), rel)
 }
 
 export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
@@ -1966,6 +2059,9 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:listSection', (_, p, t) => listSection(ctx, p, t))
   ipcMain.handle('maps:scanWarpReferrers', (_, p, n) => scanWarpReferrers(ctx, p, n))
   ipcMain.handle('maps:updateWarpTargets', (_, p, o, n) => updateWarpTargets(ctx, p, o, n))
+  ipcMain.handle('staging:listMaps', (_, p) => stagingListMaps(ctx, p))
+  ipcMain.handle('staging:stageMap', (_, p, r) => stagingStageMap(ctx, p, r))
+  ipcMain.handle('staging:releaseMap', (_, p, r) => stagingReleaseMap(ctx, p, r))
   ipcMain.handle('fs:copyFile', (_, s, d) => copyFile(ctx, s, d))
   ipcMain.handle('fs:moveFile', (_, s, d) => moveFile(ctx, s, d))
   ipcMain.handle('fs:writeFile', (_, p, c) => writeFile(ctx, p, c))

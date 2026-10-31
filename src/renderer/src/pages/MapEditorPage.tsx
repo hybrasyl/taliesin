@@ -28,11 +28,13 @@ import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import MapEditorPanel from '../components/mapeditor/MapEditorPanel'
 import RenameReferrersDialog, { type Referrer } from '../components/mapeditor/RenameReferrersDialog'
 import EditorFileListPanel from '../components/shared/EditorFileListPanel'
+import { useChoiceDialog } from '../components/shared/ChoiceDialog'
 import { RowTooltip } from '../components/shared/RowTooltip'
 import DimensionPickerDialog from '../components/catalog/DimensionPickerDialog'
 import { parseMapXml, serializeMapXml } from '../utils/mapXml'
 import { activeRel, baseName, displayName, joinRel, relFolder } from '../utils/mapFileRel'
 import { folderOptions } from '../utils/fileTree'
+import { describeClash, mapNameKey, planRelease, releaseClashes } from '../utils/mapStaging'
 import { DEFAULT_MAP, type MapData } from '../data/mapData'
 
 interface FileEntry {
@@ -49,6 +51,8 @@ interface FileEntry {
   mapName?: string
   mapId?: number
   archived?: boolean
+  /** In `<world>/.staging/maps/` (HTOO-634). `rel` is relative to that folder. */
+  staged?: boolean
 }
 
 const MAPS_SUBDIR = 'maps'
@@ -310,6 +314,11 @@ export default function MapEditorPage() {
 
   const [files, setFiles] = useState<FileEntry[]>([])
   const [archivedFiles, setArchivedFiles] = useState<FileEntry[]>([])
+  const [stagedFiles, setStagedFiles] = useState<FileEntry[]>([])
+  /** The staged list as main gives it, with each map's warp targets. */
+  const [stagedMaps, setStagedMaps] = useState<StagedMap[]>([])
+  const [stagedDir, setStagedDir] = useState<string | null>(null)
+  const { ask, dialog: choiceDialog } = useChoiceDialog()
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null)
   const [editingMap, setEditingMap] = useState<MapData | null>(null)
   /** A save held open while the user decides what to do about inbound warps. */
@@ -408,9 +417,13 @@ export default function MapEditorPage() {
     if (!activeLibrary) {
       setFiles([])
       setArchivedFiles([])
+      setStagedFiles([])
+      setStagedMaps([])
       setMapsDir(null)
+      setStagedDir(null)
       return
     }
+    void loadStaged()
     try {
       const { dir, active, archived } = await window.api.listSection(activeLibrary, MAPS_SUBDIR)
       setMapsDir(dir)
@@ -434,10 +447,41 @@ export default function MapEditorPage() {
     }
   }
 
+  /**
+   * The staged maps. Their names and Ids come from main, not from the world
+   * index, which does not see `.staging/`. A failed read leaves the set empty:
+   * the live list does not depend on it.
+   */
+  const loadStaged = async () => {
+    if (!activeLibrary) return
+    try {
+      const { dir, files: list } = await window.api.listStagedMaps(activeLibrary)
+      setStagedDir(dir)
+      setStagedMaps(list)
+      setStagedFiles(
+        list
+          .map((m) => ({
+            rel: m.rel,
+            path: `${dir}/${m.rel}`,
+            display: displayName(m.rel),
+            mapName: m.name,
+            mapId: m.id,
+            staged: true
+          }))
+          .sort((a, b) => a.display.localeCompare(b.display, undefined, { numeric: true }))
+      )
+    } catch {
+      setStagedFiles([])
+      setStagedMaps([])
+    }
+  }
+
   useEffect(() => {
     if (!activeLibrary) {
       setFiles([])
       setArchivedFiles([])
+      setStagedFiles([])
+      setStagedMaps([])
       setSelectedFile(null)
       setEditingMap(null)
       return
@@ -501,6 +545,10 @@ export default function MapEditorPage() {
     // mapsDir arrives with the first listSection response, so it is null until
     // the list has loaded — there is nothing to save against before then.
     if (!activeLibrary || !mapsDir || !ignoreDir) return
+    // A staged map saves in staging, under the same rules (HTOO-634).
+    const staged = !!selectedFile?.staged
+    const baseDir = staged ? stagedDir : mapsDir
+    if (!baseDir) return
     try {
       // `fileName` is a bare name from the editor's field; `folder` is the
       // picker's, defaulted to the folder the map already lives in. Resolving
@@ -509,7 +557,7 @@ export default function MapEditorPage() {
       // regenerate, which hands back a bare `lod00001.xml`.
       const targetRel = joinRel(folder, fileName)
       const isRename = !!(selectedFile && targetRel !== activeRel(selectedFile.rel))
-      const newPath = isRename || !selectedFile ? `${mapsDir}/${targetRel}` : selectedFile.path
+      const newPath = isRename || !selectedFile ? `${baseDir}/${targetRel}` : selectedFile.path
 
       const xml = serializeMapXml(data)
 
@@ -552,7 +600,12 @@ export default function MapEditorPage() {
 
       if (isRename && selectedFile) {
         setSnackbar({ message: `Renamed to "${fileName}".`, severity: 'success' })
-        setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
+        setSelectedFile({
+          rel: targetRel,
+          path: newPath,
+          display: displayName(targetRel),
+          ...(staged && { staged })
+        })
       } else if (!selectedFile) {
         setSelectedFile({ rel: targetRel, path: newPath, display: displayName(targetRel) })
       }
@@ -596,8 +649,12 @@ export default function MapEditorPage() {
 
     // Names are not unique by construction (HTOO-346). With two maps sharing
     // the old name there is no way to know which referrers meant this one, so
-    // the offer is declined rather than made on a guess.
-    const sharing = (worldIndex?.mapDetails ?? []).filter((m) => m.name.trim() === oldName)
+    // the offer is declined rather than made on a guess. A staged map counts:
+    // the scan finds the referrers in staging too (HTOO-635).
+    const sharing = [
+      ...(worldIndex?.mapDetails ?? []).map((m) => m.name),
+      ...stagedMaps.map((m) => m.name ?? '')
+    ].filter((n) => n.trim() === oldName)
     if (sharing.length > 1) {
       await writeMap(data, fileName, folder)
       setSnackbar({
@@ -760,7 +817,12 @@ export default function MapEditorPage() {
     if (!selectedFile || !mapsDir) return
     const targetRel = joinRel(folder, fileName)
     if (targetRel === activeRel(selectedFile.rel)) return
-    const base = selectedFile.archived ? `${mapsDir}/.ignore` : mapsDir
+    const base = selectedFile.archived
+      ? `${mapsDir}/.ignore`
+      : selectedFile.staged
+        ? stagedDir
+        : mapsDir
+    if (!base) return
     const newPath = `${base}/${targetRel}`
     try {
       await window.api.moveFile(selectedFile.path, newPath)
@@ -802,6 +864,149 @@ export default function MapEditorPage() {
     }
   }
   const handleDuplicate = (file: FileEntry) => guard(() => doDuplicate(file))
+
+  /**
+   * Stage moves the map XML into `.staging/maps/` (HTOO-634). The server then
+   * does not load it, so each live file that names the map has a broken
+   * reference. Those are listed first. A referrer in staging is not a problem,
+   * and neither is the map's own warp to itself. When another live map has the
+   * name, the references still resolve, so there is nothing to list.
+   *
+   * The `.map` file stays in `mapfiles/`.
+   */
+  const doStage = async (file: FileEntry) => {
+    if (!activeLibrary) return
+    const name = file.mapName?.trim()
+    const keptBy =
+      !!name &&
+      (worldIndex?.mapDetails ?? []).some(
+        (d) => d.filename !== file.rel && mapNameKey(d.name) === mapNameKey(name)
+      )
+    if (name && !keptBy) {
+      let referrers: WarpReferrer[]
+      try {
+        referrers = await window.api.scanWarpReferrers(activeLibrary, name)
+      } catch (err) {
+        setSnackbar({
+          message: `Could not check references: ${err instanceof Error ? err.message : String(err)}`,
+          severity: 'error'
+        })
+        return
+      }
+      const live = referrers.filter(
+        (r) => !r.staged && !(r.section === MAPS_SUBDIR && r.file === file.rel)
+      )
+      if (live.length) {
+        const choice = await ask({
+          title: 'Stage this map?',
+          message:
+            `These live files name “${name}”. The server cannot find a staged map, so these ` +
+            'references stay broken until you release it.',
+          items: live.map((r) => `${r.section}/${r.file}`),
+          choices: [{ value: 'stage', label: 'Stage', variant: 'contained' }]
+        })
+        if (choice !== 'stage') return
+      }
+    }
+    try {
+      const { path } = await window.api.stageMap(activeLibrary, file.rel)
+      await loadFiles()
+      // Awaited: Release checks names against the index, so the index must not
+      // still list this map as live when the user clicks it.
+      await refreshWorldIndex()
+      setSnackbar({ message: `Staged "${file.rel}".`, severity: 'success' })
+      await doSelect({ ...file, path, archived: undefined, staged: true })
+    } catch (err) {
+      setSnackbar({
+        message: `Stage failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: 'error'
+      })
+    }
+  }
+  const handleStage = (file: FileEntry) => guard(() => doStage(file))
+
+  /**
+   * Release moves a staged map back into `xml/maps/` (HTOO-634), with the staged
+   * maps that its warps need, as Creidhne's Release (HTOO-453). A release whose
+   * name or Id is already live is refused, and nothing moves.
+   */
+  const doRelease = async (file: FileEntry) => {
+    if (!activeLibrary) return
+    if (!worldIndex) {
+      setSnackbar({
+        message: 'Build the world index first. Release checks the live map names against it.',
+        severity: 'warning'
+      })
+      return
+    }
+    const release = planRelease(
+      file.rel,
+      stagedMaps,
+      (worldIndex.mapDetails ?? []).map((d) => d.name)
+    )
+    if (!release.length) return
+    let moving = release
+    const deps = release.filter((r) => r.dependency)
+    if (deps.length) {
+      const choice = await ask({
+        title: 'Release the staged maps this map warps to?',
+        message:
+          'This map warps to maps that exist only in staging. The server cannot find those ' +
+          'until they are released too.',
+        items: deps.map((d) => `${d.rel} (“${d.name}”, from “${d.neededBy}”)`),
+        choices: [
+          { value: 'selected', label: 'Release only this map' },
+          { value: 'all', label: `Release all ${release.length}`, variant: 'contained' }
+        ]
+      })
+      if (!choice) return
+      if (choice === 'selected') moving = release.filter((r) => !r.dependency)
+    }
+    const clashes = releaseClashes(moving, worldIndex.mapDetails ?? [])
+    if (clashes.length) {
+      await ask({
+        title: 'Nothing was released',
+        message:
+          'The server loads one map for each name and each Id. Change these, or archive the ' +
+          'live map, before you release them.',
+        items: clashes.map(describeClash)
+      })
+      return
+    }
+
+    const released: string[] = []
+    const failed: string[] = []
+    let openPath: string | null = null
+    for (const r of moving) {
+      try {
+        const { path } = await window.api.releaseMap(activeLibrary, r.rel)
+        released.push(r.rel)
+        if (!r.dependency) openPath = path
+      } catch (err) {
+        failed.push(`${r.rel}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+    await loadFiles()
+    await refreshWorldIndex()
+    setSnackbar(
+      failed.length
+        ? {
+            message: `Released ${released.length} of ${moving.length}. ${failed.join('; ')}`,
+            severity: released.length ? 'warning' : 'error'
+          }
+        : {
+            message:
+              released.length === 1
+                ? `Released "${file.rel}".`
+                : `Released ${released.length} maps.`,
+            severity: 'success'
+          }
+    )
+    if (openPath) {
+      await doSelect({ ...file, path: openPath, staged: undefined })
+    }
+  }
+  const handleRelease = (file: FileEntry) => guard(() => doRelease(file))
 
   /** Delete moves the file to the OS trash, after the panel's confirmation. */
   const handleDelete = async (file: FileEntry) => {
@@ -901,7 +1106,9 @@ export default function MapEditorPage() {
         onUnarchive={() => void handleUnarchive()}
         onDuplicate={handleDuplicate}
         onDelete={(f) => void handleDelete(f)}
-        stagingPending
+        stagedFiles={stagedFiles}
+        onStage={handleStage}
+        onRelease={handleRelease}
       >
         {loadError ? (
           <Alert severity="error">
@@ -921,7 +1128,9 @@ export default function MapEditorPage() {
             folderOptions={folderChoices}
             isArchived={isArchived}
             isExisting={!!selectedFile}
-            fileRel={selectedFile?.rel ?? null}
+            // A staged map has no live file: every live map with its Id is a
+            // clash on Release.
+            fileRel={selectedFile && !selectedFile.staged ? selectedFile.rel : null}
             activeMapIds={activeMapIds}
             mapNames={mapNames}
             npcNames={npcNames}
@@ -976,6 +1185,7 @@ export default function MapEditorPage() {
         onDiscard={handleDialogDiscard}
         onCancel={handleDialogCancel}
       />
+      {choiceDialog}
       <RenameReferrersDialog
         open={!!renamePrompt}
         oldName={renamePrompt?.oldName ?? ''}

@@ -16,6 +16,7 @@
  * | nations       | `Territory/Map@Name`               | a map leaves its nation     |
  * | serverconfigs | `Death/Map`                        | death sends players nowhere |
  * | serverconfigs | `NewPlayer/StartMaps/StartMap`     | a new character cannot log in |
+ * | items         | `Use/Teleport`                     | an item teleports nowhere   |
  * | worldmaps     | `Point/Target`                     | a travel node goes nowhere  |
  *
  * Three rules shape everything here.
@@ -83,6 +84,12 @@ export const MAP_REFERENCE_SECTIONS: readonly SectionRules[] = [
       { kind: 'element', element: 'Map' },
       { kind: 'element', element: 'StartMap' }
     ]
+  },
+  {
+    section: 'items',
+    noun: 'teleport',
+    // `<Use><Teleport X Y>name</Teleport></Use>` — ItemUseTeleport in Item.xsd.
+    rules: [{ kind: 'element', element: 'Teleport' }]
   },
   {
     section: 'worldmaps',

@@ -51,8 +51,21 @@ declare global {
     file: string
     /** How many references in it name the map scanned for. */
     count: number
-    /** `maps`, `nations`, `serverconfigs`, `worldmaps`. */
+    /** `maps`, `nations`, `serverconfigs`, `items`, `worldmaps`. */
     section: string
+    /** Set when the file is in `.staging/<section>/` (HTOO-635). */
+    staged?: true
+  }
+
+  /** One staged map XML, from `.staging/maps/` (HTOO-634). */
+  interface StagedMap {
+    /** Relative to `.staging/maps/`, forward-slashed. */
+    rel: string
+    /** Absent when the map has no Id, X or Y. */
+    name?: string
+    id?: number
+    /** The map's warp targets, each one once. */
+    targets: string[]
   }
 
   interface SectionListing {
@@ -198,6 +211,9 @@ declare global {
       oldName: string,
       newName: string
     ) => Promise<{ updated: WarpReferrer[]; failed: string[] }>
+    listStagedMaps: (libraryPath: string) => Promise<{ dir: string; files: StagedMap[] }>
+    stageMap: (libraryPath: string, rel: string) => Promise<{ path: string }>
+    releaseMap: (libraryPath: string, rel: string) => Promise<{ path: string }>
     copyFile: (src: string, dst: string) => Promise<void>
     moveFile: (src: string, dst: string) => Promise<void>
     writeFile: (filePath: string, content: string) => Promise<void>

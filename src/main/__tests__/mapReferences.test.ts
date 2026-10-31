@@ -294,12 +294,38 @@ describe('world maps', () => {
   })
 })
 
+describe('items', () => {
+  const ITEMS = rulesFor('items')
+  // An item's Use can teleport the player (ItemUseTeleport in Item.xsd): a
+  // song, or a scroll. The map name is the element text.
+  const XML = `<Item>
+  <Name>Abel Song</Name>
+  <Properties>
+    <Use>
+      <Teleport X="12" Y="30">Abel Docks</Teleport>
+    </Use>
+  </Properties>
+</Item>`
+
+  it('counts the teleport destination', () => {
+    expect(countReferencesTo(XML, 'Abel Docks', ITEMS)).toBe(1)
+  })
+
+  it('repoints the teleport and keeps its tile', () => {
+    const { xml, changed } = rewriteReferences(XML, 'Abel Docks', 'Abel Harbor', ITEMS)
+    expect(changed).toBe(1)
+    expect(xml).toContain('<Teleport X="12" Y="30">Abel Harbor</Teleport>')
+    expect(xml).toContain('<Name>Abel Song</Name>')
+  })
+})
+
 describe('the section table', () => {
   it('covers every section the XSDs say names a map', () => {
     expect(MAP_REFERENCE_SECTIONS.map((s) => s.section)).toEqual([
       'maps',
       'nations',
       'serverconfigs',
+      'items',
       'worldmaps'
     ])
   })
