@@ -57,6 +57,7 @@ record; where they disagree with this file, the git history was taken as authori
 - **The file-type chips in the Music Manager are easy to read.** The OGG and FLAC chips drew the bar colour as text on the page. All the file-type chips are now filled.
 - **The Collision Map window in the Map Maker:** its title and close button now use the bar's text colour.
 - **An `.epf` file shows each frame under the number that the file gives it.** Before, Taliesin dropped the empty frames, so in some files each later frame moved down one number. In `Legend.dat/emo32.epf`, which has three empty frames, the last two frames each moved down three numbers. Now an empty frame shows as a blank frame. The Archive Viewer frame counter, the PNG export file names and UI Layout Forge prefab import all use the file's frame numbers.
+- **Linux: Launch Creidhne finds a Creidhne AppImage that is in the same folder as the Taliesin AppImage.** Taliesin looked in the temporary folder that the AppImage runs from, so it did not find Creidhne, and it asked you to select it.
 - **A truncated `.hpf` entry no longer stops Taliesin.** Before, the Archive Viewer or a map that opened a short `.hpf` hung the window.
 
 ### Security

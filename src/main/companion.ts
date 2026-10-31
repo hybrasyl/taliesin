@@ -161,10 +161,20 @@ function kindOf(target: string): CompanionKind {
  * behaviour as having no sibling, and discovery continues to the installed
  * branch. Written this way round on purpose: the guess cannot make anything
  * worse than not guessing.
+ *
+ * **An AppImage is the Linux twin of the same trap** (HTOO-584). The AppImage
+ * runtime mounts the image at `/tmp/.mount_XXXXXX` and runs the binary from
+ * there, so `execPath` is inside the mount and its directory holds the app's own
+ * files. The runtime exports `APPIMAGE` as the path of the `.AppImage` file
+ * itself: electron-builder's AppRun (`generateAppRunScript` in app-builder-lib)
+ * reads an empty `APPIMAGE` as "not running from within an AppImage". Its
+ * directory is the one the user put both apps in. Creidhne has the same fix.
  */
 export function launcherDir(probe: CompanionProbe): string {
   const portable = probe.env.PORTABLE_EXECUTABLE_DIR
   if (probe.platform === 'win32' && portable) return portable
+  const appImage = probe.env.APPIMAGE
+  if (probe.platform === 'linux' && appImage) return dirname(appImage)
   return dirname(probe.execPath)
 }
 

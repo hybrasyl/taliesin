@@ -153,13 +153,24 @@ Change the theme in **Settings → Appearance**. Do these steps on each of the s
 
 **Expected:** each step is true on each theme. If one fails, record the theme and the step.
 
+### B6. Launch Creidhne from an AppImage (Linux) — HTOO-584
+
+An AppImage runs from a temporary mount, so Taliesin must look for Creidhne beside the `.AppImage` file, not beside its own binary.
+
+1. Put a Taliesin AppImage and a Creidhne AppImage in one folder, for example `~/Downloads`, with their release names (`taliesin-<version>.AppImage`, `creidhne-<version>.AppImage`). Make both executable.
+2. Make sure that no Creidhne is installed another way: no `.desktop` entry, and no Creidhne path in Taliesin's settings.
+3. Start the Taliesin AppImage. Click **Launch Creidhne** in the nav bar.
+
+**Expected:** Creidhne starts, and Taliesin does not ask you to select it. **Settings → Companion App** shows the AppImage in the same folder. If Taliesin asks you to select Creidhne, record the folder and the two file names.
+
 ## For this release (November 2026)
 
 Rewrite this section for each release: what applies, and what is already done. The release order is in the document repo's `docs/plans/releases/2026-11-release-plan.md`. The list of owed checks is the November 2026 comment on HTOO-239.
 
-All of A1 to A5 and B1 to B5 apply.
+All of A1 to A5 and B1 to B6 apply.
 
 - **A1 on Linux:** report how long each `ThemeGallery.test.tsx` theme takes. Each theme has 60 s (HTOO-572); a theme near the limit is a finding.
 - **B5** is new (#101, HTOO-572 and HTOO-629). It includes the nav bar's own colour.
+- **B6** is new (HTOO-584). Creidhne has the same fix; one AppImage pair checks both directions if you also click **Launch Taliesin** in Creidhne.
 
 The Windows checks for #101 are complete: the gate, e2e (13 passed, 5 macOS-only skipped), and Sabrael's by-eye pass on the six themes. More checks join this list as the release's other PRs merge.
