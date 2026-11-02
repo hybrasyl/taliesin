@@ -143,15 +143,13 @@ Linux file names are case-sensitive. The official installer writes `Legend.dat`,
 
 **Expected:** no "not found" message and no empty page. If one fails, record the file name as it is on disk.
 
-### B5. The bars on the eight themes (Linux) — HTOO-572
+### B5. The bars on the eight themes: retired
 
-Change the theme in **Settings → Appearance**. Do these steps on each of the eight themes.
+Sabrael retired the Linux chrome checks on 2026-11-02, after they passed in the November round. Tests cover each step. A1 runs the unit tests, and A2 runs the e2e spec:
 
-1. **The title bar and the nav bar:** Hybrasyl, Chadul, Danaan, Grinneal, Shattered and Untamed have dark bars with light text and icons, with a black outline. The Danaan bars are bronze, the Grinneal bars are brown, the Shattered bars are oxblood and the Untamed bars are deep green. Nothing is engraved. Mundanes and Dubhaimid are flat, with no outline. On each theme the nav bar has a different colour from the title bar, so the two bars do not look like one bar (HTOO-629). On each theme the bar text, the window buttons and the nav icons are easy to read.
-2. **The hover:** the close button turns red under the pointer. The other window buttons and the nav buttons show a hover that is easy to see.
-3. **The open page:** its nav button has a light background and a ring inside its edge, in the bar's text colour.
-
-**Expected:** each step is true on each theme. If one fails, record the theme and the step.
+- **The title bar and the nav bar** (HTOO-572, HTOO-629): `chromeContrast.test.tsx` (the bar text and the window glyphs, the outline or the flat bar, light text on each decorated bar), `tertiary.test.ts` (the nav bar differs from the title bar) and `navBarContrast.test.tsx` (the bar paints `tertiary.main`, the icons and the caption read, the icons are outlined and nothing is engraved). `e2e/theme-switch.spec.js` applies all eight in the real app, and checks the outline or the flat bar on each.
+- **The hover:** `chromeContrast.test.tsx` reads the hover colours of the window buttons and the close button (`error.main`), and `navBarContrast.test.tsx` those of the nav buttons.
+- **The open page:** `navBarContrast.test.tsx` checks that its nav button has the house wash and the inset ring in the text colour, and that another nav button has no ring.
 
 ### B6. Launch Creidhne from an AppImage (Linux) — HTOO-584
 
@@ -208,5 +206,7 @@ All of A1 to A5 and B1 to B9 apply.
 The Windows checks for #101 to #114 are in each PR.
 
 **Linux is done** (2026-10-31, at `6ba9903`; the results are on each card and on HTOO-239). A1 failed on one test, which is fixed on `main` after `6ba9903`; run A1 again on macOS at the newer commit. Everything else passed, and B5 passed by eye.
+
+**B5 is retired** (Sabrael, 2026-11-02): tests cover each step, listed under B5. A new test in `src/main/__tests__/splash.test.ts` also pins the round splash spinner (HTOO-553), and brings A1 to 2812 tests.
 
 **macOS is done** (2026-10-31, at `07ee8b9`, macOS 27.0.1). A1 to A5, B1 to B3 and B7 to B9 passed; A1 ran 2563 of 2563, and A2 21 passed. One finding, not blocking: a disabled icon button keeps the theme's icon accent in the four decorated themes (HTOO-639, a template fix). **Nothing is owed** from the Mac and Linux pass.
