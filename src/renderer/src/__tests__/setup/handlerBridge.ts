@@ -32,6 +32,7 @@ export interface MemoryFs {
       mkdir: ReturnType<typeof vi.fn>
       unlink: ReturnType<typeof vi.fn>
       rename: ReturnType<typeof vi.fn>
+      rm: ReturnType<typeof vi.fn>
       access: ReturnType<typeof vi.fn>
       stat: ReturnType<typeof vi.fn>
       realpath: ReturnType<typeof vi.fn>
@@ -144,6 +145,13 @@ export function createMemoryFs(): MemoryFs {
         files.delete(fNorm)
         files.set(tNorm, buf)
         ensureDir(dirOf(tNorm))
+      }),
+      // pack:import removes its staging folder with this (HTOO-676).
+      rm: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/').replace(/\/+$/, '')
+        for (const k of [...files.keys()])
+          if (k === norm || k.startsWith(`${norm}/`)) files.delete(k)
+        for (const d of [...dirs.keys()]) if (d === norm || d.startsWith(`${norm}/`)) dirs.delete(d)
       }),
       access: vi.fn(async (path: string) => {
         const norm = path.replace(/\\/g, '/')
@@ -316,6 +324,7 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     // The in-memory filesystem has no trash, so a trashed file is removed.
     trashFile: (p) => handlers.deleteFile(handlerCtx, p),
     listArchive: (p) => handlers.listArchive(handlerCtx, p),
+    extractArchive: (p, d) => handlers.extractArchive(handlerCtx, p, d),
 
     // Catalog
     catalogLoad: (p) => handlers.catalogLoad(handlerCtx, p),

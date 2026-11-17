@@ -37,11 +37,18 @@ record; where they disagree with this file, the git history was taken as authori
 
 - **Settings path fields change only through Browse.** You cannot type a folder or a program into Settings now. **Browse** opens the system dialog, and **Clear** removes the path. Taliesin gives a folder access only when you choose it in the dialog. The first start of this version accepts the folders and programs that your settings already name, so nothing stops working.
 
+### Fixed
+
+- Taliesin no longer takes itself for a portable launch when another app's portable exe started it, and it no longer passes the portable launcher's variables to the programs it starts (HTOO-667).
+
 ### Security
 
 - **The renderer no longer chooses the program that converts audio and video** (HTOO-673). Before, the conversion calls took the ffmpeg path from the page, so a page that ran hostile script could start any program. Now Taliesin uses only the ffmpeg that you chose in **Settings → ffmpeg Path**, or `ffmpeg` from PATH. Taliesin records the file when you choose it, and does not run it if it changed after that. The same applies to the companion app.
 - **A settings save no longer gives access to a folder** (HTOO-674). Before, any folder named in a saved setting became readable and writable. Now Taliesin keeps its own record of the folders you chose, and the page cannot write that record or the settings file.
 - **A junction or a symbolic link cannot lead a file operation out of an allowed folder** (HTOO-675). Taliesin now compares the real location of each path, so a link under a working folder that points elsewhere is refused. A folder that is itself a link still works when you choose it.
+- **Import keeps each pack in its own folder (HTOO-676).** A `.datf` with the `pack_id` `.` imported its files into the working folder itself, and could overwrite the assets of another pack. Taliesin now refuses a `pack_id` that is not one plain folder name, or that names a folder Taliesin keeps (`_palettes`, `_calibrations`, `_frames`). Import now refuses to overwrite any existing file unless you confirm, not only the project file. Taliesin extracts the pack to a temporary folder first, so a failed import changes no file.
+- **Extract All writes only into the folder you choose (HTOO-677).** An archive entry named `../note.txt` wrote a file next to the chosen folder. Taliesin now checks every entry name before it writes the first file. If one name is not a plain file name, Taliesin extracts nothing and shows which entries it refused. Export as PNG applies the same rule to the files of a multi-frame entry.
+- The macOS entitlements no longer grant `allow-dyld-environment-variables`, which let `DYLD_INSERT_LIBRARIES` load unsigned code into the signed app (HTOO-664).
 
 ## [2.15.0] - 2026-10-31
 

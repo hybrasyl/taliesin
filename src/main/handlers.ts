@@ -6,11 +6,11 @@
  * to its channel via the supplied `ipcMain` and `BrowserWindow` references.
  */
 import type { IpcMain, BrowserWindow as BrowserWindowType } from 'electron'
-import { join, dirname, basename } from 'path'
+import { join, dirname, basename, relative } from 'path'
 import { promises as fs } from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import {
   buildIndex,
   loadIndex,
@@ -43,6 +43,7 @@ import {
 import { checkForUpdate as updateCheck } from './updateCheck'
 import type { UpdateCheckResult } from '../shared/updateVersion'
 import { appIdentity } from '../shared/appIdentity'
+import { plainFileNameProblem } from '../shared/fileName'
 import {
   loadPacks,
   listActivePacks,
@@ -1020,6 +1021,74 @@ export async function listArchive(ctx: HandlerContext, filePath: string): Promis
   return archive.entries.map((e) => e.entryName)
 }
 
+/**
+ * Extract every entry of a `.dat` archive into one folder (HTOO-677).
+ *
+ * The renderer used to write each entry through `fs:writeBytes` at
+ * `${dir}/${entryName}`. That handler checks a path against every allowed root,
+ * not against the folder the user chose, so an entry named `../note.txt` wrote
+ * next to the folder. Main now opens the archive itself and checks each name
+ * against the chosen folder only.
+ *
+ * Every name must be a plain file name, and no two may name one file. All of
+ * them are checked before the first write, so a bad entry anywhere in the
+ * archive extracts nothing rather than part of it.
+ */
+export async function extractArchive(
+  ctx: HandlerContext,
+  archivePath: string,
+  destDir: string
+): Promise<{ count: number }> {
+  const safeArchive = await authorizePath(ctx, archivePath)
+  const safeDest = await authorizePath(ctx, destDir)
+  const { DataArchive } = await import('@eriscorp/dalib-ts')
+  const buf = await fs.readFile(safeArchive)
+  const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
+
+  const problems: string[] = []
+  const names = new Set<string>()
+  const targets: { entry: (typeof archive.entries)[number]; dest: string }[] = []
+  for (const entry of archive.entries) {
+    const name = entry.entryName
+    const problem = plainFileNameProblem(name)
+    if (problem) {
+      problems.push(`${JSON.stringify(name)}: ${problem}`)
+      continue
+    }
+    // Windows and macOS ignore case, so two names that differ only in case
+    // are one file there.
+    if (names.has(name.toLowerCase())) {
+      problems.push(`${JSON.stringify(name)}: another entry has the same name`)
+      continue
+    }
+    names.add(name.toLowerCase())
+    // Real-path checks (HTOO-675): an existing link in the chosen folder with
+    // an entry's name must not carry the write out of it, and no entry may
+    // replace one of main's own files (an approved program, the settings).
+    let dest: string
+    try {
+      dest = await authorizePath(ctx, await assertRealInside(safeDest, name))
+    } catch (e) {
+      problems.push(`${JSON.stringify(name)}: ${e instanceof Error ? e.message : 'refused'}`)
+      continue
+    }
+    targets.push({ entry, dest })
+  }
+  if (problems.length > 0) {
+    const shown = problems.slice(0, 5).join('; ')
+    const more = problems.length > 5 ? `; and ${problems.length - 5} more` : ''
+    throw new Error(
+      `Nothing was extracted: ${problems.length} of ${archive.entries.length} entries cannot be a file in the chosen folder. ${shown}${more}`
+    )
+  }
+
+  await fs.mkdir(safeDest, { recursive: true })
+  for (const { entry, dest } of targets) {
+    await fs.writeFile(dest, archive.getEntryBuffer(entry))
+  }
+  return { count: targets.length }
+}
+
 // ── Catalog ──────────────────────────────────────────────────────────────────
 
 /**
@@ -1836,6 +1905,23 @@ function hydrateAssetMeta(
   return Object.keys(meta).length > 0 ? meta : undefined
 }
 
+/**
+ * Folders the asset-pack working directory keeps for itself: palettes,
+ * calibrations and frames. An imported pack may not use one as its id, or its
+ * assets go in with the palettes (HTOO-676).
+ */
+const WORKING_DIR_FOLDERS = ['_palettes', '_calibrations', '_frames']
+
+/** Whether a path exists. Any error, not only ENOENT, reads as "no". */
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function packImport(
   ctx: HandlerContext,
   datfPath: string,
@@ -1879,30 +1965,28 @@ export async function packImport(
   const manifest = parseOrLog(ctx, 'pack:import:manifest', packManifestSchema, manifestJson)
 
   const packId = manifest.pack_id
+  // The schema keeps the id to one plain segment. A folder the working
+  // directory keeps for itself is a plain segment too, so it is refused here.
+  if (WORKING_DIR_FOLDERS.includes(packId.toLowerCase())) {
+    throw new Error(`pack_id '${packId}' is the name of a folder Taliesin keeps in ${safePackDir}`)
+  }
   const projectFilename = `${packId}.json`
+  // Real-path checks (HTOO-675): a link under the working directory must not
+  // carry the project file or the asset folder out of it.
   const projectFilePath = await assertRealInside(safePackDir, projectFilename)
   const packAssetsDir = await assertRealInside(safePackDir, packId)
-
-  // Refuse to overwrite an existing pack project unless caller opts in.
-  let projectExists = false
-  try {
-    await fs.access(projectFilePath)
-    projectExists = true
-  } catch {
-    /* fresh */
-  }
-  if (projectExists && !options?.force) {
-    throw new Error(
-      `Pack project '${projectFilename}' already exists in ${safePackDir}; pass { force: true } to overwrite`
-    )
+  // The asset folder must be a child of the working directory, never the
+  // working directory itself (HTOO-676: `pack_id: "."` made it so). Checked on
+  // the result as well as in the schema, so a later change to either cannot
+  // open this again.
+  if (relative(safePackDir, packAssetsDir) !== packId) {
+    throw new Error(`pack_id '${packId}' does not name a folder inside ${safePackDir}`)
   }
 
-  await fs.mkdir(packAssetsDir, { recursive: true })
-
-  // Extract every non-manifest entry. assertInside on each entry name blocks
-  // Zip-Slip (../escape.png and friends).
+  // Find every entry to extract and where it goes, before anything is written.
   const warnings: string[] = []
-  const assetFilenames: string[] = []
+  const entries: { name: string; dest: string; buffer: () => Promise<Buffer> }[] = []
+  const destinations = new Set<string>()
   for (const file of directory.files as {
     path: string
     type: string
@@ -1911,8 +1995,16 @@ export async function packImport(
     if (file.type !== 'File') continue
     if (file.path === '_manifest.json') continue
 
+    // Each segment must be a plain file name. This refuses `..` (Zip-Slip), an
+    // absolute path, a drive or stream colon and a device name, which
+    // assertInside alone does not all catch.
+    const segmentProblem = file.path
+      .split(/[\\/]/)
+      .map((segment) => plainFileNameProblem(segment))
+      .find((p) => p !== null)
     let dest: string
     try {
+      if (segmentProblem) throw new Error(segmentProblem)
       dest = await assertRealInside(packAssetsDir, file.path)
     } catch (e) {
       warnings.push(
@@ -1920,12 +2012,34 @@ export async function packImport(
       )
       continue
     }
-    await fs.mkdir(dirname(dest), { recursive: true })
-    const buf = await file.buffer()
-    await fs.writeFile(dest, buf)
-    assetFilenames.push(file.path)
+    // Two entries with one destination would overwrite each other. Case is
+    // ignored, because Windows and macOS ignore it.
+    const key = dest.toLowerCase()
+    if (destinations.has(key)) {
+      warnings.push(`Skipped duplicate entry '${file.path}'`)
+      continue
+    }
+    destinations.add(key)
+    entries.push({ name: file.path, dest, buffer: () => file.buffer() })
   }
 
+  // Refuse to overwrite any existing file unless the caller opts in. The check
+  // covers every destination, not only the project file: an import that writes
+  // into another project's files is the fault HTOO-676 found.
+  const conflicts: string[] = []
+  if (await pathExists(projectFilePath)) conflicts.push(projectFilename)
+  for (const entry of entries) {
+    if (await pathExists(entry.dest)) conflicts.push(relative(safePackDir, entry.dest))
+  }
+  if (conflicts.length > 0 && !options?.force) {
+    const shown = conflicts.slice(0, 5).join(', ')
+    const more = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
+    throw new Error(
+      `Import would overwrite files that already exist in ${safePackDir}: ${shown}${more}; pass { force: true } to overwrite`
+    )
+  }
+
+  const assetFilenames = entries.map((e) => e.name)
   const now = new Date().toISOString()
   const project = {
     pack_id: manifest.pack_id,
@@ -1945,10 +2059,29 @@ export async function packImport(
   }
   // Re-parse via the project schema to catch any mismatch (e.g. the manifest
   // had an unknown content_type that snuck past the manifest schema, or the
-  // assetMeta map keys don't match the assets).
+  // assetMeta map keys don't match the assets). This runs before any write.
   const validated = parseOrLog(ctx, 'pack:import', packProjectSchema, project)
 
-  await fs.writeFile(projectFilePath, JSON.stringify(validated, null, 2), 'utf-8')
+  // Extract into a staging folder first. A read or write that fails there
+  // leaves the working files as they were. Only then move each file into place.
+  const stagingDir = assertInside(safePackDir, `.import-${randomBytes(8).toString('hex')}`)
+  try {
+    const staged: string[] = []
+    for (const entry of entries) {
+      const stagedPath = assertInside(stagingDir, entry.name)
+      await fs.mkdir(dirname(stagedPath), { recursive: true })
+      await fs.writeFile(stagedPath, await entry.buffer())
+      staged.push(stagedPath)
+    }
+    await fs.mkdir(packAssetsDir, { recursive: true })
+    for (let i = 0; i < entries.length; i++) {
+      await fs.mkdir(dirname(entries[i].dest), { recursive: true })
+      await renameWithRetry(staged[i], entries[i].dest)
+    }
+    await fs.writeFile(projectFilePath, JSON.stringify(validated, null, 2), 'utf-8')
+  } finally {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => undefined)
+  }
 
   return { projectFilename, warnings }
 }
@@ -2304,6 +2437,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(ctx, p))
   ipcMain.handle('fs:trashFile', (_, p) => trashFile(ctx, p))
   ipcMain.handle('fs:listArchive', (_, p) => listArchive(ctx, p))
+  ipcMain.handle('fs:extractArchive', (_, p, d) => extractArchive(ctx, p, d))
 
   // Catalog
   ipcMain.handle('catalog:load', (_, p) => catalogLoad(ctx, p))

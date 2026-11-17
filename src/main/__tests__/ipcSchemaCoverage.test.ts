@@ -125,6 +125,11 @@ const EXEMPT: Record<string, { category: string; reason: string }> = {
     reason: 'main builds both ends from the library; `rel` via assertInside against each'
   },
   'fs:listArchive': { category: 'path-only', reason: 'assertInsideAnyRoot' },
+  'fs:extractArchive': {
+    category: 'path-only',
+    reason:
+      'both paths via assertInsideAnyRoot; each entry name via plainFileNameProblem (HTOO-677)'
+  },
   'catalog:load': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'catalog:scan': { category: 'path-only', reason: 'assertInsideAnyRoot' },
   'music:readFileMeta': { category: 'path-only', reason: 'assertInsideAnyRoot' },
