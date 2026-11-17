@@ -36,9 +36,9 @@ npm run typecheck && npm run lint:check && npm run test:coverage && npm run buil
 
 Every step must pass. Report the test count.
 
-### A2 and A3. e2e on Electron 44, and the real settings stay the same (both OS) — HTOO-553, HTOO-543
+### A2 and A3. e2e on Electron 45, and the real settings stay the same (both OS) — HTOO-694, HTOO-543
 
-A2 runs the e2e suite (HTOO-553). A3 proves that it does not touch the real settings or the world index cache (HTOO-543): the e2e helper redirects `LOCALAPPDATA` and `HYBINDEX_CACHE_DIR` to a temp folder. One e2e run serves both, and it rebuilds the app first, so do not run it twice.
+A2 runs the e2e suite on Electron 45 with vite 8 (HTOO-694). A3 proves that it does not touch the real settings or the world index cache (HTOO-543): the e2e helper redirects `LOCALAPPDATA` and `HYBINDEX_CACHE_DIR` to a temp folder. One e2e run serves both, and it rebuilds the app first, so do not run it twice.
 
 The real locations:
 

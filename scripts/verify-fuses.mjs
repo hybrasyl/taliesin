@@ -42,10 +42,10 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 
-// Copied from @electron/fuses' `dist/constants.js`, which is an INTERNAL path
-// the package does not export. verify-fuses.test.mjs pins both against that
-// file, so an upgrade that moves either fails the suite rather than making this
-// script find zero sentinels in a healthy binary.
+// Copied from @electron/fuses' `dist/constants.js`. The package (v2) exports
+// the states but not the sentinel. verify-fuses.test.mjs pins both against the
+// installed package, so an upgrade that moves either fails the suite rather than
+// making this script find zero sentinels in a healthy binary.
 export const SENTINEL = 'dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX'
 export const FUSE_STATE = { DISABLE: 0x30, ENABLE: 0x31, REMOVED: 0x72, INHERIT: 0x90 }
 

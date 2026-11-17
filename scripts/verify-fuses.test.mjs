@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs'
 import { createRequire } from 'module'
-import { join } from 'path'
+import { dirname, join } from 'path'
+import { FuseState, FuseV1Options } from '@electron/fuses'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -70,21 +71,26 @@ describe('electron-builder.yml electronFuses', () => {
 })
 
 describe('the copied @electron/fuses constants', () => {
-  // A deep import into `dist/`. The package publishes no `exports` map, so this
-  // resolves — and if a future version adds one, this line fails and names the
-  // thing to re-check, which is the point.
-  const upstream = require('@electron/fuses/dist/constants.js')
-  const config = require('@electron/fuses')
+  // @electron/fuses v2 is ESM with an `exports` map, so v1's deep
+  // `require('@electron/fuses/dist/constants.js')` is refused
+  // (ERR_PACKAGE_PATH_NOT_EXPORTED). The states and the fuse positions are
+  // public exports in v2, so they are compared directly. The sentinel is not
+  // exported, so it is read out of the installed `dist/constants.js` as text.
+  // If a later version moves that file, the read fails and names it. Mabon
+  // made the same change (HTOO-694).
+  const constantsJs = join(dirname(require.resolve('@electron/fuses')), 'constants.js')
+  const upstreamSentinel = /SENTINEL = '([^']+)'/.exec(readFileSync(constantsJs, 'utf8'))?.[1]
 
   it('still matches the sentinel the package writes', () => {
-    expect(SENTINEL).toBe(upstream.SENTINEL)
+    expect(upstreamSentinel, `no SENTINEL in ${constantsJs}`).toBeDefined()
+    expect(SENTINEL).toBe(upstreamSentinel)
   })
 
   it('still matches the state bytes the package writes', () => {
-    expect(FUSE_STATE.DISABLE).toBe(upstream.FuseState.DISABLE)
-    expect(FUSE_STATE.ENABLE).toBe(upstream.FuseState.ENABLE)
-    expect(FUSE_STATE.REMOVED).toBe(upstream.FuseState.REMOVED)
-    expect(FUSE_STATE.INHERIT).toBe(upstream.FuseState.INHERIT)
+    expect(FUSE_STATE.DISABLE).toBe(FuseState.DISABLE)
+    expect(FUSE_STATE.ENABLE).toBe(FuseState.ENABLE)
+    expect(FUSE_STATE.REMOVED).toBe(FuseState.REMOVED)
+    expect(FUSE_STATE.INHERIT).toBe(FuseState.INHERIT)
   })
 
   it('names each asserted fuse at the position the package gives it', () => {
@@ -92,7 +98,7 @@ describe('the copied @electron/fuses constants', () => {
     // assert the wrong fuse — reading, say, EnableCookieEncryption and calling
     // it RunAsNode. This is the only thing that ties our indices to upstream's.
     for (const fuse of EXPECTED) {
-      expect(config.FuseV1Options[fuse.index]).toBe(fuse.name)
+      expect(FuseV1Options[fuse.index]).toBe(fuse.name)
     }
   })
 })
