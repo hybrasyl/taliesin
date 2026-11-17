@@ -13,7 +13,6 @@ import {
   type SelectChangeEvent
 } from '@mui/material'
 import MovieIcon from '@mui/icons-material/Movie'
-import { useSettingsStore } from '../../store/settingsStore'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -904,7 +903,6 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   entry,
   archive
 }) => {
-  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const videoRef = useRef<HTMLVideoElement>(null)
   const blobUrlRef = useRef<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'converting' | 'ready' | 'error'>('idle')
@@ -940,11 +938,8 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     setStatus('converting')
     setErrorMsg(null)
     try {
-      const userData = await window.api.getUserDataPath()
-      const sep = userData.includes('\\') ? '\\' : '/'
-      const cacheDir = `${userData}${sep}bik-cache`
       const bytes = entry.toUint8Array()
-      const mp4Path = await window.api.bikConvert(bytes, ffmpegPath, cacheDir)
+      const mp4Path = await window.api.bikConvert(bytes)
       const mp4Buf = await window.api.readFile(mp4Path)
       const blob = new Blob([new Uint8Array(mp4Buf)], { type: 'video/mp4' })
       const url = URL.createObjectURL(blob)
@@ -959,7 +954,7 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
       setStatus('error')
       setErrorMsg(e instanceof Error ? e.message : 'Conversion failed')
     }
-  }, [entry, ffmpegPath])
+  }, [entry])
 
   if (!info) {
     return (

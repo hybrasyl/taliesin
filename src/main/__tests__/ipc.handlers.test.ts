@@ -3,6 +3,7 @@ import { normalize as pathNormalize } from 'path'
 import { pathToFileURL } from 'url'
 // For the module-level in-flight build map, which outlives individual cases.
 import * as handlerModule from '../handlers'
+import { grantsOf, type HandlerContext } from '../handlers'
 import { initWindowSecurity } from '../windowSecurity'
 import { makeSender, trust } from './windowSecurityFixtures'
 
@@ -160,6 +161,13 @@ const {
         const buf = files.get(norm)
         if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
         return { size: buf.length }
+      }),
+      // The real-path check (HTOO-675) asks for this. This filesystem has no
+      // links, so a path that exists is its own real path.
+      realpath: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+        if (norm === '/' || files.has(norm) || dirs.has(norm)) return path
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       }),
       readdir
     }
@@ -335,6 +343,8 @@ function reset() {
 // ── Setup: import index.ts to register handlers ───────────────────────────────
 
 let prevLocalAppData: string | undefined
+/** index.ts's handler context, for tests that seed approvals. */
+let indexCtx: HandlerContext | null = null
 
 /** What index.ts did at module scope, snapshotted before `reset()`'s
  *  `vi.clearAllMocks()` in beforeEach wipes the call record. */
@@ -347,6 +357,7 @@ beforeAll(async () => {
   prevLocalAppData = process.env.LOCALAPPDATA
   process.env.LOCALAPPDATA = '/appdata'
   const indexModule = await import('../index')
+  indexCtx = indexModule.ctx
   boot.lockRequests = electronMock.app.requestSingleInstanceLock.mock.calls.length
   boot.exits = electronMock.app.exit.mock.calls.length
   boot.appEvents = electronMock.app.on.mock.calls.map((c) => c[0] as string)
@@ -368,9 +379,29 @@ afterAll(() => {
   else process.env.LOCALAPPDATA = prevLocalAppData
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   reset()
+  // Approvals live on the shared ctx, so one test's approved ffmpeg must not
+  // reach the next.
+  const { ctx } = await import('../index')
+  grantsOf(ctx).executables = {}
 })
+
+/**
+ * Approve a fake ffmpeg as `exec:choose` would, without the dialog. The mock
+ * `stat` reports only a size, so the grant records that size and no mtime,
+ * and `verifyExecutable` accepts the file as unchanged.
+ */
+function approveFfmpeg(path = '/usr/bin/ffmpeg'): void {
+  files.set(path, Buffer.from('FFMPEG'))
+  grantsOf(indexCtx!).executables.ffmpeg = {
+    path,
+    size: 6,
+    mtimeMs: undefined as unknown as number,
+    sha256: 'not-checked-while-size-and-mtime-match',
+    isDirectory: false
+  }
+}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -1078,7 +1109,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     expect(files.has('/dest/leftover.mus')).toBe(false)
     expect(files.has('/dest/another.mus')).toBe(false)
@@ -1090,7 +1121,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     expect(files.has('/dest/leftover.mus')).toBe(false)
     expect(files.has('/dest/sub/keepme.mus')).toBe(true)
@@ -1100,7 +1131,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     const manifest = JSON.parse(files.get('/dest/music-pack.json')!.toString('utf-8'))
     expect(manifest.packId).toBe('p1')
@@ -1114,7 +1145,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
   it('clears the destination when the pack has zero tracks (no sources to validate)', async () => {
     // Zero tracks ⇒ nothing to validate ⇒ proceed with clear+manifest.
     files.set('/dest/leftover.mus', Buffer.from('OLD'))
-    await invoke('music:deploy-pack', '/lib', { ...pack, tracks: [] }, '/dest', null, 64, 22050)
+    await invoke('music:deploy-pack', '/lib', { ...pack, tracks: [] }, '/dest', 64, 22050)
     expect(files.has('/dest/leftover.mus')).toBe(false)
   })
 
@@ -1129,7 +1160,7 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
     await expect(
-      invoke('music:deploy-pack', '/lib', pack, '/dest', null, undefined, 22050)
+      invoke('music:deploy-pack', '/lib', pack, '/dest', undefined, 22050)
     ).rejects.toThrow(/Invalid music:deploy-pack:encode payload/)
 
     expect(files.has('/dest/leftover.mus')).toBe(true)
@@ -1140,9 +1171,9 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     // song2.mp3 deliberately missing
-    await expect(
-      invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
-    ).rejects.toThrow(/song2\.mp3/)
+    await expect(invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)).rejects.toThrow(
+      /song2\.mp3/
+    )
     expect(files.has('/dest/leftover.mus')).toBe(true)
     expect(files.has('/dest/music-pack.json')).toBe(false)
     expect(childProcess.execFile).not.toHaveBeenCalled()
@@ -1151,18 +1182,18 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
   it('rejects a traversal in track.sourceFile without touching the destination', async () => {
     files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
     const evilPack = { ...pack, tracks: [{ musicId: 1, sourceFile: '../../etc/passwd' }] }
-    await expect(
-      invoke('music:deploy-pack', '/lib', evilPack, '/dest', null, 64, 22050)
-    ).rejects.toThrow(/Path traversal/)
+    await expect(invoke('music:deploy-pack', '/lib', evilPack, '/dest', 64, 22050)).rejects.toThrow(
+      /Path traversal/
+    )
     expect(files.has('/dest/leftover.mus')).toBe(true)
   })
 
   it('throws without touching the destination when the source library directory is empty', async () => {
     files.set('/dest/leftover.mus', Buffer.from('KEEP_ME'))
     // /lib has no source files at all
-    await expect(
-      invoke('music:deploy-pack', '/lib', pack, '/dest', null, 64, 22050)
-    ).rejects.toThrow(/song1\.mp3/)
+    await expect(invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)).rejects.toThrow(
+      /song1\.mp3/
+    )
     expect(files.has('/dest/leftover.mus')).toBe(true)
     expect(files.has('/dest/music-pack.json')).toBe(false)
   })
@@ -1173,7 +1204,8 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     files.set('/lib/song2.mp3', Buffer.from('S2'))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 96, 44100)
+    approveFfmpeg()
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 96, 44100)
 
     expect(childProcess.execFile).toHaveBeenCalledTimes(2)
     const [cmd, args] = childProcess.execFile.mock.calls[0]
@@ -1192,7 +1224,8 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
       native: {}
     }))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+    approveFfmpeg()
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     expect(childProcess.execFile).not.toHaveBeenCalled()
     expect(files.get('/dest/1.mus')?.toString('utf-8')).toBe('S1')
@@ -1208,7 +1241,8 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
       native: {}
     }))
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+    approveFfmpeg()
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     expect(childProcess.execFile).toHaveBeenCalledTimes(2)
   })
@@ -1220,7 +1254,8 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
       throw new Error('parse error')
     })
 
-    await invoke('music:deploy-pack', '/lib', pack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+    approveFfmpeg()
+    await invoke('music:deploy-pack', '/lib', pack, '/dest', 64, 22050)
 
     expect(childProcess.execFile).toHaveBeenCalledTimes(2)
   })
@@ -1236,16 +1271,17 @@ describe('music:deploy-pack — destination-clearing hotspot (handlers.ts musicD
       ]
     }
 
-    await invoke('music:deploy-pack', '/lib', oggPack, '/dest', '/usr/bin/ffmpeg', 64, 22050)
+    approveFfmpeg()
+    await invoke('music:deploy-pack', '/lib', oggPack, '/dest', 64, 22050)
 
     expect(musicMetadata.parseBuffer).not.toHaveBeenCalled()
     expect(childProcess.execFile).toHaveBeenCalledTimes(2)
   })
 
-  it('falls back to "ffmpeg" on PATH when ffmpegPath is null', async () => {
+  it('falls back to "ffmpeg" on PATH when no ffmpeg is approved', async () => {
     files.set('/lib/song1.mp3', Buffer.from('S1'))
     const onePack = { ...pack, tracks: [{ musicId: 7, sourceFile: 'song1.mp3' }] }
-    await invoke('music:deploy-pack', '/lib', onePack, '/dest', null, 64, 22050)
+    await invoke('music:deploy-pack', '/lib', onePack, '/dest', 64, 22050)
     const [cmd] = childProcess.execFile.mock.calls[0]
     expect(cmd).toBe('ffmpeg')
   })
@@ -1277,7 +1313,8 @@ describe('bik:convert (handlers.ts bikConvert)', () => {
   const bytes = new Uint8Array([0x42, 0x49, 0x4b, 0x69, 0xde, 0xad, 0xbe, 0xef])
 
   it('runs ffmpeg with libx264 + aac when no cached mp4 exists', async () => {
-    await invoke('bik:convert', bytes, '/usr/bin/ffmpeg', '/cache/bik')
+    approveFfmpeg()
+    await invoke('bik:convert', bytes)
 
     expect(childProcess.execFile).toHaveBeenCalledTimes(1)
     const [cmd, args] = childProcess.execFile.mock.calls[0]
@@ -1287,38 +1324,39 @@ describe('bik:convert (handlers.ts bikConvert)', () => {
     expect(args).toContain('+faststart')
     // Last arg is the output mp4 path inside the cache dir.
     const outArg = (args as string[])[args.length - 1].replace(/\\/g, '/')
-    expect(outArg).toMatch(/^\/cache\/bik\/[a-f0-9]{32}\.mp4$/)
+    // Main chooses the cache folder: the BIK cache under the settings folder.
+    expect(outArg).toMatch(/^\/appdata\/Erisco\/Taliesin\/bik-cache\/[a-f0-9]{32}\.mp4$/)
   })
 
   it('skips ffmpeg when the cached mp4 already exists', async () => {
     // Pre-seed the cache with the deterministic hashed path. Run a first
     // conversion to learn the path, then reset the spy and re-invoke.
-    await invoke('bik:convert', bytes, null, '/cache/bik')
+    await invoke('bik:convert', bytes)
     const [, firstArgs] = childProcess.execFile.mock.calls[0]
     const cachedMp4 = (firstArgs as string[])[firstArgs.length - 1]
     files.set(cachedMp4.replace(/\\/g, '/'), Buffer.from('FAKE_MP4'))
     childProcess.execFile.mockClear()
 
-    const out = await invoke('bik:convert', bytes, null, '/cache/bik')
+    const out = await invoke('bik:convert', bytes)
     expect(out).toBe(cachedMp4)
     expect(childProcess.execFile).not.toHaveBeenCalled()
   })
 
   it('returns the same cached path for identical input bytes', async () => {
-    const out1 = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
-    const out2 = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
+    const out1 = await invoke<string>('bik:convert', bytes)
+    const out2 = await invoke<string>('bik:convert', bytes)
     expect(out1).toBe(out2)
   })
 
   it('uses a different cache path for different input bytes', async () => {
     const other = new Uint8Array([0x42, 0x49, 0x4b, 0x69, 0x01, 0x02, 0x03, 0x04])
-    const a = await invoke<string>('bik:convert', bytes, null, '/cache/bik')
-    const b = await invoke<string>('bik:convert', other, null, '/cache/bik')
+    const a = await invoke<string>('bik:convert', bytes)
+    const b = await invoke<string>('bik:convert', other)
     expect(a).not.toBe(b)
   })
 
-  it('falls back to "ffmpeg" on PATH when ffmpegPath is null', async () => {
-    await invoke('bik:convert', bytes, null, '/cache/bik')
+  it('falls back to "ffmpeg" on PATH when no ffmpeg is approved', async () => {
+    await invoke('bik:convert', bytes)
     expect(childProcess.execFile.mock.calls[0][0]).toBe('ffmpeg')
   })
 
@@ -1329,9 +1367,11 @@ describe('bik:convert (handlers.ts bikConvert)', () => {
         return {} as never
       }
     )
-    await expect(invoke('bik:convert', bytes, null, '/cache/bik')).rejects.toThrow()
+    await expect(invoke('bik:convert', bytes)).rejects.toThrow()
     // No leftover .bik or .mp4 in the cache.
-    const cacheKeys = [...files.keys()].filter((k) => k.startsWith('/cache/bik/'))
+    const cacheKeys = [...files.keys()].filter((k) =>
+      k.startsWith('/appdata/Erisco/Taliesin/bik-cache/')
+    )
     const biks = cacheKeys.filter((k) => k.endsWith('.bik'))
     const mp4s = cacheKeys.filter((k) => k.endsWith('.mp4'))
     expect(biks).toEqual([])
@@ -1398,13 +1438,12 @@ describe('Category-A path-traversal rejection', () => {
     ['music:metadata:load', ['/escape/music']],
     [
       'music:deploy-pack',
-      ['/escape/lib', { tracks: [], id: 'p', name: 'p' }, '/library/dst', null, 64, 22050]
+      ['/escape/lib', { tracks: [], id: 'p', name: 'p' }, '/library/dst', 64, 22050]
     ],
     ['sfx:list', ['/escape/client']],
     ['sfx:readEntry', ['/escape/client', 'a.mp3']],
     ['sfx:index:load', ['/escape/lib']],
     ['sfx:index:save', ['/escape/lib', {}]],
-    ['bik:convert', [new Uint8Array(0), null, '/escape/cache']],
     ['index:read', ['/escape/lib']],
     ['index:build', ['/escape/lib']],
     ['index:status', ['/escape/lib']],
@@ -1497,7 +1536,7 @@ describe('Schema rejection at IPC boundary', () => {
     ['music:packs:save', ['/lib/music', [{ id: 'x' /* missing required fields */ }]]],
     [
       'music:deploy-pack',
-      ['/lib/src', { id: 'p', name: 'P' /* missing tracks */ }, '/lib/dst', null, 64, 22050]
+      ['/lib/src', { id: 'p', name: 'P' /* missing tracks */ }, '/lib/dst', 64, 22050]
     ],
     ['sfx:index:save', ['/lib', { '31.mp3': { name: 42 } }]],
     [
@@ -1552,7 +1591,7 @@ describe('Schema rejection at IPC boundary', () => {
       ]
     ],
     ['fs:writeBytes', ['/lib/world/xml/maps/a.map', [1, 2, 3] /* array, not bytes */]],
-    ['bik:convert', ['not-bytes', null, '/lib/cache']],
+    ['bik:convert', ['not-bytes']],
     ['tileScan:analyze', ['/lib/world/mapfiles' /* a path, not a list of them */]],
     ['maps:scanWarpReferrers', ['/lib/world/xml', '' /* empty name matches nothing */]],
     ['maps:updateWarpTargets', ['/lib/world/xml', 'Old Name', 42 /* would be coerced into XML */]],

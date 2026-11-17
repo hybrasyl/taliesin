@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import originalFs from 'original-fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createSettingsManager } from './settingsManager'
-import { registerHandlers, applySettingsRoots, type HandlerContext } from './handlers'
+import { registerHandlers, applySettingsRoots, packSources, type HandlerContext } from './handlers'
+import { loadOrMigrateGrants } from './grants'
 import { withPickerStart } from './pickerStart'
 import { buildMenuTemplate, INITIAL_MENU_STATE, MENU_COMMAND_CHANNEL } from './appMenu'
 import type { MenuState } from './schemas/menu'
@@ -121,15 +122,23 @@ export const ctx: HandlerContext = {
   blessedRoots: new Set<string>()
 }
 
-// Hydrate ctx.settingsRoots from the persisted settings as soon as we boot
-// so the first IPC call from the renderer can already see active library /
-// pack / music dirs etc. as authorised paths.
-settingsManager.load().then((s) => {
+// Load the grants (or migrate them from settings.json once, HTOO-674), then
+// hydrate ctx.settingsRoots from the persisted settings, so the first IPC call
+// from the renderer can already see active library / pack / music dirs etc. as
+// authorised paths. settings:load and settings:save wait for this.
+ctx.authorityReady = (async () => {
+  const s = await settingsManager.load()
+  try {
+    ctx.grants = await loadOrMigrateGrants(settingsPath, s, (m) => console.warn(`[grants] ${m}`))
+  } catch (err) {
+    // Fail closed: no grants means only this session's dialog choices count.
+    captureError({ source: 'grants', message: err instanceof Error ? err.message : String(err) })
+  }
   applySettingsRoots(ctx, s)
   // Scan installed .datf packs up front so the first map render can already
   // resolve static_tiles / world_maps overrides.
-  void loadPacks({ brigidAssetsPath: s.brigidAssetsPath ?? null, clientPath: s.clientPath ?? null })
-})
+  void loadPacks(packSources(ctx, s))
+})()
 
 // Startup splash: shown immediately at boot, torn down once the renderer signals
 // `app:ready` (settings hydrated) — see revealMainWindow() and the whenReady

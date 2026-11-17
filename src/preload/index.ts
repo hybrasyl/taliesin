@@ -219,11 +219,10 @@ const api = {
     srcLibDir: string,
     pack: MusicPack,
     destDir: string,
-    ffmpegPath: string | null,
     kbps: number,
     sampleRate: number
   ): Promise<void> =>
-    ipcRenderer.invoke('music:deploy-pack', srcLibDir, pack, destDir, ffmpegPath, kbps, sampleRate),
+    ipcRenderer.invoke('music:deploy-pack', srcLibDir, pack, destDir, kbps, sampleRate),
   musicClientScan: (clientPath: string): Promise<MusicScanEntry[]> =>
     ipcRenderer.invoke('music:client:scan', clientPath),
 
@@ -241,9 +240,16 @@ const api = {
     data: Record<string, { name?: string; comment?: string }>
   ) => ipcRenderer.invoke('sfx:index:save', activeLibrary, data),
 
-  // BIK → MP4 conversion (cached by content hash under cacheDir)
-  bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string): Promise<string> =>
-    ipcRenderer.invoke('bik:convert', bytes, ffmpegPath, cacheDir),
+  // BIK → MP4 conversion (cached by content hash). Main chooses the converter
+  // and the cache folder (HTOO-673).
+  bikConvert: (bytes: Uint8Array): Promise<string> => ipcRenderer.invoke('bik:convert', bytes),
+
+  // Approved programs (HTOO-673). The renderer names a kind; main shows the
+  // dialog and records the choice. Returns the chosen path, or null.
+  chooseExecutable: (kind: 'ffmpeg' | 'companion'): Promise<string | null> =>
+    ipcRenderer.invoke('exec:choose', kind),
+  clearExecutable: (kind: 'ffmpeg' | 'companion'): Promise<void> =>
+    ipcRenderer.invoke('exec:clear', kind),
 
   // World index — a derived, rebuildable cache in per-machine local storage
   // (%LOCALAPPDATA%\Erisco\hybindex\v<N>\<worldKey>\), never in the git-tracked

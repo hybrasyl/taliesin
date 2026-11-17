@@ -34,6 +34,7 @@ export interface MemoryFs {
       rename: ReturnType<typeof vi.fn>
       access: ReturnType<typeof vi.fn>
       stat: ReturnType<typeof vi.fn>
+      realpath: ReturnType<typeof vi.fn>
       readdir: ReturnType<typeof vi.fn>
     }
   }
@@ -153,6 +154,13 @@ export function createMemoryFs(): MemoryFs {
         const buf = files.get(norm)
         if (!buf) throw enoent()
         return { size: buf.length }
+      }),
+      // The real-path check (HTOO-675) asks for this. This filesystem has no
+      // links, so a path that exists is its own real path.
+      realpath: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+        if (norm === '/' || files.has(norm) || dirs.has(norm)) return path
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       }),
       readdir
     }
@@ -322,8 +330,8 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     musicMetadataSave: (p, d) => handlers.musicMetadataSave(handlerCtx, p, d),
     musicPacksLoad: async (d) => (await handlers.musicPacksLoad(handlerCtx, d)) as MusicPack[],
     musicPacksSave: (p, packs) => handlers.musicPacksSave(handlerCtx, p, packs),
-    musicDeployPack: (src, pack, dst, ffmpeg, kbps, sr) =>
-      handlers.musicDeployPack(handlerCtx, src, pack, dst, ffmpeg, kbps, sr),
+    musicDeployPack: (src, pack, dst, kbps, sr) =>
+      handlers.musicDeployPack(handlerCtx, src, pack, dst, kbps, sr),
     musicClientScan: (p) => handlers.musicClientScan(handlerCtx, p),
 
     // SFX
@@ -337,8 +345,9 @@ export function buildBridgedApi(handlers: Handlers, ctx: BridgeContext): Taliesi
     sfxIndexSave: (p, d) => handlers.sfxIndexSave(handlerCtx, p, d),
 
     // BIK
-    bikConvert: (bytes, ffmpegPath, cacheDir) =>
-      handlers.bikConvert(handlerCtx, bytes, ffmpegPath, cacheDir),
+    bikConvert: (bytes) => handlers.bikConvert(handlerCtx, bytes),
+    chooseExecutable: async () => null,
+    clearExecutable: (kind) => handlers.clearExecutable(handlerCtx, kind),
 
     // World index
     indexRead: async (l) => (await handlers.indexRead(handlerCtx, l)) as WorldIndex | null,

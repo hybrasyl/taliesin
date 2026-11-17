@@ -451,7 +451,7 @@ describe('BikPreview', () => {
     expect(screen.getByText(/0:06/)).toBeInTheDocument() // 180 frames @ 30fps
   })
 
-  it('Convert & Play calls bikConvert with the entry bytes + ffmpegPath + cacheDir', async () => {
+  it('Convert & Play sends only the entry bytes: main chooses the program and the cache', async () => {
     const user = userEvent.setup()
     renderer.classifyEntry.mockReturnValue('bik')
     renderer.parseBikHeader.mockReturnValue({
@@ -480,11 +480,9 @@ describe('BikPreview', () => {
     await user.click(screen.getByRole('button', { name: /convert & play/i }))
 
     await waitFor(() => expect(api.bikConvert).toHaveBeenCalledTimes(1))
-    expect(api.bikConvert).toHaveBeenCalledWith(
-      entryBytes,
-      '/usr/bin/ffmpeg',
-      expect.stringMatching(/[\\/]userData[\\/]bik-cache$/)
-    )
+    // No program path and no folder (HTOO-673): a path from the renderer could
+    // name any program, so main decides both.
+    expect(api.bikConvert).toHaveBeenCalledWith(entryBytes)
     expect(api.readFile).toHaveBeenCalledWith('/userData/bik-cache/abc.mp4')
   })
 

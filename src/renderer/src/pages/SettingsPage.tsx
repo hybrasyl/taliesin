@@ -31,6 +31,7 @@ import HelpIcon from '@mui/icons-material/Help'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import ClearIcon from '@mui/icons-material/Clear'
 import LaunchIcon from '@mui/icons-material/Launch'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined'
@@ -61,25 +62,32 @@ const cardDescSx = { color: 'text.secondary', mb: 2 }
 
 // ── Shared path input ────────────────────────────────────────────────────────
 
+/**
+ * A path setting. It shows the path, and changes only through Browse (a native
+ * dialog) or Clear. A typed path is not accepted: main gives a folder or a
+ * program authority only when the user chose it in a dialog (HTOO-674).
+ */
 function PathInput({
   value,
-  onChange,
   placeholder,
-  onBrowse
+  onBrowse,
+  onClear
 }: {
   value: string
-  onChange: (v: string) => void
   placeholder: string
   onBrowse: () => void
+  onClear?: () => void
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Box
         component="input"
+        readOnly
         spellCheck={false}
         placeholder={placeholder}
         value={value}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        title={value || undefined}
+        data-testid="path-input"
         sx={{
           flex: 1,
           px: 1.5,
@@ -96,10 +104,17 @@ function PathInput({
         }}
       />
       <Tooltip title="Browse...">
-        <IconButton size="small" onClick={onBrowse}>
+        <IconButton size="small" onClick={onBrowse} aria-label="Browse">
           <FolderOpenIcon fontSize="small" />
         </IconButton>
       </Tooltip>
+      {onClear && value && (
+        <Tooltip title="Clear">
+          <IconButton size="small" onClick={onClear} aria-label="Clear">
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   )
 }
@@ -199,7 +214,7 @@ function DAClientCard() {
       </Typography>
       <PathInput
         value={clientPath ?? ''}
-        onChange={(v) => setClientPath(v || null)}
+        onClear={() => setClientPath(null)}
         placeholder="e.g. C:\Program Files (x86)\Dark Ages"
         onBrowse={async () => {
           const d = await window.api.openDirectory()
@@ -231,7 +246,7 @@ function BrigidAssetsCard() {
       </Typography>
       <PathInput
         value={brigidAssetsPath ?? ''}
-        onChange={(v) => setBrigidAssetsPath(v || null)}
+        onClear={() => setBrigidAssetsPath(null)}
         placeholder={brigidAssetsExample(currentPlatform())}
         onBrowse={async () => {
           const d = await window.api.openDirectory()
@@ -352,17 +367,12 @@ function CompanionCard() {
 
       <PathInput
         value={companionPath ?? ''}
-        onChange={(v) => setCompanionPath(v || null)}
         placeholder="Optional — leave empty to find Creidhne automatically"
         onBrowse={async () => {
-          // Filters come from main, because they differ per platform: a macOS
-          // bundle is a `.app` directory and a Linux install may be an AppImage
-          // or a desktop entry. Asking for `exe` everywhere is what stopped this
-          // setting from being populated at all off Windows.
-          const f = await window.api.openFile(
-            await window.api.companionPickerFilters(),
-            companionPath ?? undefined
-          )
+          // Main shows the dialog, with its per-platform filters, and records
+          // the choice as the approved companion (HTOO-673). The field only
+          // shows main's answer.
+          const f = await window.api.chooseExecutable('companion')
           if (f) setCompanionPath(f)
         }}
       />
@@ -378,7 +388,14 @@ function CompanionCard() {
           Test Launch
         </Button>
         {companionPath && (
-          <Button variant="text" size="small" onClick={() => setCompanionPath(null)}>
+          <Button
+            variant="text"
+            size="small"
+            onClick={async () => {
+              await window.api.clearExecutable('companion')
+              setCompanionPath(null)
+            }}
+          >
             Clear selection
           </Button>
         )}
@@ -907,7 +924,7 @@ function MusicLibraryCard() {
       </Typography>
       <PathInput
         value={musicLibraryPath ?? ''}
-        onChange={(v) => setMusicLibraryPath(v || null)}
+        onClear={() => setMusicLibraryPath(null)}
         placeholder="e.g. D:\music-library"
         onBrowse={async () => {
           const d = await window.api.openDirectory()
@@ -934,14 +951,16 @@ function FfmpegCard() {
       </Typography>
       <PathInput
         value={ffmpegPath ?? ''}
-        onChange={(v) => setFfmpegPath(v || null)}
         placeholder="e.g. C:\tools\ffmpeg.exe  (blank = system ffmpeg)"
         onBrowse={async () => {
-          const f = await window.api.openFile(
-            [{ name: 'Executable', extensions: ['exe', '*'] }],
-            ffmpegPath ?? undefined
-          )
+          // Main shows the dialog and records the choice as the approved
+          // converter (HTOO-673). Conversion IPC takes no program path.
+          const f = await window.api.chooseExecutable('ffmpeg')
           if (f) setFfmpegPath(f)
+        }}
+        onClear={async () => {
+          await window.api.clearExecutable('ffmpeg')
+          setFfmpegPath(null)
         }}
       />
     </Paper>
@@ -1145,7 +1164,7 @@ function AssetPacksCard() {
       </Typography>
       <PathInput
         value={packDir ?? ''}
-        onChange={(v) => setPackDir(v || null)}
+        onClear={() => setPackDir(null)}
         placeholder="e.g. D:\asset-packs"
         onBrowse={async () => {
           const d = await window.api.openDirectory()

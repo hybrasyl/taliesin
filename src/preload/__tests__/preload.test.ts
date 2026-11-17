@@ -75,6 +75,8 @@ describe('Preload ↔ Main IPC contract', () => {
         "dialog:openFile",
         "dialog:openFiles",
         "dialog:saveFile",
+        "exec:choose",
+        "exec:clear",
         "frame:scan",
         "fs:copyFile",
         "fs:deleteFile",
