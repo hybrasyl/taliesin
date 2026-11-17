@@ -76,6 +76,7 @@ import MapRenderCanvas, {
   type MarkerKind
 } from './MapRenderCanvas'
 import MusicPickerDialog from './MusicPickerDialog'
+import AmbientSoundField from './AmbientSoundField'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { normalizeFolder } from '../../utils/fileTree'
 import { isModKey, isTypingTarget } from '../../utils/keyboard'
@@ -902,6 +903,7 @@ function MapFieldsTab({
             onChange={(v) => set('music', v)}
             clientPath={clientPath}
           />
+          <AmbientSoundField value={data.ambientSound} onChange={(v) => set('ambientSound', v)} />
           <FormControlLabel
             control={
               <Switch
@@ -944,6 +946,19 @@ function MapFieldsTab({
           value={data.description ?? ''}
           onChange={(e) => set('description', e.target.value || undefined)}
         />
+        {/* The map's own script (HXML-11), not a reactor's or a sign's. */}
+        <Box sx={{ mt: 1.5 }}>
+          <ScriptAutocomplete
+            label="Map Script"
+            value={data.script ?? ''}
+            onChange={(v) => {
+              // The Autocomplete also reports input resets. A call that changes
+              // nothing must not mark the map dirty.
+              const next = v.trim() ? v : undefined
+              if (next !== data.script) set('script', next)
+            }}
+          />
+        </Box>
       </Paper>
       {/* Flags — accordion so they don't take up constant vertical space */}
       <Accordion disableGutters variant="outlined" sx={{ mb: 1, '&:before': { display: 'none' } }}>

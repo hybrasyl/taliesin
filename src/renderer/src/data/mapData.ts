@@ -84,6 +84,13 @@ export interface MapData {
   id: number
   name: string
   music?: number
+  /**
+   * The map's ambient sound: `Map/@AmbientSound`, an `xs:unsignedByte` (HXML-14,
+   * HTOO-624). A value is an `amb_{id}` in an ambient_sounds pack. The schema
+   * default is 0, which means no ambient sound, so the model keeps 0 as
+   * `undefined` and the serializer does not write it.
+   */
+  ambientSound?: number
   x: number
   y: number
   isEnabled: boolean
@@ -96,6 +103,12 @@ export interface MapData {
   signs: MapSign[]
   reactors: MapReactor[]
   spawnGroup?: MapSpawnGroup
+  /**
+   * The map's own script: an optional `Map/Script` element, `String8` (HXML-11,
+   * HTOO-624). It is not the script of a reactor or a sign. An empty value is
+   * not written.
+   */
+  script?: string
   /**
    * What the map *is* — its location and building type, as a builder would look
    * for it: "Tagor Tavern". Distinct from `name`, which is the display name the

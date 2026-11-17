@@ -33,6 +33,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- The map editor's Properties section has a Map Script field and an Ambient Sound field (HTOO-624). Taliesin reads and writes `Map/Script` and `Map/@AmbientSound` in the shape the xml schema plan gives (HXML-11, HXML-14). It writes neither when it is empty or 0. The Ambient Sound picker lists and previews the `amb_{id}` sounds in the installed ambient_sounds packs.
+
 ## [2.15.0] - 2026-10-31
 
 ### Added
