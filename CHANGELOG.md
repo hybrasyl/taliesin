@@ -33,6 +33,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **The map XML editor has undo and redo.** Ctrl+Z undoes an edit, and Ctrl+Y or Ctrl+Shift+Z redoes it (⌘Z and ⌘⇧Z on macOS). Undo and Redo buttons are on the placement toolbar. Undo covers each placed, moved, pasted or removed node and each Properties change. Typing in one field is one step. An undo back to the saved map makes the map clean again, and the history stays after a save. In a text field, Ctrl+Z is the text field's own undo. Dalta asked for this feature.
+
 ### Security
 
 - **Taliesin runs on Electron 44.11.3.** This release bundles Node 24.22.2. The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch, so `npm audit` goes from 12 moderate findings to 6. The 6 that stay are build-time only, in electron-builder, which has no fixed release yet (HTOO-631).
