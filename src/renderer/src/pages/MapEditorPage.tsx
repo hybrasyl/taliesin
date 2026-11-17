@@ -387,6 +387,11 @@ export default function MapEditorPage() {
     () => new Map((worldIndex?.ignoredMapDetails ?? []).map((d) => [d.filename, d.id])),
     [worldIndex]
   )
+  // loadFiles reads the lookups through this ref, not as dependencies. An
+  // index rebuild must not re-scan the disk: the re-populate effect below
+  // applies new names and Ids to the list that is already loaded (HTOO-158).
+  const indexMapsRef = useRef({ activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap })
+  indexMapsRef.current = { activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap }
 
   // Active map id → the files that carry it, for the shared-id notice. Two
   // active maps with one id are one map to the server.
@@ -407,52 +412,11 @@ export default function MapEditorPage() {
   )
 
   /**
-   * One listSection call replaces the two flat listDir scans this used to do.
-   * It enumerates recursively — so a map filed in a subdirectory is no longer
-   * invisible here while the index lists it — and returns active and archived
-   * already split, which excludes the archive *explicitly* rather than relying
-   * on a `.isFile()` filter to drop the `.ignore` directory by accident.
-   */
-  const loadFiles = async () => {
-    if (!activeLibrary) {
-      setFiles([])
-      setArchivedFiles([])
-      setStagedFiles([])
-      setStagedMaps([])
-      setMapsDir(null)
-      setStagedDir(null)
-      return
-    }
-    void loadStaged()
-    try {
-      const { dir, active, archived } = await window.api.listSection(activeLibrary, MAPS_SUBDIR)
-      setMapsDir(dir)
-      const toEntry = (rel: string, isArchived: boolean): FileEntry => ({
-        rel,
-        path: `${dir}/${rel}`,
-        display: displayName(rel),
-        mapName: (isArchived ? ignoredNameMap : activeNameMap).get(rel),
-        mapId: (isArchived ? ignoredIdMap : activeIdMap).get(rel),
-        ...(isArchived && { archived: true })
-      })
-      // listSection sorts by code unit — deterministic, but it puts lod10 ahead
-      // of lod2. Re-sort for display with numeric collation.
-      const byDisplay = (a: FileEntry, b: FileEntry) =>
-        a.display.localeCompare(b.display, undefined, { numeric: true })
-      setFiles(active.map((rel) => toEntry(rel, false)).sort(byDisplay))
-      setArchivedFiles(archived.map((rel) => toEntry(rel, true)).sort(byDisplay))
-    } catch {
-      setFiles([])
-      setArchivedFiles([])
-    }
-  }
-
-  /**
    * The staged maps. Their names and Ids come from main, not from the world
    * index, which does not see `.staging/`. A failed read leaves the set empty:
    * the live list does not depend on it.
    */
-  const loadStaged = async () => {
+  const loadStaged = useCallback(async () => {
     if (!activeLibrary) return
     try {
       const { dir, files: list } = await window.api.listStagedMaps(activeLibrary)
@@ -474,7 +438,49 @@ export default function MapEditorPage() {
       setStagedFiles([])
       setStagedMaps([])
     }
-  }
+  }, [activeLibrary])
+
+  /**
+   * One listSection call replaces the two flat listDir scans this used to do.
+   * It enumerates recursively — so a map filed in a subdirectory is no longer
+   * invisible here while the index lists it — and returns active and archived
+   * already split, which excludes the archive *explicitly* rather than relying
+   * on a `.isFile()` filter to drop the `.ignore` directory by accident.
+   */
+  const loadFiles = useCallback(async () => {
+    if (!activeLibrary) {
+      setFiles([])
+      setArchivedFiles([])
+      setStagedFiles([])
+      setStagedMaps([])
+      setMapsDir(null)
+      setStagedDir(null)
+      return
+    }
+    void loadStaged()
+    try {
+      const { dir, active, archived } = await window.api.listSection(activeLibrary, MAPS_SUBDIR)
+      setMapsDir(dir)
+      const { activeNameMap, ignoredNameMap, activeIdMap, ignoredIdMap } = indexMapsRef.current
+      const toEntry = (rel: string, isArchived: boolean): FileEntry => ({
+        rel,
+        path: `${dir}/${rel}`,
+        display: displayName(rel),
+        mapName: (isArchived ? ignoredNameMap : activeNameMap).get(rel),
+        mapId: (isArchived ? ignoredIdMap : activeIdMap).get(rel),
+        ...(isArchived && { archived: true })
+      })
+      // listSection sorts by code unit — deterministic, but it puts lod10 ahead
+      // of lod2. Re-sort for display with numeric collation.
+      const byDisplay = (a: FileEntry, b: FileEntry) =>
+        a.display.localeCompare(b.display, undefined, { numeric: true })
+      setFiles(active.map((rel) => toEntry(rel, false)).sort(byDisplay))
+      setArchivedFiles(archived.map((rel) => toEntry(rel, true)).sort(byDisplay))
+    } catch {
+      setFiles([])
+      setArchivedFiles([])
+    }
+  }, [activeLibrary, loadStaged])
 
   useEffect(() => {
     if (!activeLibrary) {
@@ -486,14 +492,10 @@ export default function MapEditorPage() {
       setEditingMap(null)
       return
     }
-    loadFiles()
-    // `loadFiles` is declared in the component body, so it is a new function on
-    // every render. Adding it here would re-scan the library filesystem on every
-    // render. Re-scanning when the active library changes is exactly the
-    // intent; wrapping loadFiles in useCallback to satisfy the rule honestly is
-    // a larger refactor, tracked in docs/plans/00a-backlog.md.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLibrary])
+    // loadFiles changes only when the active library changes, so this re-scans
+    // the disk on a library change and not on each render.
+    void loadFiles()
+  }, [activeLibrary, loadFiles])
 
   // Re-populate mapName/mapId when the index is (re)built without re-scanning the filesystem
   useEffect(() => {

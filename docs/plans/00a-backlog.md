@@ -42,10 +42,6 @@ Per settled decision 4, palette resolution rules live in dalib-ts and are specif
 
 **Trigger:** the Brigid client's virtual-resolution rebase. Recorded in `complete/static-tile-manager.md`; the Static Tile Manager shipped at 1×.
 
-### `loadFiles` should be a `useCallback` in the two file-list pages
-
-**Trigger:** the next substantial change to either page's loading path. `MapEditorPage.tsx` and `WorldMapPage.tsx` both call a body-declared `loadFiles()` from an effect keyed on `activeLibrary`. Listing `loadFiles` as a dependency would re-scan the library filesystem on **every render**, so both carry a justified `eslint-disable` instead. Satisfying the rule honestly means wrapping `loadFiles` in `useCallback` with its own dependency set, which reaches into how each page tracks selection and editing state — worth doing, not worth doing blind. `MapCatalogEditor.tsx` carries a third disable that is **not** this: reading `entry.width`/`entry.height` without depending on them is correct there, because the picker writes those values back and the effect would re-read the file.
-
 ---
 
 ## Non-goals with no trigger
