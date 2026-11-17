@@ -2,17 +2,22 @@ import { test, expect } from '@playwright/test'
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { SCHEMA_VERSION } from '@eriscorp/hybindex-ts'
 import { launchApp, getMainWindow } from './helpers.js'
 
 // Settings → World indexes (HTOO-583), through the built app and the disk.
 // launchApp points HYBINDEX_CACHE_DIR at <localAppData>/Erisco/hybindex, and
 // with that variable set hybindex-ts scans no other base, so this never sees
 // the real cache. Ported from creidhne's spec of the same name. Taliesin does
-// not build an index at launch, so this seeds the current cache too:
+// not build an index at launch, so this seeds the current cache too. The
+// versions come from the package, so a SCHEMA_VERSION bump does not break it:
 //
-//   v4/world-old/      a world that exists, built by an older version  → removed
-//   v5/moved-world/    a world folder that no longer exists            → removed
-//   v5/world-live/     a world that exists, at the current version     → stays
+//   v<old>/world-old/       a world that exists, built by an older version  → removed
+//   v<current>/moved-world/ a world folder that no longer exists            → removed
+//   v<current>/world-live/  a world that exists, at the current version     → stays
+
+const CURRENT = `v${SCHEMA_VERSION}`
+const OLD = `v${SCHEMA_VERSION - 1}`
 
 function seedCache(base, version, key, libraryPath) {
   const dir = join(base, version, key)
@@ -36,9 +41,9 @@ test.describe('World indexes', () => {
 
     const localAppData = mkdtempSync(join(tmpdir(), 'taliesin-e2e-'))
     const base = join(localAppData, 'Erisco', 'hybindex')
-    const oldSchema = seedCache(base, 'v4', 'world-old', lib)
-    const moved = seedCache(base, 'v5', 'moved-world', join(world, 'gone', 'xml'))
-    const live = seedCache(base, 'v5', 'world-live', lib)
+    const oldSchema = seedCache(base, OLD, 'world-old', lib)
+    const moved = seedCache(base, CURRENT, 'moved-world', join(world, 'gone', 'xml'))
+    const live = seedCache(base, CURRENT, 'world-live', lib)
 
     ;({ electronApp } = await launchApp({ localAppData }))
     const page = await getMainWindow(electronApp)
@@ -57,8 +62,8 @@ test.describe('World indexes', () => {
     await section.getByRole('button', { name: /^Remove 2 / }).click()
     await expect(section.getByText(/^Removed 2 old indexes/)).toBeVisible()
     expect(existsSync(oldSchema)).toBe(false)
-    // The v4 folder is empty after the removal, so it goes too.
-    expect(existsSync(join(base, 'v4'))).toBe(false)
+    // The old version's folder is empty after the removal, so it goes too.
+    expect(existsSync(join(base, OLD))).toBe(false)
     expect(existsSync(moved)).toBe(false)
     expect(existsSync(live)).toBe(true)
 
