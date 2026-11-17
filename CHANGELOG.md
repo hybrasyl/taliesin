@@ -33,6 +33,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- The Music manager's Client View has a Maps column: the active maps that play each track. It needs hybindex-ts 1.3.0, which reads each map's `Music` attribute, and it is hidden when the world index has no music data (HTOO-358).
+
+### Changed
+
+- hybindex-ts 1.3.0. Its `SCHEMA_VERSION` is 6, so the first index build after the update rebuilds from source, and Settings → World indexes lists the old `v5` cache for removal.
+
 ## [2.15.0] - 2026-10-31
 
 ### Added

@@ -27,10 +27,8 @@ const MusicPage: React.FC = () => {
   const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
   const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
 
-  // The world index is deliberately not loaded here. It was read only to build a
-  // map cross-reference that could never resolve — mapDetails carries no `music`
-  // field — so the page paid for an index load and showed an empty answer that
-  // looked like a real one. See HTOO-169.
+  // The page does not load the world index. Only the Client View tab reads it,
+  // for its Maps column, so the tab loads it when it opens (HTOO-358).
 
   // Library hook
   const lib = useMusicLibrary(musicLibraryPath)
