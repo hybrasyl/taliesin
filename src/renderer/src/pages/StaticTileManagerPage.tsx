@@ -76,6 +76,7 @@ import WangSlicePanel from '../components/statictiles/WangSlicePanel'
 import CommittedTiles from '../components/statictiles/CommittedTiles'
 import CellStrip from '../components/statictiles/CellStrip'
 import WallPlacementPreview from '../components/statictiles/WallPlacementPreview'
+import TileCollisionsSeedButton from '../components/statictiles/TileCollisionsSeedButton'
 
 interface PackSummary {
   filename: string
@@ -154,6 +155,7 @@ const StaticTileManagerPage: React.FC = () => {
   const packDir = useSettingsStore((s) => s.packDir)
   const setPackDir = useSettingsStore((s) => s.setPackDir)
   const clientPath = useSettingsStore((s) => s.clientPath)
+  const activeLibrary = useSettingsStore((s) => s.activeLibrary)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const [statusMessage, showStatus] = useTransientStatus()
 
@@ -837,6 +839,11 @@ const StaticTileManagerPage: React.FC = () => {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        <TileCollisionsSeedButton
+          sotp={assets?.sotp ?? null}
+          activeLibrary={activeLibrary}
+          onStatus={showStatus}
+        />
       </WorkingDirToolbar>
 
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

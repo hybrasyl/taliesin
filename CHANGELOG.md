@@ -35,6 +35,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- The Static Tile Manager has a Seed TileCollisions action (HTOO-611). It reads `sotp.dat` from the client's `ia.dat` and writes the world `TileCollisions` table, in the shape the xml schema plan gives (HXML-41). Runs of tile ids with the same collision value become `Range` entries. Taliesin writes the collision bits only, and checks the output before it writes the file.
 - The map editor's Properties section has a Map Script field and an Ambient Sound field (HTOO-624). Taliesin reads and writes `Map/Script` and `Map/@AmbientSound` in the shape the xml schema plan gives (HXML-11, HXML-14). It writes neither when it is empty or 0. The Ambient Sound picker lists and previews the `amb_{id}` sounds in the installed ambient_sounds packs.
 - The Music manager's Client View has a Maps column: the active maps that play each track. It needs hybindex-ts 1.3.0, which reads each map's `Music` attribute, and it is hidden when the world index has no music data (HTOO-358).
 - **The map XML editor has undo and redo.** Ctrl+Z undoes an edit, and Ctrl+Y or Ctrl+Shift+Z redoes it (⌘Z and ⌘⇧Z on macOS). Undo and Redo buttons are on the placement toolbar. Undo covers each placed, moved, pasted or removed node and each Properties change. Typing in one field is one step. An undo back to the saved map makes the map clean again, and the history stays after a save. In a text field, Ctrl+Z is the text field's own undo. Dalta asked for this feature.
