@@ -253,6 +253,45 @@ export function serializeMapXml(data: MapData): string {
     lines.push('  </Warps>')
   }
 
+  // The sections follow Map.xsd's sequence: Name, Description, Flags, Warps,
+  // Reactors, SpawnGroup, Npcs, Signs. The server reads any order, but strict
+  // schema validation (HXML-35) refuses another order, and most world and
+  // ceridwen maps are already in this one, so a save does not reorder them.
+  if (data.reactors.length > 0) {
+    lines.push('  <Reactors>')
+    for (const r of data.reactors) {
+      const parts = [`X="${r.x}"`, `Y="${r.y}"`]
+      if (r.displayName) parts.push(`DisplayName="${esc(r.displayName)}"`)
+      const children: string[] = []
+      if (r.description?.trim())
+        children.push(`      <Description>${esc(r.description)}</Description>`)
+      if (r.script?.trim()) children.push(`      <Script>${esc(r.script)}</Script>`)
+      if (children.length > 0) {
+        lines.push(`    <Reactor ${parts.join(' ')}>`)
+        lines.push(...children)
+        lines.push('    </Reactor>')
+      } else {
+        lines.push(`    <Reactor ${parts.join(' ')} />`)
+      }
+    }
+    lines.push('  </Reactors>')
+  }
+
+  const sg = data.spawnGroup
+  if (sg && (sg.name || sg.spawns.length > 0)) {
+    lines.push(`  <SpawnGroup Name="${esc(sg.name)}" BaseLevel="${sg.baseLevel}">`)
+    if (sg.spawns.length > 0) {
+      lines.push('    <Spawns>')
+      for (const s of sg.spawns) {
+        const parts = [`Import="${esc(s.import)}"`]
+        if (s.flags.length > 0) parts.push(`Flags="${s.flags.join(' ')}"`)
+        lines.push(`      <Spawn ${parts.join(' ')} />`)
+      }
+      lines.push('    </Spawns>')
+    }
+    lines.push('  </SpawnGroup>')
+  }
+
   if (data.npcs.length > 0) {
     lines.push('  <Npcs>')
     for (const n of data.npcs) {
@@ -294,41 +333,6 @@ export function serializeMapXml(data: MapData): string {
       }
     }
     lines.push('  </Signs>')
-  }
-
-  const sg = data.spawnGroup
-  if (sg && (sg.name || sg.spawns.length > 0)) {
-    lines.push(`  <SpawnGroup Name="${esc(sg.name)}" BaseLevel="${sg.baseLevel}">`)
-    if (sg.spawns.length > 0) {
-      lines.push('    <Spawns>')
-      for (const s of sg.spawns) {
-        const parts = [`Import="${esc(s.import)}"`]
-        if (s.flags.length > 0) parts.push(`Flags="${s.flags.join(' ')}"`)
-        lines.push(`      <Spawn ${parts.join(' ')} />`)
-      }
-      lines.push('    </Spawns>')
-    }
-    lines.push('  </SpawnGroup>')
-  }
-
-  if (data.reactors.length > 0) {
-    lines.push('  <Reactors>')
-    for (const r of data.reactors) {
-      const parts = [`X="${r.x}"`, `Y="${r.y}"`]
-      if (r.displayName) parts.push(`DisplayName="${esc(r.displayName)}"`)
-      const children: string[] = []
-      if (r.description?.trim())
-        children.push(`      <Description>${esc(r.description)}</Description>`)
-      if (r.script?.trim()) children.push(`      <Script>${esc(r.script)}</Script>`)
-      if (children.length > 0) {
-        lines.push(`    <Reactor ${parts.join(' ')}>`)
-        lines.push(...children)
-        lines.push('    </Reactor>')
-      } else {
-        lines.push(`    <Reactor ${parts.join(' ')} />`)
-      }
-    }
-    lines.push('  </Reactors>')
   }
 
   // HXML-11 adds Script to the Map sequence and does not say where. It is

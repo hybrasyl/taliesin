@@ -421,20 +421,51 @@ describe('map Script and AmbientSound', () => {
   const oldMap = `<?xml version="1.0" encoding="utf-8"?>
 <Map Id="500" Music="3" X="80" Y="60" IsEnabled="true" AllowCasting="true" xmlns="${HYBRASYL_NS}">
   <Name>Old Map</Name>
-  <Signs>
-    <Sign Type="Sign" X="1" Y="2">
-      <Script>sign_script</Script>
-    </Sign>
-  </Signs>
   <Reactors>
     <Reactor X="3" Y="4">
       <Script>reactor_script</Script>
     </Reactor>
   </Reactors>
+  <Signs>
+    <Sign Type="Sign" X="1" Y="2">
+      <Script>sign_script</Script>
+    </Sign>
+  </Signs>
 </Map>`
 
   it('round-trips a map with neither field byte for byte', () => {
     expect(serializeMapXml(parseMapXml(oldMap))).toBe(oldMap)
+  })
+
+  it("writes the sections in Map.xsd's sequence, whatever order the file had", () => {
+    // The reverse of the schema order, so every section is out of place.
+    const xml = `<Map Id="1" X="40" Y="40" xmlns="${HYBRASYL_NS}">
+  <Signs><Sign Type="Sign" X="1" Y="1" /></Signs>
+  <Npcs><Npc Name="N" X="2" Y="2" Direction="South" /></Npcs>
+  <SpawnGroup Name="G" BaseLevel="1"><Spawns><Spawn Import="Rat" /></Spawns></SpawnGroup>
+  <Reactors><Reactor X="3" Y="3"><Script>r</Script></Reactor></Reactors>
+  <Warps><Warp X="4" Y="4"><WorldMapTarget>W</WorldMapTarget></Warp></Warps>
+  <Flags>Snow</Flags>
+  <Description>D</Description>
+  <Name>Order</Name>
+  <Script>s</Script>
+</Map>`
+    const out = serializeMapXml(parseMapXml(xml))
+    const sections = out
+      .split('\n')
+      .map((l) => /^ {2}<([A-Za-z]+)/.exec(l)?.[1])
+      .filter((t): t is string => !!t)
+    expect(sections).toEqual([
+      'Name',
+      'Description',
+      'Flags',
+      'Warps',
+      'Reactors',
+      'SpawnGroup',
+      'Npcs',
+      'Signs',
+      'Script'
+    ])
   })
 
   it('does not read a reactor or sign script as the map script', () => {
