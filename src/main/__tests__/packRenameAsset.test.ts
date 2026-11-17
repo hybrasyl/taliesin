@@ -6,7 +6,7 @@
  * This is the rename that replaces that.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { tmpdir } from 'os'
 import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from 'fs/promises'
 import { packRenameAsset } from '../handlers'
@@ -22,7 +22,8 @@ beforeEach(async () => {
   packDir = join(dir, 'pack')
   await mkdir(packDir, { recursive: true })
   ctx = {
-    settingsPath: dir,
+    // Apart from the root: main's own folder is never a root (HTOO-674).
+    settingsPath: join(dir, '..', `${basename(dir)}-settings`),
     settingsRoots: new Set([dir]),
     blessedRoots: new Set<string>()
   } as unknown as Ctx

@@ -9,7 +9,7 @@
  * mock.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -306,5 +306,16 @@ describe('Extract All writes only into the chosen folder (HTOO-677)', () => {
     await expect(
       extractArchive(ctx, join(root, 'outside', 'b.dat'), join(root, 'work', 'extract'))
     ).rejects.toThrow(/not inside any allowed root/)
+  })
+
+  it('writes nothing through a junction to a folder outside the roots (HTOO-675)', async () => {
+    // A junction on Windows (no admin rights needed), a directory symlink elsewhere.
+    await mkdir(join(root, 'outside'), { recursive: true })
+    const link = join(root, 'work', 'linked')
+    await symlink(join(root, 'outside'), link, process.platform === 'win32' ? 'junction' : 'dir')
+    const archivePath = join(root, 'inbox', 'good.dat')
+    await writeFile(archivePath, dat([['a.txt', 'MARKER']]))
+    await expect(extractArchive(ctx, archivePath, link)).rejects.toThrow(/through a link/)
+    expect(existsSync(join(root, 'outside', 'a.txt'))).toBe(false)
   })
 })

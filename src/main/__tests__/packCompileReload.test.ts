@@ -6,7 +6,7 @@
  * This process is the one that wrote it, so it is the one that refreshes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { tmpdir } from 'os'
 import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from 'fs/promises'
 
@@ -26,7 +26,8 @@ beforeEach(async () => {
   loadPacksSpy.mockClear()
   dir = await mkdtemp(join(tmpdir(), 'taliesin-compile-'))
   ctx = {
-    settingsPath: dir,
+    // Apart from the root: main's own folder is never a root (HTOO-674).
+    settingsPath: join(dir, '..', `${basename(dir)}-settings`),
     settingsRoots: new Set([dir]),
     blessedRoots: new Set<string>(),
     settingsManager: { load: async () => ({ brigidAssetsPath: dir, clientPath: null }) }

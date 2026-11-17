@@ -238,7 +238,6 @@ declare global {
       srcLibDir: string,
       pack: MusicPack,
       destDir: string,
-      ffmpegPath: string | null,
       kbps: number,
       sampleRate: number
     ) => Promise<void>
@@ -307,7 +306,9 @@ declare global {
       activeLibrary: string,
       data: Record<string, { name?: string; comment?: string }>
     ) => Promise<void>
-    bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string) => Promise<string>
+    bikConvert: (bytes: Uint8Array) => Promise<string>
+    chooseExecutable: (kind: 'ffmpeg' | 'companion') => Promise<string | null>
+    clearExecutable: (kind: 'ffmpeg' | 'companion') => Promise<void>
     tileScanAnalyze: (dirPaths: string[]) => Promise<{
       background: [number, number][]
       leftForeground: [number, number][]

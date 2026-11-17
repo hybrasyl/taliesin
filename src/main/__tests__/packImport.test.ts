@@ -55,6 +55,13 @@ const memfs = vi.hoisted(() => {
         const n = p.replace(/\\/g, '/')
         if (!files.has(n) && !dirs.has(n)) throw enoent()
       }),
+      // The real-path check (HTOO-675) asks for this. This filesystem has no
+      // links, so a path that exists is its own real path.
+      realpath: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+        if (norm === '/' || files.has(norm) || dirs.has(norm)) return path
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      }),
       // The import stages its files and moves them into place (HTOO-676).
       rename: vi.fn(async (from: string, to: string) => {
         const src = from.replace(/\\/g, '/')

@@ -83,6 +83,7 @@ Aliases: `@renderer` → `src/renderer/src` and `@shared` → `src/shared`, in `
   is **flat** (`window.api.loadSettings()`, `window.api.saveSettings()`, `window.api.appReady()`).
 - **`pathSafety.ts`**: validate every renderer-supplied path against allowed roots before touching
   the FS. Never trust a path from the renderer.
+- **Main owns authority, not settings.json** (HTOO-673, HTOO-674, HTOO-675; `docs/authority-model.md`). A settings path is a root only when `grants.json` (main's record, beside settings.json) or a dialog result from this session covers it, so `settings:save` cannot add a folder. No IPC channel takes a program path: ffmpeg and the companion are chosen through `exec:choose`, recorded with a SHA-256, and checked before each run. Check a renderer path with `authorizePath(ctx, p)`, never the string-only `assertInsideAnyRoot`: it also resolves junctions and symlinks, and refuses the settings folder and an approved program. A child joined under a checked folder takes `assertRealInside`. A Settings path field is display-only, with Browse and Clear.
 - **Every IPC channel accounts for its payload.** A new handler either parses it —
   `parseOrLog(ctx, '<channel>', <schema>, payload)`, schemas in `src/main/schemas/` — or is added
   to `EXEMPT` in `src/main/__tests__/ipcSchemaCoverage.test.ts` with a category and a reason.
