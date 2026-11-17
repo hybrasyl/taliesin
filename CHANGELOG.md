@@ -33,6 +33,14 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Security
+
+- The macOS entitlements no longer grant `allow-dyld-environment-variables`, which let `DYLD_INSERT_LIBRARIES` load unsigned code into the signed app (HTOO-664).
+
+### Fixed
+
+- Taliesin no longer takes itself for a portable launch when another app's portable exe started it, and it no longer passes the portable launcher's variables to the programs it starts (HTOO-667).
+
 ## [2.15.0] - 2026-10-31
 
 ### Added
