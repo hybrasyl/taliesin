@@ -141,10 +141,34 @@ const musicHandler: PackHandler = {
   }
 }
 
+// ambient_sounds: amb_{id}.{ext} at the zip root. The id is the map's
+// AmbientSound value (HXML-14), and 0 means no ambient sound, so 0 is not an
+// entry. The map editor's ambient picker lists and previews these (HTOO-624).
+// The pattern is the same as the renderer's packKinds/ambientSounds.ts.
+const AMBIENT_RE = /^amb_(\d+)\.(wav|ogg|mp3|flac)$/i
+
+const ambientSoundsHandler: PackHandler = {
+  contentType: 'ambient_sounds',
+  subtypes: ['ambient'],
+  parseEntry(path) {
+    const base = path.split(/[\\/]/).pop() ?? ''
+    const m = AMBIENT_RE.exec(base)
+    if (!m) return null
+    const id = parseInt(m[1], 10)
+    if (!Number.isFinite(id) || id < 1 || id > 255) return null
+    return { subtype: 'ambient', id, key: `ambient:${id}` }
+  },
+  keyFor(subtype, id) {
+    if (String(subtype).toLowerCase() !== 'ambient') return null
+    return `ambient:${id}`
+  }
+}
+
 const HANDLERS = new Map<string, PackHandler>([
   [staticTilesHandler.contentType, staticTilesHandler],
   [worldMapsHandler.contentType, worldMapsHandler],
-  [musicHandler.contentType, musicHandler]
+  [musicHandler.contentType, musicHandler],
+  [ambientSoundsHandler.contentType, ambientSoundsHandler]
 ])
 
 // ── Manifest validation (lenient, matches Brigid) ─────────────────────────────
@@ -220,9 +244,10 @@ async function loadPack(filePath: string): Promise<PackInfo | null> {
   const manifest = validation.manifest
 
   const handler = HANDLERS.get(manifest.content_type)
-  // Only static_tiles / world_maps affect map rendering; every other valid
-  // content type is a silent skip (Taliesin authors them but doesn't consume
-  // them here) — not an "unknown content_type" warning.
+  // Only the content types in HANDLERS are read here (tiles and world maps for
+  // map rendering, music and ambient sounds for the map editor's pickers). Every
+  // other valid content type is a silent skip, not an "unknown content_type"
+  // warning: Taliesin authors them but does not read them here.
   if (!handler) return null
 
   const entries = new Map<string, ZipEntry>()
@@ -514,4 +539,9 @@ export function _resetForTests(): void {
 }
 
 // Exposed for unit tests that exercise the filename conventions directly.
-export const _handlers = { staticTilesHandler, worldMapsHandler, musicHandler }
+export const _handlers = {
+  staticTilesHandler,
+  worldMapsHandler,
+  musicHandler,
+  ambientSoundsHandler
+}

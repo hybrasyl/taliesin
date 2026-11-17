@@ -412,3 +412,115 @@ describe('generic name', () => {
     expect(serializeMapXml(data)).not.toContain('Generic Name')
   })
 })
+
+// ── Map Script and AmbientSound (HXML-11, HXML-14, HTOO-624) ─────────────────
+
+describe('map Script and AmbientSound', () => {
+  // A map as the serializer writes it today, with a reactor script and a sign
+  // script, and with neither map-level field.
+  const oldMap = `<?xml version="1.0" encoding="utf-8"?>
+<Map Id="500" Music="3" X="80" Y="60" IsEnabled="true" AllowCasting="true" xmlns="${HYBRASYL_NS}">
+  <Name>Old Map</Name>
+  <Reactors>
+    <Reactor X="3" Y="4">
+      <Script>reactor_script</Script>
+    </Reactor>
+  </Reactors>
+  <Signs>
+    <Sign Type="Sign" X="1" Y="2">
+      <Script>sign_script</Script>
+    </Sign>
+  </Signs>
+</Map>`
+
+  it('round-trips a map with neither field byte for byte', () => {
+    expect(serializeMapXml(parseMapXml(oldMap))).toBe(oldMap)
+  })
+
+  it("writes the sections in Map.xsd's sequence, whatever order the file had", () => {
+    // The reverse of the schema order, so every section is out of place.
+    const xml = `<Map Id="1" X="40" Y="40" xmlns="${HYBRASYL_NS}">
+  <Signs><Sign Type="Sign" X="1" Y="1" /></Signs>
+  <Npcs><Npc Name="N" X="2" Y="2" Direction="South" /></Npcs>
+  <SpawnGroup Name="G" BaseLevel="1"><Spawns><Spawn Import="Rat" /></Spawns></SpawnGroup>
+  <Reactors><Reactor X="3" Y="3"><Script>r</Script></Reactor></Reactors>
+  <Warps><Warp X="4" Y="4"><WorldMapTarget>W</WorldMapTarget></Warp></Warps>
+  <Flags>Snow</Flags>
+  <Description>D</Description>
+  <Name>Order</Name>
+  <Script>s</Script>
+</Map>`
+    const out = serializeMapXml(parseMapXml(xml))
+    const sections = out
+      .split('\n')
+      .map((l) => /^ {2}<([A-Za-z]+)/.exec(l)?.[1])
+      .filter((t): t is string => !!t)
+    expect(sections).toEqual([
+      'Name',
+      'Description',
+      'Flags',
+      'Warps',
+      'Reactors',
+      'SpawnGroup',
+      'Npcs',
+      'Signs',
+      'Script'
+    ])
+  })
+
+  it('does not read a reactor or sign script as the map script', () => {
+    const data = parseMapXml(oldMap)
+    expect(data.script).toBeUndefined()
+    expect('script' in data).toBe(false)
+    expect(data.reactors[0].script).toBe('reactor_script')
+    expect(data.signs[0].script).toBe('sign_script')
+  })
+
+  it('reads the map script from a direct child', () => {
+    const xml = `<Map Id="1" X="40" Y="40"><Name>S</Name><Script>map_script</Script></Map>`
+    expect(parseMapXml(xml).script).toBe('map_script')
+  })
+
+  it('writes the map script last, escaped, and only when it is not blank', () => {
+    const xml = serializeMapXml(
+      build({ name: 'S', script: 'a&b', reactors: [{ x: 0, y: 0, script: 'r' }] })
+    )
+    const lines = xml.split('\n')
+    expect(lines[lines.length - 2]).toBe('  <Script>a&amp;b</Script>')
+    expect(lines[lines.length - 1]).toBe('</Map>')
+    expect(serializeMapXml(build({ script: '   ' }))).not.toContain('  <Script>')
+  })
+
+  it('reads AmbientSound in 1..255 and keeps 0 and junk as no ambient sound', () => {
+    const at = (v: string): number | undefined =>
+      parseMapXml(`<Map Id="1" X="40" Y="40" AmbientSound="${v}"><Name>A</Name></Map>`).ambientSound
+    expect(at('7')).toBe(7)
+    expect(at('255')).toBe(255)
+    expect(at('0')).toBeUndefined()
+    expect(at('256')).toBeUndefined()
+    expect(at('-1')).toBeUndefined()
+    expect(at('2.5')).toBeUndefined()
+    expect(at('x')).toBeUndefined()
+    expect(parseMapXml(`<Map Id="1" X="40" Y="40"><Name>A</Name></Map>`).ambientSound).toBe(
+      undefined
+    )
+  })
+
+  it('writes AmbientSound directly after Music, and not when it is 0 or unset', () => {
+    expect(serializeMapXml(build({ music: 3, ambientSound: 9 }))).toContain(
+      'Music="3" AmbientSound="9" X="40"'
+    )
+    expect(serializeMapXml(build({ ambientSound: 9 }))).toContain('Id="0" AmbientSound="9" X=')
+    expect(serializeMapXml(build({ ambientSound: 0 }))).not.toContain('AmbientSound')
+    expect(serializeMapXml(build({}))).not.toContain('AmbientSound')
+  })
+
+  it('round-trips a map with both fields', () => {
+    const data = build({ name: 'Both', music: 3, ambientSound: 12, script: 'map_script' })
+    const once = serializeMapXml(data)
+    const back = parseMapXml(once)
+    expect(back.ambientSound).toBe(12)
+    expect(back.script).toBe('map_script')
+    expect(serializeMapXml(back)).toBe(once)
+  })
+})

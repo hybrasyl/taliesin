@@ -58,7 +58,23 @@ const manifest = (
 })
 
 describe('assetPacks handlers', () => {
-  const { staticTilesHandler, worldMapsHandler, musicHandler } = _handlers
+  const { staticTilesHandler, worldMapsHandler, musicHandler, ambientSoundsHandler } = _handlers
+
+  it('ambient_sounds parseEntry reads amb_{id}.{ext} in 1..255 (HTOO-624)', () => {
+    expect(ambientSoundsHandler.parseEntry('amb_0007.ogg')).toEqual({
+      subtype: 'ambient',
+      id: 7,
+      key: 'ambient:7'
+    })
+    expect(ambientSoundsHandler.parseEntry('AMB_255.wav')?.id).toBe(255)
+    // 0 means no ambient sound, and 256 is outside Map/@AmbientSound.
+    expect(ambientSoundsHandler.parseEntry('amb_0000.ogg')).toBeNull()
+    expect(ambientSoundsHandler.parseEntry('amb_0256.ogg')).toBeNull()
+    expect(ambientSoundsHandler.parseEntry('amb_0001.png')).toBeNull()
+    expect(ambientSoundsHandler.parseEntry('music_0001.ogg')).toBeNull()
+    expect(ambientSoundsHandler.keyFor('ambient', 7)).toBe('ambient:7')
+    expect(ambientSoundsHandler.keyFor('music', 7)).toBeNull()
+  })
 
   it('music parseEntry reads music_{id}.{ext}, rejects non-audio', () => {
     expect(musicHandler.parseEntry('music_0001.mp3')).toEqual({
@@ -202,6 +218,21 @@ describe('assetPacks loading + resolution', () => {
     expect(music?.mime).toBe('audio/mpeg')
     expect(Buffer.from(music!.bytes).toString()).toBe('MP3BYTES')
     expect(await resolveAssetBytes('floor', 2)).toBeNull()
+  })
+
+  it('ambient_sounds packs list their ids and resolve their audio (HTOO-624)', async () => {
+    await buildDatf(join(dir, 'amb.datf'), manifest('ambient_sounds', 'amb', 100), [
+      { name: 'amb_0003.ogg', content: Buffer.from('OGG-3') },
+      { name: 'amb_0001.wav', content: Buffer.from('WAV-1') }
+    ])
+    await loadPacks({ brigidAssetsPath: dir })
+
+    expect(await listCoveredIds('ambient')).toEqual([1, 3])
+    const amb = await resolveAssetBytes('ambient', 3)
+    expect(amb?.mime).toBe('audio/ogg')
+    expect(Buffer.from(amb!.bytes).toString()).toBe('OGG-3')
+    // Not the music subtype.
+    expect(await listCoveredIds('music')).toEqual([])
   })
 
   it('listActivePacks summarizes packs and their covered subtypes', async () => {
