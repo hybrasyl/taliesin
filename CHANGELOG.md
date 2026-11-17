@@ -35,10 +35,12 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Added
 
+- The Music manager's Client View has a Maps column: the active maps that play each track. It needs hybindex-ts 1.3.0, which reads each map's `Music` attribute, and it is hidden when the world index has no music data (HTOO-358).
 - **The map XML editor has undo and redo.** Ctrl+Z undoes an edit, and Ctrl+Y or Ctrl+Shift+Z redoes it (⌘Z and ⌘⇧Z on macOS). Undo and Redo buttons are on the placement toolbar. Undo covers each placed, moved, pasted or removed node and each Properties change. Typing in one field is one step. An undo back to the saved map makes the map clean again, and the history stays after a save. In a text field, Ctrl+Z is the text field's own undo. Dalta asked for this feature.
 
 ### Changed
 
+- hybindex-ts 1.3.0. Its `SCHEMA_VERSION` is 6, so the first index build after the update rebuilds from source, and Settings → World indexes lists the old `v5` cache for removal.
 - **Settings path fields change only through Browse.** You cannot type a folder or a program into Settings now. **Browse** opens the system dialog, and **Clear** removes the path. Taliesin gives a folder access only when you choose it in the dialog. The first start of this version accepts the folders and programs that your settings already name, so nothing stops working.
 
 ### Fixed

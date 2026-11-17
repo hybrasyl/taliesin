@@ -267,7 +267,9 @@ const MusicMetaEditor: React.FC<Props> = ({
           </IconButton>
         </Box>
       </Box>
-      {/* No map cross-reference — see the note in ClientMusicView.tsx and HTOO-169. */}
+      {/* No map list here, by decision (HTOO-358). A library track has no single
+          game id: each music pack gives its own musicId to a source file. The
+          Client View lists deployed ids, so it shows the maps. */}
       <Box sx={{ flex: 1 }} />
       {dirty && (
         <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={onSave}>
