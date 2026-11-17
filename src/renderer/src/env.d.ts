@@ -25,11 +25,7 @@ declare global {
     | {
         ok: false
         reason:
-          | 'not-found'
-          | 'stale-override'
-          | 'not-executable'
-          | 'launch-failed'
-          | 'not-configured'
+          'not-found' | 'stale-override' | 'not-executable' | 'launch-failed' | 'not-configured'
         target?: string
         message?: string
       }
@@ -224,6 +220,7 @@ declare global {
     deleteFile: (filePath: string) => Promise<void>
     trashFile: (filePath: string) => Promise<void>
     listArchive: (filePath: string) => Promise<string[]>
+    extractArchive: (archivePath: string, destDir: string) => Promise<{ count: number }>
     catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
     catalogSave: (dirPath: string, data: unknown) => Promise<void>
     catalogScan: (dirPath: string) => Promise<MapScanEntry[]>
@@ -237,7 +234,6 @@ declare global {
       srcLibDir: string,
       pack: MusicPack,
       destDir: string,
-      ffmpegPath: string | null,
       kbps: number,
       sampleRate: number
     ) => Promise<void>
@@ -306,7 +302,9 @@ declare global {
       activeLibrary: string,
       data: Record<string, { name?: string; comment?: string }>
     ) => Promise<void>
-    bikConvert: (bytes: Uint8Array, ffmpegPath: string | null, cacheDir: string) => Promise<string>
+    bikConvert: (bytes: Uint8Array) => Promise<string>
+    chooseExecutable: (kind: 'ffmpeg' | 'companion') => Promise<string | null>
+    clearExecutable: (kind: 'ffmpeg' | 'companion') => Promise<void>
     tileScanAnalyze: (dirPaths: string[]) => Promise<{
       background: [number, number][]
       leftForeground: [number, number][]

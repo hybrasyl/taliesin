@@ -36,6 +36,29 @@ record; where they disagree with this file, the git history was taken as authori
 ### Added
 
 - The Static Tile Manager has a Seed TileCollisions action (HTOO-611). It reads `sotp.dat` from the client's `ia.dat` and writes the world `TileCollisions` table, in the shape the xml schema plan gives (HXML-41). Runs of tile ids with the same collision value become `Range` entries. Taliesin writes the collision bits only, and checks the output before it writes the file.
+- The map editor's Properties section has a Map Script field and an Ambient Sound field (HTOO-624). Taliesin reads and writes `Map/Script` and `Map/@AmbientSound` in the shape the xml schema plan gives (HXML-11, HXML-14). It writes neither when it is empty or 0. The Ambient Sound picker lists and previews the `amb_{id}` sounds in the installed ambient_sounds packs.
+- The Music manager's Client View has a Maps column: the active maps that play each track. It needs hybindex-ts 1.3.0, which reads each map's `Music` attribute, and it is hidden when the world index has no music data (HTOO-358).
+- **The map XML editor has undo and redo.** Ctrl+Z undoes an edit, and Ctrl+Y or Ctrl+Shift+Z redoes it (⌘Z and ⌘⇧Z on macOS). Undo and Redo buttons are on the placement toolbar. Undo covers each placed, moved, pasted or removed node and each Properties change. Typing in one field is one step. An undo back to the saved map makes the map clean again, and the history stays after a save. In a text field, Ctrl+Z is the text field's own undo. Dalta asked for this feature.
+
+### Changed
+
+- hybindex-ts 1.3.0. Its `SCHEMA_VERSION` is 6, so the first index build after the update rebuilds from source, and Settings → World indexes lists the old `v5` cache for removal.
+- **Settings path fields change only through Browse.** You cannot type a folder or a program into Settings now. **Browse** opens the system dialog, and **Clear** removes the path. Taliesin gives a folder access only when you choose it in the dialog. The first start of this version accepts the folders and programs that your settings already name, so nothing stops working.
+
+### Fixed
+
+- A saved map's sections follow `Map.xsd`'s sequence: Warps, Reactors, SpawnGroup, Npcs, Signs. Taliesin wrote Npcs, Signs, SpawnGroup, Reactors, so a save reordered most world and ceridwen maps, and strict schema validation would refuse the result.
+- Taliesin no longer takes itself for a portable launch when another app's portable exe started it, and it no longer passes the portable launcher's variables to the programs it starts (HTOO-667).
+
+### Security
+
+- **Taliesin runs on Electron 44.11.3.** This release bundles Node 24.22.2. The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch, so `npm audit` goes from 12 moderate findings to 6. The 6 that stay are build-time only, in electron-builder, which has no fixed release yet (HTOO-631).
+- **The renderer no longer chooses the program that converts audio and video** (HTOO-673). Before, the conversion calls took the ffmpeg path from the page, so a page that ran hostile script could start any program. Now Taliesin uses only the ffmpeg that you chose in **Settings → ffmpeg Path**, or `ffmpeg` from PATH. Taliesin records the file when you choose it, and does not run it if it changed after that. The same applies to the companion app.
+- **A settings save no longer gives access to a folder** (HTOO-674). Before, any folder named in a saved setting became readable and writable. Now Taliesin keeps its own record of the folders you chose, and the page cannot write that record or the settings file.
+- **A junction or a symbolic link cannot lead a file operation out of an allowed folder** (HTOO-675). Taliesin now compares the real location of each path, so a link under a working folder that points elsewhere is refused. A folder that is itself a link still works when you choose it.
+- **Import keeps each pack in its own folder (HTOO-676).** A `.datf` with the `pack_id` `.` imported its files into the working folder itself, and could overwrite the assets of another pack. Taliesin now refuses a `pack_id` that is not one plain folder name, or that names a folder Taliesin keeps (`_palettes`, `_calibrations`, `_frames`). Import now refuses to overwrite any existing file unless you confirm, not only the project file. Taliesin extracts the pack to a temporary folder first, so a failed import changes no file.
+- **Extract All writes only into the folder you choose (HTOO-677).** An archive entry named `../note.txt` wrote a file next to the chosen folder. Taliesin now checks every entry name before it writes the first file. If one name is not a plain file name, Taliesin extracts nothing and shows which entries it refused. Export as PNG applies the same rule to the files of a multi-frame entry.
+- The macOS entitlements no longer grant `allow-dyld-environment-variables`, which let `DYLD_INSERT_LIBRARIES` load unsigned code into the signed app (HTOO-664).
 
 ## [2.15.0] - 2026-10-31
 

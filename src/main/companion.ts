@@ -56,6 +56,8 @@ export type CompanionFailure =
   | 'not-executable'
   | 'launch-failed'
   | 'not-configured'
+  /** The file the user chose changed after they chose it (HTOO-673). */
+  | 'changed'
 
 export interface CompanionStatus {
   resolved: ResolvedCompanion | null

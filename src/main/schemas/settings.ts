@@ -36,3 +36,9 @@ export const taliesinSettingsSchema = z.object({
   fileListViewMode: z.enum(['flat', 'folder']).optional(),
   mapPropertiesOpen: z.boolean().optional()
 })
+
+/**
+ * Which approved program an `exec:*` call names (HTOO-673). The renderer names
+ * a kind. It never sends a path: main gets the path from a native dialog.
+ */
+export const execKindSchema = z.enum(['ffmpeg', 'companion'])

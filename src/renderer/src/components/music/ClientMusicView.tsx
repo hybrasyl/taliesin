@@ -1,6 +1,8 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { formatBytes } from '../../utils/format'
 import { parseFilename } from '../../hooks/useMusicLibrary'
+import { useWorldIndex } from '../../hooks/useWorldIndex'
+import { mapsByMusicId } from '../../utils/musicMapUsage'
 import {
   Box,
   Typography,
@@ -10,7 +12,9 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  IconButton
+  IconButton,
+  Chip,
+  Tooltip
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
@@ -22,19 +26,39 @@ interface ClientEntry {
   musicId: number
 }
 
-// There is deliberately no "used by maps" cross-reference here. The world index
-// carries no `music` field on mapDetails, so the lookup could only ever return
-// nothing, and a permanently empty column reads as "no map uses this track"
-// rather than "this is not implemented" — the two are indistinguishable to
-// whoever is looking at it. Reinstating it is hybindex-ts work first: the map
-// XML already has `music`, and the indexer has to project it into mapDetails.
-//
-// Removed in HTOO-169; the column it replaced is in git history. The forward
-// work is tracked, not left to whoever reads this: HTOO-357 adds the field to
-// hybindex-ts and BLOCKS HTOO-358, which rebuilds the cross-reference here.
-// HTOO-358 also records the two mistakes not to repeat — hide the column when
-// the data is absent rather than drawing dashes, and never read music id 0 as
-// "no music", because 0 is an id.
+// The Maps column shows which active maps play each track (HTOO-358). The
+// index carries a map's Music attribute since hybindex-ts 1.3.0 (HTOO-357).
+// Two rules from HTOO-169: the column is hidden when the index has no music
+// data, because an empty column reads as "no map plays this track"; and 0 is
+// a music id, not "no music".
+
+/** Chips shown in a Maps cell before the rest go into a "+N" tooltip. */
+const MAX_MAP_CHIPS = 4
+
+const MapsCell: React.FC<{ maps: string[] | undefined }> = ({ maps }) => {
+  if (!maps || maps.length === 0) {
+    return (
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        None
+      </Typography>
+    )
+  }
+  const shown = maps.slice(0, MAX_MAP_CHIPS)
+  const rest = maps.slice(MAX_MAP_CHIPS)
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {shown.map((name) => (
+        <Chip key={name} label={name} size="small" />
+      ))}
+      {rest.length > 0 && (
+        <Tooltip title={rest.join(', ')}>
+          <Chip label={`+${rest.length}`} size="small" variant="outlined" />
+        </Tooltip>
+      )}
+    </Box>
+  )
+}
+
 interface Props {
   clientPath: string | null
   /** Currently playing file path (to show stop icon) */
@@ -47,6 +71,9 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, playingFile, isPlaying, 
   const [entries, setEntries] = useState<ClientEntry[]>([])
   const [scanned, setScanned] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const { index } = useWorldIndex()
+  // Built once per index load, not per row.
+  const mapsByMusic = useMemo(() => mapsByMusicId(index?.mapDetails), [index])
 
   const handleScan = useCallback(async () => {
     if (!clientPath) return
@@ -138,6 +165,7 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, playingFile, isPlaying, 
               <TableCell sx={{ width: 80 }}>ID</TableCell>
               <TableCell sx={{ width: 100 }}>File</TableCell>
               <TableCell>Size</TableCell>
+              {mapsByMusic && <TableCell>Maps</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -169,6 +197,11 @@ const ClientMusicView: React.FC<Props> = ({ clientPath, playingFile, isPlaying, 
                       {formatBytes(e.sizeBytes)}
                     </Typography>
                   </TableCell>
+                  {mapsByMusic && (
+                    <TableCell>
+                      <MapsCell maps={mapsByMusic.get(e.musicId)} />
+                    </TableCell>
+                  )}
                 </TableRow>
               )
             })}

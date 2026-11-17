@@ -236,9 +236,9 @@ export function convertCell(
  * ortho→iso reprojection. Use this instead of convertOrthoTile when orientation
  * detection (or the author) says the source is already isometric.
  *
- * Floor → (56×27)·scale diamond: the corner triangles are masked transparent and
- * source alpha is kept inside (an already-iso floor source is itself a diamond,
- * so this just preserves it). Wall → (28·scale) wide × (wallHeight·scale) tall,
+ * Floor → (56×27)·scale diamond: each pixel inside DALib's exact row spans is
+ * opaque, and the corners outside the spans stay transparent. The colour is
+ * supersampled. The alpha edge is hard (see floorRowSpan). Wall → (28·scale) wide × (wallHeight·scale) tall,
  * source alpha preserved (no iso slant is added — the source already encodes its
  * own top shape).
  */
@@ -315,11 +315,10 @@ export function resampleTile(src: PixelBuffer, opts: ConvertOptions): PixelBuffe
  *   y = (u + v)·(H/2)            →  Y =  fy/(H/2)        = u + v
  *   ⇒ u = (Y + X)/2 , v = (Y − X)/2
  *
- * u,v ∈ [0,1] is exactly the diamond interior; outside that range are the four
- * corner triangles, which are masked transparent (legacy floors are diamonds —
- * DALib decodes their index-0 corners as transparent). The source's own alpha is
- * kept inside (floors can be translucent — water, etc.) and the diamond edge
- * antialiases via supersampling.
+ * u,v ∈ [0,1] is exactly the diamond interior. Each pixel inside DALib's exact
+ * row spans is opaque. The four corner triangles are outside the spans, so they
+ * stay transparent. The colour is supersampled. The alpha edge is hard, and no
+ * pixel has partial alpha (see floorRowSpan).
  */
 function convertFloor(
   src: PixelBuffer,

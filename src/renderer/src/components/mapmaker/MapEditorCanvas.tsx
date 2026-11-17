@@ -54,14 +54,7 @@ import { createWheelStepper, isPinch } from '../../utils/wheel'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type EditorTool =
-  | 'draw'
-  | 'erase'
-  | 'sample'
-  | 'fill'
-  | 'line'
-  | 'shape'
-  | 'select'
-  | 'randomFill'
+  'draw' | 'erase' | 'sample' | 'fill' | 'line' | 'shape' | 'select' | 'randomFill'
 
 export { type TileChange } from '../../utils/mapEditorTools'
 

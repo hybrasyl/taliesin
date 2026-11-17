@@ -21,8 +21,9 @@ const dalib = vi.hoisted(() => {
     static fromBuffer() {
       return new FakeDataArchive(nextEntries)
     }
-    getEntryBuffer(_e: Entry) {
-      return new Uint8Array()
+    // Main's extract reads each entry through this (HTOO-677).
+    getEntryBuffer(e: Entry) {
+      return e.toUint8Array()
     }
     get(name: string) {
       return this.entries.find((e) => e.entryName === name) ?? null
@@ -341,7 +342,7 @@ describe('ArchivePage — round-trip integration', () => {
     expect(screen.queryByText('palette.pal')).toBeNull()
   })
 
-  it('Extract All round-trips through openDirectory + writeBytes for every entry', async () => {
+  it('Extract All writes every entry into the chosen folder through main', async () => {
     const fs = await memfs
     fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde]))
     dalib.setEntries([
@@ -364,6 +365,35 @@ describe('ArchivePage — round-trip integration', () => {
       expect(fs.files.get('/extract-out/b.txt')?.[0]).toBe(0x42)
       expect(fs.files.get('/extract-out/c.txt')?.[0]).toBe(0x43)
     })
+    expect(await screen.findByTestId('extract-result')).toHaveTextContent(
+      'Extracted 3 entries to /extract-out'
+    )
+  })
+
+  // HTOO-677: an entry name from the archive used to be joined onto the chosen
+  // folder in the renderer, and `../` in it wrote next to the folder.
+  it('Extract All writes nothing when one entry name leaves the chosen folder', async () => {
+    const fs = await memfs
+    fs.files.set(`${CLIENT_PATH}/legend.dat`, Buffer.from([0xde]))
+    fs.files.set('/work/note.txt', Buffer.from('ORIGINAL'))
+    dalib.setEntries([
+      { entryName: 'ok.txt', fileSize: 1, toUint8Array: () => new Uint8Array([0x4f]) },
+      { entryName: '../note.txt', fileSize: 6, toUint8Array: () => Buffer.from('MARKER') }
+    ])
+
+    const user = userEvent.setup()
+    await renderPage({
+      openFile: async () => `${CLIENT_PATH}/legend.dat`,
+      openDirectory: async () => '/work/extract'
+    })
+
+    await user.click(await screen.findByRole('button', { name: /open archive/i }))
+    await user.click(await screen.findByRole('button', { name: /extract all/i }))
+
+    expect(await screen.findByTestId('extract-result')).toHaveTextContent(/Nothing was extracted/)
+    expect(fs.files.get('/work/note.txt')?.toString('utf-8')).toBe('ORIGINAL')
+    // Checked before the first write, so the good entry is not written either.
+    expect(fs.files.has('/work/extract/ok.txt')).toBe(false)
   })
 
   it('Extract All aborts when the user cancels the directory dialog', async () => {

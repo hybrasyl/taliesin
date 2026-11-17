@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { fireEvent } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import MapEditorPanel from '../MapEditorPanel'
@@ -52,32 +52,34 @@ function comboboxIn(scope: HTMLElement, name: string): HTMLInputElement {
   return within(scope).getByRole('combobox', { name }) as HTMLInputElement
 }
 
-async function renderPanel(patch: Partial<MapData> = {}) {
+type PanelProps = React.ComponentProps<typeof MapEditorPanel>
+
+async function renderPanel(patch: Partial<MapData> = {}, extra: Partial<PanelProps> = {}) {
   const saveRef = { current: null } as React.MutableRefObject<(() => Promise<void>) | null>
-  const view = render(
-    <MapEditorPanel
-      map={{ ...DEFAULT_MAP, id: 500, name: 'Mileth', x: 20, y: 20, ...patch }}
-      initialFileName="lod00500.xml"
-      initialFolder=""
-      folderOptions={[]}
-      isArchived={false}
-      isExisting
-      mapNames={['Abel', 'Piet']}
-      npcNames={['Riona']}
-      worldMapNames={['Temuair']}
-      spawnGroupNames={[]}
-      onSave={vi.fn()}
-      onDirtyChange={vi.fn()}
-      saveRef={saveRef}
-    />
-  )
+  const props: PanelProps = {
+    map: { ...DEFAULT_MAP, id: 500, name: 'Mileth', x: 20, y: 20, ...patch },
+    initialFileName: 'lod00500.xml',
+    initialFolder: '',
+    folderOptions: [],
+    isArchived: false,
+    isExisting: true,
+    mapNames: ['Abel', 'Piet'],
+    npcNames: ['Riona'],
+    worldMapNames: ['Temuair'],
+    spawnGroupNames: [],
+    onSave: vi.fn(),
+    onDirtyChange: vi.fn(),
+    saveRef,
+    ...extra
+  }
+  const view = render(<MapEditorPanel {...props} />)
   const overlay = await waitFor(() => {
     const canvases = view.container.querySelectorAll('canvas')
     const el = canvases[1] as HTMLCanvasElement | undefined
     expect(el?.width).toBeGreaterThan(0)
     return el as HTMLCanvasElement
   })
-  return { ...view, overlay }
+  return { ...view, overlay, props }
 }
 
 beforeEach(() => {
@@ -321,5 +323,172 @@ describe('Placement tab — moving a placed node', () => {
 
     expect(screen.getByText('(6,6) [door.py]')).toBeTruthy()
     expect(screen.queryByText('(12,6) [door.py]')).toBeNull()
+  })
+})
+
+describe('Placement tab — undo and redo', () => {
+  const ctrl = (key: string, more: Partial<KeyboardEventInit> = {}): void => {
+    fireEvent.keyDown(window, { key, ctrlKey: true, ...more })
+  }
+
+  /** Select the reactor at (6,6), copy it, and paste it at (9,11). */
+  async function pasteReactor(overlay: HTMLCanvasElement): Promise<void> {
+    fireEvent.click(overlay, at(6, 6))
+    ctrl('c')
+    fireEvent.mouseMove(overlay, at(9, 11))
+    ctrl('v')
+    await screen.findByText('(9,11) [door.py]')
+  }
+
+  const reactor = { reactors: [{ x: 6, y: 6, script: 'door.py' }] }
+
+  it('Ctrl+Z removes a pasted reactor, and Ctrl+Y puts it back', async () => {
+    const { overlay } = await renderPanel(reactor)
+    await pasteReactor(overlay)
+
+    ctrl('z')
+    await waitFor(() => expect(screen.queryByText('(9,11) [door.py]')).toBeNull())
+    expect(screen.getByText('(6,6) [door.py]')).toBeTruthy()
+
+    ctrl('y')
+    expect(await screen.findByText('(9,11) [door.py]')).toBeTruthy()
+  })
+
+  it('Ctrl+Shift+Z redoes too', async () => {
+    const { overlay } = await renderPanel(reactor)
+    await pasteReactor(overlay)
+    ctrl('z')
+    await waitFor(() => expect(screen.queryByText('(9,11) [door.py]')).toBeNull())
+    // Shift makes `key` an upper-case Z.
+    ctrl('Z', { shiftKey: true })
+    expect(await screen.findByText('(9,11) [door.py]')).toBeTruthy()
+  })
+
+  it('undoes a pasted warp', async () => {
+    const { overlay } = await renderPanel({ warps: [mapWarp(3, 3, 'Abel')] })
+    fireEvent.click(overlay, at(3, 3))
+    ctrl('c')
+    fireEvent.mouseMove(overlay, at(7, 7))
+    ctrl('v')
+    await screen.findByText('(7,7) → Abel')
+    ctrl('z')
+    await waitFor(() => expect(screen.queryByText('(7,7) → Abel')).toBeNull())
+  })
+
+  it('the toolbar buttons undo and redo, and are off when there is nothing to do', async () => {
+    const { overlay } = await renderPanel(reactor)
+    const undoButton = screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement
+    const redoButton = screen.getByRole('button', { name: 'Redo' }) as HTMLButtonElement
+    expect(undoButton.disabled).toBe(true)
+    expect(redoButton.disabled).toBe(true)
+
+    await pasteReactor(overlay)
+    expect(undoButton.disabled).toBe(false)
+    fireEvent.click(undoButton)
+    await waitFor(() => expect(screen.queryByText('(9,11) [door.py]')).toBeNull())
+    expect(undoButton.disabled).toBe(true)
+    expect(redoButton.disabled).toBe(false)
+    fireEvent.click(redoButton)
+    expect(await screen.findByText('(9,11) [door.py]')).toBeTruthy()
+  })
+
+  it('leaves Ctrl+Z to a text field that has the focus', async () => {
+    const { overlay } = await renderPanel(reactor)
+    await pasteReactor(overlay)
+    const name = screen.getByLabelText('Name')
+    fireEvent.keyDown(name, { key: 'z', ctrlKey: true })
+    await waitFor(() => expect(screen.getByText('(9,11) [door.py]')).toBeTruthy())
+  })
+
+  it('does nothing while a dialog is open', async () => {
+    const { overlay } = await renderPanel({
+      ...reactor,
+      npcs: [{ name: 'Riona', x: 2, y: 2, direction: 'North' }]
+    })
+    await pasteReactor(overlay)
+    // Pasting an NPC opens its dialog (the name must be chosen again).
+    fireEvent.click(overlay, at(2, 2))
+    ctrl('c')
+    fireEvent.mouseMove(overlay, at(5, 5))
+    ctrl('v')
+    await screen.findByRole('dialog')
+
+    ctrl('z')
+    await waitFor(() => expect(screen.getByText('(9,11) [door.py]')).toBeTruthy())
+  })
+
+  it('typing in a Properties field undoes as one step', async () => {
+    const user = userEvent.setup()
+    await renderPanel()
+    const name = screen.getByLabelText('Name') as HTMLInputElement
+    await user.type(name, ' Village')
+    expect(name.value).toBe('Mileth Village')
+    // Off the field, so the chord reaches the editor and not the text field.
+    act(() => name.blur())
+
+    ctrl('z')
+    await waitFor(() => expect(name.value).toBe('Mileth'))
+    expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('an undo back to the saved map makes it clean, and a redo makes it dirty', async () => {
+    const onDirtyChange = vi.fn()
+    const { overlay } = await renderPanel(reactor, { onDirtyChange })
+    await pasteReactor(overlay)
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true))
+
+    ctrl('z')
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
+    ctrl('y')
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true))
+  })
+
+  it('keeps the history over a save, and the saved map is the clean one', async () => {
+    // The page writes the file, then gives the written snapshot back as `map`.
+    const onDirtyChange = vi.fn()
+    const onSave = vi.fn(async (_data: MapData) => {})
+    const { overlay, props, rerender } = await renderPanel(reactor, { onDirtyChange, onSave })
+    await pasteReactor(overlay)
+
+    await act(async () => {
+      await props.saveRef.current?.()
+    })
+    const written = onSave.mock.calls[0]![0]
+    rerender(<MapEditorPanel {...props} map={written} />)
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
+
+    // The paste is still undoable, and undoing it leaves the saved state.
+    ctrl('z')
+    await waitFor(() => expect(screen.queryByText('(9,11) [door.py]')).toBeNull())
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true))
+    ctrl('y')
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
+  })
+
+  it('starts an empty history for another map', async () => {
+    const { overlay, props, rerender } = await renderPanel(reactor)
+    await pasteReactor(overlay)
+    rerender(<MapEditorPanel {...props} map={{ ...props.map, id: 501, name: 'Abel' }} />)
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(
+        true
+      )
+    )
+  })
+
+  it('clears a selection that an undo leaves pointing at nothing', async () => {
+    const { overlay } = await renderPanel(reactor)
+    // A paste selects the new node.
+    await pasteReactor(overlay)
+    const row = (): HTMLElement =>
+      screen.getByText('(9,11) [door.py]').closest('[role="button"]') as HTMLElement
+    expect(row().classList.contains('Mui-selected')).toBe(true)
+
+    ctrl('z')
+    await waitFor(() => expect(screen.queryByText('(9,11) [door.py]')).toBeNull())
+    ctrl('y')
+    await screen.findByText('(9,11) [door.py]')
+    // Without the clear, the selection would come back with the node.
+    expect(row().classList.contains('Mui-selected')).toBe(false)
   })
 })
