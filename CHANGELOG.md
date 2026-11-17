@@ -33,6 +33,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- The Static Tile Manager has a Seed TileCollisions action (HTOO-611). It reads `sotp.dat` from the client's `ia.dat` and writes the world `TileCollisions` table, in the shape the xml schema plan gives (HXML-41). Runs of tile ids with the same collision value become `Range` entries. Taliesin writes the collision bits only, and checks the output before it writes the file.
+
 ## [2.15.0] - 2026-10-31
 
 ### Added
