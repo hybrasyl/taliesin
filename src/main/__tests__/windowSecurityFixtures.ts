@@ -11,13 +11,33 @@
 // rejected for the wrong reason and passes for the wrong reason once the check
 // changes. Encoding that once, next to nothing else, is the point.
 
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vitest'
 import { registerTrustedWindow, isSenderAllowed } from '../windowSecurity'
+
+/** The fake webContents. `send` is present only with `withSend`. */
+export interface FakeContents {
+  id: number
+  mainFrame: { url: string }
+  isDestroyed: () => boolean
+  once: Mock
+  send?: Mock
+}
+
+/**
+ * What `makeSender` returns. Named, because vitest 5 declares `Mock` in an
+ * internal chunk: an inferred return type cannot be written into the
+ * declaration file, and `tsc --build` fails (TS2742, HTOO-694).
+ */
+export interface FakeSender {
+  contents: FakeContents
+  mainFrame: { url: string }
+  event: { sender: FakeContents; senderFrame: { url: string } }
+}
 
 /** A fake webContents plus the event shape `ipcMain` hands a listener. */
 export function makeSender(
   opts: { id?: number; url?: string; destroyed?: boolean; withSend?: boolean } = {}
-) {
+): FakeSender {
   const url = opts.url ?? 'file:///test/out/renderer/index.html'
   const mainFrame = { url }
   const contents = {
