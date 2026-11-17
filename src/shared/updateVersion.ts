@@ -31,8 +31,7 @@ export type UpdateFailure = 'offline' | 'timeout' | 'http' | 'malformed' | 'no-e
  * releases" forever.
  */
 export type UpdateCheckResult =
-  | { ok: true; update: UpdateInfo | null }
-  | { ok: false; reason: UpdateFailure }
+  { ok: true; update: UpdateInfo | null } | { ok: false; reason: UpdateFailure }
 
 const STRICT = /^(\d+)\.(\d+)\.(\d+)$/
 

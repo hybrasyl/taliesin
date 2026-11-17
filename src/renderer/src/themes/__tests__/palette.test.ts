@@ -231,8 +231,7 @@ describe('theme palettes', () => {
       // (1.8:1 on dubhaimid). A browser does not report :visited colours to
       // script, so the gallery cannot measure them; this reads the rule.
       const baseline = theme.components?.MuiCssBaseline?.styleOverrides as
-        | Record<string, Style>
-        | undefined
+        Record<string, Style> | undefined
       const a = baseline?.a
       expect(a, 'the plain link rule').toBeDefined()
       const states = {

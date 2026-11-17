@@ -33,6 +33,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Added
+
+- **The map XML editor has undo and redo.** Ctrl+Z undoes an edit, and Ctrl+Y or Ctrl+Shift+Z redoes it (⌘Z and ⌘⇧Z on macOS). Undo and Redo buttons are on the placement toolbar. Undo covers each placed, moved, pasted or removed node and each Properties change. Typing in one field is one step. An undo back to the saved map makes the map clean again, and the history stays after a save. In a text field, Ctrl+Z is the text field's own undo. Dalta asked for this feature.
+
 ### Changed
 
 - **Settings path fields change only through Browse.** You cannot type a folder or a program into Settings now. **Browse** opens the system dialog, and **Clear** removes the path. Taliesin gives a folder access only when you choose it in the dialog. The first start of this version accepts the folders and programs that your settings already name, so nothing stops working.
@@ -43,6 +47,7 @@ record; where they disagree with this file, the git history was taken as authori
 
 ### Security
 
+- **Taliesin runs on Electron 44.11.3.** This release bundles Node 24.22.2. The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch, so `npm audit` goes from 12 moderate findings to 6. The 6 that stay are build-time only, in electron-builder, which has no fixed release yet (HTOO-631).
 - **The renderer no longer chooses the program that converts audio and video** (HTOO-673). Before, the conversion calls took the ffmpeg path from the page, so a page that ran hostile script could start any program. Now Taliesin uses only the ffmpeg that you chose in **Settings → ffmpeg Path**, or `ffmpeg` from PATH. Taliesin records the file when you choose it, and does not run it if it changed after that. The same applies to the companion app.
 - **A settings save no longer gives access to a folder** (HTOO-674). Before, any folder named in a saved setting became readable and writable. Now Taliesin keeps its own record of the folders you chose, and the page cannot write that record or the settings file.
 - **A junction or a symbolic link cannot lead a file operation out of an allowed folder** (HTOO-675). Taliesin now compares the real location of each path, so a link under a working folder that points elsewhere is refused. A folder that is itself a link still works when you choose it.

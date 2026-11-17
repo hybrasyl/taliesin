@@ -25,11 +25,7 @@ declare global {
     | {
         ok: false
         reason:
-          | 'not-found'
-          | 'stale-override'
-          | 'not-executable'
-          | 'launch-failed'
-          | 'not-configured'
+          'not-found' | 'stale-override' | 'not-executable' | 'launch-failed' | 'not-configured'
         target?: string
         message?: string
       }

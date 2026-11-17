@@ -28,8 +28,7 @@ vi.mock('child_process', async (importOriginal) => {
       maybeCb?: (e: Error | null, out?: string, err?: string) => void
     ) => {
       const cb = (typeof optsOrCb === 'function' ? optsOrCb : maybeCb) as
-        | ((e: Error | null, out?: string, err?: string) => void)
-        | undefined
+        ((e: Error | null, out?: string, err?: string) => void) | undefined
       execCalls.push({ cmd, args })
       // The last argument is the output file for both conversions.
       const out = args[args.length - 1]!
