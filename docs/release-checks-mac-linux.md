@@ -125,6 +125,7 @@ Open the packaged app, and put Mabon in the Dock beside it. **Expected:** Talies
 2. **Menu greying:** File → Save is available only when an editor has unsaved changes or a Map Maker tab is open. Go marks the current page. With a dialog open, menu items do nothing.
 3. **⌘Q with unsaved work:** make an edit, press ⌘Q. Save or Discard quits the app. Cancel keeps it open, and a later close with the red button does not quit.
 4. **Shortcuts in the Map Maker:** ⌘S saves, ⌘Z undoes, ⇧⌘Z redoes, ⌘C and ⌘V copy and paste, ⌘W closes the Map Maker tab. In a text field, ⌃K deletes to the end of the line.
+   - **Shortcuts in the Map XML Editor:** place a reactor, then ⌘Z removes it and ⇧⌘Z puts it back. ⌘Y does nothing. ⌘C and ⌘V copy and paste the selected node. In a Properties text field, ⌘Z undoes the typing and not a map edit.
 5. **Trackpad:** a pinch zooms the Map Maker and the World Map Editor, one step for about 40 px of movement, not too fast. A two-finger scroll pans the world map.
 6. **After ⌘W:** with no window open, choose Go → Map Maker in the menu bar. A window opens.
 7. **The packaged app** shows "Taliesin" in the menu bar.

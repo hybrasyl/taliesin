@@ -48,10 +48,7 @@ Make a minimal Hybrasyl Map XML file from any entry and open it in the Map XML E
 
 ### Map XML Editor
 
-Open, edit and save Hybrasyl Map XML beside the rendered client map. The editor covers the Id, Name,
-Description, dimensions, Music and flags, with sub-editors for warps, NPCs, reactors, signs and
-spawn groups. Put these objects on the canvas and drag them. It reads and writes the world library
-from Settings, and asks before you lose unsaved changes.
+Open, edit and save Hybrasyl Map XML beside the rendered client map. The editor covers the Id, Name, Description, dimensions, Music, Ambient Sound, the map Script and flags, with sub-editors for warps, NPCs, reactors, signs and spawn groups. Put these objects on the canvas and drag them. Ctrl+C and Ctrl+V copy and paste a node, and Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z) undo and redo an edit (⌘ on macOS, where ⇧⌘Z redoes). It reads and writes the world library from Settings, writes the sections in the order of the schema, and asks before you lose unsaved changes.
 
 ### Map Maker
 
@@ -81,10 +78,7 @@ Taliesin holds one master set and any number of derived groups:
 
 ### Music Manager
 
-Keep a local library of Dark Ages music. **Library** scans a directory, edits the display name and
-music ID of each track, and plays it. **Packs** groups tracks into named packs, sets their order and
-IDs, then encodes with ffmpeg and deploys to a client working directory. **Client View** shows the
-music inside the client archives.
+Keep a local library of Dark Ages music. **Library** scans a directory, edits the display name and music ID of each track, and plays it. **Packs** groups tracks into named packs, sets their order and IDs, then encodes with ffmpeg and deploys to a client working directory. **Client View** shows the music inside the client archives, and the maps of the world library that play each track.
 
 ### Sound Effects Browser
 
@@ -117,13 +111,9 @@ view with real client tiles. Stamp a prefab into a map from the Prefab sidebar o
 
 ### Settings
 
-Set the Dark Ages client path and the Hybrasyl world library you share with Creidhne. Set the music
-library and its working directories, the ffmpeg path, the asset pack directory and the theme.
-Taliesin keeps all of these between sessions.
+Set the Dark Ages client path and the Hybrasyl world library you share with Creidhne. Set the music library and its working directories, the ffmpeg program, the asset pack directory and the theme. Taliesin keeps all of these between sessions. You choose each folder and program with Browse, not by typing a path: a folder you choose is a folder Taliesin may read and write, and a program you choose is one Taliesin may run, so only a choice in the system dialog gives that access. See [docs/authority-model.md](docs/authority-model.md).
 
-Taliesin finds Creidhne without help on Windows, macOS and Linux: beside itself first, then the
-installed application. Settings shows where it found Creidhne and offers Change, Clear override and
-Test Launch. Select a path manually only for an unusual installation.
+Taliesin finds Creidhne without help on Windows, macOS and Linux: beside itself first, then the installed application. Settings shows where it found Creidhne and offers Change, Clear override and Test Launch. Use Change only for an unusual installation.
 
 ### Asset Pack Manager
 
@@ -149,6 +139,8 @@ It imports many files in one operation and detects the orientation of each cell.
 tiles already in the pack: click one to move it to another ID or to delete it. Before it writes, it
 warns about tile IDs that the legacy renderer animates or cycles. The legacy renderer draws over a
 pack PNG at those IDs.
+
+It also writes a world `TileCollisions` XML file, seeded from the client's `sotp.dat`, for the server's tile collision table.
 
 ### UI Layout Forge
 
