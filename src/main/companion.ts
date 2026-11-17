@@ -51,11 +51,7 @@ export interface ResolvedCompanion {
  * four are fixable by them.
  */
 export type CompanionFailure =
-  | 'not-found'
-  | 'stale-override'
-  | 'not-executable'
-  | 'launch-failed'
-  | 'not-configured'
+  'not-found' | 'stale-override' | 'not-executable' | 'launch-failed' | 'not-configured'
 
 export interface CompanionStatus {
   resolved: ResolvedCompanion | null

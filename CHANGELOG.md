@@ -33,6 +33,10 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Security
+
+- **Taliesin runs on Electron 44.11.3.** This release bundles Node 24.22.2. The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch, so `npm audit` goes from 12 moderate findings to 6. The 6 that stay are build-time only, in electron-builder, which has no fixed release yet (HTOO-631).
+
 ## [2.15.0] - 2026-10-31
 
 ### Added

@@ -335,8 +335,7 @@ const ForgePanel: React.FC<ForgePanelProps> = ({
     (prefill: SpecPrefill, control: UiControl) => {
       const container = `${layout?.id ?? panelId} / ${variant?.name ?? ''} / ${control.name} (${control.kind})`
       const existing = (project.assetMeta ?? {})[specRelPath(prefill.path)] as
-        | Record<string, unknown>
-        | undefined
+        Record<string, unknown> | undefined
       setSpecPrefill({
         path: prefill.path,
         type: (existing?.type as UiVariableType) ?? prefill.suggestedType ?? 'int',
