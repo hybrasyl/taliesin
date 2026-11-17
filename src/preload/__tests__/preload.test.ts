@@ -80,6 +80,7 @@ describe('Preload ↔ Main IPC contract', () => {
         "fs:deleteFile",
         "fs:ensureDir",
         "fs:exists",
+        "fs:extractArchive",
         "fs:listArchive",
         "fs:listDir",
         "fs:listSection",

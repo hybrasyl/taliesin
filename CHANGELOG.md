@@ -33,6 +33,11 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+### Security
+
+- **Import keeps each pack in its own folder (HTOO-676).** A `.datf` with the `pack_id` `.` imported its files into the working folder itself, and could overwrite the assets of another pack. Taliesin now refuses a `pack_id` that is not one plain folder name, or that names a folder Taliesin keeps (`_palettes`, `_calibrations`, `_frames`). Import now refuses to overwrite any existing file unless you confirm, not only the project file. Taliesin extracts the pack to a temporary folder first, so a failed import changes no file.
+- **Extract All writes only into the folder you choose (HTOO-677).** An archive entry named `../note.txt` wrote a file next to the chosen folder. Taliesin now checks every entry name before it writes the first file. If one name is not a plain file name, Taliesin extracts nothing and shows which entries it refused. Export as PNG applies the same rule to the files of a multi-frame entry.
+
 ## [2.15.0] - 2026-10-31
 
 ### Added

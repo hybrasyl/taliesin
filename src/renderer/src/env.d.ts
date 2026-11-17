@@ -224,6 +224,7 @@ declare global {
     deleteFile: (filePath: string) => Promise<void>
     trashFile: (filePath: string) => Promise<void>
     listArchive: (filePath: string) => Promise<string[]>
+    extractArchive: (archivePath: string, destDir: string) => Promise<{ count: number }>
     catalogLoad: (dirPath: string) => Promise<Record<string, unknown>>
     catalogSave: (dirPath: string, data: unknown) => Promise<void>
     catalogScan: (dirPath: string) => Promise<MapScanEntry[]>

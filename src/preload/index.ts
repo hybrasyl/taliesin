@@ -193,6 +193,8 @@ const api = {
   trashFile: (filePath: string): Promise<void> => ipcRenderer.invoke('fs:trashFile', filePath),
   listArchive: (filePath: string): Promise<string[]> =>
     ipcRenderer.invoke('fs:listArchive', filePath),
+  extractArchive: (archivePath: string, destDir: string): Promise<{ count: number }> =>
+    ipcRenderer.invoke('fs:extractArchive', archivePath, destDir),
 
   // Catalog
   catalogLoad: (dirPath: string): Promise<Record<string, unknown>> =>
