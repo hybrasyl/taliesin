@@ -2,6 +2,11 @@ import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // The classic JSX runtime for the .tsx tests: Taliesin writes `import React`.
+  // Vite 8 transforms with oxc, which does not take the JSX setting from the
+  // tsconfig, so without this every component test fails to parse. Vite 6's
+  // esbuild used the classic runtime by default (HTOO-694).
+  oxc: { jsx: { runtime: 'classic' } },
   // The same aliases as electron.vite.config.mjs. The house modules (themes,
   // title bar, theme gallery) import through them (HTOO-572).
   resolve: {
