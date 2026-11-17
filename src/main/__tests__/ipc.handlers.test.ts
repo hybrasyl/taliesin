@@ -1390,6 +1390,8 @@ describe('Category-A path-traversal rejection', () => {
     ['fs:deleteFile', ['/escape/x']],
     ['fs:trashFile', ['/escape/x']],
     ['fs:listArchive', ['/escape/a.dat']],
+    ['fs:extractArchive', ['/escape/a.dat', '/library/out']],
+    ['fs:extractArchive', ['/library/a.dat', '/escape/out']],
     ['catalog:save', ['/escape/maps', {}]],
     ['catalog:scan', ['/escape/maps']],
     ['music:metadata:save', ['/escape/music', {}]],

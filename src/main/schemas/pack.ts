@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { plainFileNameProblem } from '../../shared/fileName'
 
 const packAssetSchema = z.object({
   filename: z.string(),
@@ -36,8 +37,27 @@ const coversSchema = z.record(z.string(), z.unknown())
 // reduced into covers fields at compile time.
 const assetMetaSchema = z.record(z.string(), z.record(z.string(), z.unknown()))
 
+/**
+ * The longest pack id. Import writes `<pack_id>.json`, so the id leaves room
+ * for the suffix inside a 255-character file name.
+ */
+const MAX_PACK_ID_LENGTH = 200
+
+/**
+ * A pack id is one path segment (HTOO-676). Import makes the folder
+ * `<packDir>/<pack_id>` and the file `<packDir>/<pack_id>.json` from it, so an
+ * id of `.` made the folder the working directory itself. The rule is wider
+ * than what Taliesin makes (lowercase letters, digits, `-` and `_`), so an
+ * imported pack with an unusual id still loads, and `packIdProblem` in the
+ * renderer warns about it (HTOO-598).
+ */
+const packIdSchema = z.string().superRefine((id, ctx) => {
+  const problem = plainFileNameProblem(id, MAX_PACK_ID_LENGTH)
+  if (problem) ctx.addIssue({ code: 'custom', message: `pack_id is not allowed: ${problem}` })
+})
+
 const baseFields = {
-  pack_id: z.string().min(1),
+  pack_id: packIdSchema,
   // The display name (BRIG-124), for example "Icy Steel". Optional: Brigid
   // shows the pack_id when it is absent or blank. Compile writes it only when it
   // is not blank (HTOO-598).
