@@ -25,6 +25,7 @@ import {
 } from './windowSecurity'
 import { shouldDisableHardwareAcceleration, REMOTE_SESSION_CSS } from './remoteSession'
 import { sweepPortableLeftovers, takePortableLaunch } from './portableSweep'
+import { ownPortableLauncherDir } from './companion'
 import { name as PACKAGE_NAME } from '../../package.json'
 
 /** How long after boot the portable sweep waits (portableSweep.ts). */
@@ -33,8 +34,10 @@ const PORTABLE_SWEEP_DELAY_MS = 30_000
 // First, before anything can start a child process: read whether THIS app's
 // portable stub started us, then remove the stub's variables from our own
 // environment, so that no tool, editor or other app we start inherits them
-// (HTOO-667). `portableLaunchOrder.test.ts` asserts that this stays the first
-// statement that reads `process.env`.
+// (HTOO-667). The companion search still needs the folder of our own portable
+// exe, so read it on the line before. `portableLaunchOrder.test.ts` asserts
+// that these stay the first two statements that read `process.env`.
+const portableDir = ownPortableLauncherDir(process.env, PACKAGE_NAME)
 const isOwnPortable = takePortableLaunch(process.env, PACKAGE_NAME)
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
@@ -127,7 +130,8 @@ export const ctx: HandlerContext = {
   // and the OS certificate store for the update check's one request.
   fetchImpl: (url, init) => net.fetch(url, init),
   settingsRoots: new Set<string>(),
-  blessedRoots: new Set<string>()
+  blessedRoots: new Set<string>(),
+  portableDir
 }
 
 // Load the grants (or migrate them from settings.json once, HTOO-674), then

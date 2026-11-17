@@ -164,11 +164,22 @@ export interface HandlerContext {
   trashItem?: (path: string) => Promise<void>
   /**
    * Platform probe for companion discovery (HTOO-292). Injected only by tests —
-   * production falls back to `nodeProbe()`. Registry queries, Applications
+   * production falls back to `nodeProbe(portableDir)` (`companionProbeOf`). Registry queries, Applications
    * scans and `.desktop` lookups cannot run in a suite, and precedence rules
    * that are only exercised on the author's own machine have one tested path.
    */
   companionProbe?: CompanionProbe
+  /**
+   * The folder of this app's own portable exe, read in index.ts before
+   * `takePortableLaunch` removes the variable (HTOO-667). Undefined when this
+   * app is not a portable launch.
+   */
+  portableDir?: string
+}
+
+/** The companion probe: a test's, or the real one with the boot-time folder. */
+export function companionProbeOf(ctx: HandlerContext): CompanionProbe {
+  return ctx.companionProbe ?? nodeProbe(ctx.portableDir)
 }
 
 /**
@@ -421,7 +432,7 @@ export async function companionStatus(ctx: HandlerContext): Promise<CompanionSta
   await ctx.authorityReady
   // The override is main's grant, not the settings field (HTOO-674).
   const override = grantsOf(ctx).executables.companion?.path
-  return resolveCompanion(ctx.companionProbe ?? nodeProbe(), 'creidhne', override)
+  return resolveCompanion(companionProbeOf(ctx), 'creidhne', override)
 }
 
 /**
@@ -438,7 +449,7 @@ export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLau
   const grant = grantsOf(ctx).executables.companion
   // A chosen file that changed since the user chose it does not run. A missing
   // one is left to `resolveCompanion`, which falls back to discovery.
-  if (grant && (await (ctx.companionProbe ?? nodeProbe()).exists(grant.path))) {
+  if (grant && (await companionProbeOf(ctx).exists(grant.path))) {
     try {
       await approvedExecutable(ctx, 'companion')
     } catch (e) {
@@ -450,7 +461,7 @@ export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLau
       }
     }
   }
-  return companionLaunch(ctx.companionProbe ?? nodeProbe(), 'creidhne', grant?.path)
+  return companionLaunch(companionProbeOf(ctx), 'creidhne', grant?.path)
 }
 
 // ── Approved executables (HTOO-673) ──────────────────────────────────────────
@@ -547,7 +558,7 @@ export async function checkForUpdate(ctx: HandlerContext): Promise<UpdateCheckRe
 export function companionPickerFilters(
   ctx: HandlerContext
 ): { name: string; extensions: string[] }[] {
-  return pickerFilters((ctx.companionProbe ?? nodeProbe()).platform)
+  return pickerFilters(companionProbeOf(ctx).platform)
 }
 
 export async function getAppVersion(ctx: HandlerContext): Promise<string> {

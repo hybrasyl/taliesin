@@ -17,10 +17,26 @@ describe('portable launch variables (HTOO-667)', () => {
       /^const isOwnPortable = takePortableLaunch\(process\.env, PACKAGE_NAME\)/m
     )
     expect(take, 'takePortableLaunch statement not found in index.ts').toBeGreaterThan(-1)
-    expect(MAIN.indexOf('takePortableLaunch(process.env')).toBeLessThanOrEqual(
+    // The companion folder is read on the line before, and nothing else reads
+    // process.env before either of them.
+    const read = MAIN.search(
+      /^const portableDir = ownPortableLauncherDir\(process\.env, PACKAGE_NAME\)\n(?=const isOwnPortable = takePortableLaunch)/m
+    )
+    expect(read, 'ownPortableLauncherDir must be the line before takePortableLaunch').toBe(
+      MAIN.indexOf('const portableDir')
+    )
+    expect(read).toBeGreaterThan(-1)
+    expect(MAIN.indexOf('ownPortableLauncherDir(process.env')).toBeLessThanOrEqual(
       MAIN.indexOf('process.env')
     )
     expect(MAIN).not.toMatch(/process\.env\[?['".]?PORTABLE_EXECUTABLE/)
     expect(MAIN).toMatch(/isPortable: app\.isPackaged && isOwnPortable/)
+  })
+
+  it('hands the companion folder to the handler context', () => {
+    // takePortableLaunch removes PORTABLE_EXECUTABLE_DIR, so the companion
+    // search finds the folder only through ctx.portableDir.
+    const ctxLiteral = MAIN.slice(MAIN.indexOf('export const ctx: HandlerContext = {'))
+    expect(ctxLiteral.slice(0, ctxLiteral.indexOf('\n}'))).toMatch(/^\s+portableDir,?$/m)
   })
 })

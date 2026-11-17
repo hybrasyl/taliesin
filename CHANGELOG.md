@@ -48,7 +48,7 @@ record; where they disagree with this file, the git history was taken as authori
 ### Fixed
 
 - A saved map's sections follow `Map.xsd`'s sequence: Warps, Reactors, SpawnGroup, Npcs, Signs. Taliesin wrote Npcs, Signs, SpawnGroup, Reactors, so a save reordered most world and ceridwen maps, and strict schema validation would refuse the result.
-- Taliesin no longer takes itself for a portable launch when another app's portable exe started it, and it no longer passes the portable launcher's variables to the programs it starts (HTOO-667).
+- Taliesin no longer takes itself for a portable launch when another app's portable exe started it, and it no longer passes the portable launcher's variables to the programs it starts (HTOO-667). The search for a Creidhne beside the portable exe still uses the exe's own folder, and it ignores a folder that another app's portable exe passed down.
 
 ### Security
 

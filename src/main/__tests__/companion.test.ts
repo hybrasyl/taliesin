@@ -4,6 +4,8 @@ import {
   resolveCompanion,
   launchCompanion,
   launcherDir,
+  ownPortableLauncherDir,
+  nodeProbe,
   parseInstallLocations,
   pickerFilters,
   isCompanionEntry,
@@ -44,9 +46,20 @@ describe('launcherDir', () => {
     // never be — a sibling search there finds nothing, forever and silently.
     const probe = makeProbe({
       execPath: 'C:\\Users\\a\\AppData\\Local\\Temp\\2H8x\\taliesin.exe',
-      env: { PORTABLE_EXECUTABLE_DIR: 'D:\\tools' }
+      portableDir: 'D:\\tools'
     })
     expect(launcherDir(probe)).toBe('D:\\tools')
+  })
+
+  it('does not read the portable variable from env (HTOO-667)', () => {
+    // main removes PORTABLE_EXECUTABLE_DIR at boot, so env never holds our
+    // folder. A value in env came from another app's portable exe.
+    const probe = makeProbe({
+      platform: 'win32',
+      execPath: join('C:', 'Temp', '2H8x', 'taliesin.exe'),
+      env: { PORTABLE_EXECUTABLE_DIR: 'D:\\other-app' }
+    })
+    expect(launcherDir(probe)).toBe(join('C:', 'Temp', '2H8x'))
   })
 
   it('falls back to the real executable directory for installed builds', () => {
@@ -60,7 +73,7 @@ describe('launcherDir', () => {
     const probe = makeProbe({
       platform: 'linux',
       execPath: '/opt/taliesin/taliesin',
-      env: { PORTABLE_EXECUTABLE_DIR: '/tmp/attacker' }
+      portableDir: '/tmp/attacker'
     })
     expect(launcherDir(probe)).toBe('/opt/taliesin')
   })
@@ -79,6 +92,39 @@ describe('launcherDir', () => {
   it('ignores APPIMAGE off Linux', () => {
     const probe = makeProbe({ env: { APPIMAGE: '/tmp/attacker/x.AppImage' } })
     expect(launcherDir(probe)).toBe(join('C:', 'Program Files', 'Taliesin'))
+  })
+})
+
+describe('ownPortableLauncherDir (HTOO-667)', () => {
+  const own = {
+    PORTABLE_EXECUTABLE_DIR: 'D:\\tools',
+    PORTABLE_EXECUTABLE_FILE: 'D:\\tools\\taliesin-1.0.0-portable.exe',
+    PORTABLE_EXECUTABLE_APP_FILENAME: 'taliesin'
+  }
+
+  it("returns the folder when this app's own stub started it", () => {
+    expect(ownPortableLauncherDir(own, 'taliesin')).toBe('D:\\tools')
+  })
+
+  it('folds case on the app file name, as Windows does', () => {
+    expect(
+      ownPortableLauncherDir({ ...own, PORTABLE_EXECUTABLE_APP_FILENAME: 'Taliesin' }, 'taliesin')
+    ).toBe('D:\\tools')
+  })
+
+  it("ignores a folder that another app's portable exe passed down", () => {
+    expect(
+      ownPortableLauncherDir({ ...own, PORTABLE_EXECUTABLE_APP_FILENAME: 'balor' }, 'taliesin')
+    ).toBeUndefined()
+  })
+
+  it('returns undefined when the app is not a portable launch', () => {
+    expect(ownPortableLauncherDir({}, 'taliesin')).toBeUndefined()
+  })
+
+  it('nodeProbe carries the folder that index.ts read at boot', () => {
+    expect(nodeProbe('D:\\tools').portableDir).toBe('D:\\tools')
+    expect(nodeProbe().portableDir).toBeUndefined()
   })
 })
 

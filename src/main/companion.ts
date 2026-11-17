@@ -24,6 +24,7 @@ import { promises as fs, constants as fsConstants } from 'fs'
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
 import { matchNameIgnoringCase } from './fsCase'
+import { isOwnPortableLaunch } from './portableSweep'
 
 const execFileAsync = promisify(execFile)
 
@@ -76,6 +77,13 @@ export interface CompanionProbe {
   platform: NodeJS.Platform
   /** `process.execPath`, for the colocated-sibling search. */
   execPath: string
+  /**
+   * The folder of THIS app's portable exe, or undefined when this app is not a
+   * portable launch. index.ts reads it with `ownPortableLauncherDir` before
+   * `takePortableLaunch` removes the variable from `process.env` (HTOO-667), so
+   * `env` never holds it at the time of a search.
+   */
+  portableDir?: string
   env: Record<string, string | undefined>
   exists(path: string): Promise<boolean>
   isExecutable(path: string): Promise<boolean>
@@ -156,7 +164,10 @@ function kindOf(target: string): CompanionKind {
  * electron-builder's portable target self-extracts to `%TEMP%`, so `execPath`
  * points into the extraction directory — where nothing else is, and where a
  * sibling search would silently find nothing forever. electron-builder exposes
- * the real launcher directory as `PORTABLE_EXECUTABLE_DIR`.
+ * the real launcher directory as `PORTABLE_EXECUTABLE_DIR`. main removes that
+ * variable at boot (HTOO-667), so the folder comes from `probe.portableDir`,
+ * which `ownPortableLauncherDir` read first. A folder that another app's
+ * portable exe passed down is not ours, and the search does not use it.
  *
  * That variable name is **documented rather than measured here**; if it is ever
  * wrong, the failure is a sibling search that finds nothing, which is the same
@@ -173,7 +184,7 @@ function kindOf(target: string): CompanionKind {
  * directory is the one the user put both apps in. Creidhne has the same fix.
  */
 export function launcherDir(probe: CompanionProbe): string {
-  const portable = probe.env.PORTABLE_EXECUTABLE_DIR
+  const portable = probe.portableDir
   if (probe.platform === 'win32' && portable) return portable
   const appImage = probe.env.APPIMAGE
   if (probe.platform === 'linux' && appImage) return dirname(appImage)
@@ -408,11 +419,25 @@ export function pickerFilters(platform: NodeJS.Platform): { name: string; extens
   ]
 }
 
+/**
+ * The folder of this app's own portable exe, or undefined (HTOO-667). Call it
+ * before `takePortableLaunch`, which removes the variable. The folder counts
+ * only when this app's own stub set it: a child of another app's portable exe
+ * inherits that app's folder, and a sibling search there finds the wrong apps.
+ */
+export function ownPortableLauncherDir(
+  env: Readonly<Record<string, string | undefined>>,
+  packageName: string
+): string | undefined {
+  return isOwnPortableLaunch(env, packageName) ? env['PORTABLE_EXECUTABLE_DIR'] : undefined
+}
+
 /** The real probe. Everything platform-specific is in here and nowhere else. */
-export function nodeProbe(): CompanionProbe {
+export function nodeProbe(portableDir?: string): CompanionProbe {
   return {
     platform: process.platform,
     execPath: process.execPath,
+    portableDir,
     env: process.env,
     exists: async (p) => {
       try {
