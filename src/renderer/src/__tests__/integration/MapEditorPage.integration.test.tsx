@@ -107,7 +107,11 @@ async function mount() {
 const toolbar = () => within(screen.getByTestId('page-toolbar'))
 
 async function open(display: string): Promise<void> {
-  await userEvent.click(await screen.findByText(display))
+  // A row shows the file name, and the map name once the world index loads.
+  // When a map is named after its file the two texts are equal, and which one
+  // is there first is a race. Both are in the one row button, so take the first.
+  const [row] = await screen.findAllByText(display)
+  await userEvent.click(row!)
   await screen.findByLabelText('Filename')
 }
 
@@ -289,8 +293,9 @@ describe('MapEditorPage staging (HTOO-634)', { timeout: 30000 }, () => {
     await seedMap('Abel.xml', 1, 'Abel')
     await seedMap('Abel2.xml', 7, 'abel', { dir: STAGED })
     await mount()
-    // The live index must be loaded for the check to see the live map.
-    await screen.findByText('Abel')
+    // The live index must be loaded for the check to see the live map. The row
+    // then shows "Abel" twice: the file name and the map name from the index.
+    await waitFor(() => expect(screen.getAllByText('Abel')).toHaveLength(2))
     await showStaged()
     await open('Abel2')
     await userEvent.click(toolbar().getByRole('button', { name: 'Release' }))

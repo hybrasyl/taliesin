@@ -80,7 +80,7 @@ describe('committed Linux icon artifacts', () => {
 /** The PNG of one chunk type in an ICNS container. */
 function icnsChunk(file, type) {
   const buf = readFileSync(file)
-  for (let offset = 8; offset + 8 <= buf.length; ) {
+  for (let offset = 8; offset + 8 <= buf.length;) {
     const length = buf.readUInt32BE(offset + 4)
     if (buf.subarray(offset, offset + 4).toString('ascii') === type) {
       return buf.subarray(offset + 8, offset + length)
@@ -99,7 +99,7 @@ function alphaReader(png) {
   }
   expect([colorType, png.readUInt8(24), png.readUInt8(28)]).toEqual([RGBA, 8, 0])
   const idat = []
-  for (let offset = 8; offset < png.length; ) {
+  for (let offset = 8; offset < png.length;) {
     const length = png.readUInt32BE(offset)
     if (png.subarray(offset + 4, offset + 8).toString('ascii') === 'IDAT') {
       idat.push(png.subarray(offset + 8, offset + 8 + length))

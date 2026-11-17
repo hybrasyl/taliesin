@@ -251,6 +251,22 @@ describe('packProjectSchema and packManifestSchema', () => {
     expect(() => packProjectSchema.parse({ ...validPackProject, pack_id: '' })).toThrow()
   })
 
+  // HTOO-676: the id names a folder and a file, so it must stay one segment.
+  it.each(['.', '..', '../x', 'a/b', 'a\\b', 'C:', 'nul', 'x.', 'x'.repeat(201)])(
+    'packProjectSchema rejects the pack_id %j',
+    (id) => {
+      expect(() => packProjectSchema.parse({ ...validPackProject, pack_id: id })).toThrow(
+        /pack_id is not allowed/
+      )
+    }
+  )
+
+  it('packProjectSchema accepts an imported id that Taliesin would not make', () => {
+    expect(() =>
+      packProjectSchema.parse({ ...validPackProject, pack_id: 'Pack.V2 test' })
+    ).not.toThrow()
+  })
+
   it('packProjectSchema accepts all 5 known content types', () => {
     for (const ct of [
       'ability_icons',

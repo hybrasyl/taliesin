@@ -48,6 +48,8 @@ import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk'
 import GridOnIcon from '@mui/icons-material/GridOn'
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
+import UndoIcon from '@mui/icons-material/Undo'
+import RedoIcon from '@mui/icons-material/Redo'
 import EditorHeader from '../shared/EditorHeader'
 import { EditorAlert, useEditorAlert, type EditorAlertData } from '../editorShell/EditorAlerts'
 import WarpDialog from '../shared/WarpDialog'
@@ -79,7 +81,17 @@ import MusicPickerDialog from './MusicPickerDialog'
 import AmbientSoundField from './AmbientSoundField'
 import { useSettingsStore, useMapFilesDirectory } from '../../store/settingsStore'
 import { normalizeFolder } from '../../utils/fileTree'
-import { isModKey, isTypingTarget } from '../../utils/keyboard'
+import { historyChord, isModKey, isTypingTarget } from '../../utils/keyboard'
+import {
+  coalesceKeyFor,
+  commitEdit,
+  holds,
+  initHistory,
+  redo,
+  sealHistory,
+  undo,
+  type History
+} from '../../utils/mapHistory'
 import {
   ALL_BOARD_TYPES,
   ALL_DIRECTIONS,
@@ -1172,13 +1184,21 @@ function MapPlacementTab({
   mapNames,
   npcNames,
   worldMapNames,
-  onChange
+  onChange,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo
 }: {
   data: MapData
   mapNames: string[]
   npcNames: string[]
   worldMapNames: string[]
   onChange: (patch: Partial<MapData> | ((prev: MapData) => MapData)) => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
 }) {
   // Access rendering assets from atoms — same as CatalogPage
   const clientPath = useSettingsStore((s) => s.clientPath)
@@ -1211,6 +1231,15 @@ function MapPlacementTab({
   // Memoised so the array identity is stable across renders — it is a dep of
   // the canvas's tile-iterating overlay effect.
   const markers: MapMarker[] = useMemo(() => markersFor(data), [data])
+
+  // An undo or a redo can remove the selected node, or put a node of another
+  // kind at its index (a map warp where a world warp was). The selection then
+  // points at nothing, so it clears.
+  useEffect(() => {
+    if (!selected) return
+    const exists = markers.some((m) => m.kind === selected.kind && m.index === selected.index)
+    if (!exists) setSelected(null)
+  }, [markers, selected])
 
   const duplicateWarpTiles = useMemo(() => findDuplicateWarpTiles(data.warps), [data.warps])
 
@@ -1267,10 +1296,20 @@ function MapPlacementTab({
       // letter. See utils/keyboard.ts — shared with the Map Maker's handler.
       if (isTypingTarget(e.target)) return
       if (dialogState) return
-      // Copy and paste are the two chords this tab answers to (HTOO-444). They
-      // are read before the modifier guard below, which exists to keep the
+      // Undo, redo, copy and paste are the chords this tab answers to (HTOO-444).
+      // They are read before the modifier guard below, which exists to keep the
       // single-letter mode keys from firing on a browser or OS shortcut.
-      // ⌘ on macOS, Ctrl elsewhere (HTOO-569).
+      // ⌘ on macOS, Ctrl elsewhere (HTOO-569). Mod+Z undoes. Shift+Mod+Z redoes,
+      // and so does Ctrl+Y except on macOS (utils/keyboard.ts). A text field
+      // keeps its own undo: the typing guard above returns first.
+      const history = e.altKey ? null : historyChord(e)
+      if (history) {
+        e.preventDefault()
+        setStackMenu(null)
+        if (history === 'redo') keyActions.current.redo()
+        else keyActions.current.undo()
+        return
+      }
       if (isModKey(e) && !e.altKey && !e.shiftKey) {
         const chord = e.key.toLowerCase()
         if (chord === 'c') {
@@ -1519,8 +1558,8 @@ function MapPlacementTab({
   // The key handler below is registered once and reads through this, rather
   // than re-subscribing on every edit to `data`. Same idiom as the canvas's
   // `onHoverTileRef`.
-  const keyActions = useRef({ copySelection, pasteClipboard })
-  keyActions.current = { copySelection, pasteClipboard }
+  const keyActions = useRef({ copySelection, pasteClipboard, undo: onUndo, redo: onRedo })
+  keyActions.current = { copySelection, pasteClipboard, undo: onUndo, redo: onRedo }
 
   /** One marker on the tile selects it; more than one asks which (HTOO-442). */
   const handleMarkersClick = (hits: MapMarker[], anchor: { x: number; y: number }) => {
@@ -1557,6 +1596,22 @@ function MapPlacementTab({
             (schematic — set Client path in Settings for full render)
           </Typography>
         )}
+        <Divider orientation="vertical" flexItem />
+        {/* The same two buttons as the Map Maker's toolbar. */}
+        <Tooltip title="Undo (Ctrl+Z)">
+          <span>
+            <IconButton size="small" aria-label="Undo" onClick={onUndo} disabled={!canUndo}>
+              <UndoIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Redo (Ctrl+Y)">
+          <span>
+            <IconButton size="small" aria-label="Redo" onClick={onRedo} disabled={!canRedo}>
+              <RedoIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
         <Divider orientation="vertical" flexItem />
         <Tooltip title="Zoom out">
           <span>
@@ -1660,7 +1715,8 @@ function MapPlacementTab({
                 'Drag a marker to move it. Esc abandons the drag.',
                 'Click a stacked tile to choose which node you mean.',
                 'Shift-click in a placement mode to repeat the last node placed in it.',
-                'Ctrl+C copies the selected node. Ctrl+V pastes it at the pointer.'
+                'Ctrl+C copies the selected node. Ctrl+V pastes it at the pointer.',
+                'Ctrl+Z undoes. Ctrl+Y or Ctrl+Shift+Z redoes.'
               ].join('\n')}
             </Box>
           }
@@ -2016,14 +2072,25 @@ export default function MapEditorPanel({
   onDirtyChange,
   saveRef
 }: Props) {
-  const [data, setData] = useState<MapData>(() => ({ ...DEFAULT_MAP, ...map }))
+  // Undo and redo (requested by Dalta). The history holds whole snapshots, so
+  // the map on screen is always `history.present`. See utils/mapHistory.ts.
+  const [history, setHistory] = useState<History<MapData>>(() =>
+    initHistory({ ...DEFAULT_MAP, ...map })
+  )
+  const data = history.present
+  // The snapshot that is on disk. The map is dirty when the present snapshot is
+  // not this object, so an undo back to the save makes the map clean again.
+  const [saved, setSaved] = useState<MapData>(data)
+  const historyRef = useRef(history)
+  historyRef.current = history
   const [fileName, setFileName] = useState(
     initialFileName ?? computeMapFilename(map.id, map.genericName)
   )
   const [folder, setFolder] = useState(initialFolder)
   const propertiesOpen = useSettingsStore((s) => s.mapPropertiesOpen)
   const setPropertiesOpen = useSettingsStore((s) => s.setMapPropertiesOpen)
-  const isDirtyRef = useRef(false)
+  /** What the page was last told. Null when the page must be told again. */
+  const isDirtyRef = useRef<boolean | null>(false)
 
   // Feeds the regenerate button in EditorHeader, which is disabled while the
   // field already equals this. Editing the generic name therefore re-enables it
@@ -2035,8 +2102,21 @@ export default function MapEditorPanel({
 
   // Two effects, not one: a Rename changes the file's name and folder and not
   // the map, so it resets the filename fields and keeps the unsaved edits.
+  //
+  // After a save, the page gives back the snapshot it wrote as `map`. That
+  // snapshot is in the history, so the history stays and the snapshot becomes
+  // the saved one. The page marks the map clean when it writes. A user can edit
+  // between the save and the write, so the page is told the real state again.
+  // Any other `map` is another file, and its history starts empty.
   useEffect(() => {
-    setData({ ...DEFAULT_MAP, ...map })
+    if (holds(historyRef.current, map)) {
+      setSaved(map)
+      isDirtyRef.current = null
+      return
+    }
+    const fresh = { ...DEFAULT_MAP, ...map }
+    setHistory(initHistory(fresh))
+    setSaved(fresh)
     isDirtyRef.current = false
   }, [map])
   useEffect(() => {
@@ -2062,26 +2142,36 @@ export default function MapEditorPanel({
       : null
   )
 
-  const markDirty = useCallback(() => {
-    if (!isDirtyRef.current) {
-      isDirtyRef.current = true
-      onDirtyChange(true)
-    }
-  }, [onDirtyChange])
+  const isDirty = data !== saved
+  useEffect(() => {
+    if (isDirtyRef.current === isDirty) return
+    isDirtyRef.current = isDirty
+    onDirtyChange(isDirty)
+  }, [isDirty, saved, onDirtyChange])
 
-  const handleChange = useCallback(
-    (patch: Partial<MapData> | ((prev: MapData) => MapData)) => {
-      setData((prev) => (typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }))
-      markDirty()
-    },
-    [markDirty]
-  )
+  const handleChange = useCallback((patch: Partial<MapData> | ((prev: MapData) => MapData)) => {
+    const now = Date.now()
+    setHistory((h) => {
+      const prev = h.present
+      if (typeof patch === 'function') return commitEdit(h, patch(prev), null, now)
+      // A control that reports the value it already has is not an edit.
+      const keys = Object.keys(patch) as (keyof MapData)[]
+      if (keys.every((k) => Object.is(prev[k], patch[k]))) return h
+      return commitEdit(h, { ...prev, ...patch }, coalesceKeyFor(patch), now)
+    })
+  }, [])
 
+  const handleUndo = useCallback(() => setHistory(undo), [])
+  const handleRedo = useCallback(() => setHistory(redo), [])
+
+  // The page marks the map clean when it writes the file, and gives the
+  // written snapshot back as `map` (see the effect above). This does not mark
+  // it clean itself: when the page asks about the warps that name this map
+  // first, this resolves before anything is written.
   const handleSave = useCallback(async () => {
+    setHistory(sealHistory)
     await onSave(data, fileName, normalizeFolder(folder))
-    isDirtyRef.current = false
-    onDirtyChange(false)
-  }, [data, fileName, folder, onSave, onDirtyChange])
+  }, [data, fileName, folder, onSave])
 
   saveRef.current = handleSave
 
@@ -2142,6 +2232,10 @@ export default function MapEditorPanel({
           npcNames={npcNames}
           worldMapNames={worldMapNames}
           onChange={handleChange}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
         />
       </Box>
     </Box>
