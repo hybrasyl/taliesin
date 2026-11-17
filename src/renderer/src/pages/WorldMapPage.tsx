@@ -301,7 +301,7 @@ export default function WorldMapPage() {
    * longer invisible here while the index lists it — and returns active and
    * archived already split, so templates come from the same round trip.
    */
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     if (!activeLibrary) {
       setFiles([])
       setTemplateFiles([])
@@ -351,7 +351,7 @@ export default function WorldMapPage() {
       setTemplateFiles([])
       setReferenceFiles([])
     }
-  }
+  }, [activeLibrary])
 
   useEffect(() => {
     if (!activeLibrary) {
@@ -364,12 +364,9 @@ export default function WorldMapPage() {
       setReferencePoints(null)
       return
     }
-    loadFiles()
-    // Same as MapEditorPage: `loadFiles` is a fresh function each render, so
-    // listing it would re-scan the filesystem every render. See
-    // docs/plans/00a-backlog.md.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLibrary])
+    // loadFiles changes only when the active library changes (HTOO-158).
+    void loadFiles()
+  }, [activeLibrary, loadFiles])
 
   // ── Create reference set ──────────────────────────────────────────────────
 
