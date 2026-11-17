@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import {
+  Alert,
   Box,
   Typography,
   Button,
@@ -47,6 +48,10 @@ const ArchivePage: React.FC = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const [extracting, setExtracting] = useState(false)
+  const [extractResult, setExtractResult] = useState<{
+    severity: 'success' | 'error'
+    message: string
+  } | null>(null)
 
   // Discovered .dat files inside `clientPath` (top level + one subfolder deep).
   // Stored as relative paths so `npc/npc.dat` and `legend.dat` are distinguishable.
@@ -108,6 +113,7 @@ const ArchivePage: React.FC = () => {
 
         openArchive(arc, openName, loaded)
         setArchivePath(filePath)
+        setExtractResult(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to open archive')
         closeArchive()
@@ -186,20 +192,30 @@ const ArchivePage: React.FC = () => {
     })
   }, [])
 
+  // Main opens the archive and writes the files (HTOO-677). It checks every
+  // entry name against the chosen folder before the first write, and refuses
+  // the whole extraction if one name could land outside it.
   const handleExtractAll = useCallback(async () => {
-    if (!archive) return
+    if (!archive || !archivePath) return
     const dir = await window.api.openDirectory()
     if (!dir) return
     setExtracting(true)
+    setExtractResult(null)
     try {
-      for (const entry of archive.entries) {
-        const buf = entry.toUint8Array()
-        await window.api.writeBytes(`${dir}/${entry.entryName}`, buf)
-      }
+      const { count } = await window.api.extractArchive(archivePath, dir)
+      setExtractResult({
+        severity: 'success',
+        message: `Extracted ${count} ${count === 1 ? 'entry' : 'entries'} to ${dir}`
+      })
+    } catch (e) {
+      setExtractResult({
+        severity: 'error',
+        message: e instanceof Error ? e.message : 'Extraction failed'
+      })
     } finally {
       setExtracting(false)
     }
-  }, [archive])
+  }, [archive, archivePath])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -284,6 +300,16 @@ const ArchivePage: React.FC = () => {
           </>
         )}
       </Box>
+      {extractResult && (
+        <Alert
+          severity={extractResult.severity}
+          onClose={() => setExtractResult(null)}
+          data-testid="extract-result"
+          sx={{ mx: 2, my: 1 }}
+        >
+          {extractResult.message}
+        </Alert>
+      )}
       {/* Search bar */}
       {archive && (
         <Box sx={{ px: 2, py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>

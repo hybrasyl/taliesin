@@ -13,7 +13,6 @@ import {
   type SelectChangeEvent
 } from '@mui/material'
 import MovieIcon from '@mui/icons-material/Movie'
-import { useSettingsStore } from '../../store/settingsStore'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -46,6 +45,7 @@ import {
 import { formatBytes } from '../../utils/format'
 import { useAudioPreview } from '../../hooks/useAudioPreview'
 import { useArchiveEntry, useArchiveStore } from '../../store/archiveStore'
+import { plainFileNameProblem } from '../../../../shared/fileName'
 import TextPreview from './TextPreview'
 import TblPreview from './TblPreview'
 import LftPreview from './LftPreview'
@@ -904,7 +904,6 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
   entry,
   archive
 }) => {
-  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const videoRef = useRef<HTMLVideoElement>(null)
   const blobUrlRef = useRef<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'converting' | 'ready' | 'error'>('idle')
@@ -940,11 +939,8 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
     setStatus('converting')
     setErrorMsg(null)
     try {
-      const userData = await window.api.getUserDataPath()
-      const sep = userData.includes('\\') ? '\\' : '/'
-      const cacheDir = `${userData}${sep}bik-cache`
       const bytes = entry.toUint8Array()
-      const mp4Path = await window.api.bikConvert(bytes, ffmpegPath, cacheDir)
+      const mp4Path = await window.api.bikConvert(bytes)
       const mp4Buf = await window.api.readFile(mp4Path)
       const blob = new Blob([new Uint8Array(mp4Buf)], { type: 'video/mp4' })
       const url = URL.createObjectURL(blob)
@@ -959,7 +955,7 @@ const BikPreview: React.FC<{ entry: DataArchiveEntry; archive: DataArchive }> = 
       setStatus('error')
       setErrorMsg(e instanceof Error ? e.message : 'Conversion failed')
     }
-  }, [entry, ffmpegPath])
+  }, [entry])
 
   if (!info) {
     return (
@@ -1166,10 +1162,17 @@ async function exportAsPng(entry: DataArchiveEntry, archive: DataArchive) {
     if (!savePath) return
     await window.api.writeBytes(savePath, new Uint8Array(await blob.arrayBuffer()))
   } else {
-    // Multi-frame — save to directory
+    // Multi-frame — save to directory. The entry name comes from the archive,
+    // and it becomes part of a path in the chosen folder, so it must be a plain
+    // file name (the HTOO-677 rule; `../x.epf` wrote next to the folder).
+    const baseName = entry.entryName.replace(/\.[^.]+$/, '')
+    const problem = plainFileNameProblem(`${baseName}_001.png`)
+    if (problem) {
+      console.warn(`Cannot export ${JSON.stringify(entry.entryName)}: ${problem}`)
+      return
+    }
     const dir = await window.api.openDirectory()
     if (!dir) return
-    const baseName = entry.entryName.replace(/\.[^.]+$/, '')
     for (let i = 0; i < rendered.frames.length; i++) {
       const frame = rendered.frames[i]
       const canvas = document.createElement('canvas')

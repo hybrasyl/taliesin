@@ -54,6 +54,31 @@ const memfs = vi.hoisted(() => {
       access: vi.fn(async (p: string) => {
         const n = p.replace(/\\/g, '/')
         if (!files.has(n) && !dirs.has(n)) throw enoent()
+      }),
+      // The real-path check (HTOO-675) asks for this. This filesystem has no
+      // links, so a path that exists is its own real path.
+      realpath: vi.fn(async (path: string) => {
+        const norm = path.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+        if (norm === '/' || files.has(norm) || dirs.has(norm)) return path
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      }),
+      // The import stages its files and moves them into place (HTOO-676).
+      rename: vi.fn(async (from: string, to: string) => {
+        const src = from.replace(/\\/g, '/')
+        const buf = files.get(src)
+        if (!buf) throw enoent()
+        files.delete(src)
+        const dest = to.replace(/\\/g, '/')
+        files.set(dest, buf)
+        ensureDir(dirOf(dest))
+      }),
+      unlink: vi.fn(async (p: string) => {
+        if (!files.delete(p.replace(/\\/g, '/'))) throw enoent()
+      }),
+      rm: vi.fn(async (p: string) => {
+        const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
+        for (const k of [...files.keys()]) if (k === n || k.startsWith(`${n}/`)) files.delete(k)
+        for (const d of [...dirs]) if (d === n || d.startsWith(`${n}/`)) dirs.delete(d)
       })
     }
   }
@@ -354,7 +379,9 @@ describe('packImport — basics', () => {
     fs.files.set('/out/dupe.datf', datfBytes)
     fs.files.set('/work/dupe.json', Buffer.from('{}'))
 
-    await expect(packImport(ctx, '/out/dupe.datf', '/work')).rejects.toThrow(/already exists/)
+    await expect(packImport(ctx, '/out/dupe.datf', '/work')).rejects.toThrow(
+      /already exist in .*dupe\.json.*force: true/
+    )
 
     // force: true overwrites
     await expect(

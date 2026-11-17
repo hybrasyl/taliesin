@@ -6,11 +6,11 @@
  * to its channel via the supplied `ipcMain` and `BrowserWindow` references.
  */
 import type { IpcMain, BrowserWindow as BrowserWindowType } from 'electron'
-import { join, dirname, basename } from 'path'
+import { join, dirname, basename, relative } from 'path'
 import { promises as fs } from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import {
   buildIndex,
   loadIndex,
@@ -43,6 +43,7 @@ import {
 import { checkForUpdate as updateCheck } from './updateCheck'
 import type { UpdateCheckResult } from '../shared/updateVersion'
 import { appIdentity } from '../shared/appIdentity'
+import { plainFileNameProblem } from '../shared/fileName'
 import {
   loadPacks,
   listActivePacks,
@@ -52,7 +53,23 @@ import {
   resolveAssetBytes,
   suggestedBrigidAssetsPath
 } from './assetPacks'
-import { assertInside, assertInsideAnyRoot } from './pathSafety'
+import {
+  assertInside,
+  assertRealInside,
+  assertRealInsideAnyRoot,
+  realContains,
+  realpathAllowMissing
+} from './pathSafety'
+import {
+  emptyGrants,
+  isGranted,
+  measureExecutable,
+  settingsDirPaths,
+  snapshotGrants,
+  verifyExecutable,
+  type ExecKind,
+  type GrantState
+} from './grants'
 import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
 import { parseOrLog } from './schemaLog'
 import { renameWithRetry } from './renameRetry'
@@ -82,6 +99,7 @@ import {
   packImportOptionsSchema,
   encodeParamsSchema,
   menuStateSchema,
+  execKindSchema,
   type MenuState
 } from './schemas'
 import { buildDiagnostics, openIssue, copyReport, revealLogs } from './report/diagnostics'
@@ -107,6 +125,18 @@ export interface HandlerContext {
   clientPath?: string | null
   /** Paths blessed this session via OS dialog selections (one-shot user consent). */
   blessedRoots: Set<string>
+  /**
+   * The persisted grants: the directories and executables main has approved
+   * (HTOO-673, HTOO-674). A settings path is a root only when it is inside a
+   * grant or inside `blessedRoots`. Absent means empty: nothing is granted.
+   */
+  grants?: GrantState
+  /**
+   * Resolves when boot has loaded (or migrated) the grants. `settings:load` and
+   * `settings:save` wait for it, so an early save cannot prune grants that are
+   * not loaded yet.
+   */
+  authorityReady?: Promise<void>
   /**
    * Called once when the renderer signals `app:ready` (settings hydrated).
    * Wired up in index.ts to reveal the main window + tear down the splash.
@@ -142,28 +172,94 @@ export interface HandlerContext {
 }
 
 /**
- * Iterate every currently-allowed path root: the settings dir, settings-derived
- * roots, and session-blessed roots. Used by `assertInsideAnyRoot` at every
- * Category-A handler boundary.
+ * The BIK conversion cache. It is the only part of the settings folder that
+ * generic IPC may touch: the folder also holds settings.json and grants.json.
+ */
+export function bikCacheDir(ctx: HandlerContext): string {
+  return join(ctx.settingsPath, 'bik-cache')
+}
+
+/**
+ * Iterate every currently-allowed path root: the BIK cache, the granted
+ * settings-derived roots, and session-blessed roots. Used by `authorizePath`
+ * at every Category-A handler boundary.
+ *
+ * The settings folder itself is not a root (HTOO-674). It holds settings.json
+ * and grants.json, and a generic write there could give the renderer authority.
  */
 export function* allRoots(ctx: HandlerContext): Iterable<string> {
-  yield ctx.settingsPath
+  yield bikCacheDir(ctx)
   yield* ctx.settingsRoots
   yield* ctx.blessedRoots
+}
+
+/** The grant state, created empty on first use. Empty means nothing is granted. */
+export function grantsOf(ctx: HandlerContext): GrantState {
+  if (!ctx.grants) ctx.grants = emptyGrants()
+  return ctx.grants
+}
+
+async function persistGrants(ctx: HandlerContext): Promise<void> {
+  const g = grantsOf(ctx)
+  await g.persist?.(snapshotGrants(g))
+}
+
+/**
+ * Check a renderer-supplied path before I/O, and return the path to use.
+ *
+ * 1. It must be inside an allowed root, as a string (`assertInsideAnyRoot`).
+ * 2. Its real path must be inside the real path of an allowed root, so a
+ *    junction or symlink cannot lead out (HTOO-675).
+ * 3. Its real path must not be main's own: the settings folder (except the
+ *    BIK cache) or an approved executable (HTOO-673, HTOO-674). This holds
+ *    also when the user chose a folder that contains them.
+ */
+export async function authorizePath(ctx: HandlerContext, candidate: string): Promise<string> {
+  const { path, real } = await assertRealInsideAnyRoot(allRoots(ctx), candidate)
+  const [settingsReal, cacheReal] = await Promise.all([
+    realpathAllowMissing(ctx.settingsPath),
+    realpathAllowMissing(bikCacheDir(ctx))
+  ])
+  if (realContains(settingsReal, real) && !realContains(cacheReal, real)) {
+    throw new Error(`Path "${candidate}" is in Taliesin's own settings folder`)
+  }
+  for (const grant of Object.values(grantsOf(ctx).executables)) {
+    if (!grant) continue
+    const exe = await realpathAllowMissing(grant.path).catch(() => grant.path)
+    if (realContains(exe, real)) {
+      throw new Error(`Path "${candidate}" is a program Taliesin runs`)
+    }
+  }
+  return path
 }
 
 /**
  * Replace the settings-derived root set from a TaliesinSettings snapshot.
  * Dialog-blessed roots are preserved across this call. Invoke after settings
  * load on startup and after every saveSettings IPC call.
+ *
+ * A settings path becomes a root only when it is inside a grant or a path the
+ * user chose in a dialog this session (HTOO-674). The rest are ignored, and
+ * returned so the caller can log them.
  */
-export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): void {
+export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettings): string[] {
   ctx.settingsRoots.clear()
-  ctx.clientPath = settings.clientPath ?? null
-  if (settings.clientPath) ctx.settingsRoots.add(settings.clientPath)
+  const g = grantsOf(ctx)
+  const refused: string[] = []
+  const granted = (p: string | null | undefined): p is string => {
+    if (!p) return false
+    if (isGranted(g, ctx.blessedRoots, p)) return true
+    refused.push(p)
+    return false
+  }
+  const add = (p: string | null | undefined): void => {
+    if (granted(p)) ctx.settingsRoots.add(p)
+  }
+  ctx.clientPath = granted(settings.clientPath) ? settings.clientPath : null
+  add(settings.clientPath)
   // Installed .datf packs live here; whitelist it so pack-adjacent reads (e.g.
   // audio preview of an installed pack) pass the path-safety check.
-  if (settings.brigidAssetsPath) ctx.settingsRoots.add(settings.brigidAssetsPath)
+  add(settings.brigidAssetsPath)
   // Whitelist EVERY configured world library (each is a <world>/xml dir) plus its
   // world parent — not just the active one. The Settings index panel checks
   // status for every library, and sibling dirs (mapfiles, .creidhne,
@@ -172,6 +268,7 @@ export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettin
   const libs = new Set<string>(settings.libraries ?? [])
   if (settings.activeLibrary) libs.add(settings.activeLibrary)
   for (const lib of libs) {
+    if (!granted(lib)) continue
     ctx.settingsRoots.add(lib)
     const worldRoot = dirname(lib)
     if (worldRoot && worldRoot !== lib) ctx.settingsRoots.add(worldRoot)
@@ -184,14 +281,15 @@ export function applySettingsRoots(ctx: HandlerContext, settings: TaliesinSettin
   // catalog:scan, catalog:load and fs:readFile against the newly chosen source
   // were refused with "not inside any allowed root". Blessing them all removes
   // the window rather than narrowing it.
-  for (const d of settings.mapDirectories ?? []) ctx.settingsRoots.add(d.path)
-  if (settings.activeMapDirectory) ctx.settingsRoots.add(settings.activeMapDirectory)
-  if (settings.musicLibraryPath) ctx.settingsRoots.add(settings.musicLibraryPath)
+  for (const d of settings.mapDirectories ?? []) add(d.path)
+  add(settings.activeMapDirectory)
+  add(settings.musicLibraryPath)
   // All music working dirs, not just the active one, so previewing a deployed
   // track in any configured working dir passes path-safety.
-  for (const d of settings.musicWorkingDirs ?? []) ctx.settingsRoots.add(d)
-  if (settings.activeMusicWorkingDir) ctx.settingsRoots.add(settings.activeMusicWorkingDir)
-  if (settings.packDir) ctx.settingsRoots.add(settings.packDir)
+  for (const d of settings.musicWorkingDirs ?? []) add(d)
+  add(settings.activeMusicWorkingDir)
+  add(settings.packDir)
+  return [...new Set(refused)]
 }
 
 /**
@@ -202,24 +300,49 @@ export function blessRoot(ctx: HandlerContext, path: string | null | undefined):
   if (path) ctx.blessedRoots.add(path)
 }
 
-// ── Settings / app ───────────────────────────────────────────────────────────
-
-export async function loadSettings(ctx: HandlerContext) {
-  return ctx.settingsManager.load()
+/** Put main's executable record into a settings snapshot. The renderer's values do not count. */
+function withGrantedExecutables(ctx: HandlerContext, s: TaliesinSettings): TaliesinSettings {
+  const ex = grantsOf(ctx).executables
+  return { ...s, ffmpegPath: ex.ffmpeg?.path, companionPath: ex.companion?.path }
 }
 
+// ── Settings / app ───────────────────────────────────────────────────────────
+
+/**
+ * Settings, with the executable paths from main's grants. The fields in
+ * settings.json are only a display copy, so a value written there by the
+ * renderer is not shown as if it were approved.
+ */
+export async function loadSettings(ctx: HandlerContext) {
+  await ctx.authorityReady
+  return withGrantedExecutables(ctx, await ctx.settingsManager.load())
+}
+
+/**
+ * Save settings. The save cannot add authority (HTOO-674): a path the user did
+ * not choose in a dialog, and that no grant covers, is saved but is not a root.
+ * The grants are pruned to the paths the settings still name, so a removed
+ * folder loses its grant.
+ */
 export async function saveSettings(ctx: HandlerContext, settings: unknown) {
-  const parsed = parseOrLog(
+  await ctx.authorityReady
+  const parsed = withGrantedExecutables(
     ctx,
-    'settings:save',
-    taliesinSettingsSchema,
-    settings
-  ) as TaliesinSettings
+    parseOrLog(ctx, 'settings:save', taliesinSettingsSchema, settings) as TaliesinSettings
+  )
+  const g = grantsOf(ctx)
+  const kept = settingsDirPaths(parsed).filter((p) => isGranted(g, ctx.blessedRoots, p))
+  const before = [...g.dirs].sort().join('\n')
+  g.dirs = new Set(kept)
+  if ([...g.dirs].sort().join('\n') !== before) await persistGrants(ctx)
   const prev = await ctx.settingsManager.load().catch(() => null)
   await ctx.settingsManager.save(parsed)
   // Refresh the allowed-root set so subsequent path-validating handlers
   // see the new active library / pack / etc. without waiting for a restart.
-  applySettingsRoots(ctx, parsed)
+  const refused = applySettingsRoots(ctx, parsed)
+  if (refused.length > 0) {
+    console.warn(`settings:save: not a root, because no grant covers it: ${refused.join(', ')}`)
+  }
   // Reload installed .datf packs when a pack-source path changes, so the map +
   // worldmap editors pick up new overrides without a restart.
   if (
@@ -227,10 +350,7 @@ export async function saveSettings(ctx: HandlerContext, settings: unknown) {
     prev.brigidAssetsPath !== parsed.brigidAssetsPath ||
     prev.clientPath !== parsed.clientPath
   ) {
-    void loadPacks({
-      brigidAssetsPath: parsed.brigidAssetsPath ?? null,
-      clientPath: parsed.clientPath ?? null
-    })
+    void loadPacks(packSources(ctx, parsed))
   }
 }
 
@@ -245,11 +365,22 @@ export function getUserDataPath(ctx: HandlerContext): string {
  * each pack's manifest + zip index, not its asset bytes.
  */
 export async function reloadPacks(ctx: HandlerContext): Promise<void> {
-  const s = await ctx.settingsManager.load()
-  await loadPacks({
-    brigidAssetsPath: s.brigidAssetsPath ?? null,
-    clientPath: s.clientPath ?? null
-  })
+  await ctx.authorityReady
+  await loadPacks(packSources(ctx, await ctx.settingsManager.load()))
+}
+
+/**
+ * The installed-pack sources from a settings snapshot, each only when it is a
+ * current root. `pack:readEntry` reads any `.datf` in these folders, so a
+ * source the renderer named without a grant must not count (HTOO-674).
+ */
+export function packSources(
+  ctx: HandlerContext,
+  s: Pick<TaliesinSettings, 'brigidAssetsPath' | 'clientPath'>
+): { brigidAssetsPath: string | null; clientPath: string | null } {
+  const ok = (p: string | null | undefined): string | null =>
+    p && ctx.settingsRoots.has(p) ? p : null
+  return { brigidAssetsPath: ok(s.brigidAssetsPath), clientPath: ok(s.clientPath) }
 }
 
 /**
@@ -287,8 +418,10 @@ export async function packTrackMeta(
  * launch button works before anyone visits Settings.
  */
 export async function companionStatus(ctx: HandlerContext): Promise<CompanionStatus> {
-  const settings = await ctx.settingsManager.load()
-  return resolveCompanion(ctx.companionProbe ?? nodeProbe(), 'creidhne', settings.companionPath)
+  await ctx.authorityReady
+  // The override is main's grant, not the settings field (HTOO-674).
+  const override = grantsOf(ctx).executables.companion?.path
+  return resolveCompanion(ctx.companionProbe ?? nodeProbe(), 'creidhne', override)
 }
 
 /**
@@ -301,8 +434,98 @@ export async function companionStatus(ctx: HandlerContext): Promise<CompanionSta
  * launched is now decided in `companion.ts`, from sources this process controls.
  */
 export async function launchCompanion(ctx: HandlerContext): Promise<CompanionLaunchResult> {
-  const settings = await ctx.settingsManager.load()
-  return companionLaunch(ctx.companionProbe ?? nodeProbe(), 'creidhne', settings.companionPath)
+  await ctx.authorityReady
+  const grant = grantsOf(ctx).executables.companion
+  // A chosen file that changed since the user chose it does not run. A missing
+  // one is left to `resolveCompanion`, which falls back to discovery.
+  if (grant && (await (ctx.companionProbe ?? nodeProbe()).exists(grant.path))) {
+    try {
+      await approvedExecutable(ctx, 'companion')
+    } catch (e) {
+      return {
+        ok: false,
+        reason: 'changed',
+        target: grant.path,
+        message: e instanceof Error ? e.message : String(e)
+      }
+    }
+  }
+  return companionLaunch(ctx.companionProbe ?? nodeProbe(), 'creidhne', grant?.path)
+}
+
+// ── Approved executables (HTOO-673) ──────────────────────────────────────────
+
+/**
+ * Record `path` as the approved program of `kind`. Only main calls this, with
+ * a native dialog result: no IPC channel takes an executable path.
+ */
+export async function grantExecutable(
+  ctx: HandlerContext,
+  kind: ExecKind,
+  path: string
+): Promise<void> {
+  grantsOf(ctx).executables[kind] = await measureExecutable(path)
+  await persistGrants(ctx)
+}
+
+/**
+ * Let the user choose the program of `kind` in a native dialog, and approve
+ * it. Returns the path, or null when the user cancelled.
+ */
+export async function chooseExecutable(
+  ctx: HandlerContext,
+  kind: ExecKind,
+  pick: (opts: {
+    filters: { name: string; extensions: string[] }[]
+    defaultPath?: string
+  }) => Promise<string | null>
+): Promise<string | null> {
+  await ctx.authorityReady
+  const current = grantsOf(ctx).executables[kind]?.path
+  const filters =
+    kind === 'companion'
+      ? companionPickerFilters(ctx)
+      : [{ name: 'Executable', extensions: ['exe', '*'] }]
+  const picked = await pick({ filters, ...(current ? { defaultPath: current } : {}) })
+  if (!picked) return null
+  await grantExecutable(ctx, kind, picked)
+  return picked
+}
+
+/** Remove the approval of `kind`. ffmpeg then comes from PATH; the companion from discovery. */
+export async function clearExecutable(ctx: HandlerContext, payload: unknown): Promise<void> {
+  const kind = parseOrLog(ctx, 'exec:clear', execKindSchema, payload)
+  await ctx.authorityReady
+  delete grantsOf(ctx).executables[kind]
+  await persistGrants(ctx)
+}
+
+/**
+ * The approved program of `kind`, checked against the disk, or null when none
+ * is approved. Throws when the approved file is missing or changed.
+ */
+export async function approvedExecutable(
+  ctx: HandlerContext,
+  kind: ExecKind
+): Promise<string | null> {
+  await ctx.authorityReady
+  const g = grantsOf(ctx)
+  const grant = g.executables[kind]
+  if (!grant) return null
+  const { grant: next, changed } = await verifyExecutable(grant)
+  if (changed) {
+    g.executables[kind] = next
+    await persistGrants(ctx)
+  }
+  return next.path
+}
+
+/**
+ * The converter to run: the approved ffmpeg, or `ffmpeg` from PATH when none
+ * is approved. The renderer does not choose it (HTOO-673).
+ */
+export async function resolveConverter(ctx: HandlerContext): Promise<string> {
+  return (await approvedExecutable(ctx, 'ffmpeg')) ?? 'ffmpeg'
 }
 
 /**
@@ -397,14 +620,14 @@ export { revealLogs }
 // implicit parent, so we validate against ctx.roots up front.
 
 export async function readFile(ctx: HandlerContext, filePath: string): Promise<Buffer> {
-  return fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath))
+  return fs.readFile(await authorizePath(ctx, filePath))
 }
 
 export async function listDir(
   ctx: HandlerContext,
   dirPath: string
 ): Promise<{ name: string; isDirectory: boolean }[]> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safe = await authorizePath(ctx, dirPath)
   try {
     const entries = await fs.readdir(safe, { withFileTypes: true })
     return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory() }))
@@ -436,11 +659,11 @@ export async function listSection(
   libraryPath: string,
   type: string
 ): Promise<{ dir: string; active: string[]; archived: string[] }> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   // `type` needs its own traversal check: listSectionFiles joins it onto the
   // library internally, so validating libraryPath alone does not contain it —
   // a `type` of '../../..' would enumerate the disk outside the world.
-  assertInside(safeLib, type)
+  await assertRealInside(safeLib, type)
   const { dir, active, archived } = await listSectionFiles(safeLib, type)
   // `join` returns native separators; the renderer composes paths as
   // `${dir}/${rel}` with forward slashes. Handing back a native `dir` makes
@@ -504,7 +727,7 @@ async function eachReferenceSection(
     staged: boolean
   ) => Promise<void> | void
 ): Promise<void> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   for (const [root, staged] of [
     [safeLib, false],
     [stagingRootFor(safeLib), true]
@@ -598,8 +821,8 @@ export async function stagingListMaps(
   ctx: HandlerContext,
   libraryPath: string
 ): Promise<{ dir: string; files: StagedMap[] }> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
-  assertInsideAnyRoot(allRoots(ctx), stagingRootFor(safeLib))
+  const safeLib = await authorizePath(ctx, libraryPath)
+  await authorizePath(ctx, stagingRootFor(safeLib))
   return listStagedMaps(safeLib)
 }
 
@@ -636,7 +859,7 @@ export async function stagingStageMap(
   libraryPath: string,
   rel: string
 ): Promise<{ path: string }> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   return transferMap(ctx, join(safeLib, 'maps'), join(stagingRootFor(safeLib), 'maps'), rel)
 }
 
@@ -646,13 +869,13 @@ export async function stagingReleaseMap(
   libraryPath: string,
   rel: string
 ): Promise<{ path: string }> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   return transferMap(ctx, join(stagingRootFor(safeLib), 'maps'), join(safeLib, 'maps'), rel)
 }
 
 export async function copyFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
-  const safeSrc = assertInsideAnyRoot(allRoots(ctx), src)
-  const safeDst = assertInsideAnyRoot(allRoots(ctx), dst)
+  const safeSrc = await authorizePath(ctx, src)
+  const safeDst = await authorizePath(ctx, dst)
   await fs.mkdir(dirname(safeDst), { recursive: true })
   await fs.copyFile(safeSrc, safeDst)
 }
@@ -684,8 +907,8 @@ export async function copyFile(ctx: HandlerContext, src: string, dst: string): P
  * path and is refused, which is the behaviour the check existed for.
  */
 export async function moveFile(ctx: HandlerContext, src: string, dst: string): Promise<void> {
-  const safeSrc = assertInsideAnyRoot(allRoots(ctx), src)
-  const safeDst = assertInsideAnyRoot(allRoots(ctx), dst)
+  const safeSrc = await authorizePath(ctx, src)
+  const safeDst = await authorizePath(ctx, dst)
 
   if (safeSrc !== safeDst && (await occupiedByAnother(safeSrc, safeDst))) {
     throw new Error(`"${basename(safeDst)}" already exists in that folder`)
@@ -735,7 +958,7 @@ export async function writeFile(
   // data argument, so an object would land on disk as "[object Object]" and the
   // write would report success -- over a real file the renderer named.
   const text = parseOrLog(ctx, 'fs:writeFile', textContentSchema, content)
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   await fs.mkdir(dirname(safe), { recursive: true })
   await fs.writeFile(safe, text, 'utf-8')
 }
@@ -746,14 +969,14 @@ export async function writeBytes(
   data: unknown
 ): Promise<void> {
   const bytes = parseOrLog(ctx, 'fs:writeBytes', bytesSchema, data)
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   await fs.mkdir(dirname(safe), { recursive: true })
   await fs.writeFile(safe, Buffer.from(bytes))
 }
 
 export async function exists(ctx: HandlerContext, filePath: string): Promise<boolean> {
   try {
-    await fs.access(assertInsideAnyRoot(allRoots(ctx), filePath))
+    await fs.access(await authorizePath(ctx, filePath))
     return true
   } catch {
     return false
@@ -765,7 +988,7 @@ export async function stat(
   filePath: string
 ): Promise<{ mtimeMs: number; sizeBytes: number } | null> {
   try {
-    const s = await fs.stat(assertInsideAnyRoot(allRoots(ctx), filePath))
+    const s = await fs.stat(await authorizePath(ctx, filePath))
     return { mtimeMs: s.mtimeMs, sizeBytes: s.size }
   } catch {
     return null
@@ -773,11 +996,11 @@ export async function stat(
 }
 
 export async function ensureDir(ctx: HandlerContext, dirPath: string): Promise<void> {
-  await fs.mkdir(assertInsideAnyRoot(allRoots(ctx), dirPath), { recursive: true })
+  await fs.mkdir(await authorizePath(ctx, dirPath), { recursive: true })
 }
 
 export async function deleteFile(ctx: HandlerContext, filePath: string): Promise<void> {
-  await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
+  await fs.unlink(await authorizePath(ctx, filePath))
 }
 
 /**
@@ -785,17 +1008,85 @@ export async function deleteFile(ctx: HandlerContext, filePath: string): Promise
  * The user recovers a mistake from the Recycle Bin or Trash.
  */
 export async function trashFile(ctx: HandlerContext, filePath: string): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   if (!ctx.trashItem) throw new Error('The OS trash is not available')
   await ctx.trashItem(safe)
 }
 
 export async function listArchive(ctx: HandlerContext, filePath: string): Promise<string[]> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
   const buf = await fs.readFile(safe)
   const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
   return archive.entries.map((e) => e.entryName)
+}
+
+/**
+ * Extract every entry of a `.dat` archive into one folder (HTOO-677).
+ *
+ * The renderer used to write each entry through `fs:writeBytes` at
+ * `${dir}/${entryName}`. That handler checks a path against every allowed root,
+ * not against the folder the user chose, so an entry named `../note.txt` wrote
+ * next to the folder. Main now opens the archive itself and checks each name
+ * against the chosen folder only.
+ *
+ * Every name must be a plain file name, and no two may name one file. All of
+ * them are checked before the first write, so a bad entry anywhere in the
+ * archive extracts nothing rather than part of it.
+ */
+export async function extractArchive(
+  ctx: HandlerContext,
+  archivePath: string,
+  destDir: string
+): Promise<{ count: number }> {
+  const safeArchive = await authorizePath(ctx, archivePath)
+  const safeDest = await authorizePath(ctx, destDir)
+  const { DataArchive } = await import('@eriscorp/dalib-ts')
+  const buf = await fs.readFile(safeArchive)
+  const archive = DataArchive.fromBuffer(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength))
+
+  const problems: string[] = []
+  const names = new Set<string>()
+  const targets: { entry: (typeof archive.entries)[number]; dest: string }[] = []
+  for (const entry of archive.entries) {
+    const name = entry.entryName
+    const problem = plainFileNameProblem(name)
+    if (problem) {
+      problems.push(`${JSON.stringify(name)}: ${problem}`)
+      continue
+    }
+    // Windows and macOS ignore case, so two names that differ only in case
+    // are one file there.
+    if (names.has(name.toLowerCase())) {
+      problems.push(`${JSON.stringify(name)}: another entry has the same name`)
+      continue
+    }
+    names.add(name.toLowerCase())
+    // Real-path checks (HTOO-675): an existing link in the chosen folder with
+    // an entry's name must not carry the write out of it, and no entry may
+    // replace one of main's own files (an approved program, the settings).
+    let dest: string
+    try {
+      dest = await authorizePath(ctx, await assertRealInside(safeDest, name))
+    } catch (e) {
+      problems.push(`${JSON.stringify(name)}: ${e instanceof Error ? e.message : 'refused'}`)
+      continue
+    }
+    targets.push({ entry, dest })
+  }
+  if (problems.length > 0) {
+    const shown = problems.slice(0, 5).join('; ')
+    const more = problems.length > 5 ? `; and ${problems.length - 5} more` : ''
+    throw new Error(
+      `Nothing was extracted: ${problems.length} of ${archive.entries.length} entries cannot be a file in the chosen folder. ${shown}${more}`
+    )
+  }
+
+  await fs.mkdir(safeDest, { recursive: true })
+  for (const { entry, dest } of targets) {
+    await fs.writeFile(dest, archive.getEntryBuffer(entry))
+  }
+  return { count: targets.length }
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────────────
@@ -821,7 +1112,7 @@ export async function catalogLoad(
   ctx: HandlerContext,
   dirPath: string
 ): Promise<Record<string, unknown>> {
-  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safeDir = await authorizePath(ctx, dirPath)
   return readJsonOr<Record<string, unknown>>(getCatalogPath(safeDir), {})
 }
 
@@ -830,7 +1121,7 @@ export async function catalogSave(
   dirPath: string,
   data: unknown
 ): Promise<void> {
-  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safeDir = await authorizePath(ctx, dirPath)
   const parsed = parseOrLog(ctx, 'catalog:save', catalogDataSchema, data)
   await writeJsonFile(getCatalogPath(safeDir), parsed)
 }
@@ -839,7 +1130,7 @@ export async function catalogScan(
   ctx: HandlerContext,
   dirPath: string
 ): Promise<{ filename: string; sizeBytes: number }[]> {
-  const safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safeDir = await authorizePath(ctx, dirPath)
   const entries = await fs.readdir(safeDir, { withFileTypes: true })
   // Every .map file, whatever it is called. This used to demand
   // `lod<digits>[-variant].map` and dropped the rest without a word — 1036 of
@@ -892,7 +1183,7 @@ function findTxxxFrame(
 
 export async function musicReadFileMeta(ctx: HandlerContext, filePath: string) {
   try {
-    const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+    const safe = await authorizePath(ctx, filePath)
     const { parseBuffer } = await import('music-metadata')
     const buf = await fs.readFile(safe)
     const meta = await parseBuffer(buf, undefined, { duration: true, skipCovers: true })
@@ -942,7 +1233,7 @@ async function scanMusicDir(
 
 export async function musicScan(ctx: HandlerContext, dirPath: string) {
   try {
-    const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+    const safe = await authorizePath(ctx, dirPath)
     return await scanMusicDir(safe)
   } catch {
     return []
@@ -953,7 +1244,7 @@ export async function musicMetadataLoad(
   ctx: HandlerContext,
   dirPath: string
 ): Promise<Record<string, unknown>> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safe = await authorizePath(ctx, dirPath)
   return readJsonOr<Record<string, unknown>>(join(safe, 'music-library.json'), {})
 }
 
@@ -962,13 +1253,13 @@ export async function musicMetadataSave(
   dirPath: string,
   data: unknown
 ): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safe = await authorizePath(ctx, dirPath)
   const parsed = parseOrLog(ctx, 'music:metadata:save', musicMetaDataSchema, data)
   await writeJsonFile(join(safe, 'music-library.json'), parsed)
 }
 
 export async function musicPacksLoad(ctx: HandlerContext, dirPath: string): Promise<unknown> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safe = await authorizePath(ctx, dirPath)
   return readJsonOr<unknown>(join(safe, 'music-packs.json'), [])
 }
 
@@ -977,7 +1268,7 @@ export async function musicPacksSave(
   dirPath: string,
   packs: unknown
 ): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), dirPath)
+  const safe = await authorizePath(ctx, dirPath)
   const parsed = parseOrLog(ctx, 'music:packs:save', musicPackArraySchema, packs)
   await writeJsonFile(join(safe, 'music-packs.json'), parsed)
 }
@@ -1038,7 +1329,6 @@ export async function musicDeployPack(
   srcLibDir: string,
   pack: unknown,
   destDir: string,
-  ffmpegPath: string | null,
   musEncodeKbps: unknown,
   musEncodeSampleRate: unknown
 ): Promise<void> {
@@ -1051,9 +1341,10 @@ export async function musicDeployPack(
     kbps: musEncodeKbps,
     sampleRate: musEncodeSampleRate
   })
-  const ffmpegBin = ffmpegPath || 'ffmpeg'
-  const safeSrcLib = assertInsideAnyRoot(allRoots(ctx), srcLibDir)
-  const safeDest = assertInsideAnyRoot(allRoots(ctx), destDir)
+  // Main chooses the converter. The renderer does not send a path (HTOO-673).
+  const ffmpegBin = await resolveConverter(ctx)
+  const safeSrcLib = await authorizePath(ctx, srcLibDir)
+  const safeDest = await authorizePath(ctx, destDir)
   // Resolve and validate every track's source path up front. assertInside
   // rejects path-traversal attempts; fs.stat catches missing files. Both
   // checks run BEFORE touching destDir, so a stale or malicious entry can't
@@ -1061,8 +1352,8 @@ export async function musicDeployPack(
   const resolved: { src: string; dst: string; original: string }[] = []
   const missing: string[] = []
   for (const track of parsedPack.tracks) {
-    const src = assertInside(safeSrcLib, track.sourceFile)
-    const dst = assertInside(safeDest, `${track.musicId}.mus`)
+    const src = await assertRealInside(safeSrcLib, track.sourceFile)
+    const dst = await assertRealInside(safeDest, `${track.musicId}.mus`)
     resolved.push({ src, dst, original: track.sourceFile })
   }
   await Promise.all(
@@ -1107,7 +1398,7 @@ export async function musicClientScan(
   clientPath: string
 ): Promise<{ filename: string; sizeBytes: number }[]> {
   try {
-    const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
+    const safe = await authorizePath(ctx, clientPath)
     const musicDir = join(safe, 'music')
     const entries = await fs.readdir(musicDir, { withFileTypes: true })
     const files = entries.filter((e) => !e.isDirectory() && /^\d+\.mus$/i.test(e.name))
@@ -1128,7 +1419,7 @@ export async function sfxList(
   ctx: HandlerContext,
   clientPath: string
 ): Promise<{ entryName: string; sizeBytes: number }[]> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
+  const safe = await authorizePath(ctx, clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
   // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
   const legendPath = await resolveClientFile(safe, 'legend.dat')
@@ -1144,7 +1435,7 @@ export async function sfxReadEntry(
   clientPath: string,
   entryName: string
 ): Promise<Buffer> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), clientPath)
+  const safe = await authorizePath(ctx, clientPath)
   const { DataArchive } = await import('@eriscorp/dalib-ts')
   // The installer writes `Legend.dat`; see fsCase.ts (HTOO-287).
   const legendPath = await resolveClientFile(safe, 'legend.dat')
@@ -1159,8 +1450,9 @@ export async function sfxIndexLoad(
   ctx: HandlerContext,
   activeLibrary: string
 ): Promise<Record<string, unknown>> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
-  return readJsonOr<Record<string, unknown>>(join(safe, '..', 'sfx-index.json'), {})
+  const safe = await authorizePath(ctx, activeLibrary)
+  const file = await authorizePath(ctx, join(safe, '..', 'sfx-index.json'))
+  return readJsonOr<Record<string, unknown>>(file, {})
 }
 
 export async function sfxIndexSave(
@@ -1168,35 +1460,33 @@ export async function sfxIndexSave(
   activeLibrary: string,
   data: unknown
 ): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), activeLibrary)
+  const safe = await authorizePath(ctx, activeLibrary)
   const parsed = parseOrLog(ctx, 'sfx:index:save', sfxIndexSchema, data)
-  await writeJsonFile(join(safe, '..', 'sfx-index.json'), parsed)
+  await writeJsonFile(await authorizePath(ctx, join(safe, '..', 'sfx-index.json')), parsed)
 }
 
 // ── BIK video conversion ─────────────────────────────────────────────────────
 
 /**
  * Convert a BIK video buffer to MP4 via ffmpeg, with content-addressed caching.
- * The cache lives under `cacheDir` and is keyed by SHA-256 of the input bytes,
+ * The cache is `bikCacheDir(ctx)` and is keyed by SHA-256 of the input bytes,
  * so repeated calls for the same entry skip the conversion entirely.
+ *
+ * Takes only the bytes. Main chooses the converter and the cache folder
+ * (HTOO-673): a path from the renderer could name any program.
  *
  * Returns the absolute path to the cached MP4.
  */
-export async function bikConvert(
-  ctx: HandlerContext,
-  bytes: unknown,
-  ffmpegPath: string | null,
-  cacheDir: string
-): Promise<string> {
+export async function bikConvert(ctx: HandlerContext, bytes: unknown): Promise<string> {
   const video = parseOrLog(ctx, 'bik:convert', bytesSchema, bytes)
-  const ffmpegBin = ffmpegPath || 'ffmpeg'
-  const safeCache = assertInsideAnyRoot(allRoots(ctx), cacheDir)
+  const ffmpegBin = await resolveConverter(ctx)
+  const safeCache = await authorizePath(ctx, bikCacheDir(ctx))
   const hash = createHash('sha256').update(video).digest('hex').slice(0, 32)
   await fs.mkdir(safeCache, { recursive: true })
   // assertInside guards against a malicious cacheDir + hash combination escaping
   // the cache root; hash is 32 hex chars from createHash so this should always
   // resolve cleanly, but the check keeps the safety invariant locally enforced.
-  const mp4Path = assertInside(safeCache, `${hash}.mp4`)
+  const mp4Path = await assertRealInside(safeCache, `${hash}.mp4`)
   try {
     await fs.access(mp4Path)
     return mp4Path // cache hit
@@ -1204,7 +1494,7 @@ export async function bikConvert(
     /* fall through to conversion */
   }
 
-  const bikPath = assertInside(safeCache, `${hash}.bik`)
+  const bikPath = await assertRealInside(safeCache, `${hash}.bik`)
   await fs.writeFile(bikPath, Buffer.from(video))
   try {
     await execFileAsync(ffmpegBin, [
@@ -1234,7 +1524,7 @@ export async function bikConvert(
 // ── World index ──────────────────────────────────────────────────────────────
 
 export async function indexRead(ctx: HandlerContext, libraryRoot: string) {
-  return loadIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
+  return loadIndex(await authorizePath(ctx, libraryRoot))
 }
 
 /**
@@ -1252,7 +1542,7 @@ export async function indexRead(ctx: HandlerContext, libraryRoot: string) {
 const inflightBuilds = new Map<string, Promise<WorldIndex>>()
 
 export async function indexBuild(ctx: HandlerContext, libraryRoot: string): Promise<WorldIndex> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), libraryRoot)
+  const safe = await authorizePath(ctx, libraryRoot)
   // Key on the normalized path rather than the raw argument. `normalize` keeps
   // a trailing separator ('/lib/' → '\lib\'), so strip it too, or one world
   // reached by two spellings would build twice. The fallback keeps a
@@ -1279,15 +1569,15 @@ export function __resetInflightBuilds(): void {
 }
 
 export async function indexStatus(ctx: HandlerContext, libraryRoot: string) {
-  return getIndexStatus(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
+  return getIndexStatus(await authorizePath(ctx, libraryRoot))
 }
 
 export async function libraryResolve(ctx: HandlerContext, selectedPath: string) {
-  return resolveLibraryPath(assertInsideAnyRoot(allRoots(ctx), selectedPath))
+  return resolveLibraryPath(await authorizePath(ctx, selectedPath))
 }
 
 export async function indexDelete(ctx: HandlerContext, libraryRoot: string) {
-  return deleteIndex(assertInsideAnyRoot(allRoots(ctx), libraryRoot))
+  return deleteIndex(await authorizePath(ctx, libraryRoot))
 }
 
 // The index caches that a schema bump or a moved world left behind (HTOO-583).
@@ -1308,7 +1598,7 @@ function prefabDir(libraryPath: string): string {
 }
 
 export async function prefabList(ctx: HandlerContext, libraryPath: string) {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   return scanJsonDir(
     prefabDir(safeLib),
     (raw, filename) => {
@@ -1333,8 +1623,8 @@ export async function prefabList(ctx: HandlerContext, libraryPath: string) {
 }
 
 export async function prefabLoad(ctx: HandlerContext, libraryPath: string, filename: string) {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
-  const p = assertInside(prefabDir(safeLib), filename)
+  const safeLib = await authorizePath(ctx, libraryPath)
+  const p = await assertRealInside(prefabDir(safeLib), filename)
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
@@ -1344,10 +1634,10 @@ export async function prefabSave(
   filename: string,
   data: unknown
 ): Promise<void> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   const parsed = parseOrLog(ctx, 'prefab:save', prefabSchema, data)
   const dir = prefabDir(safeLib)
-  const p = assertInside(dir, filename)
+  const p = await assertRealInside(dir, filename)
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(p, JSON.stringify(parsed, null, 2), 'utf-8')
 }
@@ -1357,8 +1647,8 @@ export async function prefabDelete(
   libraryPath: string,
   filename: string
 ): Promise<void> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
-  await fs.unlink(assertInside(prefabDir(safeLib), filename))
+  const safeLib = await authorizePath(ctx, libraryPath)
+  await fs.unlink(await assertRealInside(prefabDir(safeLib), filename))
 }
 
 export async function prefabRename(
@@ -1367,9 +1657,9 @@ export async function prefabRename(
   oldName: string,
   newName: string
 ): Promise<void> {
-  const safeLib = assertInsideAnyRoot(allRoots(ctx), libraryPath)
+  const safeLib = await authorizePath(ctx, libraryPath)
   const dir = prefabDir(safeLib)
-  await fs.rename(assertInside(dir, oldName), assertInside(dir, newName))
+  await fs.rename(await assertRealInside(dir, oldName), await assertRealInside(dir, newName))
 }
 
 // ── Asset packs (.datf) ──────────────────────────────────────────────────────
@@ -1380,7 +1670,7 @@ export async function packScan(
 ): Promise<Record<string, unknown>[]> {
   // Thunk so an out-of-root path fails soft to [] (see scanJsonDir).
   return scanJsonDir(
-    () => assertInsideAnyRoot(allRoots(ctx), dirPath),
+    () => authorizePath(ctx, dirPath),
     (raw, filename) => {
       const data = raw as Record<string, unknown>
       if (data.pack_id && data.content_type) return { filename, ...data }
@@ -1390,7 +1680,7 @@ export async function packScan(
 }
 
 export async function packLoad(ctx: HandlerContext, filePath: string) {
-  return JSON.parse(await fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath), 'utf-8'))
+  return JSON.parse(await fs.readFile(await authorizePath(ctx, filePath), 'utf-8'))
 }
 
 export async function packSave(
@@ -1398,13 +1688,13 @@ export async function packSave(
   filePath: string,
   data: unknown
 ): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   const parsed = parseOrLog(ctx, 'pack:save', packProjectSchema, data)
   await writeJsonFile(safe, parsed)
 }
 
 export async function packDelete(ctx: HandlerContext, filePath: string): Promise<void> {
-  await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
+  await fs.unlink(await authorizePath(ctx, filePath))
 }
 
 export async function packAddAsset(
@@ -1413,9 +1703,9 @@ export async function packAddAsset(
   sourcePath: string,
   targetFilename: string
 ): Promise<void> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-  const safeSrc = assertInsideAnyRoot(allRoots(ctx), sourcePath)
-  const dest = assertInside(safePack, targetFilename)
+  const safePack = await authorizePath(ctx, packDir)
+  const safeSrc = await authorizePath(ctx, sourcePath)
+  const dest = await assertRealInside(safePack, targetFilename)
   // ui_sprite_overrides nests frames inside per-source-file folders
   // (e.g. mile.spf/0001.png), so the destination's parent may be deeper than
   // packDir. mkdir-p the target's parent before the copy.
@@ -1428,8 +1718,8 @@ export async function packRemoveAsset(
   packDir: string,
   filename: string
 ): Promise<void> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-  const target = assertInside(safePack, filename)
+  const safePack = await authorizePath(ctx, packDir)
+  const target = await assertRealInside(safePack, filename)
   try {
     await fs.unlink(target)
   } catch {
@@ -1455,9 +1745,9 @@ export async function packRenameAsset(
   oldFilename: string,
   newFilename: string
 ): Promise<void> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-  const src = assertInside(safePack, oldFilename)
-  const dst = assertInside(safePack, newFilename)
+  const safePack = await authorizePath(ctx, packDir)
+  const src = await assertRealInside(safePack, oldFilename)
+  const dst = await assertRealInside(safePack, newFilename)
   if (src === dst) return
   try {
     await fs.access(dst)
@@ -1477,8 +1767,8 @@ export async function packCompile(
   assetFilenames: unknown,
   outputPath: string
 ): Promise<void> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
-  const safeOut = assertInsideAnyRoot(allRoots(ctx), outputPath)
+  const safePack = await authorizePath(ctx, packDir)
+  const safeOut = await authorizePath(ctx, outputPath)
   const parsedManifest = parseOrLog(ctx, 'pack:compile', packManifestSchema, manifest)
   const parsedFilenames = parseOrLog(
     ctx,
@@ -1488,7 +1778,9 @@ export async function packCompile(
   )
   // Validate every asset filename before opening the output stream — prevents
   // a malicious entry from leaking files outside packDir into the archive.
-  const resolved = parsedFilenames.map((f) => ({ name: f, abs: assertInside(safePack, f) }))
+  const resolved = await Promise.all(
+    parsedFilenames.map(async (f) => ({ name: f, abs: await assertRealInside(safePack, f) }))
+  )
   const { ZipFile } = await import('yazl')
   const { createWriteStream } = await import('fs')
 
@@ -1613,6 +1905,23 @@ function hydrateAssetMeta(
   return Object.keys(meta).length > 0 ? meta : undefined
 }
 
+/**
+ * Folders the asset-pack working directory keeps for itself: palettes,
+ * calibrations and frames. An imported pack may not use one as its id, or its
+ * assets go in with the palettes (HTOO-676).
+ */
+const WORKING_DIR_FOLDERS = ['_palettes', '_calibrations', '_frames']
+
+/** Whether a path exists. Any error, not only ENOENT, reads as "no". */
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function packImport(
   ctx: HandlerContext,
   datfPath: string,
@@ -1620,8 +1929,8 @@ export async function packImport(
   rawOptions?: unknown
 ): Promise<PackImportResult> {
   const options = parseOrLog(ctx, 'pack:import:options', packImportOptionsSchema, rawOptions)
-  const safeDatf = assertInsideAnyRoot(allRoots(ctx), datfPath)
-  const safePackDir = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safeDatf = await authorizePath(ctx, datfPath)
+  const safePackDir = await authorizePath(ctx, packDir)
   if (!safeDatf.toLowerCase().endsWith('.datf')) {
     throw new Error('pack:import expects a path ending in .datf')
   }
@@ -1656,30 +1965,28 @@ export async function packImport(
   const manifest = parseOrLog(ctx, 'pack:import:manifest', packManifestSchema, manifestJson)
 
   const packId = manifest.pack_id
+  // The schema keeps the id to one plain segment. A folder the working
+  // directory keeps for itself is a plain segment too, so it is refused here.
+  if (WORKING_DIR_FOLDERS.includes(packId.toLowerCase())) {
+    throw new Error(`pack_id '${packId}' is the name of a folder Taliesin keeps in ${safePackDir}`)
+  }
   const projectFilename = `${packId}.json`
-  const projectFilePath = assertInside(safePackDir, projectFilename)
-  const packAssetsDir = assertInside(safePackDir, packId)
-
-  // Refuse to overwrite an existing pack project unless caller opts in.
-  let projectExists = false
-  try {
-    await fs.access(projectFilePath)
-    projectExists = true
-  } catch {
-    /* fresh */
-  }
-  if (projectExists && !options?.force) {
-    throw new Error(
-      `Pack project '${projectFilename}' already exists in ${safePackDir}; pass { force: true } to overwrite`
-    )
+  // Real-path checks (HTOO-675): a link under the working directory must not
+  // carry the project file or the asset folder out of it.
+  const projectFilePath = await assertRealInside(safePackDir, projectFilename)
+  const packAssetsDir = await assertRealInside(safePackDir, packId)
+  // The asset folder must be a child of the working directory, never the
+  // working directory itself (HTOO-676: `pack_id: "."` made it so). Checked on
+  // the result as well as in the schema, so a later change to either cannot
+  // open this again.
+  if (relative(safePackDir, packAssetsDir) !== packId) {
+    throw new Error(`pack_id '${packId}' does not name a folder inside ${safePackDir}`)
   }
 
-  await fs.mkdir(packAssetsDir, { recursive: true })
-
-  // Extract every non-manifest entry. assertInside on each entry name blocks
-  // Zip-Slip (../escape.png and friends).
+  // Find every entry to extract and where it goes, before anything is written.
   const warnings: string[] = []
-  const assetFilenames: string[] = []
+  const entries: { name: string; dest: string; buffer: () => Promise<Buffer> }[] = []
+  const destinations = new Set<string>()
   for (const file of directory.files as {
     path: string
     type: string
@@ -1688,21 +1995,51 @@ export async function packImport(
     if (file.type !== 'File') continue
     if (file.path === '_manifest.json') continue
 
+    // Each segment must be a plain file name. This refuses `..` (Zip-Slip), an
+    // absolute path, a drive or stream colon and a device name, which
+    // assertInside alone does not all catch.
+    const segmentProblem = file.path
+      .split(/[\\/]/)
+      .map((segment) => plainFileNameProblem(segment))
+      .find((p) => p !== null)
     let dest: string
     try {
-      dest = assertInside(packAssetsDir, file.path)
+      if (segmentProblem) throw new Error(segmentProblem)
+      dest = await assertRealInside(packAssetsDir, file.path)
     } catch (e) {
       warnings.push(
         `Skipped unsafe entry '${file.path}': ${e instanceof Error ? e.message : 'rejected'}`
       )
       continue
     }
-    await fs.mkdir(dirname(dest), { recursive: true })
-    const buf = await file.buffer()
-    await fs.writeFile(dest, buf)
-    assetFilenames.push(file.path)
+    // Two entries with one destination would overwrite each other. Case is
+    // ignored, because Windows and macOS ignore it.
+    const key = dest.toLowerCase()
+    if (destinations.has(key)) {
+      warnings.push(`Skipped duplicate entry '${file.path}'`)
+      continue
+    }
+    destinations.add(key)
+    entries.push({ name: file.path, dest, buffer: () => file.buffer() })
   }
 
+  // Refuse to overwrite any existing file unless the caller opts in. The check
+  // covers every destination, not only the project file: an import that writes
+  // into another project's files is the fault HTOO-676 found.
+  const conflicts: string[] = []
+  if (await pathExists(projectFilePath)) conflicts.push(projectFilename)
+  for (const entry of entries) {
+    if (await pathExists(entry.dest)) conflicts.push(relative(safePackDir, entry.dest))
+  }
+  if (conflicts.length > 0 && !options?.force) {
+    const shown = conflicts.slice(0, 5).join(', ')
+    const more = conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ''
+    throw new Error(
+      `Import would overwrite files that already exist in ${safePackDir}: ${shown}${more}; pass { force: true } to overwrite`
+    )
+  }
+
+  const assetFilenames = entries.map((e) => e.name)
   const now = new Date().toISOString()
   const project = {
     pack_id: manifest.pack_id,
@@ -1722,10 +2059,29 @@ export async function packImport(
   }
   // Re-parse via the project schema to catch any mismatch (e.g. the manifest
   // had an unknown content_type that snuck past the manifest schema, or the
-  // assetMeta map keys don't match the assets).
+  // assetMeta map keys don't match the assets). This runs before any write.
   const validated = parseOrLog(ctx, 'pack:import', packProjectSchema, project)
 
-  await fs.writeFile(projectFilePath, JSON.stringify(validated, null, 2), 'utf-8')
+  // Extract into a staging folder first. A read or write that fails there
+  // leaves the working files as they were. Only then move each file into place.
+  const stagingDir = assertInside(safePackDir, `.import-${randomBytes(8).toString('hex')}`)
+  try {
+    const staged: string[] = []
+    for (const entry of entries) {
+      const stagedPath = assertInside(stagingDir, entry.name)
+      await fs.mkdir(dirname(stagedPath), { recursive: true })
+      await fs.writeFile(stagedPath, await entry.buffer())
+      staged.push(stagedPath)
+    }
+    await fs.mkdir(packAssetsDir, { recursive: true })
+    for (let i = 0; i < entries.length; i++) {
+      await fs.mkdir(dirname(entries[i].dest), { recursive: true })
+      await renameWithRetry(staged[i], entries[i].dest)
+    }
+    await fs.writeFile(projectFilePath, JSON.stringify(validated, null, 2), 'utf-8')
+  } finally {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => undefined)
+  }
 
   return { projectFilename, warnings }
 }
@@ -1738,7 +2094,7 @@ const calibrationsSubdir = (packDir: string) => join(packDir, '_calibrations')
 export async function paletteScan(ctx: HandlerContext, packDir: string) {
   // Thunk so an out-of-root path fails soft to [] (see scanJsonDir).
   const palettes = await scanJsonDir(
-    () => palettesSubdir(assertInsideAnyRoot(allRoots(ctx), packDir)),
+    () => authorizePath(ctx, palettesSubdir(packDir)),
     (raw, filename) => {
       const data = raw as { id?: string; name?: string; entries?: unknown[] }
       if (data.id && Array.isArray(data.entries)) {
@@ -1756,7 +2112,7 @@ export async function paletteScan(ctx: HandlerContext, packDir: string) {
 }
 
 export async function paletteLoad(ctx: HandlerContext, filePath: string) {
-  return JSON.parse(await fs.readFile(assertInsideAnyRoot(allRoots(ctx), filePath), 'utf-8'))
+  return JSON.parse(await fs.readFile(await authorizePath(ctx, filePath), 'utf-8'))
 }
 
 export async function paletteSave(
@@ -1764,14 +2120,14 @@ export async function paletteSave(
   filePath: string,
   data: unknown
 ): Promise<void> {
-  const safe = assertInsideAnyRoot(allRoots(ctx), filePath)
+  const safe = await authorizePath(ctx, filePath)
   const parsed = parseOrLog(ctx, 'palette:save', paletteSchema, data)
   await writeJsonFile(safe, parsed)
 }
 
 export async function paletteDelete(ctx: HandlerContext, filePath: string): Promise<void> {
   try {
-    await fs.unlink(assertInsideAnyRoot(allRoots(ctx), filePath))
+    await fs.unlink(await authorizePath(ctx, filePath))
   } catch {
     /* already gone */
   }
@@ -1782,9 +2138,9 @@ export async function paletteCalibrationLoad(
   packDir: string,
   paletteId: string
 ): Promise<Record<string, unknown>> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safePack = await authorizePath(ctx, packDir)
   return readJsonOr<Record<string, unknown>>(
-    assertInside(calibrationsSubdir(safePack), `${paletteId}.json`),
+    await assertRealInside(calibrationsSubdir(safePack), `${paletteId}.json`),
     {}
   )
 }
@@ -1795,13 +2151,16 @@ export async function paletteCalibrationSave(
   paletteId: string,
   data: unknown
 ): Promise<void> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safePack = await authorizePath(ctx, packDir)
   const parsed = parseOrLog(ctx, 'palette:calibrationSave', calibrationFileSchema, data)
-  await writeJsonFile(assertInside(calibrationsSubdir(safePack), `${paletteId}.json`), parsed)
+  await writeJsonFile(
+    await assertRealInside(calibrationsSubdir(safePack), `${paletteId}.json`),
+    parsed
+  )
 }
 
 export async function frameScan(ctx: HandlerContext, packDir: string): Promise<string[]> {
-  const safePack = assertInsideAnyRoot(allRoots(ctx), packDir)
+  const safePack = await authorizePath(ctx, packDir)
   const dir = join(safePack, '_frames')
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true })
@@ -1828,7 +2187,7 @@ export async function tileScanAnalyze(ctx: HandlerContext, rawDirPaths: unknown)
     let entries
     let safeDir: string
     try {
-      safeDir = assertInsideAnyRoot(allRoots(ctx), dirPath)
+      safeDir = await authorizePath(ctx, dirPath)
       entries = await fs.readdir(safeDir, { withFileTypes: true })
     } catch {
       continue
@@ -1881,7 +2240,7 @@ export async function themeList(ctx: HandlerContext) {
 }
 
 export async function themeLoad(ctx: HandlerContext, filename: string) {
-  const p = assertInside(join(ctx.settingsPath, 'themes'), filename)
+  const p = await assertRealInside(join(ctx.settingsPath, 'themes'), filename)
   return JSON.parse(await fs.readFile(p, 'utf-8'))
 }
 
@@ -1891,11 +2250,11 @@ export async function themeSave(
   data: unknown
 ): Promise<void> {
   const parsed = parseOrLog(ctx, 'theme:save', tileThemeSchema, data)
-  await writeJsonFile(assertInside(join(ctx.settingsPath, 'themes'), filename), parsed)
+  await writeJsonFile(await assertRealInside(join(ctx.settingsPath, 'themes'), filename), parsed)
 }
 
 export async function themeDelete(ctx: HandlerContext, filename: string): Promise<void> {
-  await fs.unlink(assertInside(join(ctx.settingsPath, 'themes'), filename))
+  await fs.unlink(await assertRealInside(join(ctx.settingsPath, 'themes'), filename))
 }
 
 // ── Registration ────────────────────────────────────────────────────────────
@@ -1972,7 +2331,13 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('pack:resolveAsset', (_, subtype: string, id: number | string) =>
     resolveAssetBytes(subtype, id)
   )
-  ipcMain.handle('pack:suggestedBrigidAssetsPath', () => suggestedBrigidAssetsPath())
+  ipcMain.handle('pack:suggestedBrigidAssetsPath', () => {
+    // Main computes this path, so offering it is a grant for this session, as
+    // a dialog result is (HTOO-674). "Use default location" then saves it.
+    const suggested = suggestedBrigidAssetsPath()
+    blessRoot(ctx, suggested)
+    return suggested
+  })
   ipcMain.handle('pack:reload', () => reloadPacks(ctx))
   ipcMain.handle('pack:trackMeta', (_, subtype: string, id: number | string) =>
     packTrackMeta(subtype, id)
@@ -2072,6 +2437,7 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('fs:deleteFile', (_, p) => deleteFile(ctx, p))
   ipcMain.handle('fs:trashFile', (_, p) => trashFile(ctx, p))
   ipcMain.handle('fs:listArchive', (_, p) => listArchive(ctx, p))
+  ipcMain.handle('fs:extractArchive', (_, p, d) => extractArchive(ctx, p, d))
 
   // Catalog
   ipcMain.handle('catalog:load', (_, p) => catalogLoad(ctx, p))
@@ -2085,8 +2451,8 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('music:metadata:save', (_, p, d) => musicMetadataSave(ctx, p, d))
   ipcMain.handle('music:packs:load', (_, p) => musicPacksLoad(ctx, p))
   ipcMain.handle('music:packs:save', (_, p, packs) => musicPacksSave(ctx, p, packs))
-  ipcMain.handle('music:deploy-pack', (_, src, pack, dst, ffmpeg, kbps, sr) =>
-    musicDeployPack(ctx, src, pack, dst, ffmpeg, kbps, sr)
+  ipcMain.handle('music:deploy-pack', (_, src, pack, dst, kbps, sr) =>
+    musicDeployPack(ctx, src, pack, dst, kbps, sr)
   )
   ipcMain.handle('music:client:scan', (_, p) => musicClientScan(ctx, p))
 
@@ -2097,9 +2463,22 @@ export function registerHandlers(deps: RegisterDeps, ctx: HandlerContext): void 
   ipcMain.handle('sfx:index:save', (_, p, d) => sfxIndexSave(ctx, p, d))
 
   // BIK conversion
-  ipcMain.handle('bik:convert', (_, bytes, ffmpegPath, cacheDir) =>
-    bikConvert(ctx, bytes, ffmpegPath, cacheDir)
-  )
+  ipcMain.handle('bik:convert', (_, bytes) => bikConvert(ctx, bytes))
+
+  // Approved programs (HTOO-673). The renderer names a kind; main shows the
+  // dialog and records what the user chose. No channel takes a program path.
+  ipcMain.handle('exec:choose', async (_, kind: unknown) => {
+    const k = parseOrLog(ctx, 'exec:choose', execKindSchema, kind)
+    return chooseExecutable(ctx, k, async ({ filters, defaultPath }) => {
+      const r = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters,
+        ...(defaultPath ? { defaultPath } : {})
+      })
+      return r.filePaths[0] ?? null
+    })
+  })
+  ipcMain.handle('exec:clear', (_, kind) => clearExecutable(ctx, kind))
 
   // World index
   ipcMain.handle('index:read', (_, p) => indexRead(ctx, p))

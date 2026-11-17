@@ -7,14 +7,7 @@
 // `store/settingsStore.ts` re-exports them (HTOO-572).
 
 export type ThemeName =
-  | 'hybrasyl'
-  | 'chadul'
-  | 'danaan'
-  | 'grinneal'
-  | 'shattered'
-  | 'untamed'
-  | 'mundanes'
-  | 'dubhaimid'
+  'hybrasyl' | 'chadul' | 'danaan' | 'grinneal' | 'shattered' | 'untamed' | 'mundanes' | 'dubhaimid'
 
 export const THEME_NAMES: ThemeName[] = [
   'hybrasyl',

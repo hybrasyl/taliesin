@@ -43,8 +43,7 @@
 
 /** One place a map name can appear. */
 export type ReferenceRule =
-  | { kind: 'element'; element: string }
-  | { kind: 'attribute'; element: string; attribute: string }
+  { kind: 'element'; element: string } | { kind: 'attribute'; element: string; attribute: string }
 
 /** A world section that can name a map, and the places in it that do. */
 export interface SectionRules {

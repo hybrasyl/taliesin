@@ -142,13 +142,12 @@ export function useMusicPacks(libraryDir: string | null) {
       packId: string,
       srcLibDir: string,
       destDir: string,
-      ffmpegPath: string | null,
       kbps: number,
       sampleRate: number
     ) => {
       const pack = packs.find((p) => p.id === packId)
       if (!pack) throw new Error(`Pack ${packId} not found`)
-      await window.api.musicDeployPack(srcLibDir, pack, destDir, ffmpegPath, kbps, sampleRate)
+      await window.api.musicDeployPack(srcLibDir, pack, destDir, kbps, sampleRate)
     },
     [packs]
   )

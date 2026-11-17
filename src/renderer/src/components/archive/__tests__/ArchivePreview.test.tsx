@@ -409,6 +409,37 @@ describe('Export as PNG', () => {
     expect(calls[2][0]).toBe('/out/walk_003.png')
   })
 
+  // The HTOO-677 rule: the entry name becomes part of a path in the chosen
+  // folder, so `../` in it wrote next to the folder.
+  it('exports nothing for a multi-frame entry whose name leaves the folder', async () => {
+    const user = userEvent.setup()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    renderer.classifyEntry.mockReturnValue('sprite')
+    renderer.getPaletteNames.mockReturnValue(['p'])
+    renderer.loadPaletteByName.mockReturnValue({} as never)
+    renderer.renderEntry.mockReturnValue({
+      frames: [
+        { data: new Uint8ClampedArray(4), width: 1, height: 1 },
+        { data: new Uint8ClampedArray(4), width: 1, height: 1 }
+      ]
+    })
+    api.openDirectory.mockResolvedValue('/out')
+    api.writeBytes.mockResolvedValue(undefined)
+
+    render(
+      <PreviewHarness
+        entry={makeEntry({ entryName: '../walk.mpf' }) as never}
+        archive={makeArchive() as never}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /export as png/i }))
+
+    await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringMatching(/path separator/)))
+    expect(api.openDirectory).not.toHaveBeenCalled()
+    expect(api.writeBytes).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('aborts when no palette is available (renderEntry returns null)', async () => {
     const user = userEvent.setup()
     renderer.classifyEntry.mockReturnValue('sprite')
@@ -451,7 +482,7 @@ describe('BikPreview', () => {
     expect(screen.getByText(/0:06/)).toBeInTheDocument() // 180 frames @ 30fps
   })
 
-  it('Convert & Play calls bikConvert with the entry bytes + ffmpegPath + cacheDir', async () => {
+  it('Convert & Play sends only the entry bytes: main chooses the program and the cache', async () => {
     const user = userEvent.setup()
     renderer.classifyEntry.mockReturnValue('bik')
     renderer.parseBikHeader.mockReturnValue({
@@ -480,11 +511,9 @@ describe('BikPreview', () => {
     await user.click(screen.getByRole('button', { name: /convert & play/i }))
 
     await waitFor(() => expect(api.bikConvert).toHaveBeenCalledTimes(1))
-    expect(api.bikConvert).toHaveBeenCalledWith(
-      entryBytes,
-      '/usr/bin/ffmpeg',
-      expect.stringMatching(/[\\/]userData[\\/]bik-cache$/)
-    )
+    // No program path and no folder (HTOO-673): a path from the renderer could
+    // name any program, so main decides both.
+    expect(api.bikConvert).toHaveBeenCalledWith(entryBytes)
     expect(api.readFile).toHaveBeenCalledWith('/userData/bik-cache/abc.mp4')
   })
 
