@@ -17,7 +17,7 @@
  * file, spelled the new way.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { tmpdir } from 'os'
 import { mkdtemp, rm, writeFile, readFile, readdir } from 'fs/promises'
 import { moveFile } from '../handlers'
@@ -30,7 +30,8 @@ let ctx: Ctx
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'taliesin-move-'))
   ctx = {
-    settingsPath: dir,
+    // Apart from the root: main's own folder is never a root (HTOO-674).
+    settingsPath: join(dir, '..', `${basename(dir)}-settings`),
     settingsRoots: new Set([dir]),
     blessedRoots: new Set<string>()
   } as unknown as Ctx

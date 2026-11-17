@@ -23,7 +23,6 @@ const MusicPage: React.FC = () => {
   const musicWorkingDirs = useSettingsStore((s) => s.musicWorkingDirs)
   const activeMusicWorkingDir = useSettingsStore((s) => s.activeMusicWorkingDir)
   const clientPath = useSettingsStore((s) => s.clientPath)
-  const ffmpegPath = useSettingsStore((s) => s.ffmpegPath)
   const musEncodeKbps = useSettingsStore((s) => s.musEncodeKbps)
   const musEncodeSampleRate = useSettingsStore((s) => s.musEncodeSampleRate)
 
@@ -339,7 +338,6 @@ const MusicPage: React.FC = () => {
                   packId,
                   musicLibraryPath!,
                   destDir,
-                  ffmpegPath,
                   musEncodeKbps,
                   musEncodeSampleRate
                 )

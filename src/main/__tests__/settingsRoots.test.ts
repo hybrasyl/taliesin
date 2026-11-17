@@ -1,15 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { applySettingsRoots, allRoots } from '../handlers'
+import { applySettingsRoots, allRoots, packSources } from '../handlers'
 import type { HandlerContext } from '../handlers'
 import type { TaliesinSettings } from '../settingsManager'
 
-function makeCtx(): HandlerContext {
+/**
+ * A context whose grants cover `granted`. The default grants everything, for
+ * the cases that test which settings fields become roots, not whether a grant
+ * allows them.
+ */
+function makeCtx(granted: string[] = ['/']): HandlerContext {
   return {
     settingsPath: '/settings',
     settingsManager: {},
     appGetVersion: () => '0',
     settingsRoots: new Set<string>(),
-    blessedRoots: new Set<string>()
+    blessedRoots: new Set<string>(),
+    grants: { dirs: new Set(granted), executables: {} }
   } as unknown as HandlerContext
 }
 
@@ -73,5 +79,49 @@ describe('applySettingsRoots', () => {
     const roots = new Set(allRoots(ctx))
     expect(roots.has('/work/a')).toBe(true)
     expect(roots.has('/work/b')).toBe(true)
+  })
+})
+
+describe('applySettingsRoots — grants (HTOO-674)', () => {
+  it('a settings path with no grant is not a root, and is reported', () => {
+    const ctx = makeCtx(['/granted'])
+    const refused = applySettingsRoots(ctx, {
+      ...base,
+      packDir: '/elsewhere',
+      musicWorkingDirs: ['/granted/music']
+    })
+    const roots = new Set(allRoots(ctx))
+    expect(roots.has('/elsewhere')).toBe(false)
+    expect(roots.has('/granted/music')).toBe(true)
+    expect(refused).toEqual(['/elsewhere'])
+  })
+
+  it('a path inside a folder chosen in a dialog this session counts', () => {
+    const ctx = makeCtx([])
+    ctx.blessedRoots.add('/picked')
+    applySettingsRoots(ctx, { ...base, libraries: ['/picked/world/xml'] })
+    expect(new Set(allRoots(ctx)).has('/picked/world/xml')).toBe(true)
+  })
+
+  it('no grants at all means no settings roots', () => {
+    const ctx = { ...makeCtx(), grants: undefined } as unknown as HandlerContext
+    applySettingsRoots(ctx, { ...base, packDir: '/p', clientPath: '/c' })
+    expect([...ctx.settingsRoots]).toEqual([])
+    expect(ctx.clientPath).toBeNull()
+  })
+
+  it('the settings folder is not a root; only its BIK cache is', () => {
+    const roots = [...allRoots(makeCtx())]
+    expect(roots).not.toContain('/settings')
+    expect(roots.some((r) => r.replace(/\\/g, '/') === '/settings/bik-cache')).toBe(true)
+  })
+
+  it('installed-pack sources count only when they are roots', () => {
+    const ctx = makeCtx(['/assets'])
+    applySettingsRoots(ctx, { ...base, brigidAssetsPath: '/assets', clientPath: '/forged' })
+    expect(packSources(ctx, { brigidAssetsPath: '/assets', clientPath: '/forged' })).toEqual({
+      brigidAssetsPath: '/assets',
+      clientPath: null
+    })
   })
 })

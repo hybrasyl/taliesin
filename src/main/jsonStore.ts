@@ -36,13 +36,13 @@ export async function writeJsonFile(path: string, data: unknown): Promise<void> 
  * out-of-root path) the scan yields `[]` too, matching handlers that fail soft.
  */
 export async function scanJsonDir<T>(
-  dir: string | (() => string),
+  dir: string | (() => string | Promise<string>),
   pick: (data: unknown, filename: string) => T | null,
   opts?: { ensure?: boolean }
 ): Promise<T[]> {
   const out: T[] = []
   try {
-    const resolved = typeof dir === 'function' ? dir() : dir
+    const resolved = typeof dir === 'function' ? await dir() : dir
     if (opts?.ensure) await fs.mkdir(resolved, { recursive: true })
     const entries = await fs.readdir(resolved, { withFileTypes: true })
     for (const e of entries.filter((x) => x.isFile() && x.name.endsWith('.json'))) {

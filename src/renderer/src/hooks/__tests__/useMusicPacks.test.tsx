@@ -171,23 +171,16 @@ describe('useMusicPacks', () => {
     await waitFor(() => expect(result.current.packs.length).toBe(1))
 
     await act(async () => {
-      await result.current.deployPack('p1', '/lib', '/dest', '/usr/bin/ffmpeg', 96, 44100)
+      await result.current.deployPack('p1', '/lib', '/dest', 96, 44100)
     })
-    expect(api.musicDeployPack).toHaveBeenCalledWith(
-      '/lib',
-      pack,
-      '/dest',
-      '/usr/bin/ffmpeg',
-      96,
-      44100
-    )
+    expect(api.musicDeployPack).toHaveBeenCalledWith('/lib', pack, '/dest', 96, 44100)
   })
 
   it('deployPack throws when the pack id is unknown', async () => {
     const { result } = renderHook(() => useMusicPacks('/lib'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    await expect(
-      result.current.deployPack('missing', '/lib', '/dest', null, 64, 22050)
-    ).rejects.toThrow(/Pack missing not found/)
+    await expect(result.current.deployPack('missing', '/lib', '/dest', 64, 22050)).rejects.toThrow(
+      /Pack missing not found/
+    )
   })
 })
