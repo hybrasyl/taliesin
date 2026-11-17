@@ -23,10 +23,18 @@ import {
   RENDERER_CSP
 } from './windowSecurity'
 import { shouldDisableHardwareAcceleration, REMOTE_SESSION_CSS } from './remoteSession'
-import { sweepPortableLeftovers } from './portableSweep'
+import { sweepPortableLeftovers, takePortableLaunch } from './portableSweep'
+import { name as PACKAGE_NAME } from '../../package.json'
 
 /** How long after boot the portable sweep waits (portableSweep.ts). */
 const PORTABLE_SWEEP_DELAY_MS = 30_000
+
+// First, before anything can start a child process: read whether THIS app's
+// portable stub started us, then remove the stub's variables from our own
+// environment, so that no tool, editor or other app we start inherits them
+// (HTOO-667). `portableLaunchOrder.test.ts` asserts that this stays the first
+// statement that reads `process.env`.
+const isOwnPortable = takePortableLaunch(process.env, PACKAGE_NAME)
 
 // Settings + cache both under %LOCALAPPDATA%/Erisco/Taliesin (local). On Windows,
 // Electron's app.getPath('cache') actually returns the ROAMING dir, so we resolve
@@ -453,7 +461,7 @@ app.whenReady().then(() => {
       // holds it, so every rename is refused.
       fs: originalFs.promises,
       execPath: process.execPath,
-      isPortable: app.isPackaged && Boolean(process.env['PORTABLE_EXECUTABLE_DIR']),
+      isPortable: app.isPackaged && isOwnPortable,
       onError: (message) => captureError({ source: 'portable-sweep', message })
     })
   }, PORTABLE_SWEEP_DELAY_MS).unref()
