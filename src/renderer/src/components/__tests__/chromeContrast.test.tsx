@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, screen } from '@testing-library/react'
 import { IconButton, ThemeProvider } from '@mui/material'
-import { getLuminance } from '@mui/material/styles'
+import { decomposeColor, getLuminance } from '@mui/material/styles'
 import StarIcon from '@mui/icons-material/Star'
 import { themesByName } from '@renderer/themes'
 import { blend, contrast } from '@renderer/lib/contrast'
@@ -60,7 +60,8 @@ describe('the title bar', () => {
     // jsdom reports `none` as a transparent colour, so the plain case asserts
     // what is absent rather than the keyword.
     if (PLAIN_CHROME_THEMES.includes(name)) expect(shadow).not.toMatch(/#000|rgb\(0, 0, 0\)/)
-    else expect(shadow).toMatch(/#000/)
+    // jsdom 31 serializes the colour (`rgb(0, 0, 0)`); jsdom 29 kept `#000`.
+    else expect(shadow).toMatch(/#000|rgb\(0, 0, 0\) 1px 1px/)
   })
 
   // jsdom cannot apply :hover, so this reads the hover colours from
@@ -76,6 +77,18 @@ describe('the title bar', () => {
       const glyph = colourOf(name, c.hoverColor)
       expect(contrast(glyph, fill, fill), `${label}: ${glyph} on ${fill}`).toBeGreaterThanOrEqual(3)
     }
+  })
+
+  // Readable is not enough: the close button is the one window button that
+  // turns red under the pointer. The decorated one once drew yellow on cyan.
+  it.each(THEME_NAMES)('%s: the close button turns red under the pointer', (name) => {
+    const fill = colourOf(name, CLOSE.hoverBackground)
+    const [r, g, b] = decomposeColor(fill).values
+    const chroma = r - Math.min(g, b)
+    // Red leads, the colour is not grey, and its hue is within 20 degrees of red.
+    expect(Math.max(r, g, b), `${fill}: red does not lead`).toBe(r)
+    expect(chroma / r, `${fill} is too grey`).toBeGreaterThan(0.5)
+    expect(Math.abs(g - b) / chroma, `${fill} is not red`).toBeLessThanOrEqual(1 / 3)
   })
 
   it.each(THEME_NAMES)('%s: no part of the bar is faded with opacity', (name) => {
@@ -105,7 +118,8 @@ describe('the title bar', () => {
         />
       </ThemeProvider>
     )
-    expect(getComputedStyle(screen.getByText('Epona')).fontSize).toBe('1.15rem')
+    // jsdom 31 computes rem to px at the 16px root (1.15 × 16); jsdom 29 kept rem.
+    expect(['1.15rem', '18.4px']).toContain(getComputedStyle(screen.getByText('Epona')).fontSize)
   })
 
   it('gives every decorated bar light text, which the keyline outlines', () => {

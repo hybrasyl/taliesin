@@ -63,6 +63,21 @@ function drawn(el: Element): string {
   return getComputedStyle(el).color
 }
 
+/**
+ * `value` as this jsdom serializes `property`. jsdom 29 kept the ring as
+ * written; jsdom 31 writes it as `0px 0px 0px 1.5px inset` and drops the
+ * default `currentColor`. Each side of the compare goes through the same
+ * parser, so the test does not depend on one jsdom version.
+ */
+function serialized(property: 'boxShadow', value: string): string {
+  const probe = document.createElement('div')
+  probe.style[property] = value
+  document.body.appendChild(probe)
+  const out = getComputedStyle(probe)[property]
+  probe.remove()
+  return out
+}
+
 describe('the nav bar', () => {
   beforeEach(() => {
     const api = installMockApi()
@@ -123,9 +138,11 @@ describe('the nav bar', () => {
     renderLayout(name)
     const open = getComputedStyle(screen.getByTestId('nav-catalog'))
     const other = getComputedStyle(screen.getByTestId('nav-dashboard'))
-    expect(open.boxShadow.toLowerCase()).toBe(CURRENT.ring.toLowerCase())
+    const ring = serialized('boxShadow', CURRENT.ring)
+    expect(ring, 'the ring did not parse').not.toBe('')
+    expect(open.boxShadow).toBe(ring)
     expect(open.backgroundColor.replace(/\s/g, '')).toBe(CURRENT.background)
-    expect(other.boxShadow.toLowerCase()).not.toBe(CURRENT.ring.toLowerCase())
+    expect(other.boxShadow).not.toBe(ring)
   })
 
   // jsdom cannot apply :hover, so this reads the hover colours from

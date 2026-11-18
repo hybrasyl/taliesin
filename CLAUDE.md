@@ -35,9 +35,9 @@ npm 12+ runs a dependency's install script only when `package.json` `allowScript
 
 ## Stack
 
-electron-vite · React 19 (classic JSX runtime — `import React`; return `React.ReactElement`) ·
+Electron 45 · electron-vite 6 on vite 8 · React 19 (classic JSX runtime — `import React`; return `React.ReactElement`; `vitest.config.mjs` sets it for oxc) ·
 TypeScript strict · MUI v9 + Emotion (style via `sx`, never styled-components) · Zustand ·
-Zod · Vitest (dual node/jsdom projects). Core domain deps: **`@eriscorp/dalib-ts`** (DA binary
+Zod · Vitest 5 (dual node/jsdom projects, jsdom 31). Core domain deps: **`@eriscorp/dalib-ts`** (DA binary
 formats) and **`@eriscorp/hybindex-ts`** (world index). Package manager: **npm**.
 
 ## Layout
