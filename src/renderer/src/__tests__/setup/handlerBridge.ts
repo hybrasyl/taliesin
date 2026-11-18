@@ -17,6 +17,7 @@
  *   const handlers = await import('../../main/handlers')
  *   installBridgedApi(handlers, { settingsPath: '/appdata/Taliesin', settingsManager })
  */
+import { Readable } from 'stream'
 import { vi } from 'vitest'
 
 // ── In-memory filesystem ─────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ import { vi } from 'vitest'
 export interface MemoryFs {
   files: Map<string, Buffer>
   fsModule: {
+    createReadStream: ReturnType<typeof vi.fn>
     promises: {
       readFile: ReturnType<typeof vi.fn>
       writeFile: ReturnType<typeof vi.fn>
@@ -93,6 +95,15 @@ export function createMemoryFs(): MemoryFs {
   })
 
   const fsModule = {
+    // pack:import reads the .datf from disk on demand (HTOO-693): a size from
+    // stat, then byte ranges. `end` is inclusive, as in Node's fs.
+    createReadStream: vi.fn((path: string, opts: { start?: number; end?: number } = {}) => {
+      const buf = files.get(path.replace(/\\/g, '/'))
+      if (!buf) throw enoent()
+      const start = opts.start ?? 0
+      const end = opts.end === undefined ? buf.length : opts.end + 1
+      return Readable.from([buf.subarray(start, end)])
+    }),
     promises: {
       readFile: vi.fn(async (path: string, encoding?: string) => {
         const norm = path.replace(/\\/g, '/')

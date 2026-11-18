@@ -34,7 +34,16 @@ const memfs = vi.hoisted(() => {
   const enoent = () => Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
 
   const fsModule = {
+    // The import reads the .datf from disk on demand (HTOO-693): a size, then
+    // byte ranges. The factory below sets createReadStream, because it needs
+    // `stream`, which a hoisted block cannot import.
+    createReadStream: undefined as unknown,
     promises: {
+      stat: vi.fn(async (p: string) => {
+        const buf = files.get(p.replace(/\\/g, '/'))
+        if (!buf) throw enoent()
+        return { size: buf.length }
+      }),
       readFile: vi.fn(async (p: string, enc?: string) => {
         const buf = files.get(p.replace(/\\/g, '/'))
         if (!buf) throw enoent()
@@ -94,7 +103,18 @@ const memfs = vi.hoisted(() => {
   }
 })
 
-vi.mock('fs', () => memfs.fsModule)
+vi.mock('fs', async () => {
+  const { Readable } = await import('stream')
+  // `end` is inclusive, as in Node's fs.createReadStream.
+  memfs.fsModule.createReadStream = (p: string, opts: { start?: number; end?: number } = {}) => {
+    const buf = memfs.files.get(p.replace(/\\/g, '/'))
+    if (!buf) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    const start = opts.start ?? 0
+    const end = opts.end === undefined ? buf.length : opts.end + 1
+    return Readable.from([buf.subarray(start, end)])
+  }
+  return memfs.fsModule
+})
 vi.mock('@eriscorp/hybindex-ts', () => {
   const m = {
     buildIndex: vi.fn(),

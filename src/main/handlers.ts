@@ -71,6 +71,14 @@ import {
   type GrantState
 } from './grants'
 import { readJsonOr, writeJsonFile, scanJsonDir } from './jsonStore'
+import {
+  PACK_LIMITS,
+  PackLimitError,
+  openPackBounded,
+  readEntryBounded,
+  type PackLimits,
+  type PackZipDirectory
+} from './packLimits'
 import { parseOrLog } from './schemaLog'
 import { renameWithRetry } from './renameRetry'
 import { listStagedMaps, stagingRootFor, type StagedMap } from './mapStaging'
@@ -1933,11 +1941,14 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+// `limits` is for the tests: the IPC registration passes three arguments, so
+// the renderer cannot reach it.
 export async function packImport(
   ctx: HandlerContext,
   datfPath: string,
   packDir: string,
-  rawOptions?: unknown
+  rawOptions?: unknown,
+  limits: Readonly<PackLimits> = PACK_LIMITS
 ): Promise<PackImportResult> {
   const options = parseOrLog(ctx, 'pack:import:options', packImportOptionsSchema, rawOptions)
   const safeDatf = await authorizePath(ctx, datfPath)
@@ -1946,14 +1957,19 @@ export async function packImport(
     throw new Error('pack:import expects a path ending in .datf')
   }
 
-  // Read the entire .datf into a buffer; unzipper.Open.buffer parses the
-  // central directory without unpacking the whole archive into memory twice.
-  const datfBytes = await fs.readFile(safeDatf)
-  const unzipper = (await import('unzipper')).default
-  const directory = await unzipper.Open.buffer(datfBytes)
+  // Read the .datf from disk on demand, never into one buffer, and check its
+  // size and central directory before any entry is read (HTOO-693). A refused
+  // pack writes nothing.
+  let directory: PackZipDirectory
+  try {
+    directory = await openPackBounded(safeDatf, limits)
+  } catch (e) {
+    if (e instanceof PackLimitError) throw new Error(`Taliesin refused this pack: ${e.message}`)
+    throw e
+  }
 
   const manifestEntry = directory.files.find(
-    (f: { path: string; type: string }) => f.path === '_manifest.json' && f.type === 'File'
+    (f) => f.path === '_manifest.json' && f.type === 'File'
   )
   if (!manifestEntry) {
     throw new Error('Missing _manifest.json in .datf archive')
@@ -1961,7 +1977,7 @@ export async function packImport(
 
   let manifestRaw: string
   try {
-    manifestRaw = (await manifestEntry.buffer()).toString('utf-8')
+    manifestRaw = (await readEntryBounded(manifestEntry, limits.maxManifestBytes)).toString('utf-8')
   } catch (e) {
     throw new Error(`Failed to read _manifest.json: ${e instanceof Error ? e.message : 'unknown'}`)
   }
@@ -1998,11 +2014,7 @@ export async function packImport(
   const warnings: string[] = []
   const entries: { name: string; dest: string; buffer: () => Promise<Buffer> }[] = []
   const destinations = new Set<string>()
-  for (const file of directory.files as {
-    path: string
-    type: string
-    buffer: () => Promise<Buffer>
-  }[]) {
+  for (const file of directory.files) {
     if (file.type !== 'File') continue
     if (file.path === '_manifest.json') continue
 
@@ -2031,7 +2043,11 @@ export async function packImport(
       continue
     }
     destinations.add(key)
-    entries.push({ name: file.path, dest, buffer: () => file.buffer() })
+    entries.push({
+      name: file.path,
+      dest,
+      buffer: () => readEntryBounded(file, limits.maxEntryBytes)
+    })
   }
 
   // Refuse to overwrite any existing file unless the caller opts in. The check
