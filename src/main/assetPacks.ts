@@ -14,17 +14,20 @@
 import { promises as fs } from 'fs'
 import { homedir } from 'os'
 import { dirname, isAbsolute, join, resolve } from 'path'
+import {
+  PACK_LIMITS,
+  PackLimitError,
+  openPackBounded,
+  readEntryBounded,
+  type PackLimits,
+  type PackZipDirectory,
+  type PackZipEntry
+} from './packLimits'
 
-// unzipper ships no types; we import it dynamically (as elsewhere in main) and
-// describe only the surface we use. `.buffer()` reads a single entry's bytes.
-interface ZipEntry {
-  path: string
-  type?: string
-  buffer(): Promise<Buffer>
-}
-interface ZipDirectory {
-  files: ZipEntry[]
-}
+// unzipper ships no types; packLimits.ts describes the surface we use. Every
+// entry is read with readEntryBounded, never `.buffer()` (HTOO-693).
+type ZipEntry = PackZipEntry
+type ZipDirectory = PackZipDirectory
 
 export interface PackManifest {
   schema_version: number
@@ -201,18 +204,22 @@ function validateManifest(
 
 let state: PackState = { sources: [], packs: [] }
 
+// The limits every read in this module takes (HTOO-693). Only the tests change
+// them, through _setPackLimitsForTests, so that a refusal needs a small file.
+let limits: Readonly<PackLimits> = PACK_LIMITS
+
 // In-flight load so IPC getters can await it — otherwise the renderer's first
 // listCoveredIds() races main's startup load and sees an empty set.
 let pendingLoad: Promise<void> = Promise.resolve()
 
+// A pack that a limit refuses is the same as one that cannot be read: it does
+// not enter the active set, and no entry of it is read (HTOO-693).
 async function openZip(filePath: string): Promise<ZipDirectory | null> {
   try {
-    const unzipper = (await import('unzipper')).default as unknown as {
-      Open: { file(p: string): Promise<ZipDirectory> }
-    }
-    return await unzipper.Open.file(filePath)
+    return await openPackBounded(filePath, limits)
   } catch (err) {
-    console.warn(`[assetPacks] cannot open ${filePath}: ${(err as Error).message}`)
+    const what = err instanceof PackLimitError ? 'refused' : 'cannot open'
+    console.warn(`[assetPacks] ${what} ${filePath}: ${(err as Error).message}`)
     return null
   }
 }
@@ -229,7 +236,7 @@ async function loadPack(filePath: string): Promise<PackInfo | null> {
 
   let raw: unknown
   try {
-    const buf = await manifestEntry.buffer()
+    const buf = await readEntryBounded(manifestEntry, limits.maxManifestBytes)
     raw = JSON.parse(buf.toString('utf8'))
   } catch (err) {
     console.warn(`[assetPacks] malformed manifest in ${filePath}: ${(err as Error).message}`)
@@ -362,7 +369,7 @@ async function resolveEntry(
     const entry = pack.entries.get(key)
     if (!entry) continue
     try {
-      const buffer = await entry.buffer()
+      const buffer = await readEntryBounded(entry, limits.maxEntryBytes)
       const ext = (String(entry.path).split('.').pop() ?? '').toLowerCase()
       return { buffer, ext }
     } catch (err) {
@@ -458,7 +465,9 @@ async function readManifest(directory: ZipDirectory): Promise<PackManifest | nul
   const entry = directory.files.find((f) => f.path === '_manifest.json')
   if (!entry) return null
   try {
-    const raw = JSON.parse((await entry.buffer()).toString('utf8'))
+    const raw = JSON.parse(
+      (await readEntryBounded(entry, limits.maxManifestBytes)).toString('utf8')
+    )
     const v = validateManifest(raw)
     return v.ok ? v.manifest : null
   } catch {
@@ -523,7 +532,7 @@ export async function readPackEntry(
   const entry = directory.files.find((e) => e.path === entryPath)
   if (!entry) return null
   try {
-    return new Uint8Array(await entry.buffer())
+    return new Uint8Array(await readEntryBounded(entry, limits.maxEntryBytes))
   } catch (err) {
     console.warn(
       `[assetPacks] failed reading ${entryPath} from ${packFile}: ${(err as Error).message}`
@@ -532,10 +541,19 @@ export async function readPackEntry(
   }
 }
 
+/** Test hook: load one pack with the current limits (HTOO-693). */
+export const _loadPackForTests = loadPack
+
+/** Test hook: set the limits every read takes, until _resetForTests (HTOO-693). */
+export function _setPackLimitsForTests(next: Readonly<PackLimits>): void {
+  limits = next
+}
+
 /** Test hook — reset module state between tests. */
 export function _resetForTests(): void {
   state = { sources: [], packs: [] }
   pendingLoad = Promise.resolve()
+  limits = PACK_LIMITS
 }
 
 // Exposed for unit tests that exercise the filename conventions directly.

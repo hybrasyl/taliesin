@@ -46,7 +46,9 @@ formats) and **`@eriscorp/hybindex-ts`** (world index). Package manager: **npm**
 src/
   main/       main process — the only code that touches disk. index.ts (lifecycle + userData
               path resolution), handlers.ts (+ registry), settingsManager.ts, jsonStore.ts,
-              assetPacks.ts (.datf read/write), pathSafety.ts (assertInside*), schemas/ (Zod), splash.ts,
+              assetPacks.ts (.datf read/write), packLimits.ts (size and entry limits on every .datf read:
+              open with openPackBounded, read with readEntryBounded, never `entry.buffer()`),
+              pathSafety.ts (assertInside*), schemas/ (Zod), splash.ts,
               portableSweep.ts (removes the %TEMP% unpack folders a killed portable launch leaves;
               takes `original-fs`, never `fs`, which opens a leftover's app.asar and locks it)
   preload/    index.ts — typed contextBridge contract exposed as window.api. Imports `electron`
