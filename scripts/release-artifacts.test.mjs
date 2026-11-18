@@ -163,11 +163,13 @@ describe('Windows signing in release.yml (HTOO-517)', () => {
     expect(workflow).not.toMatch(/uses: sslcom\/esigner-codesign@/)
     expect(workflow).not.toMatch(/CodeSignTool\.bat|jdk-11/)
     expect(step('Set up Java 17 for CodeSignTool')).toMatch(
-      /uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: '17'/
+      /uses: actions\/setup-java@[0-9a-f]{40} # v5\.\d+\.\d+\n\s+with:\n\s+distribution: temurin\n\s+java-version: '17'/
     )
     const sign = step('Sign installer + portable exe')
     expect(sign).toContain("Join-Path $env:JAVA_HOME 'bin/java.exe'")
-    expect(sign).toMatch(/CODESIGNTOOL_VERSION: '1\.3\.2'/)
+    // The version and its digest live in the fetch step, which has no
+    // secrets (HTOO-692); workflow-policy.test.mjs checks that step.
+    expect(step('Fetch and verify CodeSignTool')).toMatch(/CODESIGNTOOL_VERSION: '1\.3\.2'/)
   })
 
   it('runs the jar in its own folder, with an output folder', () => {
@@ -189,6 +191,7 @@ describe('Windows signing in release.yml (HTOO-517)', () => {
 
   it('signs unconditionally, so a run without the secrets fails', () => {
     expect(step('Set up Java 17 for CodeSignTool')).not.toMatch(/^\s+if:/m)
+    expect(step('Fetch and verify CodeSignTool')).not.toMatch(/^\s+if:/m)
     expect(step('Sign installer + portable exe')).not.toMatch(/^\s+if:/m)
   })
 
@@ -197,6 +200,7 @@ describe('Windows signing in release.yml (HTOO-517)', () => {
       '- name: Verify Electron fuses',
       '- name: Resolve artifact version',
       '- name: Set up Java 17 for CodeSignTool',
+      '- name: Fetch and verify CodeSignTool',
       '- name: Sign installer + portable exe',
       '- name: Upload Windows artifacts'
     ].map((name) => windowsJob.indexOf(name))
