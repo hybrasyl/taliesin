@@ -48,7 +48,9 @@ beforeEach(() => {
   useUiStore.setState({ currentPage: 'mapeditor' })
 })
 
-describe('MapEditorPanel — map Script and AmbientSound', () => {
+// The typing cases are slow under the full coverage run: on Linux 'saves what
+// was typed' took 5.2 s there (2.0 s alone), past the 5 s default, so 15 s.
+describe('MapEditorPanel — map Script and AmbientSound', { timeout: 15000 }, () => {
   it('shows the values the map carries', () => {
     renderPanel({ ambientSound: 4, script: 'mileth_map' })
     expect(screen.getByLabelText('Ambient Sound')).toHaveValue(4)
