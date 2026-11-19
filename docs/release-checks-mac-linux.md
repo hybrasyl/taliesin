@@ -107,6 +107,16 @@ grep -i integrity "$T/stderr.txt"
 
 Expected: `RUNNING after 10s`, and no integrity line. B1 then checks what the window shows.
 
+### A6. The signed release has no DYLD entitlement (macOS) — HTOO-664
+
+Run this on the signed release, not on a local build: a local dmg is not signed with the release entitlements, so it cannot show them. Install the dmg from the GitHub release first, then run:
+
+```bash
+codesign -d --entitlements - /Applications/Taliesin.app 2>&1 | grep -i dyld || echo 'no DYLD key'
+```
+
+Expected: `no DYLD key`. A line with `com.apple.security.cs.allow-dyld-environment-variables` is a fail: the app was built from a plist that still has the key. `scripts/entitlements.test.mjs` pins the plist; this check reads what the signed app carries. Run it again only when `build/entitlements.mac.plist` or the signing step changes.
+
 ## Part B: checks a person does
 
 Use the packaged app from A4 for B1 and B2. Use `npm run dev` or the packaged app for the others. Ask the person to do each step and tell you what they saw.
@@ -213,6 +223,8 @@ The Windows checks for #101 to #114 are in each PR.
 **macOS is done** (2026-10-31, at `07ee8b9`, macOS 27.0.1). A1 to A5, B1 to B3 and B7 to B9 passed; A1 ran 2563 of 2563, and A2 21 passed. One finding, not blocking: a disabled icon button keeps the theme's icon accent in the four decorated themes (HTOO-639, a template fix). Nothing was owed from that pass.
 
 **The November round, macOS** (2026-11-19, at `e7c7127`, macOS 27.0.1; the results are on each card). A1 failed on the `src/main/index.ts` branch floor (7.79% against 8%, the same value as Linux). The floor was set on Windows, where the roaming-settings migration runs; Linux and macOS stop at its platform check. A test of the settings folder without `LOCALAPPDATA` (HTOO-543) now covers 10.38% on macOS, and A1 passes: 3065 passed and 1 skipped, of 3066. A2 failed on `map-undo.spec.js`, which pressed Ctrl+Z on macOS; it is fixed (HTOO-704), and A2 is 24 of 24. A3 to A5 passed. By hand (2026-11-19, on the packaged build at `e7c7127`, Sabrael at the machine): B1, B2, B3 and B7 and B8 pass, except B3 step 5. B3 step 5 (the trackpad pinch and the two-finger scroll) is not available: there is no trackpad at the machine (Sabrael, 2026-11-19). B9 passed on Linux at `89221ec`, on the same code path, so it is not run again on macOS (Sabrael, 2026-11-19). Nothing is owed on macOS.
+
+**Owed on macOS: A6 on the signed `v2.16.0`**, the first release built without the DYLD key (HTOO-664). Report it on HTOO-664.
 
 Done, not owed again on macOS (Sabrael, 2026-11-19). A by-hand check that passed on a platform does not recur until its code changes:
 
