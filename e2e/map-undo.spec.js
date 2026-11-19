@@ -2,14 +2,19 @@ import { test, expect } from '@playwright/test'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, dirname } from 'path'
-import { launchApp, getMainWindow } from './helpers.js'
+import { launchApp, getMainWindow, isMac } from './helpers.js'
 
 // Undo and redo in the map XML editor (requested by Dalta). The unit tests
-// cover the history. This spec shows that Ctrl+Z and Ctrl+Y reach the page in
-// the built app, where an application menu could take the chord first, and
-// that the history survives a save.
+// cover the history. This spec shows that the undo and redo chords reach the
+// page in the built app, where an application menu could take the chord first,
+// and that the history survives a save.
 
 const XMLNS = 'http://www.hybrasyl.com/XML/Hybrasyl/2020-02'
+
+// The platform's chords (historyChord): Cmd+Z and Shift+Cmd+Z on macOS, where
+// Ctrl+Z is not undo and Cmd+Y is not redo; Ctrl+Z and Ctrl+Y elsewhere.
+const UNDO = isMac ? 'Meta+z' : 'Control+z'
+const REDO = isMac ? 'Meta+Shift+z' : 'Control+y'
 
 function put(path, text) {
   mkdirSync(dirname(path), { recursive: true })
@@ -23,7 +28,7 @@ test.describe('map XML undo', () => {
     await electronApp?.close().catch(() => {})
   })
 
-  test('Ctrl+Z and Ctrl+Y undo and redo an edit, across a save', async () => {
+  test('the undo and redo chords undo and redo an edit, across a save', async () => {
     const world = mkdtempSync(join(tmpdir(), 'taliesin-e2e-undo-'))
     const lib = join(world, 'xml')
     const file = join(lib, 'maps', 'Abel.xml')
@@ -59,20 +64,20 @@ test.describe('map XML undo', () => {
     await name.evaluate((el) => el.blur())
     await expect(undo).toBeEnabled()
 
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(UNDO)
     await expect(name).toHaveValue('Abel')
-    await page.keyboard.press('Control+y')
+    await page.keyboard.press(REDO)
     await expect(name).toHaveValue('Abel Town')
 
     await maps.getByRole('button', { name: 'Save', exact: true }).click()
     await expect.poll(() => readFileSync(file, 'utf8')).toContain('<Name>Abel Town</Name>')
 
     // The save keeps the history.
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(UNDO)
     await expect(name).toHaveValue('Abel')
     // A redo goes back to the saved map, which is clean. A dirty map would
     // hold the close in afterEach for the unsaved-changes prompt.
-    await page.keyboard.press('Control+y')
+    await page.keyboard.press(REDO)
     await expect(name).toHaveValue('Abel Town')
   })
 })
