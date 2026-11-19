@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
-import { normalize as pathNormalize } from 'path'
+import { join as pathJoin, normalize as pathNormalize } from 'path'
 import { pathToFileURL } from 'url'
 // For the module-level in-flight build map, which outlives individual cases.
 import * as handlerModule from '../handlers'
@@ -1660,5 +1660,20 @@ describe('Dialog auto-bless integration', () => {
     expect(await invoke('dialog:openDirectory')).toBe('/blessed-dir')
     const buf = await invoke<Buffer>('fs:readFile', '/blessed-dir/foo.txt')
     expect(Buffer.from(buf).toString('utf-8')).toBe('x')
+  })
+})
+
+// Last in the file on purpose: it loads a fresh index.ts, which no later test
+// should see.
+describe('the settings folder without LOCALAPPDATA (HTOO-543)', () => {
+  it('falls back to the platform folder: AppData\\Local on Windows, appData elsewhere', async () => {
+    delete process.env.LOCALAPPDATA
+    vi.resetModules()
+    await import('../index')
+    const base = process.platform === 'win32' ? pathJoin('/home', 'AppData', 'Local') : '/appdata'
+    expect(electronMock.app.setPath).toHaveBeenCalledWith(
+      'userData',
+      pathJoin(base, 'Erisco', 'Taliesin')
+    )
   })
 })
