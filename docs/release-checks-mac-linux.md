@@ -66,9 +66,9 @@ If `sha256sum` is missing, use `shasum -a 256`.
 
 Expected for A2:
 
-- **macOS:** 21 passed. That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
-- **Linux:** 16 passed and 5 skipped. The skips are `app-menu.spec.js`.
-- On Windows the result is also 16 passed and 5 skipped.
+- **macOS:** 21 passed, of 21 tests (2026-10-31). That includes the five tests in `app-menu.spec.js`, which runs on macOS only. It covers the menu, Go, and Quit through the close guard (HTOO-569).
+- **Linux:** 19 passed and 5 skipped, of 24 tests (measured on Linux Mint 22.3 on 2026-11-19, at `89221ec`). The skips are `app-menu.spec.js`.
+- On Windows the result was 16 passed and 5 skipped, of 21 tests.
 
 A different total means that a spec was added or was not collected. Say so in the report.
 
@@ -208,6 +208,6 @@ The Windows checks for #101 to #114 are in each PR.
 
 **Linux is done** (2026-10-31, at `6ba9903`; the results are on each card and on HTOO-239). A1 failed on one test, which is fixed on `main` after `6ba9903`; run A1 again on macOS at the newer commit. Everything else passed, and B5 passed by eye.
 
-**B5 is retired** (Sabrael, 2026-11-02): tests cover each step, listed under B5. A new test in `src/main/__tests__/splash.test.ts` also pins the round splash spinner (HTOO-553), and brings A1 to 2812 tests. `src/main/__tests__/windowControls.test.ts`, added the same day, pins what main does with the window buttons (minimise, maximise and a second press restores, close), and makes 2815.
+**B5 is retired** (Sabrael, 2026-11-02): tests cover each step, listed under B5. A new test in `src/main/__tests__/splash.test.ts` also pins the round splash spinner (HTOO-553), and brings A1 to 2812 tests. `src/main/__tests__/windowControls.test.ts`, added the same day, pins what main does with the window buttons (minimise, maximise and a second press restores, close), and made 2815. On 2026-11-19 (Linux Mint 22.3, at `89221ec`), A1 ran 3065 tests in 177 files: 3064 passed and 1 skipped.
 
 **macOS is done** (2026-10-31, at `07ee8b9`, macOS 27.0.1). A1 to A5, B1 to B3 and B7 to B9 passed; A1 ran 2563 of 2563, and A2 21 passed. One finding, not blocking: a disabled icon button keeps the theme's icon accent in the four decorated themes (HTOO-639, a template fix). **Nothing is owed** from the Mac and Linux pass.
