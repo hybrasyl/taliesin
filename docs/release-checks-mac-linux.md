@@ -212,4 +212,11 @@ The Windows checks for #101 to #114 are in each PR.
 
 **macOS is done** (2026-10-31, at `07ee8b9`, macOS 27.0.1). A1 to A5, B1 to B3 and B7 to B9 passed; A1 ran 2563 of 2563, and A2 21 passed. One finding, not blocking: a disabled icon button keeps the theme's icon accent in the four decorated themes (HTOO-639, a template fix). Nothing was owed from that pass.
 
-**The November round, macOS** (2026-11-19, at `e7c7127`, macOS 27.0.1; the results are on each card). A1 failed on the `src/main/index.ts` branch floor (7.79% against 8%, the same value as Linux). The floor was set on Windows, where the roaming-settings migration runs; Linux and macOS stop at its platform check. A test of the settings folder without `LOCALAPPDATA` (HTOO-543) now covers 10.38% on macOS, and A1 passes: 3065 passed and 1 skipped, of 3066. A2 failed on `map-undo.spec.js`, which pressed Ctrl+Z on macOS; it is fixed (HTOO-704), and A2 is 24 of 24. A3 to A5 passed. By hand, B1 to B3, B7 and B8 are owed. B9 passed on Linux on the same code, so it is not run again on macOS (Sabrael, 2026-11-19).
+**The November round, macOS** (2026-11-19, at `e7c7127`, macOS 27.0.1; the results are on each card). A1 failed on the `src/main/index.ts` branch floor (7.79% against 8%, the same value as Linux). The floor was set on Windows, where the roaming-settings migration runs; Linux and macOS stop at its platform check. A test of the settings folder without `LOCALAPPDATA` (HTOO-543) now covers 10.38% on macOS, and A1 passes: 3065 passed and 1 skipped, of 3066. A2 failed on `map-undo.spec.js`, which pressed Ctrl+Z on macOS; it is fixed (HTOO-704), and A2 is 24 of 24. A3 to A5 passed. By hand (2026-11-19, at `247ca30`, Sabrael at the machine): B1, B2, B3, B7 and B8 pass. B9 passed on Linux at `89221ec`, on the same code path, so it is not run again on macOS (Sabrael, 2026-11-19). Nothing is owed on macOS.
+
+Done, not owed again on macOS (Sabrael, 2026-11-19). A by-hand check that passed on a platform does not recur until its code changes:
+
+- **B1.** Run it again when Electron or the packaging changes.
+- **B2.** Run it again only when the icon changes.
+- **B3.** Step 1 is a theme and chrome check: run it again only when a theme or the title bar changes. The theme gallery tests cover the themes after that. Run steps 2 to 8 again only when the menu, the keys, the trackpad zoom or the quit flow change.
+- **B7, B8 and B9.** Run them again only when the default assets folder, the delete or the Stage and Release flow changes.
