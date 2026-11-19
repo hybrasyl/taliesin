@@ -33,6 +33,8 @@ record; where they disagree with this file, the git history was taken as authori
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-11-19
+
 ### Added
 
 - The Static Tile Manager has a Seed TileCollisions action (HTOO-611). It reads `sotp.dat` from the client's `ia.dat` and writes the world `TileCollisions` table, in the shape the xml schema plan gives (HXML-41). Runs of tile ids with the same collision value become `Range` entries. Taliesin writes the collision bits only, and checks the output before it writes the file.
@@ -53,13 +55,14 @@ record; where they disagree with this file, the git history was taken as authori
 ### Security
 
 - **Taliesin refuses an asset pack that is too large** (HTOO-693). A damaged or hostile `.datf` file could make Taliesin use a very large amount of memory when it loads, browses or imports the pack. Taliesin now refuses a pack with too many entries, too large an entry, or an entry that compresses too much, and the log or the import error names the limit. An import reads the pack from disk as it goes, not into memory all at once, and a refused import writes no file. The limits are far above the size of real packs.
-- **Taliesin runs on Electron 45.3.4.** The build moves to vite 8 and electron-vite 6, and the tests to vitest 5 and jsdom 31 (HTOO-694). The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch. The packaged app has no `npm audit` finding. The build tools have 21 (5 moderate, 16 high): the minimatch under electron-builder, which has no fixed release yet (HTOO-631), and a picomatch advisory, published on 2026-11-17, that no picomatch release fixes.
+- **Taliesin runs on Electron 45.3.4.** The build moves to vite 8 and electron-vite 6, and the tests to vitest 5 and jsdom 31 (HTOO-694). The other dependencies move to their latest releases inside their current major versions. typescript-eslint 8.73.0 takes a fixed minimatch. The packaged app has no `npm audit` finding. The build tools have 6 moderate findings, all from the minimatch under electron-builder, which has no fixed release yet (HTOO-631).
 - **The renderer no longer chooses the program that converts audio and video** (HTOO-673). Before, the conversion calls took the ffmpeg path from the page, so a page that ran hostile script could start any program. Now Taliesin uses only the ffmpeg that you chose in **Settings → ffmpeg Path**, or `ffmpeg` from PATH. Taliesin records the file when you choose it, and does not run it if it changed after that. The same applies to the companion app.
 - **A settings save no longer gives access to a folder** (HTOO-674). Before, any folder named in a saved setting became readable and writable. Now Taliesin keeps its own record of the folders you chose, and the page cannot write that record or the settings file.
 - **A junction or a symbolic link cannot lead a file operation out of an allowed folder** (HTOO-675). Taliesin now compares the real location of each path, so a link under a working folder that points elsewhere is refused. A folder that is itself a link still works when you choose it.
 - **Import keeps each pack in its own folder (HTOO-676).** A `.datf` with the `pack_id` `.` imported its files into the working folder itself, and could overwrite the assets of another pack. Taliesin now refuses a `pack_id` that is not one plain folder name, or that names a folder Taliesin keeps (`_palettes`, `_calibrations`, `_frames`). Import now refuses to overwrite any existing file unless you confirm, not only the project file. Taliesin extracts the pack to a temporary folder first, so a failed import changes no file.
 - **Extract All writes only into the folder you choose (HTOO-677).** An archive entry named `../note.txt` wrote a file next to the chosen folder. Taliesin now checks every entry name before it writes the first file. If one name is not a plain file name, Taliesin extracts nothing and shows which entries it refused. Export as PNG applies the same rule to the files of a multi-frame entry.
 - The macOS entitlements no longer grant `allow-dyld-environment-variables`, which let `DYLD_INSERT_LIBRARIES` load unsigned code into the signed app (HTOO-664).
+- **The release build pins each tool that it runs** (HTOO-692). Each GitHub action is pinned to one commit, only the job that publishes the release can change the repository, and the signing tool must match a known checksum before the build expands it.
 
 ## [2.15.0] - 2026-10-31
 
